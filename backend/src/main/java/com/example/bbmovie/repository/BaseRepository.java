@@ -1,6 +1,6 @@
 package com.example.bbmovie.repository;
 
-import com.example.bbmovie.model.BaseEntity;
+import com.example.bbmovie.model.base.BaseEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.repository.NoRepositoryBean;
 

@@ -1,4 +1,4 @@
-package com.example.bbmovie.model;
+package com.example.bbmovie.model.enumerate;
 
 public enum Role {
     USER,

@@ -1,8 +1,9 @@
-package com.example.bbmovie.service;
+package com.example.bbmovie.service.impl;
 
 import com.example.bbmovie.exception.*;
 import com.example.bbmovie.model.User;
 import com.example.bbmovie.repository.UserRepository;
+import com.example.bbmovie.service.intf.LoginService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 @RequiredArgsConstructor
-public class LoginService {
+public class LoginServiceImpl implements LoginService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
@@ -26,38 +27,30 @@ public class LoginService {
     private static final int MAX_FAILED_ATTEMPTS = 3;
     private static final long ACCOUNT_LOCKOUT_MINUTES = 30;
 
-    // Rate limiting map for IP-based login attempts
     private final ConcurrentHashMap<String, LoginAttempt> loginAttempts = new ConcurrentHashMap<>();
-    // Account lockout map for user-based failed attempts
     private final ConcurrentHashMap<String, FailedLoginAttempt> failedLoginAttempts = new ConcurrentHashMap<>();
 
     @Transactional
+    @Override
     public User authenticateUser(String usernameOrEmail, String password) {
-        // Check rate limiting
         checkLoginRateLimit(getClientIP());
 
-        // Find user by username or email
         User user = userRepository.findByUsernameOrEmail(usernameOrEmail, usernameOrEmail)
                 .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
 
-        // Check if account is locked
         checkAccountLockout(user.getUsername());
 
-        // Check if account is enabled
         if (!user.isEnabled()) {
             throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
         }
 
-        // Verify password
         if (!passwordEncoder.matches(password, user.getPassword())) {
             recordFailedLogin(user.getUsername());
             throw new InvalidCredentialsException("Invalid username/email or password");
         }
 
-        // Reset failed attempts on successful login
         resetFailedLoginAttempts(user.getUsername());
 
-        // Update last login time
         user.setLastLoginTime(LocalDateTime.now());
         userRepository.save(user);
 
@@ -94,7 +87,8 @@ public class LoginService {
         if (attempt.isLocked()) {
             throw new AccountLockedException(
                 String.format("Account is locked due to too many failed attempts. Please try again in %d minutes",
-                attempt.getRemainingLockoutMinutes()));
+                attempt.getRemainingLockoutMinutes())
+            );
         }
     }
 
@@ -106,19 +100,20 @@ public class LoginService {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
         
         String ipAddress = request.getHeader("X-Forwarded-For");
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+        String unknownHost = "unknown";
+        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getHeader("Proxy-Client-IP");
         }
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getHeader("WL-Proxy-Client-IP");
         }
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getHeader("HTTP_CLIENT_IP");
         }
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getHeader("HTTP_X_FORWARDED_FOR");
         }
-        if (ipAddress == null || ipAddress.isEmpty() || "unknown".equalsIgnoreCase(ipAddress)) {
+        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getRemoteAddr();
         }
 
@@ -129,7 +124,6 @@ public class LoginService {
         return ipAddress;
     }
 
-    // Rate limiting helper classes
     private static class LoginAttempt {
         private final int maxAttempts;
         private final long cooldownMinutes;

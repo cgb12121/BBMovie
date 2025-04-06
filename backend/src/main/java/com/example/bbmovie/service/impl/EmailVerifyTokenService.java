@@ -1,7 +1,9 @@
-package com.example.bbmovie.service;
+package com.example.bbmovie.service.impl;
 
 import com.example.bbmovie.model.User;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -9,8 +11,9 @@ import java.time.Duration;
 import java.util.UUID;
 
 @Service
+@Log4j2
 @RequiredArgsConstructor
-public class TokenService {
+public class EmailVerifyTokenService {
     private final RedisTemplate<String, Object> redisTemplate;
     private static final String VERIFICATION_TOKEN_PREFIX = "verification:";
     private static final Duration TOKEN_EXPIRY = Duration.ofHours(1);
@@ -19,7 +22,6 @@ public class TokenService {
         String token = UUID.randomUUID().toString();
         String key = VERIFICATION_TOKEN_PREFIX + token;
         
-        // Store user ID and email in Redis with TTL
         redisTemplate.opsForValue().set(key, user.getEmail(), TOKEN_EXPIRY);
         
         return token;
@@ -42,6 +44,11 @@ public class TokenService {
 
     public long getTokenExpirySeconds(String token) {
         String key = VERIFICATION_TOKEN_PREFIX + token;
-        return redisTemplate.getExpire(key);
+        try {
+            return redisTemplate.getExpire(key);
+        } catch (Exception ex) {
+            log.error(ex);
+            return 0;
+        }
     }
 } 

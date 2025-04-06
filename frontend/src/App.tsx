@@ -1,8 +1,11 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import RegistrationForm from './components/auth/RegistrationForm';
-import EmailVerification from './components/auth/EmailVerification';
 import { ConfigProvider } from 'antd';
+import GlobalStyles from './styles/GlobalStyles';
+import Navbar from './components/Navbar';
+import { routes } from './routes';
+import { AuthProvider } from './hooks/useAuth';
+import RouteGuard from './components/auth/RouteGuard';
 
 const App: React.FC = () => {
     return (
@@ -14,13 +17,28 @@ const App: React.FC = () => {
                 },
             }}
         >
-            <Router>
-                <Routes>
-                    <Route path="/register" element={<RegistrationForm />} />
-                    <Route path="/verify-email" element={<EmailVerification />} />
-                    {/* Add other routes here */}
-                </Routes>
-            </Router>
+            <AuthProvider>
+                <Router>
+                    <GlobalStyles />
+                    <Navbar />
+                    <Routes>
+                        {routes.map((route) => (
+                            <Route
+                                key={route.path}
+                                path={route.path}
+                                element={
+                                    <RouteGuard
+                                        isProtected={route.isProtected}
+                                        roles={route.roles}
+                                    >
+                                        {route.element}
+                                    </RouteGuard>
+                                }
+                            />
+                        ))}
+                    </Routes>
+                </Router>
+            </AuthProvider>
         </ConfigProvider>
     );
 };

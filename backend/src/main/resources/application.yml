@@ -1,7 +1,3 @@
-spring:
-  profiles:
-    active: local
-
 ---
 spring:
   config:
@@ -44,11 +40,16 @@ spring:
     suffix: .html
     mode: HTML
     encoding: UTF-8
-  redis:
-    host: localhost
-    port: 6379
-    password: ${REDIS_PASSWORD:}
-    database: 0
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+      database: 0
+app:
+  jwt-secret: ${JWT_SECRET:your-256-bit-secret}
+  jwt-expiration-milliseconds: ${JWT_EXPIRATION:900000}  # 15 minutes
+  jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days
 
 ---
 spring:
@@ -70,29 +71,37 @@ spring:
     type: caffeine
     caffeine:
       spec: maximumSize=1000,expireAfterWrite=300s
-  mail:
-    host: ${SMTP_HOST}
-    port: ${SMTP_PORT}
-    username: ${SMTP_USERNAME}
-    password: ${SMTP_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-    default-encoding: UTF-8
   thymeleaf:
     cache: true
     prefix: classpath:/templates/
     suffix: .html
     mode: HTML
     encoding: UTF-8
-  redis:
-    host: ${REDIS_HOST}
-    port: ${REDIS_PORT}
-    password: ${REDIS_PASSWORD}
-    database: 0
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD:}
+      database: 0
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username:
+    password:
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+app:
+  jwt-secret: ${JWT_SECRET}
+  jwt-expiration-milliseconds: ${JWT_EXPIRATION:900000}  # 15 minutes
+  jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days
+
+  frontend:
+    url: http://localhost:3000
 
 server:
   port: ${PORT:8080}

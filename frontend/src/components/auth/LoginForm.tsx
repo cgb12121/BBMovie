@@ -26,7 +26,6 @@ const LoginForm: React.FC = () => {
                 password: values.password
             });
             
-            // Store user data in localStorage or context
             localStorage.setItem('user', JSON.stringify(response.data));
             
             message.success('Login successful!');

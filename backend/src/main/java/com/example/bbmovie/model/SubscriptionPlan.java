@@ -7,7 +7,6 @@ import lombok.Setter;
 import lombok.ToString;
 
 import java.math.BigDecimal;
-import java.time.Duration;
 
 @Entity
 @Table(name = "subscription_plans")
