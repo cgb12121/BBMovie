@@ -1,4 +1,3 @@
-import React from 'react';
 import { RouteObject } from 'react-router-dom';
 import Home from '../pages/Home';
 import RegistrationForm from '../components/auth/RegistrationForm';
@@ -10,6 +9,9 @@ import Categories from '../pages/Categories';
 import CategoryDetail from '../pages/CategoryDetail';
 import Profile from '../pages/Profile';
 import NotFound from '../pages/NotFound';
+import Forbidden from '../pages/Forbidden';
+import SearchResults from '../pages/SearchResults';
+import RouteGuard from '../components/auth/RouteGuard';
 
 export type AppRoute = RouteObject & {
     name?: string;
@@ -65,8 +67,17 @@ export const routes: AppRoute[] = [
         isProtected: true
     },
     {
-        path: '*',
+        path: '/search',
+        element: <SearchResults />
+    },
+    {
+        path: '/not-found',
         element: <NotFound />,
         name: 'Not Found'
+    },
+    {
+        path: '/forbidden',
+        element: <Forbidden/>,
+        name: 'Forbidden'
     }
 ]; 

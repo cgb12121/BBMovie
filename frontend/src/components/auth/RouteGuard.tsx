@@ -17,12 +17,10 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
     const location = useLocation();
 
     if (isProtected && !isAuthenticated) {
-        // Redirect to login page with return url
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
-    if (roles.length > 0 && (!user || !roles.includes(user.role))) {
-        // Redirect to home page if user doesn't have required role
+    if (roles.length > 0 && (!user || !roles.includes(user.roles.toString()))) {
         return <Navigate to="/" replace />;
     }
 

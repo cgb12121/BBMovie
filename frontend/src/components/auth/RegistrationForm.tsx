@@ -45,22 +45,22 @@ const RegistrationForm: React.FC = () => {
 
     const validatePassword = (_: any, value: string) => {
         if (!value) {
-            return Promise.reject('Please input your password!');
+            return Promise.reject(new Error('Please input your password!'));
         }
         if (value.length < 8) {
-            return Promise.reject('Password must be at least 8 characters long!');
+            return Promise.reject(new Error('Password must be at least 8 characters long!'));
         }
         if (!/[A-Z]/.test(value)) {
-            return Promise.reject('Password must contain at least one uppercase letter!');
+            return Promise.reject(new Error('Password must contain at least one uppercase letter!'));
         }
         if (!/[a-z]/.test(value)) {
-            return Promise.reject('Password must contain at least one lowercase letter!');
+            return Promise.reject(new Error('Password must contain at least one lowercase letter!'));
         }
         if (!/\d/.test(value)) {
-            return Promise.reject('Password must contain at least one number!');
+            return Promise.reject(new Error('Password must contain at least one number!'));
         }
         if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(value)) {
-            return Promise.reject('Password must contain at least one special character!');
+            return Promise.reject(new Error('Password must contain at least one special character!'));
         }
         return Promise.resolve();
     };
@@ -134,7 +134,7 @@ const RegistrationForm: React.FC = () => {
                                     if (!value || getFieldValue('password') === value) {
                                         return Promise.resolve();
                                     }
-                                    return Promise.reject('The two passwords do not match!');
+                                    return Promise.reject(new Error('The two passwords do not match!'));
                                 },
                             }),
                         ]}
@@ -160,4 +160,4 @@ const RegistrationForm: React.FC = () => {
     );
 };
 
-export default RegistrationForm; 
+export default RegistrationForm;

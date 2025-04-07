@@ -69,7 +69,7 @@ const EmailVerification: React.FC = () => {
     if (verificationStatus === 'success') {
         return (
             <Result
-                status="success"
+                icon={<CheckCircleOutlined style={{ color: '#52c41a' }} />} // Green
                 title="Email Verified Successfully!"
                 subTitle="Your email has been verified. You can now login to your account."
                 extra={[
@@ -83,7 +83,7 @@ const EmailVerification: React.FC = () => {
 
     return (
         <Result
-            status="error"
+            icon={<CloseCircleOutlined style={{ color: '#ff4d4f' }} />} // Red
             title="Email Verification Failed"
             subTitle={errorMessage}
             extra={[
@@ -100,4 +100,4 @@ const EmailVerification: React.FC = () => {
     );
 };
 
-export default EmailVerification; 
+export default EmailVerification;

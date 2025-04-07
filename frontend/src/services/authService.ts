@@ -40,7 +40,7 @@ class AuthService {
                 return config;
             },
             (error) => {
-                return Promise.reject(error);
+                return Promise.reject(new Error(error));
             }
         );
 
@@ -58,11 +58,11 @@ class AuthService {
                         return axios(originalRequest);
                     } catch (refreshError) {
                         this.logout();
-                        return Promise.reject(refreshError);
+                        return Promise.reject(refreshError as Error);
                     }
                 }
 
-                return Promise.reject(error);
+                return Promise.reject(new Error(error));
             }
         );
     }

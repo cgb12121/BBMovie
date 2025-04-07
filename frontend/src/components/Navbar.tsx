@@ -1,6 +1,10 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
+import { Button, Dropdown, MenuProps } from 'antd'; // Update import
+import { UserOutlined, LogoutOutlined } from '@ant-design/icons';
+import SearchBar from './SearchBar';
+import { useAuth } from '../hooks/useAuth';
 
 const Nav = styled.nav`
   background-color: #1a1a1a;
@@ -13,7 +17,7 @@ const Nav = styled.nav`
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 `;
 
 const Logo = styled(Link)`
@@ -21,52 +25,103 @@ const Logo = styled(Link)`
   font-weight: bold;
   color: #e50914;
   text-decoration: none;
+  margin-right: 2rem;
 `;
 
 const NavLinks = styled.div`
   display: flex;
-  gap: 2rem;
+  gap: 1.5rem;
   align-items: center;
 `;
 
 const NavLink = styled(Link)`
   color: #ffffff;
   text-decoration: none;
-  font-weight: 500;
+  font-size: 1rem;
   transition: color 0.3s;
 
   &:hover {
-    color: #e50914;
+    color: #1890ff;
   }
 `;
 
-const AuthButton = styled(Link)`
-  background-color: #e50914;
-  color: #ffffff;
-  padding: 0.5rem 1rem;
-  border-radius: 4px;
-  text-decoration: none;
-  font-weight: 500;
-  transition: background-color 0.3s;
+const SearchContainer = styled.div`
+  flex: 1;
+  max-width: 500px;
+  margin: 0 2rem;
+`;
 
-  &:hover {
-    background-color: #f40612;
-  }
+const AuthButton = styled(Button)`
+  margin-left: 1rem;
 `;
 
 const Navbar: React.FC = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [searchLoading, setSearchLoading] = useState(false);
+
+  const handleSearch = async (value: string) => {
+    if (!value.trim()) return;
+    
+    setSearchLoading(true);
+    try {
+      navigate(`/search?q=${encodeURIComponent(value)}`);
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: 'profile',
+      label: <Link to="/profile">Profile</Link>,
+      icon: <UserOutlined />,
+    },
+    {
+      key: 'logout',
+      label: 'Logout',
+      icon: <LogoutOutlined />,
+      onClick: handleLogout,
+    },
+  ];
+
   return (
     <Nav>
       <Logo to="/">BBMovie</Logo>
+      
+      <SearchContainer>
+        <SearchBar
+          placeholder="Search movies, categories..."
+          onSearch={handleSearch}
+          loading={searchLoading}
+        />
+      </SearchContainer>
+
       <NavLinks>
         <NavLink to="/movies">Movies</NavLink>
-        <NavLink to="/tv-shows">TV Shows</NavLink>
         <NavLink to="/categories">Categories</NavLink>
-        <AuthButton to="/login">Login</AuthButton>
-        <AuthButton to="/register">Register</AuthButton>
+        {user ? (
+          <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+            <Button type="text" icon={<UserOutlined />} style={{ color: '#fff' }}>
+              {user?.firstName + " " + user?.lastName}
+            </Button>
+          </Dropdown>
+        ) : (
+          <>
+            <NavLink to="/login">Login</NavLink>
+            <AuthButton type="primary">
+              <Link to="/register">Register</Link>
+            </AuthButton>
+          </>
+        )}
       </NavLinks>
     </Nav>
   );
 };
 
-export default Navbar; 
+export default Navbar;

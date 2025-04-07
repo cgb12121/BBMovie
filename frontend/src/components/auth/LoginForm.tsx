@@ -16,6 +16,7 @@ const LoginForm: React.FC = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isEmail, setIsEmail] = useState(false);
 
     const onFinish = async (values: LoginFormData) => {
         try {
@@ -39,6 +40,11 @@ const LoginForm: React.FC = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setIsEmail(value.includes('@'));
     };
 
     return (
@@ -73,9 +79,10 @@ const LoginForm: React.FC = () => {
                         ]}
                     >
                         <Input 
-                            prefix={<UserOutlined />} 
+                            prefix={isEmail ? <MailOutlined /> : <UserOutlined />} 
                             placeholder="Username or Email"
                             autoComplete="username"
+                            onChange={handleInputChange}
                         />
                     </Form.Item>
 
@@ -116,4 +123,4 @@ const LoginForm: React.FC = () => {
     );
 };
 
-export default LoginForm; 
+export default LoginForm;
