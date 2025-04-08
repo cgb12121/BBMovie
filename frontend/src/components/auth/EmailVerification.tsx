@@ -4,8 +4,6 @@ import { Result, Button, Typography, Space, message } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
 import axios from 'axios';
 
-const { Text } = Typography;
-
 const EmailVerification: React.FC = () => {
     const [searchParams] = useSearchParams();
     const navigate = useNavigate();

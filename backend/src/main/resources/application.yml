@@ -4,9 +4,9 @@ spring:
     activate:
       on-profile: local
   datasource:
-    url: jdbc:postgresql://localhost:5432/bbmovie
-    username: postgres
-    password: postgres
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: update
@@ -14,7 +14,7 @@ spring:
     properties:
       hibernate:
         format_sql: true
-        dialect: org.hibernate.dialect.PostgreSQLDialect
+        dialect: org.hibernate.dialect.MySQLDialect
   sql:
     init:
       mode: always
@@ -44,64 +44,16 @@ spring:
     redis:
       host: localhost
       port: 6379
-      password: ${REDIS_PASSWORD:}
+      password: ${REDIS_PASSWORD}
       database: 0
 app:
   jwt-secret: ${JWT_SECRET:your-256-bit-secret}
   jwt-expiration-milliseconds: ${JWT_EXPIRATION:900000}  # 15 minutes
   jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days
 
----
-spring:
-  config:
-    activate:
-      on-profile: cloud
-  datasource:
-    url: ${DATABASE_URL}
-    username: ${DATABASE_USERNAME}
-    password: ${DATABASE_PASSWORD}
-  jpa:
-    hibernate:
-      ddl-auto: validate
-    show-sql: false
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-  cache:
-    type: caffeine
-    caffeine:
-      spec: maximumSize=1000,expireAfterWrite=300s
-  thymeleaf:
-    cache: true
-    prefix: classpath:/templates/
-    suffix: .html
-    mode: HTML
-    encoding: UTF-8
-  data:
-    redis:
-      host: localhost
-      port: 6379
-      password: ${REDIS_PASSWORD:}
-      database: 0
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username:
-    password:
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-
-app:
-  jwt-secret: ${JWT_SECRET}
-  jwt-expiration-milliseconds: ${JWT_EXPIRATION:900000}  # 15 minutes
-  jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days
-
   frontend:
     url: http://localhost:3000
+
 
 server:
   port: ${PORT:8080}

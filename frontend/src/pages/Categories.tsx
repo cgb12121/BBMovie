@@ -95,11 +95,6 @@ const Categories: React.FC = () => {
     return (
         <CategoriesContainer>
             <Title level={2}>Movie Categories</Title>
-            <SearchBar
-                placeholder="Search categories..."
-                onSearch={handleSearch}
-                loading={loading}
-            />
             
             <CategoriesGrid gutter={[16, 16]}>
                 {loading ? (

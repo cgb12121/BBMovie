@@ -37,6 +37,9 @@ public class Movie extends BaseEntity {
     @Column(name = "trailer_url")
     private String trailerUrl;
 
+    @Column(name = "movie_url")
+    private String movieUrl;
+
     @Column(name = "imdb_rating")
     private Double imdbRating;
 

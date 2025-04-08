@@ -47,7 +47,7 @@ public class UserSubscription extends BaseEntity {
     private PaymentMethod paymentMethod;
 
     @Column(name = "payment_gateway_id")
-    private String paymentGatewayId; // ID from PayPal or VNPay
+    private String paymentGatewayId; // ID from PayPal, VNPay
 
     public enum PaymentMethod {
         PAYPAL, VNPAY

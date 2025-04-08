@@ -1,8 +1,8 @@
 import { RouteObject } from 'react-router-dom';
 import Home from '../pages/Home';
-import RegistrationForm from '../components/auth/RegistrationForm';
+import Registration from '../pages/Registration';
 import EmailVerification from '../components/auth/EmailVerification';
-import LoginForm from '../components/auth/LoginForm';
+import Login from '../pages/Login';
 import Movies from '../pages/Movies';
 import MovieDetail from '../pages/MovieDetail';
 import Categories from '../pages/Categories';
@@ -27,12 +27,12 @@ export const routes: AppRoute[] = [
     },
     {
         path: '/login',
-        element: <LoginForm />,
+        element: <Login />,
         name: 'Login'
     },
     {
         path: '/register',
-        element: <RegistrationForm />,
+        element: <Registration />,
         name: 'Register'
     },
     {

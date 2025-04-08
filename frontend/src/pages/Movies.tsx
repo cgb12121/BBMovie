@@ -69,11 +69,6 @@ const Movies: React.FC = () => {
     return (
         <MoviesContainer>
             <Title level={2}>Movies</Title>
-            <SearchBar
-                placeholder="Search movies..."
-                onSearch={handleSearch}
-                loading={loading}
-            />
             
             <MovieGrid gutter={[16, 16]}>
                 {loading ? (
