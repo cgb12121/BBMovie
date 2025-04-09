@@ -47,9 +47,9 @@ spring:
       password: ${REDIS_PASSWORD}
       database: 0
 app:
-  jwt-secret: ${JWT_SECRET:your-256-bit-secret}
-  jwt-expiration-milliseconds: ${JWT_EXPIRATION:900000}  # 15 minutes
-  jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION:604800000}  # 7 days
+  jwt-secret: ${JWT_SECRET}
+  jwt-expiration-milliseconds: ${JWT_EXPIRATION}
+  jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION} 
 
   frontend:
     url: http://localhost:3000

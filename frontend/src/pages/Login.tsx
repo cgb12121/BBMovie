@@ -1,12 +1,44 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, message, Typography, Card, Space, Alert } from 'antd';
-import { UserOutlined, LockOutlined, MailOutlined, GoogleOutlined, FacebookOutlined } from '@ant-design/icons';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Form, Input, Button, message, Typography, Card, Space, Modal } from 'antd';
+import { 
+    UserOutlined, 
+    LockOutlined, 
+    MailOutlined, 
+    GoogleOutlined, 
+    FacebookOutlined, 
+    CloseOutlined, 
+    CheckCircleTwoTone, 
+    CloseCircleTwoTone 
+} from '@ant-design/icons';
 import styled, { keyframes } from 'styled-components';
 import Particles from '@tsparticles/react';
 import axios from 'axios';
+import Alert from 'antd/es/alert/Alert';
 
 const { Title, Text } = Typography;
+
+const popIn = keyframes`
+    0% {
+        transform: scale(0.3);
+        opacity: 0;
+    }
+    80% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+    }
+`;
+
+const IconWrapper = styled.div`
+    animation: ${popIn} 0.5s ease-out;
+    font-size: 50px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+`;
 
 const fadeIn = keyframes`
     from {
@@ -19,7 +51,6 @@ const fadeIn = keyframes`
     }
 `;
 
-
 const bounce = keyframes`
     0%, 20%, 50%, 80%, 100% {
         transform: translateY(0);
@@ -29,6 +60,20 @@ const bounce = keyframes`
     }
     60% {
         transform: translateY(-5px);
+    }
+`;
+
+const progressAnimation = keyframes`
+    0% {
+        width: 100%;
+        background-color: green;
+    }
+    50% {
+        background-color: orange;
+    }
+    100% {
+        width: 0%;
+        background-color: red;
     }
 `;
 
@@ -49,7 +94,7 @@ const LoginPageContainer = styled.div`
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.6); /* Dark overlay for readability */
+        background: rgba(0, 0, 0, 0.6);
         z-index: 1;
     }
 
@@ -146,8 +191,6 @@ const StyledInputPassword = styled(Input.Password)`
     }
 `;
 
-
-
 const StyledButton = styled(Button)`
     border-radius: 8px;
     padding: 10px;
@@ -174,6 +217,55 @@ const LinksContainer = styled(Space)`
     }
 `;
 
+const StyledModal = styled(Modal)`
+    .ant-modal-content {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        color:rgba(255, 255, 255, 0.1);
+        text-align: center;
+    }
+
+    .ant-modal-body {
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .ant-modal-close-x {
+        color: #d9d9d9;
+        transition: color 0.3s ease;
+
+        &:hover {
+            color: #ffffff;
+        }
+    }
+`;
+
+const ProgressBar = styled.div<{ status: string }>`
+    width: 100%;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+    position: relative;
+
+    &::after {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 100%;
+        background: ${({ status }) => (status === 'success' ? '#52c41a' : '#ff4d4f')};
+        animation: ${progressAnimation} 5s linear forwards;
+    }
+`;
+
 interface LoginFormData {
     usernameOrEmail: string;
     password: string;
@@ -182,23 +274,40 @@ interface LoginFormData {
 const Login: React.FC = () => {
     const [form] = Form.useForm();
     const navigate = useNavigate();
+    const location = useLocation();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isEmail, setIsEmail] = useState(false);
+    const [notificationVisible, setNotificationVisible] = useState(false);
+
+    const query = new URLSearchParams(location.search);
+    const status = query.get('status');
+    const messageFromQuery = query.get('message');
+
+    useEffect(() => {
+        if (status) {
+            setNotificationVisible(true);
+            const timer = setTimeout(() => {
+                setNotificationVisible(false);
+                navigate('/login', { replace: true });
+            }, 5000);
+
+            return () => clearTimeout(timer);
+        }
+    }, [status, navigate]);
 
     const onFinish = async (values: LoginFormData) => {
         try {
             setLoading(true);
             setError(null);
             const response = await axios.post('/api/auth/login', {
-                usernameOrEmail: values.usernameOrEmail,
+                email: values.usernameOrEmail,
                 password: values.password,
             });
 
             localStorage.setItem('user', JSON.stringify(response.data));
-
             message.success('Login successful!');
-            navigate('/dashboard');
+            navigate('/');
         } catch (error: any) {
             if (error.response) {
                 setError(error.response.data.message);
@@ -362,6 +471,47 @@ const Login: React.FC = () => {
                     </Form>
                 </Space>
             </StyledCard>
+
+            <StyledModal
+                open={notificationVisible && !!status}
+                onCancel={() => setNotificationVisible(false)}
+                footer={null}
+                width={350}
+                centered
+                closeIcon={<CloseOutlined />}
+            >
+                <Space
+                    direction="vertical"
+                    size="middle"
+                    style={{
+                        width: '100%',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                    }}
+                >
+                    <IconWrapper>
+                        {status === 'success' ? (
+                            <CheckCircleTwoTone twoToneColor="#52c41a" />
+                        ) : (
+                            <CloseCircleTwoTone twoToneColor="#ff4d4f" />
+                        )}
+                    </IconWrapper>
+
+                    <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: 600 }}>
+                        {status === 'success' ? 'Success' : 'Error'}
+                    </Text>
+
+                    <Text style={{ color: '#d9d9d9', fontSize: 14 }}>
+                        {messageFromQuery ?? 'Unknown error'}
+                    </Text>
+                </Space>
+                
+                {notificationVisible && !!status && (
+                    <div style={{ position: 'absolute', bottom: 0, left: 0, width: '100%' }}>
+                        <ProgressBar status={status ?? ''} />
+                    </div>
+                )}
+            </StyledModal>
         </LoginPageContainer>
     );
 };

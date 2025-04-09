@@ -47,7 +47,7 @@ const SearchResults: React.FC = () => {
     const [movies, setMovies] = useState<Movie[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
 
-    const searchQuery = new URLSearchParams(location.search).get('q') || '';
+    const searchQuery = new URLSearchParams(location.search).get('q') ?? '';
 
     useEffect(() => {
         if (searchQuery) {
@@ -78,6 +78,67 @@ const SearchResults: React.FC = () => {
         }
     };
 
+    const renderMovies = () => {
+        if (loading) {
+            return (
+                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
+                    <Spin size="large" />
+                </Col>
+            );
+        }
+
+        if (movies.length === 0) {
+            return (
+                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
+                    <Title level={4}>No movies found</Title>
+                </Col>
+            );
+        }
+
+        return movies.map(movie => (
+            <Col xs={24} sm={12} md={8} lg={6} key={movie.id}>
+                <ResultCard
+                    hoverable
+                    cover={<img alt={movie.title} src={movie.posterUrl} />}
+                >
+                    <Card.Meta
+                        title={movie.title}
+                        description={`Rating: ${movie.rating}/10`}
+                    />
+                </ResultCard>
+            </Col>
+        ));
+    };
+
+    const renderCategories = () => {
+        if (loading) {
+            return (
+                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
+                    <Spin size="large" />
+                </Col>
+            );
+        }
+
+        if (categories.length === 0) {
+            return (
+                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
+                    <Title level={4}>No categories found</Title>
+                </Col>
+            );
+        }
+
+        return categories.map(category => (
+            <Col xs={24} sm={12} md={8} key={category.id}>
+                <ResultCard
+                    hoverable
+                    cover={<img alt={category.name} src={category.image} />}
+                >
+                    <Card.Meta title={category.name} />
+                </ResultCard>
+            </Col>
+        ));
+    };
+
     return (
         <SearchContainer>
             <Title level={2}>Search Results for "{searchQuery}"</Title>
@@ -85,54 +146,13 @@ const SearchResults: React.FC = () => {
             <Tabs activeKey={activeTab} onChange={setActiveTab}>
                 <TabPane tab="Movies" key="movies">
                     <ResultsGrid gutter={[16, 16]}>
-                        {loading ? (
-                            <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                                <Spin size="large" />
-                            </Col>
-                        ) : movies.length > 0 ? (
-                            movies.map(movie => (
-                                <Col xs={24} sm={12} md={8} lg={6} key={movie.id}>
-                                    <ResultCard
-                                        hoverable
-                                        cover={<img alt={movie.title} src={movie.posterUrl} />}
-                                    >
-                                        <Card.Meta
-                                            title={movie.title}
-                                            description={`Rating: ${movie.rating}/10`}
-                                        />
-                                    </ResultCard>
-                                </Col>
-                            ))
-                        ) : (
-                            <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                                <Title level={4}>No movies found</Title>
-                            </Col>
-                        )}
+                        {renderMovies()}
                     </ResultsGrid>
                 </TabPane>
                 
                 <TabPane tab="Categories" key="categories">
                     <ResultsGrid gutter={[16, 16]}>
-                        {loading ? (
-                            <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                                <Spin size="large" />
-                            </Col>
-                        ) : categories.length > 0 ? (
-                            categories.map(category => (
-                                <Col xs={24} sm={12} md={8} key={category.id}>
-                                    <ResultCard
-                                        hoverable
-                                        cover={<img alt={category.name} src={category.image} />}
-                                    >
-                                        <Card.Meta title={category.name} />
-                                    </ResultCard>
-                                </Col>
-                            ))
-                        ) : (
-                            <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                                <Title level={4}>No categories found</Title>
-                            </Col>
-                        )}
+                        {renderCategories()}
                     </ResultsGrid>
                 </TabPane>
             </Tabs>
@@ -140,4 +160,4 @@ const SearchResults: React.FC = () => {
     );
 };
 
-export default SearchResults; 
+export default SearchResults;

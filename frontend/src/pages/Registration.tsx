@@ -1,22 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Form, Input, Button, Typography, Steps, Space, message } from 'antd';
+import { Form, Input, Button, Typography, Steps, Space, message, Card } from 'antd';
 import { UserOutlined, MailOutlined, LockOutlined } from '@ant-design/icons';
 import styled, { keyframes } from 'styled-components';
+import Particles from '@tsparticles/react';
 import axios from 'axios';
 
 const { Title, Text } = Typography;
 const { Step } = Steps;
 
 const fadeIn = keyframes`
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 `;
 
 const bounce = keyframes`
-    0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-    40% { transform: translateY(-10px); }
-    60% { transform: translateY(-5px); }
+    0%, 20%, 50%, 80%, 100% {
+        transform: translateY(0);
+    }
+    40% {
+        transform: translateY(-10px);
+    }
+    60% {
+        transform: translateY(-5px);
+    }
+`;
+
+const pulse = keyframes`
+    0% {
+        box-shadow: 0 0 0 0 rgba(24, 144, 255, 0.7);
+    }
+    70% {
+        box-shadow: 0 0 0 10px rgba(24, 144, 255, 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(24, 144, 255, 0);
+    }
 `;
 
 const RegisterPageContainer = styled.div`
@@ -32,7 +57,10 @@ const RegisterPageContainer = styled.div`
     &:before {
         content: '';
         position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
         background: rgba(0, 0, 0, 0.6);
         z-index: 1;
     }
@@ -43,16 +71,16 @@ const RegisterPageContainer = styled.div`
     }
 `;
 
-const StyledCard = styled.div`
+const StyledCard = styled(Card)`
+    max-width: 450px;
     width: 100%;
-    max-width: 500px;
     background: rgba(255, 255, 255, 0.1);
     backdrop-filter: blur(10px);
-    border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 12px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    padding: 2rem;
     animation: ${fadeIn} 0.8s ease-out;
+    padding: 1rem;
 `;
 
 const StyledTitle = styled(Title)`
@@ -70,19 +98,54 @@ const StyledText = styled(Text)`
 `;
 
 const StyledSteps = styled(Steps)`
+    background: rgba(255, 255, 255, 0.05);
+    padding: 8px 16px;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    .ant-steps-item {
+        flex: none !important;
+    }
+
     .ant-steps-item-title {
-        color: #d9d9d9 !important;
+        color: #ffffff !important;
+        font-size: 16px !important;
+        font-weight: 500 !important;
+        display: inline !important; /* Ensure title is inline with the icon */
     }
+
     .ant-steps-item-active .ant-steps-item-title {
-        color: #1890ff !important;
+        color: #40a9ff !important;
     }
+
     .ant-steps-item-icon {
-        background: rgba(255, 255, 255, 0.1) !important;
-        border-color: rgba(255, 255, 255, 0.3) !important;
+        background: rgba(240, 240, 240, 1) !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+        color: #ffffff !important;
+        font-size: 14px !important;
+        width: 24px !important;
+        height: 24px !important;
+        line-height: 24px !important;
+        margin-right: 8px !important;
     }
+
     .ant-steps-item-active .ant-steps-item-icon {
-        background: #1890ff !important;
-        border-color: #1890ff !important;
+        background: #40a9ff !important;
+        border-color: #40a9ff !important;
+        animation: ${pulse} 2s infinite;
+    }
+
+    .ant-steps-item-finish .ant-steps-item-icon {
+        background: #52c41a !important;
+        border-color: #52c41a !important;
+    }
+
+    /* Hide titles for non-active steps */
+    .ant-steps-item:not(.ant-steps-item-active) .ant-steps-item-title {
+        display: none !important;
     }
 `;
 
@@ -90,30 +153,19 @@ const StyledInput = styled(Input)`
     border-radius: 8px;
     padding: 10px 12px;
     background: rgb(240, 240, 240);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    border: 1px solid rgba(0, 0, 0, 0.2);
     color: #000000;
+    caret-color: black;
     transition: all 0.3s ease;
 
     &:hover,
     &:focus {
-        border-color: #1890ff;
-        background: rgba(255, 255, 255, 0.1);
-        box-shadow: 0 0 8px rgba(24, 144, 255, 0.3);
-        color: #000000;
-    }
-
-    .ant-input-prefix {
-        color: #d9d9d9;
-        transition: color 0.3s ease;
-    }
-
-    &:hover .ant-input-prefix,
-    &:focus .ant-input-prefix {
-        color: #000000;
+        border-color: rgb(0, 0, 0);
+        background: rgba(255, 255, 255, 0.3);
     }
 
     &::placeholder {
-        color: #a1a1a1;
+        color: #444444;
     }
 
     .ant-input {
@@ -126,40 +178,28 @@ const StyledInput = styled(Input)`
     }
 
     &:-webkit-autofill {
-        box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.05) inset !important;
-        -webkit-text-fill-color: #ffffff !important;
-        transition: background-color 5000s ease-in-out 0s;
+        box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.3) inset !important;
+        -webkit-text-fill-color: #000000 !important;
     }
 `;
 
 const StyledPassword = styled(Input.Password)`
     border-radius: 8px;
     padding: 10px 12px;
-    background:rgb(240, 240, 240);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+    background: rgb(240, 240, 240);
+    border: 1px solid rgba(0, 0, 0, 0.2);
     color: #000000;
+    caret-color: black;
     transition: all 0.3s ease;
 
     &:hover,
     &:focus {
-        border-color: #1890ff;
-        background: rgba(255, 255, 255, 0.1);
-        box-shadow: 0 0 8px rgba(24, 144, 255, 0.3);
-        color: #000000;
-    }
-
-    .ant-input-prefix {
-        color: #d9d9d9;
-        transition: color 0.3s ease;
-    }
-
-    &:hover .ant-input-prefix,
-    &:focus .ant-input-prefix {
-        color: #000000;
+        border-color: rgb(0, 0, 0);
+        background: rgba(255, 255, 255, 0.3);
     }
 
     &::placeholder {
-        color: #a1a1a1;
+        color: #444444;
     }
 
     .ant-input {
@@ -171,34 +211,21 @@ const StyledPassword = styled(Input.Password)`
         color: black !important;
     }
 
-    .ant-input-password-icon {
-        color: #d9d9d9 !important;
-        transition: color 0.3s ease;
-        
-        &:hover {
-            color: #000000 !important;
-        }
-    }
-
-    &:hover .ant-input-password-icon,
-    &:focus .ant-input-password-icon {
-        color: #000000 !important;
-    }
-
     &:-webkit-autofill {
-        box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.05) inset !important;
-        -webkit-text-fill-color: #ffffff !important;
-        transition: background-color 5000s ease-in-out 0s;
+        box-shadow: 0 0 0px 1000px rgba(255, 255, 255, 0.3) inset !important;
+        -webkit-text-fill-color: #000000 !important;
     }
 `;
 
 const StyledButton = styled(Button)`
     border-radius: 8px;
-    padding: 10px;
+    padding: 10px 12px; 
     font-weight: 600;
     transition: all 0.3s ease;
     background: #1890ff;
     border: none;
+    height: 40px; 
+    line-height: 1;
 
     &:hover {
         background: #40a9ff;
@@ -209,12 +236,14 @@ const StyledButton = styled(Button)`
 
 const StyledBackButton = styled(Button)`
     border-radius: 8px;
-    padding: 10px;
+    padding: 10px 12px;
     font-weight: 600;
     transition: all 0.3s ease;
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.3);
     color: #d9d9d9;
+    height: 40px;
+    line-height: 1;
 
     &:hover {
         background: rgba(255, 255, 255, 0.1);
@@ -266,9 +295,10 @@ const Registration: React.FC = () => {
             });
             message.success('Registration successful!');
             localStorage.removeItem('registrationData');
-            navigate('/login');
+            navigate('/login?status=success&message=Registration successful!');
         } catch (err: any) {
-            message.error(err?.response?.data?.message || 'Registration failed.');
+            const errorMessage = err?.response?.data?.message || 'Registration failed.';
+            navigate(`/login?status=error&message=${encodeURIComponent(errorMessage)}`);
         } finally {
             setLoading(false);
         }
@@ -362,6 +392,25 @@ const Registration: React.FC = () => {
 
     return (
         <RegisterPageContainer>
+            <Particles
+                id="tsparticles"
+                options={{
+                    background: { color: { value: "transparent" } },
+                    particles: {
+                        number: {
+                            value: 50,
+                            density: {
+                                enable: true
+                            },
+                        },
+                        color: { value: "#ffffff" },
+                        opacity: { value: 0.5 },
+                        size: { value: 3 },
+                        move: { enable: true, speed: 2 },
+                    },
+                }}
+                style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}
+            />
             <StyledCard>
                 <Space direction="vertical" size="large" style={{ width: '100%' }}>
                     <div style={{ textAlign: 'center' }}>
@@ -372,8 +421,14 @@ const Registration: React.FC = () => {
                     <StyledTitle level={2}>Register</StyledTitle>
                     <StyledText>Create your BBMovie account</StyledText>
 
-                    <StyledSteps current={step} size="small" style={{ marginBottom: 24 }}>
-                        {steps.map((s, i) => <Step key={i} title={s.title} />)}
+                    <StyledSteps current={step}>
+                        {steps.map((s, index) => (
+                            <Step
+                                key={s.title}
+                                title={s.title}
+                                className={index === step ? 'ant-steps-item-active' : ''}
+                            />
+                        ))}
                     </StyledSteps>
 
                     <Form form={form} layout="vertical" onFinish={handleFinish}>
