@@ -4,7 +4,7 @@ import { Form, Input, Button, Typography, Steps, Space, message, Card } from 'an
 import { UserOutlined, MailOutlined, LockOutlined } from '@ant-design/icons';
 import styled, { keyframes } from 'styled-components';
 import Particles from '@tsparticles/react';
-import axios from 'axios';
+import api from '../services/api';
 
 const { Title, Text } = Typography;
 const { Step } = Steps;
@@ -34,7 +34,7 @@ const bounce = keyframes`
 
 const pulse = keyframes`
     0% {
-        box-shadow: 0 0 0 0 rgba(24, 144, 255, 0.7);
+        box-shadow: 0 0 0 0 rgba(240, 240, 240, 0.7);
     }
     70% {
         box-shadow: 0 0 0 10px rgba(24, 144, 255, 0);
@@ -114,7 +114,7 @@ const StyledSteps = styled(Steps)`
         color: #ffffff !important;
         font-size: 16px !important;
         font-weight: 500 !important;
-        display: inline !important; /* Ensure title is inline with the icon */
+        display: inline !important;
     }
 
     .ant-steps-item-active .ant-steps-item-title {
@@ -286,9 +286,9 @@ const Registration: React.FC = () => {
         try {
             setLoading(true);
             const { username, email, password, firstName, lastName } = formData;
-            await axios.post('/api/auth/register', {
-                username,
+            await api.post('/api/auth/register', {
                 email,
+                username,
                 password,
                 firstName,
                 lastName

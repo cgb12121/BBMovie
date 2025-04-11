@@ -9,7 +9,7 @@ import RouteGuard from './components/auth/RouteGuard';
 
 const MainLayout: React.FC = () => {
     const location = useLocation();
-    const hideNavbarPaths = ['/login', '/register'];
+    const hideNavbarPaths = ['/login', '/register', '/verify-email'];
     const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
 
     return (

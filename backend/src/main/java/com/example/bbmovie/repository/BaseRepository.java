@@ -9,6 +9,5 @@ import java.util.Optional;
 
 @NoRepositoryBean
 public interface BaseRepository<T extends BaseEntity> extends JpaRepository<T, Long> {
-    Optional<T> findByIdAndIsActiveTrue(Long id);
-    List<T> findAllByIsActiveTrue();
+
 } 

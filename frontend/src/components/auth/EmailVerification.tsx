@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Result, Button, Typography, Space, message } from 'antd';
 import { CheckCircleOutlined, CloseCircleOutlined, LoadingOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import api from '../../services/api';
 
 const EmailVerification: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -20,7 +20,7 @@ const EmailVerification: React.FC = () => {
             }
 
             try {
-                await axios.get(`/api/auth/verify-email?token=${token}`);
+                await api.get(`/api/auth/verify-email?token=${token}`);
                 setVerificationStatus('success');
             } catch (error: any) {
                 setVerificationStatus('error');
@@ -43,7 +43,7 @@ const EmailVerification: React.FC = () => {
                 return;
             }
 
-            await axios.post(`/api/auth/resend-verification?email=${email}`);
+            await api.post(`/api/auth/resend-verification?email=${email}`);
             message.success('Verification email has been resent. Please check your email.');
         } catch (error: any) {
             if (error.response) {

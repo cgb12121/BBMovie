@@ -3,7 +3,6 @@ import { Typography, Card, Row, Col, Spin } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import api from '../services/api';
-import SearchBar from '../components/SearchBar';
 
 const { Title } = Typography;
 
@@ -69,20 +68,6 @@ const Categories: React.FC = () => {
             setCategories(response.data);
         } catch (error) {
             console.error('Error fetching categories:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSearch = async (value: string) => {
-        try {
-            setLoading(true);
-            const response = await api.get('/categories/search', {
-                params: { query: value }
-            });
-            setCategories(response.data);
-        } catch (error) {
-            console.error('Error searching categories:', error);
         } finally {
             setLoading(false);
         }

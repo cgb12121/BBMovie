@@ -60,7 +60,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     useEffect(() => {
         const checkAuth = async () => {
             try {
-                const response = await api.get('/auth/me');
+                const response = await api.get('api/auth/me');
                 setUser(response.data);
             } catch (error) {
                 setUser(null);
@@ -76,7 +76,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         try {
             setLoading(true);
             setError(null);
-            const response = await api.post('/auth/login', { email, password });
+            const response = await api.post('/api/auth/login', { email, password });
             const { token, user } = response.data;
             setToken(token);
             setUser(user);
@@ -99,7 +99,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         try {
             setLoading(true);
             setError(null);
-            await api.post('/auth/register', data);
+            await api.post('api/auth/register', data);
             navigate('/login');
         } catch (error: any) {
             setError(error.response?.data?.message || 'Registration failed');
@@ -113,7 +113,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
         try {
             setLoading(true);
             setError(null);
-            const response = await api.put('/auth/profile', data);
+            const response = await api.put('api/auth/profile', data);
             setUser(response.data);
         } catch (error: any) {
             setError(error.response?.data?.message || 'Profile update failed');

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Row, Col, Card, Typography, Spin } from 'antd';
 import styled from 'styled-components';
 import api from '../services/api';
-import SearchBar from '../components/SearchBar';
 
 const { Title } = Typography;
 
@@ -47,20 +46,6 @@ const Movies: React.FC = () => {
             setMovies(response.data);
         } catch (error) {
             console.error('Error fetching movies:', error);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSearch = async (value: string) => {
-        try {
-            setLoading(true);
-            const response = await api.get('/movies/search', {
-                params: { query: value }
-            });
-            setMovies(response.data);
-        } catch (error) {
-            console.error('Error searching movies:', error);
         } finally {
             setLoading(false);
         }

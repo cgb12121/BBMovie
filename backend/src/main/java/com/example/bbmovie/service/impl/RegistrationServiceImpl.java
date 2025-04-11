@@ -27,11 +27,6 @@ public class RegistrationServiceImpl implements RegistrationService {
     private final EmailService emailService;
     private final EmailVerifyTokenService tokenService;
 
-    private static final int MAX_REGISTRATION_ATTEMPTS = 3;
-    private static final long REGISTRATION_COOLDOWN_MINUTES = 15;
-
-    private final ConcurrentHashMap<String, RegistrationAttempt> registrationAttempts = new ConcurrentHashMap<>();
-
     @Override
     @Transactional
     public User registerUser(RegisterRequest request) {
@@ -41,6 +36,7 @@ public class RegistrationServiceImpl implements RegistrationService {
 
         User user = new User();
         user.setEmail(request.getEmail());
+        user.setUsername(request.getUsername());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
@@ -80,7 +76,6 @@ public class RegistrationServiceImpl implements RegistrationService {
         tokenService.deleteToken(token);
     }
 
-
     @Override
     public void sendVerificationEmail(String email) {
         if (email == null || email.trim().isEmpty()) {
@@ -102,24 +97,6 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
     }
 
-
-    private void checkRegistrationRateLimit(String ipAddress) {
-        if (ipAddress == null || ipAddress.trim().isEmpty()) {
-            throw new IllegalArgumentException("IP address cannot be null or empty");
-        }
-
-        RegistrationAttempt attempt = registrationAttempts.computeIfAbsent(ipAddress, 
-            k -> new RegistrationAttempt(MAX_REGISTRATION_ATTEMPTS, REGISTRATION_COOLDOWN_MINUTES));
-
-        if (!attempt.canAttempt()) {
-            throw new RateLimitExceededException(
-                String.format("Too many registration attempts. Please try again in %d minutes", 
-                attempt.getRemainingCooldownMinutes()));
-        }
-
-        attempt.recordAttempt();
-    }
-
     private void validatePassword(String password) {
         if (password == null || password.length() < 8) {
             throw new InvalidPasswordException("Password must be at least 8 characters long");
@@ -135,70 +112,6 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
         if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*")) {
             throw new InvalidPasswordException("Password must contain at least one special character");
-        }
-    }
-
-    private String getClientIP() {
-        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-
-        String ipAddress = request.getHeader("X-Forwarded-For");
-        String unknownHost = "unknown";
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("Proxy-Client-IP");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("HTTP_CLIENT_IP");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("HTTP_X_FORWARDED_FOR");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getRemoteAddr();
-        }
-
-        if (ipAddress != null && ipAddress.contains(",")) {
-            ipAddress = ipAddress.split(",")[0].trim();
-        }
-
-        return ipAddress;
-    }
-
-    private static class RegistrationAttempt {
-        private final int maxAttempts;
-        private final long cooldownMinutes;
-        private int attempts;
-        private LocalDateTime lastAttempt;
-
-        public RegistrationAttempt(int maxAttempts, long cooldownMinutes) {
-            this.maxAttempts = maxAttempts;
-            this.cooldownMinutes = cooldownMinutes;
-            this.attempts = 0;
-            this.lastAttempt = LocalDateTime.now();
-        }
-
-        public boolean canAttempt() {
-            if (attempts >= maxAttempts) {
-                long minutesSinceLastAttempt = TimeUnit.MINUTES.convert(
-                    java.time.Duration.between(lastAttempt, LocalDateTime.now()).toNanos(),
-                    TimeUnit.NANOSECONDS);
-                return minutesSinceLastAttempt >= cooldownMinutes;
-            }
-            return true;
-        }
-
-        public void recordAttempt() {
-            attempts++;
-            lastAttempt = LocalDateTime.now();
-        }
-
-        public long getRemainingCooldownMinutes() {
-            long minutesSinceLastAttempt = TimeUnit.MINUTES.convert(
-                java.time.Duration.between(lastAttempt, LocalDateTime.now()).toNanos(),
-                TimeUnit.NANOSECONDS);
-            return Math.max(0, cooldownMinutes - minutesSinceLastAttempt);
         }
     }
 }

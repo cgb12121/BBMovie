@@ -10,16 +10,15 @@ import java.util.Map;
 public class ValidationHandler {
     public static Map<String, String> processValidationErrors(List<ObjectError> errors) {
         Map<String, String> validationErrors = new HashMap<>();
-        
+
         for (ObjectError error : errors) {
-            if (error instanceof FieldError) {
-                FieldError fieldError = (FieldError) error;
+            if (error instanceof FieldError fieldError) {
                 validationErrors.put(fieldError.getField(), fieldError.getDefaultMessage());
             } else {
                 validationErrors.put(error.getObjectName(), error.getDefaultMessage());
             }
         }
-        
+
         return validationErrors;
     }
-} 
+}

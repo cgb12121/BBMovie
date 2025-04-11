@@ -3,14 +3,12 @@ package com.example.bbmovie.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.log4j.Log4j2;
-
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
-import java.security.Key;
-import java.time.LocalDate;
+import javax.crypto.SecretKey;
 import java.util.Date;
 import java.util.UUID;
 
@@ -18,19 +16,17 @@ import java.util.UUID;
 @Log4j2
 public class JwtTokenProvider {
 
-    @Value("${app.jwt-secret}")
-    private String jwtSecret;
+    private final int jwtExpirationInMs;
+    private final int jwtRefreshExpirationInMs;
+    private final SecretKey key;
 
-    @Value("${app.jwt-expiration-milliseconds}")
-    private int jwtExpirationInMs;
-
-    @Value("${app.jwt-refresh-expiration-milliseconds}")
-    private int jwtRefreshExpirationInMs;
-
-    private Key key;
-
-    public JwtTokenProvider() {
-        this.key = Keys.secretKeyFor(SignatureAlgorithm.HS512);
+    public JwtTokenProvider(
+            @Value("${app.jwt-secret}") String jwtSecret,
+            @Value("${app.jwt-expiration-milliseconds}") int jwtExpirationInMs,
+            @Value("${app.jwt-refresh-expiration-milliseconds}") int jwtRefreshExpirationInMs) {
+        this.jwtExpirationInMs = jwtExpirationInMs;
+        this.jwtRefreshExpirationInMs = jwtRefreshExpirationInMs;
+        this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
     }
 
     public String generateAccessToken(Authentication authentication) {
@@ -87,8 +83,8 @@ public class JwtTokenProvider {
                     .parseClaimsJws(token);
             return true;
         } catch (Exception ex) {
-            log.error("["+ LocalDate.now()+"]" + ex.getCause() +" : " + ex.getMessage() );
+            log.error("Token validation error: " + ex.getMessage());
         }
         return false;
     }
-} 
+}

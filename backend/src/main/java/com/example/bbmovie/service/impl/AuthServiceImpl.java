@@ -1,7 +1,7 @@
 package com.example.bbmovie.service.impl;
 
 import com.example.bbmovie.dto.request.AuthRequest;
-import com.example.bbmovie.dto.request.RefreshTokenRequest;
+import com.example.bbmovie.dto.request.AccessTokenRequest;
 import com.example.bbmovie.dto.request.RegisterRequest;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.exception.InvalidTokenException;
@@ -31,18 +31,8 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse register(RegisterRequest request) {
         User user = registrationService.registerUser(request);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(
-            user.getEmail(), 
-            user.getPassword()
-        );
-        String accessToken = tokenProvider.generateAccessToken(authentication);
-        String refreshToken = refreshTokenService.createRefreshToken(user.getEmail());
-        
         return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
                 .email(user.getEmail())
-                .role(user.getRoles().toString())
                 .build();
     }
 
@@ -61,12 +51,11 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .email(user.getEmail())
-                .role(user.getRoles().toString())
                 .build();
     }
 
     @Override
-    public AuthResponse refreshToken(RefreshTokenRequest request) {
+    public AuthResponse refreshToken(AccessTokenRequest request) {
         String refreshToken = request.getRefreshToken();
         if (!refreshTokenService.isValidRefreshToken(refreshToken)) {
             throw new InvalidTokenException("Invalid refresh token");
@@ -86,7 +75,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void logout(RefreshTokenRequest request) {
+    public void logout(AccessTokenRequest request) {
         refreshTokenService.deleteRefreshToken(request.getRefreshToken());
     }
 } 

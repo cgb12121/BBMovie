@@ -39,7 +39,7 @@ public class EmailServiceImpl implements EmailService {
 
             Context context = new Context();
             context.setVariable("verificationUrl", frontendUrl + "/verify-email?token=" + verificationToken);
-            context.setVariable("email", receiver);
+            context.setVariable("user", receiver);
 
             String htmlContent = templateEngine.process("verification", context);
             helper.setText(htmlContent, true);

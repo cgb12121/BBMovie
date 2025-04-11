@@ -1,6 +1,7 @@
 package com.example.bbmovie.service.impl;
 
 import com.example.bbmovie.model.User;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
@@ -18,12 +19,22 @@ public class EmailVerifyTokenService {
     private static final String VERIFICATION_TOKEN_PREFIX = "verification:";
     private static final Duration TOKEN_EXPIRY = Duration.ofHours(1);
 
+    @PostConstruct
+    public void testRedis() {
+        redisTemplate.opsForValue().set("test:key", "Hello", Duration.ofMinutes(5));
+        Object value = redisTemplate.opsForValue().get("test:key");
+        log.info("Redis test value: {}", value);
+    }
+
     public String generateVerificationToken(User user) {
         String token = UUID.randomUUID().toString();
         String key = VERIFICATION_TOKEN_PREFIX + token;
         
         redisTemplate.opsForValue().set(key, user.getEmail(), TOKEN_EXPIRY);
-        
+
+        log.info("Generated token {} for email {}", token, user.getEmail());
+        log.info("Token TTL: {}", redisTemplate.getExpire(VERIFICATION_TOKEN_PREFIX + token));
+
         return token;
     }
 

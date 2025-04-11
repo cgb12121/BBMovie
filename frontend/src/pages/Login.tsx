@@ -14,7 +14,9 @@ import {
 import styled, { keyframes } from 'styled-components';
 import Particles from '@tsparticles/react';
 import axios from 'axios';
+
 import Alert from 'antd/es/alert/Alert';
+import api from '../services/api';
 
 const { Title, Text } = Typography;
 
@@ -267,7 +269,7 @@ const ProgressBar = styled.div<{ status: string }>`
 `;
 
 interface LoginFormData {
-    usernameOrEmail: string;
+    email: string;
     password: string;
 }
 
@@ -300,20 +302,21 @@ const Login: React.FC = () => {
         try {
             setLoading(true);
             setError(null);
-            const response = await axios.post('/api/auth/login', {
-                email: values.usernameOrEmail,
+            
+            const response = await api.post('/api/auth/login', {
+                email: values.email,
                 password: values.password,
+            }, {
+                headers: {
+                  'Content-Type': 'application/json'
+                }
             });
 
             localStorage.setItem('user', JSON.stringify(response.data));
             message.success('Login successful!');
             navigate('/');
         } catch (error: any) {
-            if (error.response) {
-                setError(error.response.data.message);
-            } else {
-                setError('An error occurred during login. Please try again.');
-            }
+            console.log(error)
         } finally {
             setLoading(false);
         }
@@ -372,15 +375,16 @@ const Login: React.FC = () => {
                         size="large"
                     >
                         <Form.Item
-                            name="usernameOrEmail"
+                            name="email"
                             rules={[
-                                { required: true, message: 'Please input your username or email!' },
+                                { required: true, message: 'Please input your email!' },
+                                { type: 'email', message: 'Invalid email format!' }
                             ]}
                         >
                             <StyledInput
                                 prefix={isEmail ? <MailOutlined /> : <UserOutlined />}
-                                placeholder="Username or Email"
-                                autoComplete="username"
+                                placeholder="Email"
+                                autoComplete="email"
                                 onChange={handleInputChange}
                             />
                         </Form.Item>
