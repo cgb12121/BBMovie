@@ -47,20 +47,20 @@ public class RequestLoggingFilter implements Filter {
         HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
 
         String ipAddress = request.getHeader("X-Forwarded-For");
-        String unknownHost = "unknown";
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
+        String unknownClient = "unknown";
+        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getHeader("Proxy-Client-IP");
         }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
+        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getHeader("WL-Proxy-Client-IP");
         }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
+        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getHeader("HTTP_CLIENT_IP");
         }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
+        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getHeader("HTTP_X_FORWARDED_FOR");
         }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownHost.equalsIgnoreCase(ipAddress)) {
+        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
             ipAddress = request.getRemoteAddr();
         }
 

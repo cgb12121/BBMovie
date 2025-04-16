@@ -6,17 +6,10 @@ import com.example.bbmovie.repository.UserRepository;
 import com.example.bbmovie.service.intf.EmailService;
 import com.example.bbmovie.service.intf.RegistrationService;
 import com.example.bbmovie.dto.request.RegisterRequest;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
-
-import java.time.LocalDateTime;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.Collections;
 
 @Service
@@ -94,24 +87,6 @@ public class RegistrationServiceImpl implements RegistrationService {
             emailService.sendVerificationEmail(email, token);
         } catch (Exception e) {
             throw new TokenVerificationException("Failed to send verification email: " + e.getMessage() + "," + e);
-        }
-    }
-
-    private void validatePassword(String password) {
-        if (password == null || password.length() < 8) {
-            throw new InvalidPasswordException("Password must be at least 8 characters long");
-        }
-        if (!password.matches(".*[A-Z].*")) {
-            throw new InvalidPasswordException("Password must contain at least one uppercase letter");
-        }
-        if (!password.matches(".*[a-z].*")) {
-            throw new InvalidPasswordException("Password must contain at least one lowercase letter");
-        }
-        if (!password.matches(".*\\d.*")) {
-            throw new InvalidPasswordException("Password must contain at least one number");
-        }
-        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*")) {
-            throw new InvalidPasswordException("Password must contain at least one special character");
         }
     }
 }

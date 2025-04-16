@@ -38,7 +38,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(AuthRequest request) {
-        User user = loginService.authenticateUser(request.getEmail(), request.getPassword());
+        User user = loginService.login(request.getEmail(), request.getPassword());
         Authentication authentication = authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword())
         );
@@ -51,6 +51,7 @@ public class AuthServiceImpl implements AuthService {
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .email(user.getEmail())
+                .role(user.getRoles().toString())
                 .build();
     }
 

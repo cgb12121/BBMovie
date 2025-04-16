@@ -21,6 +21,21 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildErrorResponse(e, HttpStatus.FORBIDDEN, e.getMessage());
     }
 
+    @ExceptionHandler(AccountNotEnabledException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccountNotEnabledException(AccountNotEnabledException e) {
+        return buildErrorResponse(e, HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
+    @ExceptionHandler(AuthenticationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException e){
+        return buildErrorResponse(e, HttpStatus.FORBIDDEN, e.getMessage());
+    }
+
+    @ExceptionHandler(EmailAlreadyVerifiedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleEmailAlreadyVerifiedException(EmailAlreadyVerifiedException e) {
+        return buildErrorResponse(e, HttpStatus.BAD_REQUEST, e.getMessage());
+    }
+
     @ExceptionHandler(RegistrationException.class)
     public ResponseEntity<ApiResponse<Void>> handleRegistrationException(RegistrationException ex) {
         return buildErrorResponse(ex, HttpStatus.BAD_REQUEST, ex.getMessage());

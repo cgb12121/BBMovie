@@ -21,5 +21,22 @@ api.interceptors.request.use(
         return Promise.reject(new Error(error));
     }
 );
+api.interceptors.request.use(
+    (config) => {
+        const token = getCookie('XSRF-TOKEN');
+        if (token) {
+            config.headers['X-XSRF-TOKEN'] = token;
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(new Error(error));
+    }
+);
 
-export default api; 
+function getCookie(name: string): string | null {
+    const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
+    return match ? decodeURIComponent(match[3]) : null;
+}
+
+export default api;

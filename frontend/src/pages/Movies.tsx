@@ -18,9 +18,23 @@ const MovieCard = styled(Card)`
     &:hover {
         transform: translateY(-5px);
     }
+
+    .ant-card-cover img {
+        height: 300px;
+        object-fit: cover;
+    }
+
+    .ant-card-meta-title {
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+    }
+
+    .ant-card-meta-description {
+        color: #666;
+    }
 `;
 
-const MovieGrid = styled(Row)`
+const MoviesGrid = styled(Row)`
     margin-top: 2rem;
 `;
 
@@ -51,35 +65,44 @@ const Movies: React.FC = () => {
         }
     };
 
+    const renderMoviesList = () => {
+        if (loading) {
+            return (
+                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
+                    <Spin size="large" />
+                </Col>
+            );
+        }
+
+        if (movies.length === 0) {
+            return (
+                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
+                    <Title level={4}>No movies found</Title>
+                </Col>
+            );
+        }
+
+        return movies.map((movie) => (
+            <Col xs={24} sm={12} md={8} lg={6} key={movie.id}>
+                <MovieCard
+                    hoverable
+                    cover={<img alt={movie.title} src={movie.posterUrl} />}
+                >
+                    <Card.Meta
+                        title={movie.title}
+                        description={`Rating: ${movie.rating}/10`}
+                    />
+                </MovieCard>
+            </Col>
+        ));
+    };
+
     return (
         <MoviesContainer>
             <Title level={2}>Movies</Title>
-            
-            <MovieGrid gutter={[16, 16]}>
-                {loading ? (
-                    <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                        <Spin size="large" />
-                    </Col>
-                ) : movies.length > 0 ? (
-                    movies.map((movie) => (
-                        <Col xs={24} sm={12} md={8} lg={6} key={movie.id}>
-                            <MovieCard
-                                hoverable
-                                cover={<img alt={movie.title} src={movie.posterUrl} />}
-                            >
-                                <Card.Meta
-                                    title={movie.title}
-                                    description={`Rating: ${movie.rating}/10`}
-                                />
-                            </MovieCard>
-                        </Col>
-                    ))
-                ) : (
-                    <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                        <Title level={4}>No movies found</Title>
-                    </Col>
-                )}
-            </MovieGrid>
+            <MoviesGrid gutter={[16, 16]}>
+                {renderMoviesList()}
+            </MoviesGrid>
         </MoviesContainer>
     );
 };

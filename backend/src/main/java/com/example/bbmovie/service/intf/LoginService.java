@@ -8,5 +8,5 @@ import org.springframework.stereotype.Service;
 @Service
 public interface LoginService {
     @Transactional
-    User authenticateUser(String usernameOrEmail, String password);
+    User login(String usernameOrEmail, String password);
 }

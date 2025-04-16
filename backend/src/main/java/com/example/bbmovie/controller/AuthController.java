@@ -7,8 +7,10 @@ import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.model.User;
 import com.example.bbmovie.service.intf.AuthService;
 import com.example.bbmovie.service.intf.RegistrationService;
+
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -111,4 +113,21 @@ public class AuthController {
         registrationService.sendVerificationEmail(request.getEmail());
         return ResponseEntity.ok(ApiResponse.success("Verification email has been resent. Please check your email."));
     }
+
+    @GetMapping("/csrf")
+    public ResponseEntity<Void> getCsrfToken() {
+        return ResponseEntity.ok().build();
+    }
+
+    // @GetMapping("/csrf")
+    // public ResponseEntity<Map<String, String>> getCsrfToken(HttpServletRequest request) {
+    //     When we make a request to /auth/csrf, the actual CSRF token is automatically included in the response as a cookie named 'XSRF-TOKEN' by Spring Security's CookieCsrfTokenRepository. 
+    //     We don't need to manually return the token in the response body.
+    //     CsrfToken csrf = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+    
+    //     return ResponseEntity.ok(Map.of(
+    //         "token", csrf.getToken(),
+    //         "headerName", csrf.getHeaderName()
+    //     ));
+    // }
 }

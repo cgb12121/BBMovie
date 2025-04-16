@@ -6,6 +6,7 @@ import Navbar from './components/Navbar';
 import { routes } from './routes';
 import { AuthProvider } from './hooks/useAuth';
 import RouteGuard from './components/auth/RouteGuard';
+import CsrfProvider from './components/security/CsrfProvider';
 
 const MainLayout: React.FC = () => {
     const location = useLocation();
@@ -38,17 +39,20 @@ const MainLayout: React.FC = () => {
 
 const App: React.FC = () => {
     return (
-        <ConfigProvider
+        <CsrfProvider>
+            <ConfigProvider
             theme={{
                 token: { colorPrimary: '#1890ff', borderRadius: 4 },
             }}
-        >
-            <Router>
-                <AuthProvider>
-                    <MainLayout />
-                </AuthProvider>
-            </Router>
-        </ConfigProvider>
+            >
+                <Router>
+                    <AuthProvider>
+                        <MainLayout />
+                    </AuthProvider>
+                </Router>
+            </ConfigProvider>
+        </CsrfProvider>
+    
     );
 };
 
