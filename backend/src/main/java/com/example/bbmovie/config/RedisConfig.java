@@ -67,7 +67,6 @@ public class RedisConfig {
                 .build();
     }
 
-    @Bean
     public RedisCacheConfiguration myDefaultCacheConfig(Duration duration) {
         return RedisCacheConfiguration
             .defaultCacheConfig()
