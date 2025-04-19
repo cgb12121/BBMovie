@@ -6,7 +6,6 @@ import com.example.bbmovie.dto.request.*;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.model.User;
 import com.example.bbmovie.service.intf.AuthService;
-import com.example.bbmovie.service.intf.RegistrationService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +22,6 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
-    private final RegistrationService registrationService;
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<User>> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
@@ -95,7 +93,7 @@ public class AuthController {
 
     @GetMapping("/verify-email")
     public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam("token") String token) {
-        registrationService.verifyEmail(token);
+        authService.verifyEmail(token);
         return ResponseEntity.ok(ApiResponse.success("Email verified successfully. You can now login."));
     }
 
@@ -110,9 +108,25 @@ public class AuthController {
                             ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
 
-        registrationService.sendVerificationEmail(request.getEmail());
+        authService.sendVerificationEmail(request.getEmail());
         return ResponseEntity.ok(ApiResponse.success("Verification email has been resent. Please check your email."));
     }
+
+//    @GetMapping("/verify-email-2")
+//    public ResponseEntity<?> verifyEmail(@RequestParam("token") String token, RedirectAttributes redirectAttributes) {
+//        try {
+//            registrationService.verifyEmail(token);
+//            return ResponseEntity.status(HttpStatus.FOUND)
+//                    .location(URI.create("/login?verified=true"))
+//                    .build();
+//        } catch (EmailAlreadyVerifiedException e) {
+//            return ResponseEntity.status(HttpStatus.FOUND)
+//                    .location(URI.create("/login?alreadyVerified=true"))
+//                    .build();
+//        } catch (TokenVerificationException e) {
+//            return ResponseEntity.badRequest().body(e.getMessage());
+//        }
+//    }
 
     @GetMapping("/csrf")
     public ResponseEntity<Void> getCsrfToken() {

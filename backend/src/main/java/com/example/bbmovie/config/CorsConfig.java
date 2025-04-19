@@ -21,7 +21,7 @@ public class CorsConfig {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Collections.singletonList(frontendUrl));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+        configuration.setAllowedHeaders(Arrays.asList(ALLOWED_HEADERS));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
 
@@ -29,4 +29,13 @@ public class CorsConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
+
+    private final static String[] ALLOWED_HEADERS = {
+            "Authorization",
+            "Content-Type",
+            "X-Requested-With",
+            "Access-Control-Allow-Origin",
+            "x-xsrf-token",
+            "X-XSRF-TOKEN"
+    };
 }

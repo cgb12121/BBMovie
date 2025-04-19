@@ -6,6 +6,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.expression.spel.SpelEvaluationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -94,6 +95,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(TemplateProcessingException.class)
     public ResponseEntity<ApiResponse<Void>> handleTemplateProcessingException(TemplateProcessingException ex) {
         return buildErrorResponse(ex, HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadCredentialsException(BadCredentialsException ex) {
+        return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, "Invalid username or password");
     }
 
     @ExceptionHandler(Exception.class)

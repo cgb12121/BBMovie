@@ -1,12 +1,16 @@
 package com.example.bbmovie.security;
 
+import com.example.bbmovie.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 
 import java.util.function.Supplier;
 
+import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -35,10 +39,11 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorsConfigurationSource corsConfigurationSource;
+    private final CustomUserDetailsService userDetailsService;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http
+        return http
             .csrf(csrf -> csrf
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
@@ -48,32 +53,65 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(
-                        "/api/auth/register",
-                        "/api/auth/login",
-                        "api/auth/verify-email",
-                        "api/auth/send-verification",
-                        "/api/auth/csrf"
+                        "/api/auth/register/**",
+                        "/api/auth/login/**",
+                        "/api/auth/verify-email/**",
+                        "/api/auth/send-verification/**",
+                        "/api/auth/csrf/**"
                 ).permitAll()
+                .requestMatchers(SPRING_ACTUAL_ENDPOINTS).permitAll()
+                .requestMatchers(ERRORS_ENDPOINTS).permitAll()
+                .requestMatchers(SWAGGER_ENDPOINTS).permitAll()
+                .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                 .anyRequest().authenticated()
             )
+            .authenticationProvider(authenticationProvider())
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
-        return http.build();
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .build();
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(AuthenticationConfiguration authConfig) throws Exception {
-        return authConfig.getAuthenticationManager();
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+
+    @Bean
+    public AuthenticationProvider authenticationProvider() {
+        DaoAuthenticationProvider daoAuthenticationProvider = new DaoAuthenticationProvider();
+        daoAuthenticationProvider.setUserDetailsService(userDetailsService);
+        daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
+        return daoAuthenticationProvider;
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2A, 10);
+        return new BCryptPasswordEncoder();
     }
 
-    final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
+    private static final String[] SWAGGER_ENDPOINTS = {
+        "/v3/api-docs",
+        "/swagger-ui.html",
+        "/swagger-resources/configuration/ui",
+        "/v3/api-docs.yaml",
+        "/v3/api-docs/swagger-config",
+    };
+
+    private static final String[] ERRORS_ENDPOINTS = {
+            "/error"
+    };
+
+    private static final String[] SPRING_ACTUAL_ENDPOINTS = {
+            "/actuator/**",
+            "/actuator/health",
+            "/actuator/info",
+            "/actuator/prometheus",
+            "/actuator/health/**",
+    };
+
+    static final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
         private final CsrfTokenRequestHandler plain = new CsrfTokenRequestAttributeHandler();
         private final CsrfTokenRequestHandler xor = new XorCsrfTokenRequestAttributeHandler();
 

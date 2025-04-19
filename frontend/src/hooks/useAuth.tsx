@@ -63,6 +63,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
                 const response = await api.get('api/auth/me');
                 setUser(response.data);
             } catch (error) {
+                console.error(error);
                 setUser(null);
             } finally {
                 setLoading(false);

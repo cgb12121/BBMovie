@@ -23,7 +23,8 @@ public class JwtTokenProvider {
     public JwtTokenProvider(
             @Value("${app.jwt-secret}") String jwtSecret,
             @Value("${app.jwt-expiration-milliseconds}") int jwtExpirationInMs,
-            @Value("${app.jwt-refresh-expiration-milliseconds}") int jwtRefreshExpirationInMs) {
+            @Value("${app.jwt-refresh-expiration-milliseconds}") int jwtRefreshExpirationInMs
+    ) {
         this.jwtExpirationInMs = jwtExpirationInMs;
         this.jwtRefreshExpirationInMs = jwtRefreshExpirationInMs;
         this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes());
@@ -49,7 +50,6 @@ public class JwtTokenProvider {
 
         return Jwts.builder()
                 .setSubject(userDetails.getUsername())
-                .setId(UUID.randomUUID().toString())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key)
@@ -83,7 +83,7 @@ public class JwtTokenProvider {
                     .parseClaimsJws(token);
             return true;
         } catch (Exception ex) {
-            log.error("Token validation error: " + ex.getMessage());
+            log.error("Token validation error: {}", ex.getMessage());
         }
         return false;
     }

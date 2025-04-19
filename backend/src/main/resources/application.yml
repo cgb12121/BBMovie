@@ -3,6 +3,8 @@ app:
   jwt-expiration-milliseconds: ${JWT_EXPIRATION}
   jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION}
 
+  verification-token-expiration-minutes: 15
+
   frontend:
     url: http://localhost:3000
 
@@ -51,6 +53,13 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD}
       database: 0
+
+
+logging:
+  level:
+    org:
+      springframework:
+        security: DEBUG
 
 
 server:
