@@ -3,6 +3,7 @@ app:
   jwt-expiration-milliseconds: ${JWT_EXPIRATION}
   jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION}
 
+  change-password-token-expiration-minutes: 15
   verification-token-expiration-minutes: 15
 
   frontend:
@@ -53,14 +54,36 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD}
       database: 0
-      
-
-#  elasticsearch:
+#  ssl:
+#    bundle:
+#      pem:
+#        server:
+#          keystore:
+#            certificate: ${SERVER_CERTIFICATE}
+#            private-key: ${SERVER_PRIVATE_KEY}
+#            private-key-password: ${SERVER_PRIVATE_KEY_PASSWORD}
+#          reload-on-update: ${SERVER_RELOAD_ON_UPDATE}
+#    elasticsearch:
 #    uris: http://localhost:9200
 #    username:
 #    password:
 #    connection-timeout: 1s
 #    socket-timeout: 1s
+
+
+#Data encrypt/decrypt
+#database:
+#  secret-key-password: ${DATABASE_SECRET_KEY_PASSWORD}
+#  database.algorithm: ${DATABASE_ALGORITHM}
+#  database.secret-factory.algorithm: ${DATABASE_SECRET_FACTORY_ALGORITHM}
+#  database.salt: ${DATABASE_SALT}
+#  database.iterations: ${DATABASE_ITERATIONS}
+
+#Twilio
+#twilio:
+#  account-sid: ${TWILIO_ACCOUNT_SID}
+#  twilio.auth-token: ${TWILIO_AUTH_TOKEN}
+#  twilio.phone-number: ${TWILIO_PHONE_NUMBER}
 
 
 logging:
@@ -82,6 +105,8 @@ huggingface:
 
 
 server:
+#  ssl:
+#    bundle: ${SERVER_SSL_BUNDLE}
   port: 8080
   compression:
     enabled: true

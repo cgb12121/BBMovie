@@ -1,5 +1,6 @@
 package com.example.bbmovie.security;
 
+import com.example.bbmovie.exception.BlacklistedJwtTokenException;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -41,7 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             if (jwt != null && tokenProvider.validateToken(jwt)) {
 
                 if (tokenProvider.isTokenBlacklisted(jwt)) {
-                    throw new InvalidTokenException("Token has been invalidated");
+                    throw new BlacklistedJwtTokenException("Token has been invalidated");
                 }
 
                 String username = tokenProvider.getUsernameFromToken(jwt);

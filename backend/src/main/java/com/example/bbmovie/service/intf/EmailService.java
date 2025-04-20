@@ -7,4 +7,6 @@ public interface EmailService {
     void sendVerificationEmail(String to, String verificationToken);
 
     void notifyChangedPassword(String receiver);
+
+    void sendForgotPasswordEmail(String receiver, String resetToken);
 }

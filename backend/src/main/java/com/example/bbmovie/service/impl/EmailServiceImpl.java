@@ -68,7 +68,7 @@ public class EmailServiceImpl implements EmailService {
             Context context = new Context();
             context.setVariable("timeChanged", LocalTime.now().toString());
 
-            String htmlContent = templateEngine.process("passwordChange", context);
+            String htmlContent = templateEngine.process("password-change", context);
             helper.setText(htmlContent, true);
 
             mailSender.send(message);
@@ -80,11 +80,28 @@ public class EmailServiceImpl implements EmailService {
         }
     }
 
-    public void sendForgotPasswordEmail(String receiver, String resetToken) {
+    @Override
+    public void sendForgotPasswordEmail(String receiver, String resetPasswordToken) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
 
-    }
+            helper.setFrom(fromEmail);
+            helper.setTo(receiver);
+            helper.setSubject("Verify your email address");
 
-    public void sendResetPasswordEmail(String receiver, String resetToken) {
+            Context context = new Context();
+            context.setVariable("resetPasswordUrl", frontendUrl + "/reset-password?token=" + resetPasswordToken);
+            context.setVariable("user", receiver);
 
+            String htmlContent = templateEngine.process("reset-password", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Reset password email sent to {}", receiver);
+        } catch (MessagingException e) {
+            log.error("Failed to send Reset password email to {}: {}", receiver, e.getMessage());
+            throw new CustomEmailException("Failed to send Reset password email!");
+        }
     }
 } 

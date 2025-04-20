@@ -15,6 +15,7 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +26,7 @@ import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
 import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -44,8 +46,25 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
+            .headers(header -> header
+                .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
+                .contentSecurityPolicy(csp -> csp
+                    .policyDirectives("default-src 'self';")
+                )
+                .httpStrictTransportSecurity(sts -> sts
+                        .maxAgeInSeconds(31536000)
+                        .includeSubDomains(true)
+                        .preload(true)
+                )
+                .contentTypeOptions(HeadersConfigurer.ContentTypeOptionsConfig::disable)
+                .referrerPolicy(referrer -> referrer
+                        .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN)
+                )
+                .permissionsPolicyHeader(policy -> policy
+                        .policy("geolocation=(self), camera=(), microphone=()")
+                )
+            )
             .csrf(csrf -> csrf
-//                .ignoringRequestMatchers("/api/auth/**") //for testing only!!
                 .ignoringRequestMatchers("/api/auth/csrf")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
@@ -54,13 +73,7 @@ public class SecurityConfig {
                 .configurationSource(corsConfigurationSource)
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(
-                        "/api/auth/register/**",
-                        "/api/auth/login/**",
-                        "/api/auth/verify-email/**",
-                        "/api/auth/send-verification/**",
-                        "/api/auth/csrf/**"
-                ).permitAll()
+                .requestMatchers(AUTH_ENDPOINTS).permitAll()
                 .requestMatchers(SPRING_ACTUAL_ENDPOINTS).permitAll()
                 .requestMatchers(ERRORS_ENDPOINTS).permitAll()
                 .requestMatchers(SWAGGER_ENDPOINTS).permitAll()
@@ -92,6 +105,10 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+
+    private static final String[] AUTH_ENDPOINTS = {
+            "/api/auth/**"
+    };
 
     private static final String[] SWAGGER_ENDPOINTS = {
         "/v3/api-docs",

@@ -3,13 +3,15 @@ package com.example.bbmovie.service.impl;
 import com.example.bbmovie.dto.request.AuthRequest;
 import com.example.bbmovie.dto.request.ChangePasswordRequest;
 import com.example.bbmovie.dto.request.RegisterRequest;
+import com.example.bbmovie.dto.request.ResetPasswordRequest;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.UserResponse;
 import com.example.bbmovie.exception.*;
 import com.example.bbmovie.model.User;
 import com.example.bbmovie.repository.UserRepository;
 import com.example.bbmovie.security.JwtTokenProvider;
-import com.example.bbmovie.service.EmailVerifyTokenService;
+import com.example.bbmovie.service.email.ChangePasswordTokenService;
+import com.example.bbmovie.service.email.EmailVerifyTokenService;
 import com.example.bbmovie.service.RefreshTokenService;
 import com.example.bbmovie.service.intf.AuthService;
 import com.example.bbmovie.service.intf.EmailService;
@@ -38,6 +40,7 @@ public class AuthServiceImpl implements AuthService {
     private final EmailVerifyTokenService emailVerifyTokenService;
     private final EmailService emailService;
     private final RefreshTokenService refreshTokenService;
+    private final ChangePasswordTokenService changePasswordTokenService;
 
     @Override
     @Transactional
@@ -190,16 +193,32 @@ public class AuthServiceImpl implements AuthService {
         emailService.notifyChangedPassword(user.getEmail());
     }
 
-    //TODO
     @Override
-    public void sendResetPasswordEmail(String email) {
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
-
+    public void sendForgotPasswordEmail(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+        String token = changePasswordTokenService.generateChangePasswordToken(user);
+        emailService.sendForgotPasswordEmail(email, token);
     }
 
-    //TODO
     @Override
-    public void resetPassword(String token, String newPassword) {
+    public void resetPassword(String token, ResetPasswordRequest request) {
+        String email = changePasswordTokenService.getEmailForToken(token);
+        if (email == null) {
+            log.warn("Reset password token {} was already used or is invalid", token);
+            return;
+        }
+        User user = userRepository.findByEmail(email).orElseThrow(
+                () -> new UserNotFoundException("User not found for email: " + email)
+        );
 
+        if (request.getNewPassword().equals(request.getConfirmNewPassword())) {
+            throw new AuthenticationException("New password and confirm password do not match. Please try again.");
+        }
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+        changePasswordTokenService.deleteToken(token);
+        emailService.notifyChangedPassword(user.getEmail());
+        log.info("Password reset for user {} successful", email);
     }
 }

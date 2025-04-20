@@ -102,6 +102,31 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, "Invalid username or password");
     }
 
+    @ExceptionHandler(BlacklistedJwtTokenException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBlacklistedJwtTokenException(BlacklistedJwtTokenException ex) {
+        return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, "Invalid token");
+    }
+
+    @ExceptionHandler(CustomEmailException.class)
+    public ResponseEntity<ApiResponse<Void>> handleCustomEmailException(CustomEmailException ex) {
+        return buildErrorResponse(ex, HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(UnauthorizedUserException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnauthorizedUserException(UnauthorizedUserException ex) {
+        return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(TokenVerificationException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTokenVerificationException(TokenVerificationException ex) {
+        return buildErrorResponse(ex, HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ApiResponse<Void>> handleInvalidCredentialsException(InvalidCredentialsException ex) {
+        return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleAllUncaughtException(Exception ex) {
         log.error("Unhandled exception occurred: {}", ex.getMessage(), ex);
@@ -110,7 +135,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     private ResponseEntity<ApiResponse<Void>> buildErrorResponse(Exception ex, HttpStatus status, String message) {
-        log.warn("Handled exception: {} - {}", ex.getClass().getSimpleName(), ex.getMessage());
+        log.error("Handled exception: {} - {}", ex.getClass().getSimpleName(), ex.getMessage());
         return ResponseEntity.status(status).body(ApiResponse.error(message));
     }
 }

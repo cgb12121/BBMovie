@@ -6,6 +6,7 @@ import com.example.bbmovie.dto.request.*;
 import com.example.bbmovie.dto.response.AccessTokenResponse;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.UserResponse;
+import com.example.bbmovie.exception.UnauthorizedUserException;
 import com.example.bbmovie.service.RefreshTokenService;
 import com.example.bbmovie.service.intf.AuthService;
 
@@ -30,7 +31,7 @@ public class AuthController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) { throw new UsernameNotFoundException("User not authenticated"); }
+        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
         return ResponseEntity.ok(ApiResponse.success(authService.loadAuthenticatedUser(userDetails.getUsername())));
     }
 
@@ -130,12 +131,13 @@ public class AuthController {
             return ResponseEntity.badRequest().body(ApiResponse.validationError(
                     ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
-        authService.sendResetPasswordEmail(request.getEmail());
+        authService.sendForgotPasswordEmail(request.getEmail());
         return ResponseEntity.ok(ApiResponse.success("Password reset instructions have been sent to your email"));
     }
     
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<Void>> resetPassword(
+            @RequestParam("token") String token,
             @Valid @RequestBody ResetPasswordRequest request,
             BindingResult bindingResult
     ) {
@@ -143,12 +145,12 @@ public class AuthController {
             return ResponseEntity.badRequest().body(ApiResponse.validationError(
                     ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
-        authService.resetPassword(request.getToken(), request.getNewPassword());
+        authService.resetPassword(token, request);
         return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully"));
     }
 
     @GetMapping("/csrf")
-    public CsrfToken csrf(CsrfToken csrfToken) {
-        return csrfToken;
+    public ResponseEntity<Void> csrf() {
+        return ResponseEntity.ok().build();
     }
 }
