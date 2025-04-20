@@ -12,6 +12,7 @@ import NotFound from '../pages/NotFound';
 import Forbidden from '../pages/Forbidden';
 import SearchResults from '../pages/SearchResults';
 import RouteGuard from '../components/auth/RouteGuard';
+import MovieUpload from '../components/MovieUpload';
 
 export type AppRoute = RouteObject & {
     name?: string;
@@ -79,5 +80,11 @@ export const routes: AppRoute[] = [
         path: '/forbidden',
         element: <Forbidden/>,
         name: 'Forbidden'
+    },
+    {
+        path: '/admin/upload-movie',
+        element: <MovieUpload />,
+        isProtected: true,
+        roles: ['ADMIN', 'MODERATOR']
     }
 ]; 

@@ -34,8 +34,8 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "last_name")
     private String lastName;
 
-    @Column(name = "profile_picture")
-    private String profilePicture;
+    @Column(name = "profile_picture_url")
+    private String profilePictureUrl;
 
     @Column(name = "is_enabled")
     private Boolean isEnabled = false;
@@ -56,6 +56,11 @@ public class User extends BaseEntity implements UserDetails {
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "role")
     private Set<String> roles;
+
+    @Override
+    public String getUsername() {
+        return this.email;
+    }
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {

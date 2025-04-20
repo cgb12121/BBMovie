@@ -34,3 +34,5 @@ build/
 .env
 .env.cloud
 .env.local
+
+src/main/resources/banner

@@ -1,83 +1,98 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Input, Spin } from 'antd';
+import React, { useState } from 'react';
+import { AutoComplete, Input, Spin } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import debounce from 'lodash/debounce';
+import api from '../services/api';
 
-const { Search } = Input;
+const SearchWrapper = styled.div`
+    width: 100%;
+    max-width: 600px;
+`;
 
-interface SearchBarProps {
-    placeholder?: string;
-    onSearch: (value: string) => void;
-    loading?: boolean;
-    debounceTime?: number;
-    className?: string;
+interface Movie {
+    id: string;
+    title: string;
+    description: string;
+    posterUrl: string;
+    rating: number;
 }
 
-const SearchBarContainer = styled.div`
-    position: relative;
-    max-width: 500px;
-    margin: 0 auto;
-`;
+interface SearchBarProps {
+    onSelect?: (movie: Movie) => void;
+    onSearch: (value: string) => void;
+    placeholder?: string;
+    loading?: boolean;
+}
 
-const LoadingIndicator = styled.div`
-    position: absolute;
-    right: 40px;
-    top: 50%;
-    transform: translateY(-50%);
-`;
+interface AutoCompleteOption {
+    value: string;
+    label: React.ReactNode;
+    movie: Movie;
+}
 
-const SearchBar: React.FC<SearchBarProps> = ({
-    placeholder = 'Search...',
-    onSearch,
-    loading = false,
-    debounceTime = 300,
-    className
-}) => {
-    const [searchValue, setSearchValue] = useState('');
+const SearchBar: React.FC<SearchBarProps> = ({ onSelect, onSearch, placeholder, loading = false }) => {
+    const [options, setOptions] = useState<AutoCompleteOption[]>([]);
+    const [isLoading, setIsLoading] = useState(loading);
 
-    const debouncedSearch = useCallback(
-        debounce((value: string) => {
-            onSearch(value);
-        }, debounceTime),
-        [onSearch, debounceTime]
-    );
+    const searchMovies = async (query: string) => {
+        if (!query) {
+            setOptions([]);
+            return;
+        }
 
-    useEffect(() => {
-        return () => {
-            debouncedSearch.cancel();
-        };
-    }, [debouncedSearch]);
+        setIsLoading(true);
+        try {
+            const response = await api.get<Movie[]>(`/movies/search?query=${query}`);
+            const movies = response.data;
 
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setSearchValue(value);
-        debouncedSearch(value);
+            setOptions(movies.map(movie => ({
+                value: movie.id,
+                label: (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <img
+                            src={movie.posterUrl}
+                            alt={movie.title}
+                            style={{ width: 40, height: 60, objectFit: 'cover' }}
+                        />
+                        <div>
+                            <div>{movie.title}</div>
+                            <div style={{ fontSize: '12px', color: '#666' }}>
+                                Rating: {movie.rating}/10
+                            </div>
+                        </div>
+                    </div>
+                ),
+                movie
+            })));
+        } catch (error) {
+            console.error('Search failed:', error);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
-    const handleSearch = (value: string) => {
-        setSearchValue(value);
-        onSearch(value);
-    };
+    const debouncedSearch = debounce(searchMovies, 300);
 
     return (
-        <SearchBarContainer className={className}>
-            <Search
-                placeholder={placeholder}
-                allowClear
-                enterButton={<SearchOutlined />}
-                size="large"
-                value={searchValue}
-                onChange={handleChange}
-                onSearch={handleSearch}
-            />
-            {loading && (
-                <LoadingIndicator>
-                    <Spin size="small" />
-                </LoadingIndicator>
-            )}
-        </SearchBarContainer>
+        <SearchWrapper>
+            <AutoComplete
+                options={options}
+                onSearch={(value) => {
+                    debouncedSearch(value);
+                    onSearch(value);
+                }}
+                onSelect={(value, option) => onSelect?.(option.movie)}
+                style={{ width: '100%' }}
+            >
+                <Input
+                    size="large"
+                    placeholder={placeholder ?? "Search movies..."}
+                    prefix={isLoading ? <Spin size="small" /> : <SearchOutlined />}
+                />
+            </AutoComplete>
+        </SearchWrapper>
     );
 };
 
-export default SearchBar; 
+export default SearchBar;

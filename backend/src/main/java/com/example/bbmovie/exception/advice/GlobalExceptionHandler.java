@@ -1,4 +1,4 @@
-package com.example.bbmovie.controller.advice;
+package com.example.bbmovie.exception.advice;
 
 import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.exception.*;

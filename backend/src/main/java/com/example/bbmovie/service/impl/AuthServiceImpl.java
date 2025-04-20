@@ -1,17 +1,18 @@
 package com.example.bbmovie.service.impl;
 
 import com.example.bbmovie.dto.request.AuthRequest;
-import com.example.bbmovie.dto.request.AccessTokenRequest;
+import com.example.bbmovie.dto.request.ChangePasswordRequest;
 import com.example.bbmovie.dto.request.RegisterRequest;
 import com.example.bbmovie.dto.response.AuthResponse;
+import com.example.bbmovie.dto.response.UserResponse;
 import com.example.bbmovie.exception.*;
 import com.example.bbmovie.model.User;
 import com.example.bbmovie.repository.UserRepository;
 import com.example.bbmovie.security.JwtTokenProvider;
 import com.example.bbmovie.service.EmailVerifyTokenService;
+import com.example.bbmovie.service.RefreshTokenService;
 import com.example.bbmovie.service.intf.AuthService;
 import com.example.bbmovie.service.intf.EmailService;
-import com.example.bbmovie.service.intf.RefreshTokenService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -32,11 +33,11 @@ public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider tokenProvider;
-    private final RefreshTokenService refreshTokenService;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final EmailVerifyTokenService emailVerifyTokenService;
     private final EmailService emailService;
+    private final RefreshTokenService refreshTokenService;
 
     @Override
     @Transactional
@@ -143,27 +144,62 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthResponse refreshToken(AccessTokenRequest request) {
-        String refreshToken = request.getRefreshToken();
-        if (!refreshTokenService.isValidRefreshToken(refreshToken)) {
-            throw new InvalidTokenException("Invalid refresh token");
-        }
+    public void logout(String accessToken) {
+        String email = tokenProvider.getUsernameFromToken(accessToken);
+        refreshTokenService.deleteByEmail(email);
+        tokenProvider.invalidateToken(accessToken);
+    }
 
-        String email = refreshTokenService.getUsernameFromRefreshToken(refreshToken);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(email, null);
-        String newAccessToken = tokenProvider.generateAccessToken(authentication);
-        String newRefreshToken = refreshTokenService.createRefreshToken(email);
-        refreshTokenService.deleteRefreshToken(refreshToken);
-
-        return AuthResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(newRefreshToken)
-                .email(email)
+    @Override
+    public UserResponse loadAuthenticatedUser(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+        return UserResponse.builder()
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .profilePictureUrl(user.getProfilePictureUrl())
+                .roles(user.getRoles())
                 .build();
     }
 
     @Override
-    public void logout(AccessTokenRequest request) {
-        refreshTokenService.deleteRefreshToken(request.getRefreshToken());
+    @Transactional(noRollbackFor = CustomEmailException.class)
+    public void changePassword(String requestEmail, ChangePasswordRequest request) {
+        User user = userRepository.findByUsername(requestEmail)
+                .orElseThrow(() -> new UserNotFoundException("User not found for username: " + requestEmail));
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(requestEmail, request.getCurrentPassword())
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        boolean correctPassword = passwordEncoder.matches(request.getCurrentPassword(), user.getPassword());
+        if (!correctPassword) {
+            throw new AuthenticationException("Current password is incorrect");
+        }
+        if (request.getNewPassword().equals(request.getCurrentPassword())) {
+            throw new AuthenticationException("New password can not be the same as the current password. Please try again.");
+        }
+        if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
+            throw new AuthenticationException("New password and confirm password do not match. Please try again.");
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        emailService.notifyChangedPassword(user.getEmail());
     }
-} 
+
+    //TODO
+    @Override
+    public void sendResetPasswordEmail(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+
+    }
+
+    //TODO
+    @Override
+    public void resetPassword(String token, String newPassword) {
+
+    }
+}

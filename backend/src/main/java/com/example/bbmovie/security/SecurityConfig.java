@@ -45,6 +45,8 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         return http
             .csrf(csrf -> csrf
+//                .ignoringRequestMatchers("/api/auth/**") //for testing only!!
+                .ignoringRequestMatchers("/api/auth/csrf")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
             )

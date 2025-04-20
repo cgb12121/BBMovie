@@ -23,18 +23,17 @@ public class RequestLoggingFilter implements Filter {
             CachedBodyHttpServletRequest cachedRequest = new CachedBodyHttpServletRequest(httpRequest);
 
             String clientIp = httpRequest.getRemoteAddr();
-            String remoteHost = request.getRemoteHost();
             String remoteUser = getClientIP();
             String method = cachedRequest.getMethod();
             String uri = cachedRequest.getRequestURI();
             String query = cachedRequest.getQueryString();
             String requestBody = cachedRequest.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
 
-            log.info("\n [{}] [Ip: {}/{}] Incoming Request: {} {}{} \n Body: {} \n {}",
+            log.info("\n [{}] [Ip: {}/{}] Incoming Request: {} {}{} \n Body: {}",
                     LocalDateTime.now(), clientIp, remoteUser,
                     method, uri,
                     query != null ? "?" + query : "",
-                    requestBody, remoteHost
+                    requestBody
             );
 
             chain.doFilter(cachedRequest, response);

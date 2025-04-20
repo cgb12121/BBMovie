@@ -10,13 +10,14 @@ import CsrfProvider from './components/security/CsrfProvider';
 
 const MainLayout: React.FC = () => {
     const location = useLocation();
-    const hideNavbarPaths = ['/login', '/register', '/verify-email'];
-    const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
+    // const hideNavbarPaths = ['/login', '/register', '/verify-email'];
+    // const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
 
     return (
         <>
             <GlobalStyles />
-            {!shouldHideNavbar && <Navbar />}
+            {/* {!shouldHideNavbar && <Navbar />} */}
+            {<Navbar />}
             <Routes>
                 {routes.map((route) => (
                     <Route

@@ -1,13 +1,18 @@
 package com.example.bbmovie.common;
 
-import org.springframework.validation.FieldError;
-import org.springframework.validation.ObjectError;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
+
 public class ValidationHandler {
+
+    private ValidationHandler() {
+        
+    }
+
     public static Map<String, String> processValidationErrors(List<ObjectError> errors) {
         Map<String, String> validationErrors = new HashMap<>();
 

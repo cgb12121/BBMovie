@@ -1,7 +1,16 @@
-import React, { createContext, useContext, useState, useEffect, FC, ReactNode, useMemo } from 'react';
+import { 
+    createContext, 
+    useContext, 
+    useState, 
+    useEffect, 
+    FC, 
+    ReactNode, 
+    useMemo, 
+    useCallback
+} from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
-import { setToken, removeToken } from '../utils/auth';
+import { setToken } from '../utils/auth';
 
 interface User {
     id: number;
@@ -83,18 +92,29 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             setUser(user);
             navigate('/');
         } catch (error: any) {
-            setError(error.response?.data?.message || 'Login failed');
+            setError(error.response?.data?.message ?? 'Login failed');
             throw error;
         } finally {
             setLoading(false);
         }
     };
 
-    const logout = () => {
-        removeToken();
-        setUser(null);
-        navigate('/login');
-    };
+    const logout = useCallback(async () => {
+        try {
+            await api.post('/auth/logout');
+            
+            localStorage.removeItem('user');
+            localStorage.removeItem('accessToken');
+            
+            setUser(null);
+            
+            delete api.defaults.headers.common['Authorization'];
+
+            navigate('/login');
+        } catch (error) {
+            console.error('Logout failed:', error);
+        }
+    }, []);
 
     const register = async (data: RegisterData) => {
         try {
@@ -103,7 +123,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             await api.post('api/auth/register', data);
             navigate('/login');
         } catch (error: any) {
-            setError(error.response?.data?.message || 'Registration failed');
+            setError(error.response?.data?.message ?? 'Registration failed');
             throw error;
         } finally {
             setLoading(false);
@@ -117,7 +137,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
             const response = await api.put('api/auth/profile', data);
             setUser(response.data);
         } catch (error: any) {
-            setError(error.response?.data?.message || 'Profile update failed');
+            setError(error.response?.data?.message ?? 'Profile update failed');
             throw error;
         } finally {
             setLoading(false);

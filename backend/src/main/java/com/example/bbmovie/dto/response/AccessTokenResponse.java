@@ -9,10 +9,6 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class AuthResponse {
-    private String accessToken;
-    private String refreshToken;
-    private String email;
-    @Builder.Default
-    private String role = "ROLE_USER";
+public class AccessTokenResponse {
+    String accessToken;
 }

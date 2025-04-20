@@ -1,5 +1,6 @@
 package com.example.bbmovie.service.impl;
 
+import com.example.bbmovie.exception.CustomEmailException;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,8 @@ import org.thymeleaf.context.Context;
 
 import com.example.bbmovie.service.intf.EmailService;
 import lombok.extern.log4j.Log4j2;
+
+import java.time.LocalTime;
 
 @Service
 @Log4j2
@@ -48,7 +51,40 @@ public class EmailServiceImpl implements EmailService {
             log.info("Verification email sent to {}", receiver);
         } catch (MessagingException e) {
             log.error("Failed to send verification email to {}: {}", receiver, e.getMessage());
-            throw new RuntimeException("Failed to send verification email!");
+            throw new CustomEmailException("Failed to send verification email!");
         }
+    }
+
+    @Override
+    public void notifyChangedPassword(String receiver) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            helper.setFrom(fromEmail);
+            helper.setTo(receiver);
+            helper.setSubject("Notify on password change");
+
+            Context context = new Context();
+            context.setVariable("timeChanged", LocalTime.now().toString());
+
+            String htmlContent = templateEngine.process("passwordChange", context);
+            helper.setText(htmlContent, true);
+
+            mailSender.send(message);
+            log.info("Notify on password change sent to {}", receiver);
+
+        } catch (MessagingException e) {
+            log.error("Failed to send notify on password change email to {}: {}", receiver, e.getMessage());
+            throw new CustomEmailException("Failed to send notify on password change email!");
+        }
+    }
+
+    public void sendForgotPasswordEmail(String receiver, String resetToken) {
+
+    }
+
+    public void sendResetPasswordEmail(String receiver, String resetToken) {
+
     }
 } 

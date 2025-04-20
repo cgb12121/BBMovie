@@ -24,6 +24,4 @@ public interface MovieRepository extends BaseRepository<Movie> {
     
     @Query("SELECT m FROM Movie m WHERE LOWER(m.title) LIKE LOWER(CONCAT('%', :title, '%')) AND m.isActive = true")
     Page<Movie> findByTitleContainingIgnoreCase(@Param("title") String title, Pageable pageable);
-    
-    List<Movie> findByTmdbId(String tmdbId);
-} 
+}

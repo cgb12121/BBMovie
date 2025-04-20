@@ -53,6 +53,14 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD}
       database: 0
+      
+
+#  elasticsearch:
+#    uris: http://localhost:9200
+#    username:
+#    password:
+#    connection-timeout: 1s
+#    socket-timeout: 1s
 
 
 logging:
@@ -62,8 +70,21 @@ logging:
         security: DEBUG
 
 
+cloudinary:
+  cloud-name: a
+  api-key: a
+  api-secret: a
+
+
+huggingface:
+  api:
+    key: ${HUGGING_FACE_BBMOVIE_API_KEY}
+
+
 server:
   port: 8080
   compression:
     enabled: true
-    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css 
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
+
+
