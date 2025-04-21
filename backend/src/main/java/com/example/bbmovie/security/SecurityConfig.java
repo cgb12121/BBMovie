@@ -27,6 +27,7 @@ import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.csrf.CsrfTokenRequestHandler;
 import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -49,12 +50,15 @@ public class SecurityConfig {
             .headers(header -> header
                 .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
                 .contentSecurityPolicy(csp -> csp
-                    .policyDirectives("default-src 'self';")
+                    .policyDirectives("style-src 'self'; script-src 'self'; form-action 'self'; report-uri /report; report-to csp-violation-report")
                 )
                 .httpStrictTransportSecurity(sts -> sts
                         .maxAgeInSeconds(31536000)
                         .includeSubDomains(true)
                         .preload(true)
+                )
+                .xssProtection(xss -> xss
+                        .headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED)
                 )
                 .contentTypeOptions(HeadersConfigurer.ContentTypeOptionsConfig::disable)
                 .referrerPolicy(referrer -> referrer
@@ -63,6 +67,7 @@ public class SecurityConfig {
                 .permissionsPolicyHeader(policy -> policy
                         .policy("geolocation=(self), camera=(), microphone=()")
                 )
+                .cacheControl(HeadersConfigurer.CacheControlConfig::disable)
             )
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers("/api/auth/csrf")
@@ -85,6 +90,10 @@ public class SecurityConfig {
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .oauth2Login(oauth2 -> oauth2
+                .loginPage("/login")
+                .defaultSuccessUrl("/api/auth/callback", true)
+            )
             .build();
     }
 

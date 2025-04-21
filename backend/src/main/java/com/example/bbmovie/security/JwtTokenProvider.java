@@ -6,11 +6,15 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
+import java.util.Collection;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -36,11 +40,15 @@ public class JwtTokenProvider {
 
     public String generateAccessToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        Map<String, String> roles = new HashMap<>();
+        roles.put("roles", authentication.getAuthorities().toString());
+        log.info("Putting roles in access-token: {}", roles.get("roles"));
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
         String accessToken = Jwts.builder()
                 .setSubject(userDetails.getUsername())
+                .setClaims(roles)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key)
@@ -55,11 +63,15 @@ public class JwtTokenProvider {
 
     public String generateRefreshToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        Map<String, String> roles = new HashMap<>();
+        roles.put("roles", authentication.getAuthorities().toString());
+        log.info("Putting roles in refresh-token: {}", roles.get("roles"));
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtRefreshExpirationInMs);
 
         String refreshToken = Jwts.builder()
                 .setSubject(userDetails.getUsername())
+                .setClaims(roles)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key)
@@ -89,6 +101,15 @@ public class JwtTokenProvider {
                 .parseClaimsJws(token)
                 .getBody();
         return claims.getExpiration();
+    }
+
+    public Map getRolesFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("roles", Map.class);
     }
 
     public boolean validateToken(String token) {

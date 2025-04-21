@@ -1,6 +1,7 @@
 package com.example.bbmovie.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -10,6 +11,7 @@ import java.util.Collections;
 import java.util.List;
 
 @Service
+@Log4j2
 @RequiredArgsConstructor
 public class HuggingFaceService {
 
@@ -27,6 +29,7 @@ public class HuggingFaceService {
 
         HttpEntity<List<String>> request = new HttpEntity<>(Collections.singletonList(text), headers);
 
+        log.info("Sending request {} to huggingface api", request.getBody());
         ResponseEntity<List> response = restTemplate.postForEntity(MODEL_URL, request, List.class);
 
         if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {

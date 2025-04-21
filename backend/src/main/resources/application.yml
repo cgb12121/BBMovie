@@ -54,6 +54,7 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD}
       database: 0
+
 #  ssl:
 #    bundle:
 #      pem:
@@ -63,12 +64,32 @@ spring:
 #            private-key: ${SERVER_PRIVATE_KEY}
 #            private-key-password: ${SERVER_PRIVATE_KEY_PASSWORD}
 #          reload-on-update: ${SERVER_RELOAD_ON_UPDATE}
-#    elasticsearch:
-#    uris: http://localhost:9200
-#    username:
-#    password:
-#    connection-timeout: 1s
-#    socket-timeout: 1s
+
+  elasticsearch:
+    uris: http://localhost:9200
+    username: elastic
+    password: changeme
+    connection-timeout: 10s
+    socket-timeout: 10s
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: ${CLIENT_ID}
+            client-secret: ${CLIENT_SECRET}
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            scope: profile,email,openid
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+            user-name-attribute: sub
+  ai:
+    vectorstore:
+      elasticsearch:
+        index-name: movies
 
 
 #Data encrypt/decrypt
@@ -91,7 +112,9 @@ logging:
     org:
       springframework:
         security: DEBUG
-
+#        ai: DEBUG
+#    ai:
+#      djl: DEBUG
 
 cloudinary:
   cloud-name: a
