@@ -4,7 +4,7 @@ import com.example.bbmovie.model.*;
 import com.example.bbmovie.model.elasticsearch.MovieDocument;
 import com.example.bbmovie.repository.*;
 import com.example.bbmovie.repository.elasticsearch.MovieSearchRepository;
-import com.example.bbmovie.service.HuggingFaceService;
+import com.example.bbmovie.service.impl.HuggingFaceService;
 import com.example.bbmovie.service.elasticsearch.MovieSearchService;
 import com.example.bbmovie.service.elasticsearch.MovieVectorSearchService;
 import lombok.RequiredArgsConstructor;

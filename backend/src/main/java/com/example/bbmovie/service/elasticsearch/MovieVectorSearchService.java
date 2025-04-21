@@ -6,9 +6,8 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.json.JsonData;
 import com.example.bbmovie.model.Movie;
 import com.example.bbmovie.model.elasticsearch.MovieVectorDocument;
-import com.example.bbmovie.service.HuggingFaceService;
+import com.example.bbmovie.service.impl.HuggingFaceService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;

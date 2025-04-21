@@ -1,4 +1,4 @@
-package com.example.bbmovie.service;
+package com.example.bbmovie.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
