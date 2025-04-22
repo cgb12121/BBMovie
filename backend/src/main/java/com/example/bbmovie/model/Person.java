@@ -21,13 +21,4 @@ public abstract class Person extends BaseEntity {
 
     @Column(name = "death_date")
     private java.time.LocalDate deathDate;
-
-    @Column(length = 2000)
-    private String biography;
-
-    @Column(name = "profile_path")
-    private String profilePath;
-
-    @Column(name = "tmdb_id")
-    private String tmdbId;
 } 

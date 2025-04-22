@@ -1,10 +1,9 @@
 package com.example.bbmovie.controller;
 
+import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.dto.request.MovieCreateRequest;
 import com.example.bbmovie.model.Movie;
-import com.example.bbmovie.model.elasticsearch.MovieDocument;
 import com.example.bbmovie.model.elasticsearch.MovieVectorDocument;
-import com.example.bbmovie.service.elasticsearch.MovieSearchService;
 import com.example.bbmovie.service.elasticsearch.MovieVectorSearchService;
 import com.example.bbmovie.service.intf.CloudinaryService;
 import com.example.bbmovie.service.intf.MovieService;
@@ -24,15 +23,25 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MovieController {
 
-    private final MovieSearchService movieSearchService;
     private final MovieService movieService;
     private final MovieVectorSearchService movieVectorSearchService;
     private final CloudinaryService cloudinaryService;
 
+    @GetMapping("/test")
+    public ResponseEntity<ApiResponse<?>> test() {
+        try {
+            Object result = movieVectorSearchService.test();
+            return ResponseEntity.ok(ApiResponse.success(result.toString()));
+        } catch (Exception e) {
+            log.error(e);
+            return ResponseEntity.status(500).body(ApiResponse.error(e.getMessage()));
+        }
+    }
+
     @GetMapping("/all")
     public ResponseEntity<?> getAllMovies() {
         try {
-            List<MovieVectorDocument> movies = movieVectorSearchService.getAllMovies();
+            List<?> movies = movieVectorSearchService.getAllMovies();
             return ResponseEntity.ok(movies);
         } catch (Exception e) {
             log.error(e);
@@ -40,28 +49,13 @@ public class MovieController {
         }
     }
 
-    @GetMapping("/search")
-    public ResponseEntity<List<MovieDocument>> searchMovies(
-            @RequestParam String query,
-            @RequestParam(required = false) List<String> categories,
-            @RequestParam(required = false) Double minRating) throws IOException {
-        return ResponseEntity.ok(movieSearchService.searchMovies(query));
-    }
-
-    @PostMapping("/reindex")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> reindexMovies() {
-        List<Movie> allMovies = movieService.getAllMovies();
-        movieSearchService.reindexAll(allMovies);
-        return ResponseEntity.ok().build();
-    }
-
     @GetMapping("/semantic-search")
-    public ResponseEntity<List<MovieVectorDocument>> semanticSearch(
+    public ResponseEntity<List<?>> semanticSearch(
             @RequestParam String query,
-            @RequestParam(defaultValue = "10") int limit) {
+            @RequestParam(defaultValue = "10") int limit
+    ) {
         try {
-            List<MovieVectorDocument> results = movieVectorSearchService.searchSimilarMovies(query, limit);
+            List<?> results = movieVectorSearchService.searchSimilarMovies(query, limit);
             return ResponseEntity.ok(results);
         } catch (IOException e) {
             log.error(e);

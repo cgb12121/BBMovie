@@ -17,7 +17,4 @@ public class Genre extends BaseEntity {
 
     @Column(length = 500)
     private String description;
-
-    @Column(name = "tmdb_id")
-    private String tmdbId;
 } 

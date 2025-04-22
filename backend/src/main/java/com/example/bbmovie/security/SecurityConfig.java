@@ -71,6 +71,7 @@ public class SecurityConfig {
             )
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers("/api/auth/csrf")
+                    .ignoringRequestMatchers(TEST_ELASTICSEARCH_ENDPOINTS)
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
             )
@@ -83,6 +84,7 @@ public class SecurityConfig {
                 .requestMatchers(ERRORS_ENDPOINTS).permitAll()
                 .requestMatchers(SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
+                    .requestMatchers(TEST_ELASTICSEARCH_ENDPOINTS).permitAll()
                 .anyRequest().authenticated()
             )
             .authenticationProvider(authenticationProvider())
@@ -137,6 +139,11 @@ public class SecurityConfig {
             "/actuator/info",
             "/actuator/prometheus",
             "/actuator/health/**",
+    };
+
+    private static final String[] TEST_ELASTICSEARCH_ENDPOINTS = {
+            "/api/movies/**",
+            "api/sample-data/**"
     };
 
     static final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {

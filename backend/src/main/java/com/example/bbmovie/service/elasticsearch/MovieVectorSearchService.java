@@ -9,9 +9,11 @@ import com.example.bbmovie.service.HuggingFaceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -22,26 +24,58 @@ import java.util.stream.Collectors;
 public class MovieVectorSearchService {
 
    private final ElasticsearchClient elasticsearchClient;
+   private final ElasticsearchTemplate elasticsearchTemplate;
    private final HuggingFaceService huggingFaceService;
 
    @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
    private String indexName;
 
-    public List<MovieVectorDocument> searchSimilarMovies(String query, int k) throws IOException {
+   public Object test() throws IOException {
+       float[] contentVector = huggingFaceService.generateEmbedding("test");
+       MovieVectorDocument doc = MovieVectorDocument.builder()
+               .id("test")
+               .title("test")
+               .description("test")
+               .contentVector(contentVector)
+               .rating(3.0)
+               .categories(List.of("Hehe"))
+               .posterUrl("none")
+               .releaseDate(LocalDateTime.now())
+               .build();
+       elasticsearchClient.index(i -> i
+               .index(indexName)
+               .id(doc.getId())
+               .document(doc)
+       );
+       Object result = elasticsearchClient.get(g -> g
+               .index(indexName)
+               .id("test")
+               , Object.class
+       );
+       log.info("Indexed document: {}", result);
+       return result;
+   }
+
+    public List<?> searchSimilarMovies(String query, int limit) throws IOException {
         float[] queryVectorArray = huggingFaceService.generateEmbedding(query);
         log.info("queryVectorArray: {}", queryVectorArray);
         List<Float> queryVector = convertToFloatList(queryVectorArray);
         log.info("queryVector: {}", queryVector);
 
-        SearchResponse<MovieVectorDocument> response = elasticsearchClient.search(s -> s
+        SearchResponse<?> response = elasticsearchClient.search(s -> s
                         .index(indexName)
                         .knn(knn -> knn
-                                .field("content_vector")
+                                .field("contentVector")
                                 .queryVector(queryVector)
-                                .k(k)
-                                .numCandidates(k * 2)
+                                .k(limit)
+                                .numCandidates(limit * 2)
+                        )
+                        .source(src -> src
+                                .filter(f -> f
+                                        .excludes("contentVector")
+                                )
                         ),
-                MovieVectorDocument.class
+                Object.class
         );
 
         log.info("response: {}", response);
@@ -50,12 +84,17 @@ public class MovieVectorSearchService {
                 .collect(Collectors.toList());
     }
 
-    public List<MovieVectorDocument> getAllMovies() throws IOException {
-        SearchResponse<MovieVectorDocument> response = elasticsearchClient.search(s -> s
+    public List<?> getAllMovies() throws IOException {
+        SearchResponse<?> response = elasticsearchClient.search(s -> s
                         .index(indexName)
                         .query(q -> q.matchAll(m -> m))
+                        .source(src -> src
+                                .filter(f -> f
+                                        .excludes("contentVector")
+                                )
+                        )
                         .size(1000),
-                MovieVectorDocument.class
+                Object.class
         );
 
         log.info("Raw Elasticsearch response: {}", response.toString());
@@ -81,6 +120,7 @@ public class MovieVectorSearchService {
                .rating(movie.getRating() != null ? movie.getRating() : 0.0f)
                .categories(movie.getCategories().stream().toList())
                .posterUrl(movie.getPosterUrl())
+               .releaseDate(movie.getReleaseDate().atStartOfDay())
                .build();
 
        elasticsearchClient.index(i -> i
@@ -99,4 +139,35 @@ public class MovieVectorSearchService {
         return list;
     }
 
+    public void indexMovieDocument(MovieVectorDocument doc) throws IOException {
+        String content = doc.getTitle() + " " + doc.getDescription();
+        float[] contentVector = huggingFaceService.generateEmbedding(content);
+
+        MovieVectorDocument document = MovieVectorDocument.builder()
+                .id(doc.getId())
+                .title(doc.getTitle())
+                .description(doc.getDescription())
+                .contentVector(contentVector)
+                .rating(doc.getRating() != null ? doc.getRating() : 0.0f)
+                .categories(doc.getCategories().stream().toList())
+                .posterUrl(doc.getPosterUrl())
+                .releaseDate(doc.getReleaseDate())
+                .build();
+
+        elasticsearchClient.index(i -> i
+                .index(indexName)
+                .id(document.getId())
+                .document(document)
+        );
+    }
+
+
+    public void deleteAllDocuments() throws IOException {
+        elasticsearchClient.deleteByQuery(d -> d
+                .index(indexName)
+                .query(q -> q
+                        .matchAll(m -> m)
+                )
+        );
+    }
 }
