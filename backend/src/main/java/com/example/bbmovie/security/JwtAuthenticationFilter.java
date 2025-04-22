@@ -27,11 +27,9 @@ import java.util.stream.Collectors;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
-    private final UserDetailsService userDetailsService;
 
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider) {
         this.tokenProvider = tokenProvider;
-        this.userDetailsService = userDetailsService;
     }
 
     @Override
@@ -55,13 +53,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
 
-                //TODO: this method query user from db to get roles/authorities
-//                UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-//                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-//                    userDetails, null, userDetails.getAuthorities());
-
-                // Trust the roles from JwtTokenProvider instead of querying from db
-                // => create UserDetails object directly to prevent querying from db
                 UserDetails userDetails = new org.springframework.security.core.userdetails.User(
                         username, "", authorities
                 );

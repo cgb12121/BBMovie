@@ -20,7 +20,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(AuthorizationDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuthorizationDeniedException(AuthorizationDeniedException e) {
-        return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "Access Denied: You do not have permission to access this resource");
+        return buildErrorResponse(e, HttpStatus.FORBIDDEN, "Access Denied: You do not have permission to access this resource");
     }
 
     @ExceptionHandler(AccountLockedException.class)
@@ -35,7 +35,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Void>> handleAuthenticationException(AuthenticationException e){
-        return buildErrorResponse(e, HttpStatus.FORBIDDEN, e.getMessage());
+        return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, e.getMessage());
     }
 
     @ExceptionHandler(EmailAlreadyVerifiedException.class)
@@ -65,7 +65,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(TokenExpiredException.class)
     public ResponseEntity<ApiResponse<Void>> handleTokenExpiredException(TokenExpiredException ex) {
-        return buildErrorResponse(ex, HttpStatus.GONE, ex.getMessage());
+        return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, ex.getMessage());
     }
 
     @ExceptionHandler(UserNotFoundException.class)

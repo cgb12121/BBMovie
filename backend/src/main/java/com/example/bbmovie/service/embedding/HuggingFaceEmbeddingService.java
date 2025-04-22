@@ -1,4 +1,4 @@
-package com.example.bbmovie.service;
+package com.example.bbmovie.service.embedding;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -14,7 +14,7 @@ import java.util.List;
 @Service
 @Log4j2
 @RequiredArgsConstructor
-public class HuggingFaceService {
+public class HuggingFaceEmbeddingService {
 
     @Value("${huggingface.api.key}")
     private String apiKey;
@@ -23,7 +23,7 @@ public class HuggingFaceService {
 
     private static final String MODEL_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2";
     private static final int MAX_ATTEMPTS = 3;
-    private static final long INITIAL_BACKOFF_MS = 5000; // 5 seconds
+    private static final long INITIAL_BACKOFF_MS = 5000;
 
     public float[] generateEmbedding(String text) {
         HttpHeaders headers = new HttpHeaders();

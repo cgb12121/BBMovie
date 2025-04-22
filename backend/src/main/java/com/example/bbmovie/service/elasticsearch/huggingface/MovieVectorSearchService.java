@@ -1,15 +1,14 @@
-package com.example.bbmovie.service.elasticsearch;
+package com.example.bbmovie.service.elasticsearch.huggingface;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.example.bbmovie.model.Movie;
 import com.example.bbmovie.model.elasticsearch.MovieVectorDocument;
-import com.example.bbmovie.service.HuggingFaceService;
+import com.example.bbmovie.service.embedding.HuggingFaceEmbeddingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.elasticsearch.client.elc.ElasticsearchTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -24,14 +23,13 @@ import java.util.stream.Collectors;
 public class MovieVectorSearchService {
 
    private final ElasticsearchClient elasticsearchClient;
-   private final ElasticsearchTemplate elasticsearchTemplate;
-   private final HuggingFaceService huggingFaceService;
+   private final HuggingFaceEmbeddingService huggingFaceEmbeddingService;
 
    @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
    private String indexName;
 
    public Object test() throws IOException {
-       float[] contentVector = huggingFaceService.generateEmbedding("test");
+       float[] contentVector = huggingFaceEmbeddingService.generateEmbedding("test");
        MovieVectorDocument doc = MovieVectorDocument.builder()
                .id("test")
                .title("test")
@@ -57,7 +55,7 @@ public class MovieVectorSearchService {
    }
 
     public List<?> searchSimilarMovies(String query, int limit) throws IOException {
-        float[] queryVectorArray = huggingFaceService.generateEmbedding(query);
+        float[] queryVectorArray = huggingFaceEmbeddingService.generateEmbedding(query);
         log.info("queryVectorArray: {}", queryVectorArray);
         List<Float> queryVector = convertToFloatList(queryVectorArray);
         log.info("queryVector: {}", queryVector);
@@ -110,7 +108,7 @@ public class MovieVectorSearchService {
 
     public void indexMovieWithVector(Movie movie) throws IOException {
        String content = movie.getTitle() + " " + movie.getDescription();
-       float[] contentVector = huggingFaceService.generateEmbedding(content);
+       float[] contentVector = huggingFaceEmbeddingService.generateEmbedding(content);
 
        MovieVectorDocument document = MovieVectorDocument.builder()
                .id(movie.getId().toString())
@@ -141,7 +139,7 @@ public class MovieVectorSearchService {
 
     public void indexMovieDocument(MovieVectorDocument doc) throws IOException {
         String content = doc.getTitle() + " " + doc.getDescription();
-        float[] contentVector = huggingFaceService.generateEmbedding(content);
+        float[] contentVector = huggingFaceEmbeddingService.generateEmbedding(content);
 
         MovieVectorDocument document = MovieVectorDocument.builder()
                 .id(doc.getId())

@@ -1,6 +1,6 @@
 package com.example.bbmovie.config;
 
-import com.example.bbmovie.service.HuggingFaceService;
+import com.example.bbmovie.service.embedding.HuggingFaceEmbeddingService;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.*;
@@ -14,14 +14,14 @@ import java.util.stream.Collectors;
 public class VectorStoreConfig {
 
     @Bean
-    public EmbeddingModel embeddingModel(HuggingFaceService huggingFaceService) {
+    public EmbeddingModel embeddingModel(HuggingFaceEmbeddingService huggingFaceEmbeddingService) {
         return new EmbeddingModel() {
             @NotNull
             @Override
             public EmbeddingResponse call(@NotNull EmbeddingRequest request) {
                 List<String> texts = request.getInstructions();
                 List<Embedding> embeddings = texts.stream()
-                        .map(text -> new Embedding(huggingFaceService.generateEmbedding(text), text.hashCode()))
+                        .map(text -> new Embedding(huggingFaceEmbeddingService.generateEmbedding(text), text.hashCode()))
                         .collect(Collectors.toList());
                 return new EmbeddingResponse(embeddings);
 
@@ -30,20 +30,20 @@ public class VectorStoreConfig {
             @NotNull
             @Override
             public float[] embed(@NotNull String text) {
-                return huggingFaceService.generateEmbedding(text);
+                return huggingFaceEmbeddingService.generateEmbedding(text);
             }
 
             @NotNull
             @Override
             public float[] embed(@NotNull Document document) {
-                return huggingFaceService.generateEmbedding(document.getFormattedContent());
+                return huggingFaceEmbeddingService.generateEmbedding(document.getFormattedContent());
             }
 
             @NotNull
             @Override
             public List<float[]> embed(@NotNull List<String> texts) {
                 return texts.stream()
-                        .map(huggingFaceService::generateEmbedding)
+                        .map(huggingFaceEmbeddingService::generateEmbedding)
                         .collect(Collectors.toList());
             }
 
@@ -55,7 +55,7 @@ public class VectorStoreConfig {
                     @NotNull BatchingStrategy batchingStrategy
             ) {
                 return documents.stream()
-                        .map(document -> huggingFaceService.generateEmbedding(document.getFormattedContent()))
+                        .map(document -> huggingFaceEmbeddingService.generateEmbedding(document.getFormattedContent()))
                         .collect(Collectors.toList());
             }
 

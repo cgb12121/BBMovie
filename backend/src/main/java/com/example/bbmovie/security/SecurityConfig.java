@@ -71,7 +71,8 @@ public class SecurityConfig {
             )
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers("/api/auth/csrf")
-                    .ignoringRequestMatchers(TEST_ELASTICSEARCH_ENDPOINTS)
+                    //TODO: remove later
+                .ignoringRequestMatchers(TEST_ELASTICSEARCH_ENDPOINTS)
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
             )
@@ -84,6 +85,7 @@ public class SecurityConfig {
                 .requestMatchers(ERRORS_ENDPOINTS).permitAll()
                 .requestMatchers(SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
+                    //TODO: remove later
                     .requestMatchers(TEST_ELASTICSEARCH_ENDPOINTS).permitAll()
                 .anyRequest().authenticated()
             )
@@ -92,6 +94,7 @@ public class SecurityConfig {
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                //TODO: implement later
             .oauth2Login(oauth2 -> oauth2
                 .loginPage("/login")
                 .defaultSuccessUrl("/api/auth/callback", true)
@@ -143,7 +146,7 @@ public class SecurityConfig {
 
     private static final String[] TEST_ELASTICSEARCH_ENDPOINTS = {
             "/api/movies/**",
-            "api/sample-data/**"
+            "/api/sample-data/**"
     };
 
     static final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {

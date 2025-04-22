@@ -18,7 +18,6 @@ public class SampleDataController {
     private final SampleDataLoaderService sampleDataLoaderService;
 
     @PostMapping("/load")
-//    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<Void>> loadSampleData() {
         try {
             sampleDataLoaderService.loadSampleData();
@@ -29,8 +28,7 @@ public class SampleDataController {
     }
 
     @DeleteMapping("/clean")
-//    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> cleanSampleData() throws IOException {
+    public ResponseEntity<ApiResponse<Void>> cleanSampleData() {
         try {
             sampleDataLoaderService.cleanSampleData();
             return ResponseEntity.ok(ApiResponse.success("Cleaned data"));
