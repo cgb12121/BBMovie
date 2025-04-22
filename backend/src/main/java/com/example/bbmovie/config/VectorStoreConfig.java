@@ -1,6 +1,6 @@
 package com.example.bbmovie.config;
 
-import com.example.bbmovie.service.impl.HuggingFaceService;
+import com.example.bbmovie.service.HuggingFaceService;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.*;

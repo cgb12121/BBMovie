@@ -3,6 +3,7 @@ package com.example.bbmovie.model.elasticsearch;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -23,7 +24,8 @@ public class MovieVectorDocument {
     @Field(type = FieldType.Text, analyzer = "standard")
     private String description;
 
-    @Field(type = FieldType.Dense_Vector, dims = 1536)
+    @JsonProperty("content_vector")
+    @Field(type = FieldType.Dense_Vector, dims = 384)
     private float[] contentVector;
 
     @Field(type = FieldType.Double)

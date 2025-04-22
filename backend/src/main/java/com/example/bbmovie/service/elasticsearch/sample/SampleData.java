@@ -10,6 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 
 public class SampleData {
     
@@ -47,7 +48,7 @@ public class SampleData {
         
         movie.setGenres(new HashSet<>(Arrays.asList(ACTION, SCI_FI)));
         movie.setActors(new HashSet<>(Arrays.asList(TOM_HANKS, LEONARDO_DICAPRIO)));
-        movie.setDirectors(new HashSet<>(Arrays.asList(CHRISTOPHER_NOLAN)));
+        movie.setDirectors(new HashSet<>(List.of(CHRISTOPHER_NOLAN)));
         
         return movie;
     }
@@ -84,7 +85,7 @@ public class SampleData {
                 .id("1")
                 .title("The Matrix")
                 .description("A computer hacker learns about the true nature of reality and his role in the war against its controllers.")
-                .rating(8.7)
+                .rating(8.7f)
                 .categories(Arrays.asList("Action", "Sci-Fi"))
                 .posterUrl("https://example.com/matrix-poster.jpg")
                 .releaseDate(LocalDateTime.of(1999, 3, 31, 0, 0))
@@ -96,7 +97,7 @@ public class SampleData {
                 .id("2")
                 .title("Forrest Gump")
                 .description("The presidencies of Kennedy and Johnson, the Vietnam War, the Watergate scandal and other historical events unfold from the perspective of an Alabama man with an IQ of 75.")
-                .rating(8.8)
+                .rating(8.8f)
                 .categories(Arrays.asList("Drama", "Romance"))
                 .posterUrl("https://example.com/forrest-gump-poster.jpg")
                 .releaseDate(LocalDateTime.of(1994, 7, 6, 0, 0))

@@ -9,6 +9,7 @@ import com.example.bbmovie.service.elasticsearch.MovieVectorSearchService;
 import com.example.bbmovie.service.intf.CloudinaryService;
 import com.example.bbmovie.service.intf.MovieService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import java.io.IOException;
 import java.util.List;
 
+@Log4j2
 @RestController
 @RequestMapping("/api/movies")
 @RequiredArgsConstructor
@@ -26,6 +28,17 @@ public class MovieController {
     private final MovieService movieService;
     private final MovieVectorSearchService movieVectorSearchService;
     private final CloudinaryService cloudinaryService;
+
+    @GetMapping("/all")
+    public ResponseEntity<?> getAllMovies() {
+        try {
+            List<MovieVectorDocument> movies = movieVectorSearchService.getAllMovies();
+            return ResponseEntity.ok(movies);
+        } catch (Exception e) {
+            log.error(e);
+            return ResponseEntity.status(500).body(null);
+        }
+    }
 
     @GetMapping("/search")
     public ResponseEntity<List<MovieDocument>> searchMovies(
@@ -51,6 +64,7 @@ public class MovieController {
             List<MovieVectorDocument> results = movieVectorSearchService.searchSimilarMovies(query, limit);
             return ResponseEntity.ok(results);
         } catch (IOException e) {
+            log.error(e);
             return ResponseEntity.internalServerError().build();
         }
     }

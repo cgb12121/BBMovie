@@ -79,7 +79,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(AUTH_ENDPOINTS).permitAll()
-                .requestMatchers(SPRING_ACTUAL_ENDPOINTS).permitAll()
+                .requestMatchers(SPRING_ACTUAL_ENDPOINTS).hasRole("ADMIN")
                 .requestMatchers(ERRORS_ENDPOINTS).permitAll()
                 .requestMatchers(SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()

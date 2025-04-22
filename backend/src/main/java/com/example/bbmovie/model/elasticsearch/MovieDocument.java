@@ -21,8 +21,8 @@ public class MovieDocument {
     @Field(type = FieldType.Text, analyzer = "standard")
     private String description;
 
-    @Field(type = FieldType.Double)
-    private Double rating;
+    @Field(type = FieldType.Float)
+    private Float rating;
 
     @Field(type = FieldType.Keyword)
     private List<String> categories;

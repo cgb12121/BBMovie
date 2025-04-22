@@ -7,6 +7,7 @@ import org.springframework.expression.spel.SpelEvaluationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
@@ -16,6 +17,11 @@ import org.thymeleaf.exceptions.TemplateProcessingException;
 @Log4j2
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAuthorizationDeniedException(AuthorizationDeniedException e) {
+        return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "Access Denied: You do not have permission to access this resource");
+    }
 
     @ExceptionHandler(AccountLockedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccountLockedException(AccountLockedException e) {

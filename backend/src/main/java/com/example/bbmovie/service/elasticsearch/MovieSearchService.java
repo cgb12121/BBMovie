@@ -8,7 +8,7 @@ import com.example.bbmovie.model.elasticsearch.MovieDocument;
 import com.example.bbmovie.model.elasticsearch.MovieVectorDocument;
 import com.example.bbmovie.repository.elasticsearch.MovieSearchRepository;
 
-import com.example.bbmovie.service.impl.HuggingFaceService;
+import com.example.bbmovie.service.HuggingFaceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Service;

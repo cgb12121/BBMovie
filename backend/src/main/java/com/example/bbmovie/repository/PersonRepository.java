@@ -15,7 +15,5 @@ public interface PersonRepository extends BaseRepository<Person> {
     @Query("SELECT p FROM Person p WHERE LOWER(p.name) LIKE LOWER(CONCAT('%', :name, '%'))")
     Page<Person> findByNameContainingIgnoreCase(@Param("name") String name, Pageable pageable);
     
-    List<Person> findByTmdbId(String tmdbId);
-    
     Optional<Person> findByName(String name);
 } 

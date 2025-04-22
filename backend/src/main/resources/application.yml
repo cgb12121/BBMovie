@@ -89,7 +89,7 @@ spring:
   ai:
     vectorstore:
       elasticsearch:
-        index-name: movies
+        index-name: "movies"
 
 
 #Data encrypt/decrypt
@@ -110,11 +110,15 @@ spring:
 logging:
   level:
     org:
+      elasticsearch: DEBUG
       springframework:
         security: DEBUG
-#        ai: DEBUG
-#    ai:
-#      djl: DEBUG
+        data:
+          elasticsearch: DEBUG
+        ai: DEBUG
+    ai:
+      djl: DEBUG
+
 
 cloudinary:
   cloud-name: a
@@ -136,3 +140,7 @@ server:
     mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
 
 
+management:
+  endpoint:
+    shutdown:
+      access: none

@@ -15,14 +15,14 @@ public class SampleDataController {
     private final SampleDataLoaderService sampleDataLoaderService;
 
     @PostMapping("/load")
-    @PreAuthorize("hasRole('ADMIN')")
+//    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> loadSampleData() {
         sampleDataLoaderService.loadSampleData();
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/clean")
-    @PreAuthorize("hasRole('ADMIN')")
+//    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> cleanSampleData() {
         sampleDataLoaderService.cleanSampleData();
         return ResponseEntity.ok().build();

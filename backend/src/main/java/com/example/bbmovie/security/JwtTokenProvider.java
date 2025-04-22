@@ -11,10 +11,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.util.Collection;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Component
@@ -40,15 +37,16 @@ public class JwtTokenProvider {
 
     public String generateAccessToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        Map<String, String> roles = new HashMap<>();
-        roles.put("roles", authentication.getAuthorities().toString());
-        log.info("Putting roles in access-token: {}", roles.get("roles"));
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
+        List<String> roles = authentication.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
 
         String accessToken = Jwts.builder()
                 .setSubject(userDetails.getUsername())
-                .setClaims(roles)
+                .claim("roles", roles)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key)
@@ -63,15 +61,16 @@ public class JwtTokenProvider {
 
     public String generateRefreshToken(Authentication authentication) {
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        Map<String, String> roles = new HashMap<>();
-        roles.put("roles", authentication.getAuthorities().toString());
-        log.info("Putting roles in refresh-token: {}", roles.get("roles"));
+        List<String> roles = authentication.getAuthorities()
+                .stream()
+                .map(GrantedAuthority::getAuthority)
+                .toList();
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtRefreshExpirationInMs);
 
         String refreshToken = Jwts.builder()
                 .setSubject(userDetails.getUsername())
-                .setClaims(roles)
+                .claim("roles", roles)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key)
@@ -85,12 +84,22 @@ public class JwtTokenProvider {
         return refreshToken;
     }
 
+    public List<String> getRolesFromToken(String token) {
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(key)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.get("roles", List.class);
+    }
+
     public String getUsernameFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+        log.info("Token subject (username): {}", claims.getSubject());
         return claims.getSubject();
     }
     
@@ -100,16 +109,8 @@ public class JwtTokenProvider {
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
+        log.info("Claims extracted: {}", claims);
         return claims.getExpiration();
-    }
-
-    public Map getRolesFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.get("roles", Map.class);
     }
 
     public boolean validateToken(String token) {

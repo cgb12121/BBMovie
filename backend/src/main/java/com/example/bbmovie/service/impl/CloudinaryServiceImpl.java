@@ -22,7 +22,25 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         Map<?, ?> result = cloudinary.uploader()
             .upload(file.getBytes(), ObjectUtils.asMap(
                 "resource_type", "auto",
+                "folder", "posters"
+            ));
+        return (String) result.get("secure_url");
+    }
+
+    public String uploadMovie(MultipartFile file) throws IOException {
+        Map<?, ?> result = cloudinary.uploader()
+            .upload(file.getBytes(), ObjectUtils.asMap(
+                "resource_type", "auto",
                 "folder", "movies"
+            ));
+        return (String) result.get("secure_url");
+    }
+
+    public String uploadTrailer(MultipartFile file) throws IOException {
+        Map<?, ?> result = cloudinary.uploader()
+            .upload(file.getBytes(), ObjectUtils.asMap(
+                "resource_type", "auto",
+                "folder", "trailers"
             ));
         return (String) result.get("secure_url");
     }
