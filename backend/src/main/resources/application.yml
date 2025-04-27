@@ -6,6 +6,8 @@ app:
   change-password-token-expiration-minutes: 15
   verification-token-expiration-minutes: 15
 
+  otp-expiration-minutes: 1
+
   frontend:
     url: http://localhost:3000
 
@@ -101,10 +103,11 @@ spring:
 #  database.iterations: ${DATABASE_ITERATIONS}
 
 #Twilio
-#twilio:
-#  account-sid: ${TWILIO_ACCOUNT_SID}
-#  twilio.auth-token: ${TWILIO_AUTH_TOKEN}
-#  twilio.phone-number: ${TWILIO_PHONE_NUMBER}
+twilio:
+  account-sid: ${TWILIO_ACCOUNT_SID}
+  auth-token: ${TWILIO_AUTH_TOKEN}
+  phone-number: ${TWILIO_PHONE_NUMBER}
+  verification.service.sid: ${TWILIO_SERVICE_SID}
 
 
 logging:
@@ -121,9 +124,9 @@ logging:
 
 
 cloudinary:
-  cloud-name: a
-  api-key: a
-  api-secret: a
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
 
 
 huggingface:

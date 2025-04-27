@@ -1,6 +1,6 @@
 package com.example.bbmovie.security;
 
-import com.example.bbmovie.service.CustomUserDetailsService;
+import com.example.bbmovie.service.auth.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 
 import java.util.function.Supplier;

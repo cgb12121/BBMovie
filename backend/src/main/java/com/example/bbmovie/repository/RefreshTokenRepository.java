@@ -1,6 +1,6 @@
 package com.example.bbmovie.repository;
 
-import com.example.bbmovie.model.jwt.RefreshToken;
+import com.example.bbmovie.entity.jwt.RefreshToken;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

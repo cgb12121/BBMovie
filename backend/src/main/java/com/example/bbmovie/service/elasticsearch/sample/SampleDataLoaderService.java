@@ -1,6 +1,6 @@
 package com.example.bbmovie.service.elasticsearch.sample;
 
-import com.example.bbmovie.model.elasticsearch.MovieVectorDocument;
+import com.example.bbmovie.entity.elasticsearch.MovieVectorDocument;
 import com.example.bbmovie.service.elasticsearch.huggingface.MovieVectorSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;

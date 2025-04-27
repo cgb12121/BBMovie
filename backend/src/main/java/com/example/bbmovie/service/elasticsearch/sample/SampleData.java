@@ -1,6 +1,6 @@
 package com.example.bbmovie.service.elasticsearch.sample;
 
-import com.example.bbmovie.model.elasticsearch.MovieVectorDocument;
+import com.example.bbmovie.entity.elasticsearch.MovieVectorDocument;
 import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;

@@ -1,9 +1,8 @@
 package com.example.bbmovie.repository;
 
-import com.example.bbmovie.model.Genre;
+import com.example.bbmovie.entity.Genre;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
 import java.util.Optional;
 
 @Repository

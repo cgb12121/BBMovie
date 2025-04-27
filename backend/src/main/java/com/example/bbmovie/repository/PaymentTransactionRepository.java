@@ -1,6 +1,6 @@
 package com.example.bbmovie.repository;
 
-import com.example.bbmovie.model.PaymentTransaction;
+import com.example.bbmovie.entity.PaymentTransaction;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;

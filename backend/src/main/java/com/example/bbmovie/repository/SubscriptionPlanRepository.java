@@ -1,6 +1,6 @@
 package com.example.bbmovie.repository;
 
-import com.example.bbmovie.model.SubscriptionPlan;
+import com.example.bbmovie.entity.SubscriptionPlan;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.Query;

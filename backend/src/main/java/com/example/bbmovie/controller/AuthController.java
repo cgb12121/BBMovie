@@ -7,10 +7,9 @@ import com.example.bbmovie.dto.response.AccessTokenResponse;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.UserResponse;
 import com.example.bbmovie.exception.UnauthorizedUserException;
-import com.example.bbmovie.model.enumerate.Role;
-import com.example.bbmovie.service.OAuth2Service;
-import com.example.bbmovie.service.RefreshTokenService;
-import com.example.bbmovie.service.intf.AuthService;
+import com.example.bbmovie.service.auth.OAuth2Service;
+import com.example.bbmovie.service.auth.RefreshTokenService;
+import com.example.bbmovie.service.auth.AuthService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -108,7 +107,7 @@ public class AuthController {
 
     @GetMapping("/verify-email")
     public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam("token") String token) {
-        authService.verifyEmail(token);
+        authService.verifyAccountByEmail(token);
         return ResponseEntity.ok(ApiResponse.success("Email verified successfully. You can now login."));
     }
 

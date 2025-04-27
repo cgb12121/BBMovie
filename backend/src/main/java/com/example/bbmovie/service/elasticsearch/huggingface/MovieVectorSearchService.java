@@ -3,8 +3,8 @@ package com.example.bbmovie.service.elasticsearch.huggingface;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
-import com.example.bbmovie.model.Movie;
-import com.example.bbmovie.model.elasticsearch.MovieVectorDocument;
+import com.example.bbmovie.entity.Movie;
+import com.example.bbmovie.entity.elasticsearch.MovieVectorDocument;
 import com.example.bbmovie.service.embedding.HuggingFaceEmbeddingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -27,32 +26,6 @@ public class MovieVectorSearchService {
 
    @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
    private String indexName;
-
-   public Object test() throws IOException {
-       float[] contentVector = huggingFaceEmbeddingService.generateEmbedding("test");
-       MovieVectorDocument doc = MovieVectorDocument.builder()
-               .id("test")
-               .title("test")
-               .description("test")
-               .contentVector(contentVector)
-               .rating(3.0)
-               .categories(List.of("Hehe"))
-               .posterUrl("none")
-               .releaseDate(LocalDateTime.now())
-               .build();
-       elasticsearchClient.index(i -> i
-               .index(indexName)
-               .id(doc.getId())
-               .document(doc)
-       );
-       Object result = elasticsearchClient.get(g -> g
-               .index(indexName)
-               .id("test")
-               , Object.class
-       );
-       log.info("Indexed document: {}", result);
-       return result;
-   }
 
     public List<?> searchSimilarMovies(String query, int limit) throws IOException {
         float[] queryVectorArray = huggingFaceEmbeddingService.generateEmbedding(query);
@@ -158,7 +131,6 @@ public class MovieVectorSearchService {
                 .document(document)
         );
     }
-
 
     public void deleteAllDocuments() throws IOException {
         elasticsearchClient.deleteByQuery(d -> d

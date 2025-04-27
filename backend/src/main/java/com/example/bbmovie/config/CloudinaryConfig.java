@@ -1,6 +1,7 @@
 package com.example.bbmovie.config;
 
 import com.cloudinary.Cloudinary;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,7 +20,7 @@ public class CloudinaryConfig {
 
     @Value("${cloudinary.api-secret}")
     private String apiSecret;
-    
+
     @Bean
     public Cloudinary cloudinary() {
         Map<String, String> config = new HashMap<>();
@@ -27,5 +28,10 @@ public class CloudinaryConfig {
         config.put("api_key", apiKey);
         config.put("api_secret", apiSecret);
         return new Cloudinary(config);
+    }
+
+    @Bean(value = "cloudinaryObjectMapper")
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
     }
 }
