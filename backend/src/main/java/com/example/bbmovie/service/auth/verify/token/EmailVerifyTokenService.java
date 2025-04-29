@@ -1,4 +1,4 @@
-package com.example.bbmovie.service.verify.token;
+package com.example.bbmovie.service.auth.verify.token;
 
 import com.example.bbmovie.entity.User;
 import lombok.extern.log4j.Log4j2;

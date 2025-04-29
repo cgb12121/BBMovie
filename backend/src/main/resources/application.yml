@@ -56,8 +56,12 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD}
       database: 0
-
-#  ssl:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 10MB
+  #  ssl:
 #    bundle:
 #      pem:
 #        server:

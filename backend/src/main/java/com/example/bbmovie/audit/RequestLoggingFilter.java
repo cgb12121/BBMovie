@@ -20,23 +20,35 @@ public class RequestLoggingFilter implements Filter {
             throws IOException, ServletException {
 
         if (request instanceof HttpServletRequest httpRequest) {
-            CachedBodyHttpServletRequest cachedRequest = new CachedBodyHttpServletRequest(httpRequest);
+            String contentType = httpRequest.getContentType();
 
-            String clientIp = httpRequest.getRemoteAddr();
-            String remoteUser = getClientIP();
-            String method = cachedRequest.getMethod();
-            String uri = cachedRequest.getRequestURI();
-            String query = cachedRequest.getQueryString();
-            String requestBody = cachedRequest.getReader().lines().collect(Collectors.joining(System.lineSeparator()));
+            boolean containsVideoOrImage = contentType.contains("video") || contentType.contains("image");
+            boolean isMultipart = contentType.startsWith("multipart/form-data") || containsVideoOrImage;
 
-            log.info("\n [{}] [Ip: {}/{}] Incoming Request: {} {}{} \n Body: {}",
-                    LocalDateTime.now(), clientIp, remoteUser,
-                    method, uri,
-                    query != null ? "?" + query : "",
-                    requestBody
-            );
+            if (isMultipart) {
+                log.info("\n [{}] [Ip: {}/{}] Incoming Multipart Request: {} {}{} \n Body: [multipart content omitted]",
+                        LocalDateTime.now(), httpRequest.getRemoteAddr(), getClientIP(),
+                        httpRequest.getMethod(), httpRequest.getRequestURI(),
+                        httpRequest.getQueryString() != null ? "?" + httpRequest.getQueryString() : ""
+                );
 
-            chain.doFilter(cachedRequest, response);
+                chain.doFilter(httpRequest, response);
+            } else {
+                CachedBodyHttpServletRequest cachedRequest = new CachedBodyHttpServletRequest(httpRequest);
+
+                String requestBody = cachedRequest.getReader()
+                        .lines()
+                        .collect(Collectors.joining(System.lineSeparator()));
+
+                log.info("\n [{}] [Ip: {}/{}] Incoming Request: {} {}{} \n Body: {}",
+                        LocalDateTime.now(), cachedRequest.getRemoteAddr(), getClientIP(),
+                        cachedRequest.getMethod(), cachedRequest.getRequestURI(),
+                        cachedRequest.getQueryString() != null ? "?" + cachedRequest.getQueryString() : "",
+                        requestBody
+                );
+
+                chain.doFilter(cachedRequest, response);
+            }
         } else {
             chain.doFilter(request, response);
         }

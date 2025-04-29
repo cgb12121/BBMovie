@@ -10,33 +10,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.Map;
 
-@Service
 @Log4j2
+@Service
 public class CloudinaryServiceImpl implements CloudinaryService {
-
 
     private final Cloudinary cloudinary;
     private final ObjectMapper objectMapper;
     private final MovieRepository movieRepository;
 
     public CloudinaryServiceImpl(
-            Cloudinary cloudinary,
             @Qualifier("cloudinaryObjectMapper") ObjectMapper objectMapper,
-            MovieRepository movieRepository
-    ) {
+            MovieRepository movieRepository, Cloudinary cloudinary) {
         this.cloudinary = cloudinary;
         this.objectMapper = objectMapper;
         this.movieRepository = movieRepository;
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CloudinaryResponse uploadImage(Long movieId, MultipartFile file) throws IOException {
         FileValidator.validate(file);
 
@@ -52,16 +50,14 @@ public class CloudinaryServiceImpl implements CloudinaryService {
 
         CloudinaryResponse response = objectMapper.convertValue(result, CloudinaryResponse.class);
 
-        movie.setPosterUrl(response.getSecureUrl());
-        movie.setPosterPublicId(response.getPublicId());
-        movieRepository.save(movie);
+        movieRepository.updatePoster(movie.getId(), response.getSecureUrl(), response.getPublicId());
 
         log.info("Uploaded poster for movie {}: {}", movieId, response.getSecureUrl());
         return response;
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CloudinaryResponse uploadMovie(Long movieId, MultipartFile file) throws IOException {
         FileValidator.validate(file);
 
@@ -76,18 +72,16 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         ));
 
         CloudinaryResponse response = objectMapper.convertValue(result, CloudinaryResponse.class);
+        Integer duration = calculateDuration(response);
 
-        movie.setVideoUrl(response.getSecureUrl());
-        movie.setVideoPublicId(response.getPublicId());
-        movie.setDurationMinutes(calculateDuration(response));
-        movieRepository.save(movie);
+        movieRepository.updateVideo(movie.getId(), response.getSecureUrl(), response.getPublicId(), duration);
 
         log.info("Uploaded video for movie {}: {}", movieId, response.getSecureUrl());
         return response;
     }
 
     @Override
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public CloudinaryResponse uploadTrailer(Long movieId, MultipartFile file) throws IOException {
         FileValidator.validate(file);
 
@@ -103,9 +97,7 @@ public class CloudinaryServiceImpl implements CloudinaryService {
 
         CloudinaryResponse response = objectMapper.convertValue(result, CloudinaryResponse.class);
 
-        movie.setTrailerUrl(response.getSecureUrl());
-        movie.setTrailerPublicId(response.getPublicId());
-        movieRepository.save(movie);
+        movieRepository.updateTrailer(movie.getId(), response.getSecureUrl(), response.getPublicId());
 
         log.info("Uploaded trailer for movie {}: {}", movieId, response.getSecureUrl());
         return response;
@@ -122,9 +114,7 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         Map<?, ?> result = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
         CloudinaryResponse response = objectMapper.convertValue(result, CloudinaryResponse.class);
 
-        movie.setPosterUrl(null);
-        movie.setPosterPublicId(null);
-        movieRepository.save(movie);
+        movieRepository.deletePoster(movie.getId());
 
         log.info("Deleted poster for movie {} with public ID: {}", movie.getId(), publicId);
         return response;
@@ -141,10 +131,7 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         Map<?, ?> result = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
         CloudinaryResponse response = objectMapper.convertValue(result, CloudinaryResponse.class);
 
-        movie.setVideoUrl(null);
-        movie.setVideoPublicId(null);
-        movie.setDurationMinutes(null);
-        movieRepository.save(movie);
+        movieRepository.deleteVideo(movie.getId());
 
         log.info("Deleted video for movie {} with public ID: {}", movie.getId(), publicId);
         return response;
@@ -161,9 +148,7 @@ public class CloudinaryServiceImpl implements CloudinaryService {
         Map<?, ?> result = cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
         CloudinaryResponse response = objectMapper.convertValue(result, CloudinaryResponse.class);
 
-        movie.setTrailerUrl(null);
-        movie.setTrailerPublicId(null);
-        movieRepository.save(movie);
+        movieRepository.deleteTrailer(movie.getId());
 
         log.info("Deleted trailer for movie {} with public ID: {}", movie.getId(), publicId);
         return response;

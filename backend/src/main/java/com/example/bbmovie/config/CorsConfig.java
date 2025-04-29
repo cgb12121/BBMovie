@@ -36,7 +36,7 @@ public class CorsConfig {
             "X-Requested-With",
             "Access-Control-Allow-Origin",
             "X-XSRF-TOKEN",
-            "Range", // Important for video/image streaming
-            "Content-Range" // Important for video/image streaming responses
+            "Range",
+            "Content-Range"
     };
 }

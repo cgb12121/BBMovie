@@ -1,5 +1,6 @@
 package com.example.bbmovie.service.cloudinary;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
@@ -46,9 +47,10 @@ public class CloudinaryResponse {
     @JsonProperty("original_filename")
     private String originalFilename;
 
+    @JsonIgnore
     @JsonProperty("api_key")
     private String apiKey;
 
     // For video resources
-    private Integer duration;
+    private Integer duration = 0;
 } 

@@ -3,24 +3,23 @@ package com.example.bbmovie.controller;
 import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.service.cloudinary.CloudinaryService;
 import com.example.bbmovie.service.cloudinary.CloudinaryResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 
 @RestController
+@PreAuthorize("hasRole('ROLE_ADMIN')")
 @RequestMapping("/api/cloudinary")
+@RequiredArgsConstructor
 public class CloudinaryController {
 
     private final CloudinaryService cloudinaryService;
 
-    @Autowired
-    public CloudinaryController(CloudinaryService cloudinaryService) {
-        this.cloudinaryService = cloudinaryService;
-    }
-
+    //worked
     @PostMapping("/upload/image/{movieId}")
     public ResponseEntity<ApiResponse<CloudinaryResponse>> uploadImage(
             @PathVariable Long movieId,

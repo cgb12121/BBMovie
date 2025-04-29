@@ -3,7 +3,6 @@ package com.example.bbmovie.service.elasticsearch.huggingface;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
-import com.example.bbmovie.entity.Movie;
 import com.example.bbmovie.entity.elasticsearch.MovieVectorDocument;
 import com.example.bbmovie.service.embedding.HuggingFaceEmbeddingService;
 import lombok.RequiredArgsConstructor;
@@ -78,38 +77,6 @@ public class MovieVectorSearchService {
                 .collect(Collectors.toList());
     }
 
-
-    public void indexMovieWithVector(Movie movie) throws IOException {
-       String content = movie.getTitle() + " " + movie.getDescription();
-       float[] contentVector = huggingFaceEmbeddingService.generateEmbedding(content);
-
-       MovieVectorDocument document = MovieVectorDocument.builder()
-               .id(movie.getId().toString())
-               .title(movie.getTitle())
-               .description(movie.getDescription())
-               .contentVector(contentVector)
-               .rating(movie.getRating() != null ? movie.getRating() : 0.0f)
-               .categories(movie.getCategories().stream().toList())
-               .posterUrl(movie.getPosterUrl())
-               .releaseDate(movie.getReleaseDate().atStartOfDay())
-               .build();
-
-       elasticsearchClient.index(i -> i
-               .index(indexName)
-               .id(document.getId())
-               .document(document)
-       );
-        log.info("Content vector length: {}", contentVector.length);
-   }
-
-    private List<Float> convertToFloatList(float[] floats) {
-        List<Float> list = new ArrayList<>(floats.length);
-        for (float f : floats) {
-            list.add(f);
-        }
-        return list;
-    }
-
     public void indexMovieDocument(MovieVectorDocument doc) throws IOException {
         String content = doc.getTitle() + " " + doc.getDescription();
         float[] contentVector = huggingFaceEmbeddingService.generateEmbedding(content);
@@ -139,5 +106,13 @@ public class MovieVectorSearchService {
                         .matchAll(m -> m)
                 )
         );
+    }
+
+    private List<Float> convertToFloatList(float[] floats) {
+        List<Float> list = new ArrayList<>(floats.length);
+        for (float f : floats) {
+            list.add(f);
+        }
+        return list;
     }
 }

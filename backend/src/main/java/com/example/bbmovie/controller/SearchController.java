@@ -1,5 +1,6 @@
 package com.example.bbmovie.controller;
 
+import ai.djl.translate.TranslateException;
 import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.service.elasticsearch.huggingface.MovieVectorSearchService;
 import com.example.bbmovie.service.elasticsearch.local.LocalEmbeddingSearchService;
@@ -9,7 +10,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.List;
 
 @Log4j2
@@ -22,52 +22,32 @@ public class SearchController {
     private final LocalEmbeddingSearchService localEmbeddingSearchService;
 
     @GetMapping("/all")
-    public ResponseEntity<?> getAllMovies() {
-        try {
-            List<?> movies = movieVectorSearchService.getAllMovies();
-            return ResponseEntity.ok(movies);
-        } catch (Exception e) {
-            log.error(e);
-            return ResponseEntity.status(500).body(ApiResponse.error(e.getMessage()));
-        }
+    public ResponseEntity<ApiResponse<?>> localEmbeddingGetAllMovies() throws IOException {
+        List<?> movies = localEmbeddingSearchService.getAllMovies();
+        return ResponseEntity.ok(ApiResponse.success(movies));
     }
 
-    @GetMapping("/semantic-search")
-    public ResponseEntity<List<?>> semanticSearch(
+    @GetMapping("/similar-search")
+    public ResponseEntity<ApiResponse<List<?>>> localEmbeddingSemanticSearch(
             @RequestParam String query,
             @RequestParam(defaultValue = "10") int limit
-    ) {
-        try {
-            List<?> results = movieVectorSearchService.searchSimilarMovies(query, limit);
-            return ResponseEntity.ok(results);
-        } catch (IOException e) {
-            log.error(e);
-            return ResponseEntity.internalServerError().body(Collections.singletonList(ApiResponse.error(e.getMessage())));
-        }
+    ) throws TranslateException, IOException {
+        List<?> results = localEmbeddingSearchService.searchSimilarMovies(query, limit);
+        return ResponseEntity.ok(ApiResponse.success(results));
     }
 
-    @GetMapping("/local-embedding/all")
-    public ResponseEntity<?> localEmbeddingGetAllMovies() {
-        try {
-            List<?> movies = localEmbeddingSearchService.getAllMovies();
-            return ResponseEntity.ok(movies);
-        } catch (Exception e) {
-            log.error(e);
-            return ResponseEntity.status(500).body(ApiResponse.error(e.getMessage()));
-        }
+    @GetMapping("/hugging-face-api/all")
+    public ResponseEntity<ApiResponse<?>> getAllMovies() throws Exception {
+        List<?> movies = movieVectorSearchService.getAllMovies();
+        return ResponseEntity.ok(ApiResponse.success(movies));
     }
 
-    @GetMapping("/local-embedding/semantic-search")
-    public ResponseEntity<List<?>> localEmbeddingSemanticSearch(
+    @GetMapping("/hugging-face-api/semantic-search")
+    public ResponseEntity<ApiResponse<List<?>>> semanticSearch(
             @RequestParam String query,
             @RequestParam(defaultValue = "10") int limit
-    ) {
-        try {
-            List<?> results = localEmbeddingSearchService.searchSimilarMovies(query, limit);
-            return ResponseEntity.ok(results);
-        } catch (Exception e) {
-            log.error(e);
-            return ResponseEntity.internalServerError().body(Collections.singletonList(ApiResponse.error(e.getMessage())));
-        }
+    ) throws IOException {
+        List<?> results = movieVectorSearchService.searchSimilarMovies(query, limit);
+        return ResponseEntity.ok(ApiResponse.success(results));
     }
 }

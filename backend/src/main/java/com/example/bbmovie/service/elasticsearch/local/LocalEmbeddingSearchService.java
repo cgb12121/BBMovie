@@ -2,8 +2,12 @@ package com.example.bbmovie.service.elasticsearch.local;
 
 import ai.djl.translate.TranslateException;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.Script;
+import co.elastic.clients.elasticsearch._types.ScriptLanguage;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import co.elastic.clients.elasticsearch.core.UpdateResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import co.elastic.clients.json.JsonData;
 import com.example.bbmovie.entity.Movie;
 import com.example.bbmovie.entity.elasticsearch.MovieVectorDocument;
 import com.example.bbmovie.service.embedding.LocalEmbeddingService;
@@ -15,6 +19,7 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -34,7 +39,7 @@ public class LocalEmbeddingSearchService {
         List<Float> queryVector = convertToFloatList(queryVectorArray);
         log.info("queryVector: {}", queryVector);
 
-        SearchResponse<?> response = elasticsearchClient.search(s -> s
+        SearchResponse<?> response = elasticsearchClient.search(searchRequest -> searchRequest
                         .index(indexName)
                         .knn(knn -> knn
                                 .field("contentVector")
@@ -57,7 +62,7 @@ public class LocalEmbeddingSearchService {
     }
 
     public List<?> getAllMovies() throws IOException {
-        SearchResponse<?> response = elasticsearchClient.search(s -> s
+        SearchResponse<?> response = elasticsearchClient.search(searchRequest -> searchRequest
                         .index(indexName)
                         .query(q -> q.matchAll(m -> m))
                         .source(src -> src
@@ -79,7 +84,6 @@ public class LocalEmbeddingSearchService {
                 .collect(Collectors.toList());
     }
 
-
     public void indexMovieWithVector(Movie movie) throws IOException, TranslateException {
        String content = movie.getTitle() + " " + movie.getDescription();
        float[] contentVector = localEmbeddingService.generateEmbedding(content);
@@ -95,7 +99,7 @@ public class LocalEmbeddingSearchService {
                .releaseDate(movie.getReleaseDate().atStartOfDay())
                .build();
 
-       elasticsearchClient.index(i -> i
+       elasticsearchClient.index(indexRequest -> indexRequest
                .index(indexName)
                .id(document.getId())
                .document(document)
@@ -103,36 +107,69 @@ public class LocalEmbeddingSearchService {
         log.info("Content vector length: {}", contentVector.length);
    }
 
-    private List<Float> convertToFloatList(float[] floats) {
-        List<Float> list = new ArrayList<>(floats.length);
-        for (float f : floats) {
-            list.add(f);
+    public boolean deleteMovieIfExists(String movieId) throws IOException {
+        var response = elasticsearchClient.exists(e -> e
+                .index(indexName)
+                .id(movieId)
+        );
+        if (response.value()) {
+            elasticsearchClient.delete(d -> d.index(indexName).id(movieId));
+            log.info("Deleted document with ID {}", movieId);
+            return true;
+        } else {
+            log.warn("Document with ID {} does not exist", movieId);
+            return false;
         }
-        return list;
     }
 
-    public void indexMovieDocument(MovieVectorDocument doc) throws IOException, TranslateException {
-        String content = doc.getTitle() + " " + doc.getDescription();
-        float[] contentVector = localEmbeddingService.generateEmbedding(content);
-
-        MovieVectorDocument document = MovieVectorDocument.builder()
-                .id(doc.getId())
-                .title(doc.getTitle())
-                .description(doc.getDescription())
-                .contentVector(contentVector)
-                .rating(doc.getRating() != null ? doc.getRating() : 0.0f)
-                .categories(doc.getCategories().stream().toList())
-                .posterUrl(doc.getPosterUrl())
-                .releaseDate(doc.getReleaseDate())
+    public void updateRatingWithScript(String movieId, double newRating) throws IOException {
+        Script script = new Script.Builder()
+                .lang(ScriptLanguage.Painless.jsonValue())
+                .source("ctx._source.rating = params.rating")
+                .params(Map.of("rating", JsonData.of(newRating)))
                 .build();
 
-        elasticsearchClient.index(i -> i
-                .index(indexName)
-                .id(document.getId())
-                .document(document)
+        UpdateResponse<Object> response = elasticsearchClient.update(u -> u
+                        .index(indexName)
+                        .id(movieId)
+                        .script(script),
+                Object.class
         );
+
+        log.info("Updated rating for movie {} using script. Result: {}", movieId, response.result());
     }
 
+    public void updateMoviePartial(String movieId, Map<String, Object> fieldsToUpdate) throws IOException {
+        elasticsearchClient.update(updateRequest -> updateRequest
+                        .index(indexName)
+                        .id(movieId)
+                        .doc(fieldsToUpdate),
+                Object.class
+        );
+
+        log.info("Updated document partially {} with fields {}", movieId, fieldsToUpdate);
+    }
+
+    public void updateMovieEntirely(String movieId, Map<String, Object> fieldsToUpdate) throws IOException {
+        elasticsearchClient.update(updateRequest -> updateRequest
+                        .index(indexName)
+                        .id(movieId)
+                        .doc(fieldsToUpdate),
+                Object.class
+        );
+
+        log.info("Updated document entirely {} with fields {}", movieId, fieldsToUpdate);
+    }
+
+
+    public void deleteMovieById(String movieId) throws IOException {
+        elasticsearchClient.delete(deleteRequest -> deleteRequest
+                .index(indexName)
+                .id(movieId)
+        );
+
+        log.info("Deleted document with ID {} from index {}", movieId, indexName);
+    }
 
     public void deleteAllDocuments() throws IOException {
         elasticsearchClient.deleteByQuery(d -> d
@@ -141,5 +178,13 @@ public class LocalEmbeddingSearchService {
                         .matchAll(m -> m)
                 )
         );
+    }
+
+    private List<Float> convertToFloatList(float[] floats) {
+        List<Float> list = new ArrayList<>(floats.length);
+        for (float f : floats) {
+            list.add(f);
+        }
+        return list;
     }
 }

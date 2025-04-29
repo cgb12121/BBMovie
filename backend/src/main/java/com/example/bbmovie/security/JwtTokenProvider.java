@@ -84,6 +84,7 @@ public class JwtTokenProvider {
         return refreshToken;
     }
 
+    @SuppressWarnings("unchecked")
     public List<String> getRolesFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
