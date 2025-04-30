@@ -77,21 +77,34 @@ spring:
     password: changeme
     connection-timeout: 10s
     socket-timeout: 10s
+
   security:
     oauth2:
       client:
         registration:
+          github:
+            client-id: your-github-client-id
+            client-secret: your-github-client-secret
+            redirect-uri: "{baseUrl}/login/oauth2/code/github"
+            scope: read:user,user:email
           google:
-            client-id: ${CLIENT_ID}
-            client-secret: ${CLIENT_SECRET}
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-            scope: profile,email,openid
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: "http://localhost:8080/login/oauth2/code/google"
+            scope: profile,email
+          facebook:
+            client-id: your-facebook-client-id
+            client-secret: your-facebook-client-secret
+            redirect-uri: "{baseUrl}/login/oauth2/code/facebook"
+            scope: public_profile,email
         provider:
+          github:
+            user-info-uri: https://api.github.com/user
           google:
-            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
-            token-uri: https://oauth2.googleapis.com/token
             user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
-            user-name-attribute: sub
+          facebook:
+            user-info-uri: https://graph.facebook.com/me?fields=id,name,email
+
   ai:
     vectorstore:
       elasticsearch:
@@ -107,11 +120,11 @@ spring:
 #  database.iterations: ${DATABASE_ITERATIONS}
 
 #Twilio
-twilio:
-  account-sid: ${TWILIO_ACCOUNT_SID}
-  auth-token: ${TWILIO_AUTH_TOKEN}
-  phone-number: ${TWILIO_PHONE_NUMBER}
-  verification.service.sid: ${TWILIO_SERVICE_SID}
+#twilio:
+#  account-sid: ${TWILIO_ACCOUNT_SID}
+#  auth-token: ${TWILIO_AUTH_TOKEN}
+#  phone-number: ${TWILIO_PHONE_NUMBER}
+#  verification.service.sid: ${TWILIO_SERVICE_SID}
 
 
 logging:

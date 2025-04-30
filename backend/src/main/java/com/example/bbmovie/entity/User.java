@@ -1,6 +1,7 @@
 package com.example.bbmovie.entity;
 
 import com.example.bbmovie.entity.base.BaseEntity;
+import com.example.bbmovie.entity.enumerate.AuthProvider;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -27,6 +28,9 @@ public class User extends BaseEntity implements UserDetails {
 
     @Column(nullable = false, unique = true)
     private String email;
+
+    @Enumerated(EnumType.STRING)
+    private AuthProvider authProvider = AuthProvider.LOCAL;
 
     @Column(name = "first_name")
     private String firstName;

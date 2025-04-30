@@ -6,6 +6,7 @@ import com.example.bbmovie.dto.request.RegisterRequest;
 import com.example.bbmovie.dto.request.ResetPasswordRequest;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.UserResponse;
+import com.example.bbmovie.entity.enumerate.AuthProvider;
 import com.example.bbmovie.exception.*;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.repository.UserRepository;
@@ -63,6 +64,7 @@ public class AuthServiceImpl implements AuthService {
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
         user.setRoles(Collections.singleton("ROLE_USER"));
+        user.setAuthProvider(AuthProvider.LOCAL);
         user.setIsEnabled(false);
 
         User savedUser = userRepository.save(user);

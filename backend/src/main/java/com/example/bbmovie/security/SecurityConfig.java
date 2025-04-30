@@ -1,10 +1,14 @@
 package com.example.bbmovie.security;
 
+import com.example.bbmovie.security.oauth2.OAuth2LoginSuccessHandler;
 import com.example.bbmovie.service.auth.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,9 +20,11 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
+import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -34,6 +40,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+@Slf4j
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -43,6 +50,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final CorsConfigurationSource corsConfigurationSource;
     private final CustomUserDetailsService userDetailsService;
+    private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -71,9 +79,6 @@ public class SecurityConfig {
             )
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers("/api/auth/csrf")
-                    //TODO: remove later
-                    .ignoringRequestMatchers("/api/cloudinary/**")
-                    .ignoringRequestMatchers(TEST_ELASTICSEARCH_ENDPOINTS)
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
             )
@@ -81,26 +86,30 @@ public class SecurityConfig {
                 .configurationSource(corsConfigurationSource)
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers(AUTH_ENDPOINTS).permitAll()
-                .requestMatchers(SPRING_ACTUAL_ENDPOINTS).hasRole("ADMIN")
-                .requestMatchers(ERRORS_ENDPOINTS).permitAll()
-                .requestMatchers(SWAGGER_ENDPOINTS).permitAll()
+                .requestMatchers(EndPointsConfig.AUTH_ENDPOINTS).permitAll()
+                .requestMatchers(EndPointsConfig.SPRING_ACTUAL_ENDPOINTS).hasRole("ADMIN")
+                .requestMatchers(EndPointsConfig.ERRORS_ENDPOINTS).permitAll()
+                .requestMatchers(EndPointsConfig.SWAGGER_ENDPOINTS).permitAll()
+                .requestMatchers("/api/cloudinary/**").hasRole("ADMIN")
+                .requestMatchers("/api/search/**").permitAll()
                 .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
-                .requestMatchers(TEST_ELASTICSEARCH_ENDPOINTS).permitAll()
-                    //TODO: remove later
-                    .requestMatchers("/api/cloudinary/**").permitAll()
                 .anyRequest().authenticated()
             )
+            .requestCache(RequestCacheConfigurer::disable)
             .authenticationProvider(authenticationProvider())
             .sessionManagement(session -> session
                 .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                //TODO: implement later
-            .oauth2Login(oauth2 -> oauth2
-                .loginPage("/login")
-                .defaultSuccessUrl("/api/auth/callback", true)
+            .oauth2Login(oath2 -> oath2
+                    .successHandler(oAuth2LoginSuccessHandler)
+                    .failureHandler((request, response, exception) -> {
+                        log.error(exception.getMessage(), exception);
+                        response.sendRedirect(
+                                "http://localhost:3000/login?status=error&message=" + URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8)
+                        );
+                    })
             )
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }
 
@@ -121,34 +130,6 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
-
-    private static final String[] AUTH_ENDPOINTS = {
-            "/api/auth/**"
-    };
-
-    private static final String[] SWAGGER_ENDPOINTS = {
-        "/v3/api-docs",
-        "/swagger-ui.html",
-        "/swagger-resources/configuration/ui",
-        "/v3/api-docs.yaml",
-        "/v3/api-docs/swagger-config",
-    };
-
-    private static final String[] ERRORS_ENDPOINTS = {
-            "/error"
-    };
-
-    private static final String[] SPRING_ACTUAL_ENDPOINTS = {
-            "/actuator/**",
-            "/actuator/health",
-            "/actuator/info",
-            "/actuator/prometheus",
-            "/actuator/health/**",
-    };
-
-    private static final String[] TEST_ELASTICSEARCH_ENDPOINTS = {
-            "/api/search/**",
-    };
 
     static final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
         private final CsrfTokenRequestHandler plain = new CsrfTokenRequestAttributeHandler();

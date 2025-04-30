@@ -8,11 +8,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 @Component
 @Log4j2
@@ -36,16 +38,16 @@ public class JwtTokenProvider {
     }
 
     public String generateAccessToken(Authentication authentication) {
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
+        String username = getUsernameFromAuthentication(authentication);
         List<String> roles = authentication.getAuthorities()
                 .stream()
                 .map(GrantedAuthority::getAuthority)
-                .toList();
+                .collect(Collectors.toList());
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
         String accessToken = Jwts.builder()
-                .setSubject(userDetails.getUsername())
+                .setSubject(username)
                 .claim("roles", roles)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
@@ -60,16 +62,16 @@ public class JwtTokenProvider {
     }
 
     public String generateRefreshToken(Authentication authentication) {
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String username = getUsernameFromAuthentication(authentication);
         List<String> roles = authentication.getAuthorities()
                 .stream()
                 .map(GrantedAuthority::getAuthority)
-                .toList();
+                .collect(Collectors.toList());
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtRefreshExpirationInMs);
 
         String refreshToken = Jwts.builder()
-                .setSubject(userDetails.getUsername())
+                .setSubject(username)
                 .claim("roles", roles)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
@@ -82,6 +84,23 @@ public class JwtTokenProvider {
                 getExpirationDateFromToken(refreshToken)
         );
         return refreshToken;
+    }
+
+    private String getUsernameFromAuthentication(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetails userDetails) {
+            // Form-based authentication
+            return userDetails.getUsername();
+        } else if (principal instanceof DefaultOAuth2User oauth2User) {
+            // OAuth2 authentication
+            String email = oauth2User.getAttributes().getOrDefault("email", "").toString();
+            if (email.isEmpty()) {
+                throw new IllegalStateException("Email not found in OAuth2 user attributes");
+            }
+            return email;
+        } else {
+            throw new IllegalStateException("Unsupported principal type: " + principal.getClass().getName());
+        }
     }
 
     @SuppressWarnings("unchecked")
@@ -103,7 +122,7 @@ public class JwtTokenProvider {
         log.info("Token subject (username): {}", claims.getSubject());
         return claims.getSubject();
     }
-    
+
     public Date getExpirationDateFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
@@ -130,10 +149,10 @@ public class JwtTokenProvider {
     public void invalidateToken(String accessToken) {
         String blacklistKey = "blacklist:" + accessToken;
         redisTemplate.opsForValue().set(
-            blacklistKey,
-            "invalidated",
-            getExpirationDateFromToken(accessToken).getTime() - System.currentTimeMillis(),
-            TimeUnit.MILLISECONDS
+                blacklistKey,
+                "invalidated",
+                getExpirationDateFromToken(accessToken).getTime() - System.currentTimeMillis(),
+                TimeUnit.MILLISECONDS
         );
     }
 

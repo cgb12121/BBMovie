@@ -6,35 +6,29 @@ import com.example.bbmovie.dto.request.*;
 import com.example.bbmovie.dto.response.AccessTokenResponse;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.UserResponse;
+import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnauthorizedUserException;
-import com.example.bbmovie.service.auth.OAuth2Service;
+import com.example.bbmovie.service.UserService;
 import com.example.bbmovie.service.auth.RefreshTokenService;
 import com.example.bbmovie.service.auth.AuthService;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import org.springframework.http.CacheControl;
-import org.springframework.http.HttpStatus;
+import lombok.extern.log4j.Log4j2;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
-import org.springframework.security.oauth2.client.annotation.RegisteredOAuth2AuthorizedClient;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -42,14 +36,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
-    private final OAuth2AuthorizedClientService oAuth2AuthorizedClientService;
-    private final OAuth2Service OAuth2Service;
-
-    @GetMapping("/me")
-    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
-        return ResponseEntity.ok(ApiResponse.success(authService.loadAuthenticatedUser(userDetails.getUsername())));
-    }
+    private final UserService userService;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
@@ -165,108 +152,8 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully"));
     }
 
-    @GetMapping("/callback")
-    public ResponseEntity<ApiResponse<AuthResponse>> oauth2Callback(
-            @AuthenticationPrincipal OAuth2User principal,
-            @RequestParam("state") String state
-    ) {
-        String email = principal.getAttribute("email");
-        String name = principal.getAttribute("name");
-        if (email == null || name == null) {
-            return ResponseEntity.badRequest()
-                    .body(ApiResponse.error("Required user information is missing from Google OAuth2 response"));
-        }
-        AuthResponse response = OAuth2Service.loginViaGoogle(email, name);
-
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @GetMapping("/do-something-with-google-issued-token")
-    public ResponseEntity<ApiResponse<Object>> doSomethingWithGoogleTokens(
-        @AuthenticationPrincipal OAuth2User principal,
-        @RegisteredOAuth2AuthorizedClient("google") OAuth2AuthorizedClient client
-    ) {
-        try {
-            OAuth2AuthorizedClient googleAccount = oAuth2AuthorizedClientService.loadAuthorizedClient(
-                    "registrationId/clientId",
-                    principal.getName()
-            );
-
-            String googleAccessToken = googleAccount.getAccessToken().getTokenValue();
-            assert googleAccount.getAccessToken().getExpiresAt() != null;
-            if (googleAccount.getAccessToken().getExpiresAt().isBefore(Instant.now())) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(ApiResponse.error("Access token has expired"));
-            }
-
-            String googleRefreshToken = null;
-            if (googleAccount.getRefreshToken() != null) {
-                googleRefreshToken = googleAccount.getRefreshToken().getTokenValue();
-            }
-
-
-            Authentication googleUser = new UsernamePasswordAuthenticationToken(
-                    principal,
-                    null,
-                    principal.getAuthorities()
-            );
-
-            oAuth2AuthorizedClientService.saveAuthorizedClient(client, googleUser);
-
-            Map<String, Object> attributes = principal.getAttributes();
-            String email = (String) attributes.get("email");
-            String name = (String) attributes.get("name");
-            String picture = (String) attributes.get("picture");
-
-            String tokenInfo = String.format(
-                    "Successfully processed tokens for user: %s ,(%s), %s",
-                    name,
-                    email,
-                    picture
-            );
-
-            return ResponseEntity.ok(ApiResponse.success(tokenInfo));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(ApiResponse.error("Error processing OAuth2 tokens: " + e.getMessage()));
-        }
-    }
-
     @GetMapping("/csrf")
     public ResponseEntity<Void> csrf() {
         return ResponseEntity.ok().build();
-    }
-
-    @GetMapping("/test-cache-control")
-    public ResponseEntity<String> getUser() {
-        return ResponseEntity.ok()
-                .cacheControl(CacheControl.maxAge(60, TimeUnit.SECONDS))
-                .body("hello");
-    }
-
-    @GetMapping("/test-role")
-    @PreAuthorize("hasAnyRole('ROLE_USER', 'ROLE_ADMIN')")
-    public ResponseEntity<String> getRole(@AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok().body(userDetails.toString());
-    }
-
-    @GetMapping("/test-role-admin")
-    @PreAuthorize("hasAnyRole('ROLE_ADMIN')")
-    public ResponseEntity<String> testRoleAdmin(@AuthenticationPrincipal UserDetails userDetails) {
-        try {
-            return ResponseEntity.ok().body(userDetails.toString());
-        } catch (Exception e) {
-            return ResponseEntity.status(404).body(e.getMessage());
-        }
-    }
-
-    @GetMapping("/test-role-user")
-    @PreAuthorize("hasAnyRole('ROLE_USER')")
-    public ResponseEntity<String> testRoleUser(@AuthenticationPrincipal UserDetails userDetails) {
-        try {
-            return ResponseEntity.ok().body(userDetails.toString());
-        } catch (Exception e) {
-            return ResponseEntity.status(404).body(e.getMessage());
-        }
     }
 }
