@@ -1,18 +1,15 @@
 import { RouteObject } from 'react-router-dom';
 import Home from '../pages/Home';
 import Registration from '../pages/Registration';
-import EmailVerification from '../components/auth/EmailVerification';
+import EmailVerification from '../pages/EmailVerification';
 import Login from '../pages/Login';
 import Movies from '../pages/Movies';
 import MovieDetail from '../pages/MovieDetail';
 import Categories from '../pages/Categories';
 import CategoryDetail from '../pages/CategoryDetail';
-import Profile from '../pages/Profile';
 import NotFound from '../pages/NotFound';
 import Forbidden from '../pages/Forbidden';
 import SearchResults from '../pages/SearchResults';
-import RouteGuard from '../components/auth/RouteGuard';
-import MovieUpload from '../components/MovieUpload';
 
 export type AppRoute = RouteObject & {
     name?: string;
@@ -62,12 +59,6 @@ export const routes: AppRoute[] = [
         name: 'Category Detail'
     },
     {
-        path: '/profile',
-        element: <Profile />,
-        name: 'Profile',
-        isProtected: true
-    },
-    {
         path: '/search',
         element: <SearchResults />
     },
@@ -81,10 +72,4 @@ export const routes: AppRoute[] = [
         element: <Forbidden/>,
         name: 'Forbidden'
     },
-    {
-        path: '/admin/upload-movie',
-        element: <MovieUpload />,
-        isProtected: true,
-        roles: ['ADMIN', 'MODERATOR']
-    }
 ]; 

@@ -39,10 +39,12 @@ interface RegistrationData {
 }
 
 const Registration: React.FC = () => {
-  const [form] = Form.useForm();
-  const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState(0);
-  const [loading, setLoading] = useState(false);
+  const [form] = Form.useForm()
+  const navigate = useNavigate()
+  const [currentStep, setCurrentStep] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+
   const [formData, setFormData] = useState<RegistrationData>({
     email: "",
     password: "",
@@ -50,51 +52,44 @@ const Registration: React.FC = () => {
     username: "",
     firstName: "",
     lastName: "",
-  });
-  const [submitting, setSubmitting] = useState(false);
-
+  })
 
   useEffect(() => {
-    const savedData = localStorage.getItem("registrationData");
-    if (savedData) {
-      const parsedData = JSON.parse(savedData);
-      setFormData(parsedData);
-      form.setFieldsValue(parsedData);
+    const saved = localStorage.getItem("registrationData")
+    if (saved) {
+      const parsed = JSON.parse(saved)
+      setFormData(parsed)
+      form.setFieldsValue(parsed)
     }
-  }, [form]);
+  }, [form])
 
   useEffect(() => {
-    localStorage.setItem("registrationData", JSON.stringify(formData));
-  }, [formData]);
+    localStorage.setItem("registrationData", JSON.stringify(formData))
+  }, [formData])
 
   const updateFormData = (values: Partial<RegistrationData>) => {
-    setFormData((prev) => ({ ...prev, ...values }));
-  };
+    setFormData((prev) => ({ ...prev, ...values }))
+  }
 
   const handleNext = async () => {
     try {
-      const values = await form.validateFields();
-      updateFormData(values);
-      setCurrentStep((prev) => prev + 1);
-    } catch (error) {
-      console.error("Validation failed:", error);
+      const values = await form.validateFields()
+      updateFormData(values)
+      setCurrentStep((prev) => prev + 1)
+    } catch (err) {
+      console.error("Validation failed:", err)
     }
-  };
+  }
 
-  const handleBack = () => {
-    setCurrentStep((prev) => prev - 1);
-  };
+  const handleBack = () => setCurrentStep((prev) => prev - 1)
 
   const handleSubmit = async () => {
-    if (submitting) return;
-
+    if (submitting) return
     try {
-      setSubmitting(true);
-
-      const values = await form.validateFields();
-      updateFormData(values);
-
-      setLoading(true);
+      setSubmitting(true)
+      const values = await form.validateFields()
+      updateFormData(values)
+      setLoading(true)
 
       await api.post("/api/auth/register", {
         email: formData.email,
@@ -102,33 +97,23 @@ const Registration: React.FC = () => {
         password: formData.password,
         firstName: formData.firstName,
         lastName: formData.lastName,
-      });
+      })
 
-      localStorage.removeItem("registrationData");
-
-      message.success("Registration successful! Please check your email to verify your account.");
-      navigate("/login?status=success&message=Registration successful! Please check your email to verify your account.");
+      localStorage.removeItem("registrationData")
+      message.success("Registration successful! Please check your email.")
+      navigate("/login?status=success&message=Registration successful! Please check your email.")
     } catch (error: any) {
-      console.error("Registration error:", error);
-      message.error(error.response?.data?.message ?? "Registration failed. Please try again.");
+      message.error(error.response?.data?.message ?? "Registration failed. Try again.")
     } finally {
-      setSubmitting(false);
-      setLoading(false);
+      setSubmitting(false)
+      setLoading(false)
     }
   }
 
   const formVariants = {
     hidden: { opacity: 0, x: 50 },
-    visible: {
-      opacity: 1,
-      x: 0,
-      transition: { duration: 0.4 },
-    },
-    exit: {
-      opacity: 0,
-      x: -50,
-      transition: { duration: 0.3 },
-    },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.4 } },
+    exit: { opacity: 0, x: -50, transition: { duration: 0.3 } },
   }
 
   const steps = [
@@ -139,9 +124,8 @@ const Registration: React.FC = () => {
           name="email"
           rules={[
             { required: true, message: "Please enter your email" },
-            { type: "email", message: "Please enter a valid email" },
+            { type: "email", message: "Enter a valid email" },
           ]}
-          initialValue={formData.email}
         >
           <StyledInput
             prefix={<MailOutlined />}
@@ -159,9 +143,8 @@ const Registration: React.FC = () => {
             name="password"
             rules={[
               { required: true, message: "Please enter a password" },
-              { min: 8, message: "Password must be at least 8 characters" },
+              { min: 8, message: "Minimum 8 characters" },
             ]}
-            initialValue={formData.password}
           >
             <StyledPassword
               prefix={<LockOutlined />}
@@ -180,11 +163,10 @@ const Registration: React.FC = () => {
                   if (!value || getFieldValue("password") === value) {
                     return Promise.resolve()
                   }
-                  return Promise.reject(new Error("The two passwords do not match"))
+                  return Promise.reject(new Error("Passwords do not match"))
                 },
               }),
             ]}
-            initialValue={formData.confirmPassword}
           >
             <StyledPassword
               prefix={<LockOutlined />}
@@ -202,7 +184,6 @@ const Registration: React.FC = () => {
           <Form.Item
             name="username"
             rules={[{ required: true, message: "Please enter a username" }]}
-            initialValue={formData.username}
           >
             <StyledInput
               prefix={<UserOutlined />}
@@ -214,7 +195,6 @@ const Registration: React.FC = () => {
           <Form.Item
             name="firstName"
             rules={[{ required: true, message: "Please enter your first name" }]}
-            initialValue={formData.firstName}
           >
             <StyledInput
               prefix={<IdcardOutlined />}
@@ -226,7 +206,6 @@ const Registration: React.FC = () => {
           <Form.Item
             name="lastName"
             rules={[{ required: true, message: "Please enter your last name" }]}
-            initialValue={formData.lastName}
           >
             <StyledInput
               prefix={<IdcardOutlined />}
@@ -268,7 +247,7 @@ const Registration: React.FC = () => {
                 <SecondaryButton
                   onClick={handleBack}
                   icon={<ArrowLeftOutlined />}
-                  style={{ width: currentStep === steps.length - 1 ? "48%" : "100px" }}
+                  style={{ width: "48%" }}
                 >
                   Back
                 </SecondaryButton>
@@ -297,8 +276,8 @@ const Registration: React.FC = () => {
           </FormContainer>
         </StyledForm>
 
-        <Space direction="vertical" size="small" style={{ width: "100%", marginTop: "24px" }}>
-          <Link to="/login" style={{ display: "block", textAlign: "center", color: "rgba(255, 255, 255, 0.7)" }}>
+        <Space style={{ width: "100%", marginTop: 24, justifyContent: "center" }}>
+          <Link to="/login" style={{ color: "rgba(255, 255, 255, 0.7)" }}>
             Already have an account? Sign in
           </Link>
         </Space>
@@ -307,4 +286,4 @@ const Registration: React.FC = () => {
   )
 }
 
-export default Registration;
+export default Registration

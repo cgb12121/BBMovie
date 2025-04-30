@@ -100,8 +100,9 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
                 .revoked(false)
                 .build();
         refreshTokenRepository.save(refreshTokenToDb);
+
         response.addHeader("Set-Cookie",
-                ResponseCookie.from("access-token", accessToken)
+                ResponseCookie.from("accessToken", accessToken)
                         .httpOnly(true)
                         .secure(true)
                         .sameSite("Strict")

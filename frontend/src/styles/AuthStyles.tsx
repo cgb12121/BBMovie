@@ -172,27 +172,43 @@ export const GoogleButton = styled(SocialButton)`
   background: #ffffff;
   color: #3c4043;
   border: 1px solid #dadce0;
-  
-  &:hover, &:focus {
+
+  &:hover,
+  &:focus {
     background: #f7f8f8 !important;
     color: #3c4043 !important;
     border-color: #dadce0 !important;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   }
-`
+`;
 
 export const FacebookButton = styled(SocialButton)`
   background: #1877f2;
   color: #ffffff;
   border: 1px solid #1877f2;
-  
-  &:hover, &:focus {
+
+  &:hover,
+  &:focus {
     background: #166fe5 !important;
     color: #ffffff !important;
     border-color: #166fe5 !important;
     box-shadow: 0 4px 12px rgba(24, 119, 242, 0.3);
   }
-`
+`;
+
+export const GithubButton = styled(SocialButton)`
+  background: #24292e;
+  color: #ffffff;
+  border: 1px solid #24292e;
+
+  &:hover,
+  &:focus {
+    background: #1b1f23 !important;
+    color: #ffffff !important;
+    border-color: #1b1f23 !important;
+    box-shadow: 0 4px 12px rgba(36, 41, 46, 0.3);
+  }
+`;
 
 export const LinkText = styled.div`
   text-align: center;

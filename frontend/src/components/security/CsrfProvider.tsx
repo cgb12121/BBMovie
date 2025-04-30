@@ -5,28 +5,35 @@ interface CsrfProviderProps {
      children: React.ReactNode;
 }
 
+const getCookie = (name: string): string | null => {
+     const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
+     return match ? decodeURIComponent(match[2]) : null;
+};
+
 const CsrfProvider: React.FC<CsrfProviderProps> = ({ children }) => {
      const [isLoading, setIsLoading] = useState(true);
 
      useEffect(() => {
           const initializeCsrf = async () => {
-               try {
-                    await api.get('api/auth/csrf');
-               } catch (error) {
-                    console.error('Failed to initialize CSRF token:', error);
-               } finally {
-                    setIsLoading(false);
+               const existingToken = getCookie('XSRF-TOKEN');
+
+               if (!existingToken) {
+                    try {
+                         await api.get('/api/auth/csrf');
+                    } catch (error) {
+                         console.error('Failed to initialize CSRF token:', error);
+                    }
                }
+
+          setIsLoading(false);
           };
 
           initializeCsrf();
      }, []);
 
-     if (isLoading) {
-          return null;
-     }
+     if (isLoading) return null;
 
      return <>{children}</>;
 };
 
-export default CsrfProvider; 
+export default CsrfProvider;

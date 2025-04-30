@@ -2,24 +2,26 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { 
-  Link, 
-  useNavigate, 
-  useLocation 
+import {
+  Link,
+  useNavigate,
+  useLocation
 } from "react-router-dom"
-import { 
-  Form, 
-  Alert, 
-  Space, 
-  message 
+import {
+  Form,
+  Alert,
+  message,
+  Checkbox,
+  Row,
+  Col
 } from "antd"
+import { FcGoogle } from "react-icons/fc"
+import { FaFacebookF, FaGithub } from "react-icons/fa"
 import {
   LockOutlined,
   MailOutlined,
-  GoogleOutlined,
-  FacebookOutlined,
   CheckCircleFilled,
-  CloseCircleFilled,
+  CloseCircleFilled
 } from "@ant-design/icons"
 import { motion, AnimatePresence } from "framer-motion"
 import api from "../services/api"
@@ -31,34 +33,47 @@ import {
   PrimaryButton,
   GoogleButton,
   FacebookButton,
+  GithubButton,
   LinkText,
-  OrDivider,
+  OrDivider
 } from "../styles/AuthStyles"
-import { 
+import {
   IconWrapper,
-  ModalMessage, 
-  ModalTitle, 
-  ProgressBar, 
-  StyledModal 
+  ModalMessage,
+  ModalTitle,
+  ProgressBar,
+  StyledModal
 } from "../styles/LoginStyles"
 
 interface LoginFormData {
   email: string
   password: string
+  remember?: boolean
 }
+
+const OAUTH_BASE_URL = "http://localhost:8080/oauth2/authorization"
 
 const Login: React.FC = () => {
   const [form] = Form.useForm<LoginFormData>()
   const navigate = useNavigate()
   const location = useLocation()
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [notificationVisible, setNotificationVisible] = useState(false)
+  const [socialLoading, setSocialLoading] = useState<string | null>(null)
 
   const query = new URLSearchParams(location.search)
   const status = query.get("status")
   const messageFromQuery = query.get("message")
 
+  // Redirect if already logged in
+  useEffect(() => {
+    const isLoggedIn = !!localStorage.getItem("user")
+    if (isLoggedIn) navigate("/")
+  }, [navigate])
+
+  // Show success/error modal from URL query
   useEffect(() => {
     if (status) {
       setNotificationVisible(true)
@@ -66,49 +81,47 @@ const Login: React.FC = () => {
         setNotificationVisible(false)
         navigate("/login", { replace: true })
       }, 5000)
-
       return () => clearTimeout(timer)
     }
   }, [status, navigate])
 
   const onFinish = async (values: LoginFormData) => {
+    setLoading(true)
+    setError(null)
+
     try {
-      setLoading(true)
-      setError(null)
-
-      const response = await api.post("/api/auth/login", {
-        email: values.email,
-        password: values.password,
-      })
-
-      localStorage.setItem("user", JSON.stringify(response.data))
+      const { data } = await api.post("/api/auth/login", values)
+      localStorage.setItem("user", JSON.stringify(data))
       message.success("Login successful!")
       navigate("/")
-    } catch (error: any) {
-      console.error("Login error:", error)
-      setError(error.response?.data?.message ?? "Login failed. Please check your credentials.")
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Login failed. Please check your credentials."
+      setError(msg)
     } finally {
       setLoading(false)
     }
   }
 
   const handleSocialLogin = (provider: string) => {
-    message.info(`${provider} login coming soon!`)
+    try {
+      setSocialLoading(provider)
+      window.location.href = `${OAUTH_BASE_URL}/${provider.toLowerCase()}`
+    } catch (err) {
+      console.error(`${provider} login error:`, err)
+      setError(`Failed to initiate ${provider} login. Please try again.`)
+      setSocialLoading(null)
+    }
   }
 
   const formVariants = {
     hidden: { opacity: 0, y: 20 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.5 },
-    },
-    exit: {
-      opacity: 0,
-      y: -20,
-      transition: { duration: 0.3 },
-    },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+    exit: { opacity: 0, y: -20, transition: { duration: 0.3 } }
   }
+
+  const googleIcon = FcGoogle({ size: 20 }) as JSX.Element;
+  const facebookIcon = FaFacebookF({ size: 20 }) as JSX.Element;
+  const githubIcon = FaGithub({ size: 20 }) as JSX.Element;
 
   return (
     <AuthLayout title="Welcome Back" subtitle="Sign in to continue to BBMovie">
@@ -121,8 +134,8 @@ const Login: React.FC = () => {
                 description={error}
                 type="error"
                 showIcon
-                style={{ marginBottom: 24 }}
                 closable
+                style={{ marginBottom: 24 }}
                 onClose={() => setError(null)}
               />
             )}
@@ -133,19 +146,27 @@ const Login: React.FC = () => {
               onFinish={onFinish}
               layout="vertical"
               size="large"
+              initialValues={{ remember: true }}
             >
               <Form.Item
                 name="email"
                 rules={[
                   { required: true, message: "Please enter your email" },
-                  { type: "email", message: "Please enter a valid email" },
+                  { type: "email", message: "Please enter a valid email" }
                 ]}
               >
                 <StyledInput prefix={<MailOutlined />} placeholder="Email" autoComplete="email" />
               </Form.Item>
 
-              <Form.Item name="password" rules={[{ required: true, message: "Please enter your password" }]}>
+              <Form.Item
+                name="password"
+                rules={[{ required: true, message: "Please enter your password" }]}
+              >
                 <StyledPassword prefix={<LockOutlined />} placeholder="Password" autoComplete="current-password" />
+              </Form.Item>
+
+              <Form.Item name="remember" valuePropName="checked">
+                <Checkbox>Remember me</Checkbox>
               </Form.Item>
 
               <Form.Item>
@@ -164,23 +185,41 @@ const Login: React.FC = () => {
                 <span>or continue with</span>
               </OrDivider>
 
-              <Space direction="horizontal" style={{ width: "100%", justifyContent: "space-between" }}>
-                <GoogleButton
-                  style={{ width: "100%" }}
-                  onClick={() => handleSocialLogin("Google")}
-                  icon={<GoogleOutlined />}
-                >
-                  Google
-                </GoogleButton>
-
-                <FacebookButton
-                  style={{ width: "100%" }}
-                  onClick={() => handleSocialLogin("Facebook")}
-                  icon={<FacebookOutlined />}
-                >
-                  Facebook
-                </FacebookButton>
-              </Space>
+              <Row gutter={16}>
+                <Col span={8}>
+                  <GoogleButton
+                    onClick={() => handleSocialLogin("Google")}
+                    icon={googleIcon}
+                    loading={socialLoading === "Google"}
+                    disabled={!!socialLoading}
+                    block
+                  >
+                    Google
+                  </GoogleButton>
+                </Col>
+                <Col span={8}>
+                  <FacebookButton
+                    onClick={() => handleSocialLogin("Facebook")}
+                    icon={facebookIcon}
+                    loading={socialLoading === "Facebook"}
+                    disabled={!!socialLoading}
+                    block
+                  >
+                    Facebook
+                  </FacebookButton>
+                </Col>
+                <Col span={8}>
+                  <GithubButton
+                    onClick={() => handleSocialLogin("Github")}
+                    icon={githubIcon}
+                    loading={socialLoading === "Github"}
+                    disabled={!!socialLoading}
+                    block
+                  >
+                    GitHub
+                  </GithubButton>
+                </Col>
+              </Row>
             </Form>
 
             <LinkText>
@@ -215,7 +254,9 @@ const Login: React.FC = () => {
         <ModalTitle>{status === "success" ? "Success" : "Error"}</ModalTitle>
 
         <ModalMessage>
-          {messageFromQuery ?? (status === "success" ? "Operation completed successfully." : "An error occurred.")}
+          {messageFromQuery ?? (status === "success"
+            ? "Operation completed successfully."
+            : "An error occurred.")}
         </ModalMessage>
 
         <PrimaryButton type="primary" block onClick={() => setNotificationVisible(false)}>
@@ -228,4 +269,4 @@ const Login: React.FC = () => {
   )
 }
 
-export default Login;
+export default Login
