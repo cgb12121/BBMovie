@@ -1,12 +1,12 @@
 package com.example.bbmovie.security;
 
+import com.example.bbmovie.entity.User;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Component;
@@ -14,7 +14,6 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 @Component
 @Log4j2
@@ -39,78 +38,69 @@ public class JwtTokenProvider {
 
     public String generateAccessToken(Authentication authentication) {
         String username = getUsernameFromAuthentication(authentication);
-        List<String> roles = authentication.getAuthorities()
-                .stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
+        String role = getRoleFromAuthentication(authentication);
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtExpirationInMs);
 
-        String accessToken = Jwts.builder()
+        return Jwts.builder()
                 .setSubject(username)
-                .claim("role", roles)
+                .claim("role", role)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key)
                 .compact();
-        log.info("\n\t Generated access token for {}: \n\tToken: {}\n\tExpiration:{}",
-                getUsernameFromToken(accessToken),
-                accessToken,
-                getExpirationDateFromToken(accessToken)
-        );
-        return accessToken;
     }
 
     public String generateRefreshToken(Authentication authentication) {
         String username = getUsernameFromAuthentication(authentication);
-        List<String> roles = authentication.getAuthorities()
-                .stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toList());
+        String role = getRoleFromAuthentication(authentication);
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + jwtRefreshExpirationInMs);
 
-        String refreshToken = Jwts.builder()
+        return Jwts.builder()
                 .setSubject(username)
-                .claim("role", roles)
+                .claim("role", role)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key)
                 .compact();
-
-        log.info("\n\t Generated refresh token for {}: \n\tToken: {}\n\tExpiration:{}",
-                getUsernameFromToken(refreshToken),
-                refreshToken,
-                getExpirationDateFromToken(refreshToken)
-        );
-        return refreshToken;
     }
 
     private String getUsernameFromAuthentication(Authentication authentication) {
         Object principal = authentication.getPrincipal();
         if (principal instanceof UserDetails userDetails) {
-            // Form-based authentication
             return userDetails.getUsername();
         } else if (principal instanceof DefaultOAuth2User oauth2User) {
-            // OAuth2 authentication
             String email = oauth2User.getAttributes().getOrDefault("email", "").toString();
             if (email.isEmpty()) {
                 throw new IllegalStateException("Email not found in OAuth2 user attributes");
             }
             return email;
-        } else {
-            throw new IllegalStateException("Unsupported principal type: " + principal.getClass().getName());
         }
+        throw new IllegalStateException("Unsupported principal type: " + principal.getClass().getName());
     }
 
-    @SuppressWarnings("unchecked")
+    private String getRoleFromAuthentication(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof User user) {
+            return "ROLE_" + user.getRole().name();
+        } else if (principal instanceof DefaultOAuth2User) {
+            return "ROLE_USER";
+        }
+        throw new IllegalStateException("Unsupported principal type: " + principal.getClass().getName());
+    }
+
     public List<String> getRolesFromToken(String token) {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(key)
                 .build()
                 .parseClaimsJws(token)
                 .getBody();
-        return claims.get("roles", List.class);
+        String role = claims.get("role", String.class);
+        if (role == null) {
+            throw new IllegalStateException("Role claim missing in token");
+        }
+        return List.of(role);
     }
 
     public String getUsernameFromToken(String token) {
@@ -142,8 +132,8 @@ public class JwtTokenProvider {
             return true;
         } catch (Exception ex) {
             log.error("Token validation error: {}", ex.getMessage());
+            return false;
         }
-        return false;
     }
 
     public void invalidateToken(String accessToken) {

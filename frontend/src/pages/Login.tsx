@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useState, useEffect } from "react"
 import {
@@ -10,7 +8,6 @@ import {
 import {
   Form,
   Alert,
-  message,
   Checkbox,
   Row,
   Col
@@ -21,8 +18,7 @@ import {
   LockOutlined,
   MailOutlined,
   CheckCircleFilled,
-  CloseCircleFilled
-} from "@ant-design/icons"
+  CloseCircleFilled} from "@ant-design/icons"
 import { motion, AnimatePresence } from "framer-motion"
 import api from "../services/api"
 import AuthLayout from "../styles/AuthLayout"
@@ -44,18 +40,22 @@ import {
   ProgressBar,
   StyledModal
 } from "../styles/LoginStyles"
+import { useDispatch } from "react-redux"
+import { setCredentials } from "../redux/authSlice"
 
 interface LoginFormData {
   email: string
   password: string
-  remember?: boolean
+  // remember?: boolean
 }
 
 const OAUTH_BASE_URL = "http://localhost:8080/oauth2/authorization"
 
 const Login: React.FC = () => {
-  const [form] = Form.useForm<LoginFormData>()
-  const navigate = useNavigate()
+  const [form] = Form.useForm<LoginFormData>();
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+
   const location = useLocation()
 
   const [loading, setLoading] = useState(false)
@@ -88,18 +88,29 @@ const Login: React.FC = () => {
   const onFinish = async (values: LoginFormData) => {
     setLoading(true)
     setError(null)
-
+  
     try {
       const { data } = await api.post("/api/auth/login", values)
-      localStorage.setItem("user", JSON.stringify(data))
-      message.success("Login successful!")
-      navigate("/")
+      onLoginSuccess(data.data)
     } catch (err: any) {
       const msg = err?.response?.data?.message || "Login failed. Please check your credentials."
       setError(msg)
     } finally {
       setLoading(false)
     }
+  }
+
+  const onLoginSuccess = (userData: any) => {
+    const { userResponse, authResponse } = userData
+
+    // Save to Redux
+    dispatch(setCredentials({ user: userResponse, auth: authResponse }))
+
+    // Save to localStorage (optional)
+    localStorage.setItem("user", JSON.stringify(userResponse))
+    localStorage.setItem("auth", JSON.stringify(authResponse))
+
+    navigate("/")
   }
 
   const handleSocialLogin = (provider: string) => {
@@ -118,6 +129,7 @@ const Login: React.FC = () => {
     visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
     exit: { opacity: 0, y: -20, transition: { duration: 0.3 } }
   }
+
 
   const googleIcon = FcGoogle({ size: 20 }) as JSX.Element;
   const facebookIcon = FaFacebookF({ size: 20 }) as JSX.Element;
@@ -146,7 +158,7 @@ const Login: React.FC = () => {
               onFinish={onFinish}
               layout="vertical"
               size="large"
-              initialValues={{ remember: true }}
+              // initialValues={{ remember: false }}
             >
               <Form.Item
                 name="email"
@@ -165,9 +177,11 @@ const Login: React.FC = () => {
                 <StyledPassword prefix={<LockOutlined />} placeholder="Password" autoComplete="current-password" />
               </Form.Item>
 
+              {/* 
               <Form.Item name="remember" valuePropName="checked">
                 <Checkbox>Remember me</Checkbox>
-              </Form.Item>
+              </Form.Item> 
+              */}
 
               <Form.Item>
                 <PrimaryButton
@@ -189,7 +203,7 @@ const Login: React.FC = () => {
                 <Col span={8}>
                   <GoogleButton
                     onClick={() => handleSocialLogin("Google")}
-                    icon={googleIcon}
+                    icon={ googleIcon }
                     loading={socialLoading === "Google"}
                     disabled={!!socialLoading}
                     block
@@ -200,7 +214,7 @@ const Login: React.FC = () => {
                 <Col span={8}>
                   <FacebookButton
                     onClick={() => handleSocialLogin("Facebook")}
-                    icon={facebookIcon}
+                    icon={ facebookIcon }
                     loading={socialLoading === "Facebook"}
                     disabled={!!socialLoading}
                     block
@@ -211,7 +225,7 @@ const Login: React.FC = () => {
                 <Col span={8}>
                   <GithubButton
                     onClick={() => handleSocialLogin("Github")}
-                    icon={githubIcon}
+                    icon={ githubIcon }
                     loading={socialLoading === "Github"}
                     disabled={!!socialLoading}
                     block

@@ -1,35 +1,50 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
-interface User {
-  email: string;
+interface UserResponse {
+  username: string
+  email: string
+  firstName: string
+  lastName: string
+  profilePictureUrl: string | null
+}
+
+interface AuthResponse {
+  accessToken: string
+  email: string
+  role: string
 }
 
 interface AuthState {
-  isAuthenticated: boolean;
-  user: User | null;
+  user: UserResponse | null
+  auth: AuthResponse | null
 }
 
 const initialState: AuthState = {
-  isAuthenticated: !!localStorage.getItem('user'),
-  user: localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null,
-};
+  user: null,
+  auth: null
+}
 
 const authSlice = createSlice({
-  name: 'auth',
+  name: "auth",
   initialState,
   reducers: {
-    login: (state, action: PayloadAction<User>) => {
-      state.isAuthenticated = true;
-      state.user = action.payload;
-      localStorage.setItem('user', JSON.stringify(action.payload));
+    setCredentials: (
+      state,
+      action: PayloadAction<{ user: UserResponse; auth: AuthResponse }>
+    ) => {
+      state.user = action.payload.user
+      state.auth = action.payload.auth
     },
     logout: (state) => {
-      state.isAuthenticated = false;
-      state.user = null;
-      localStorage.removeItem('user');
-    },
-  },
-});
+      state.user = null
+      state.auth = null
 
-export const { login, logout } = authSlice.actions;
-export default authSlice.reducer;
+      localStorage.removeItem('user');
+      localStorage.removeItem('auth');
+      localStorage.removeItem('accessToken');
+    }
+  }
+})
+
+export const { setCredentials, logout } = authSlice.actions
+export default authSlice.reducer

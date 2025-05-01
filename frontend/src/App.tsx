@@ -7,7 +7,7 @@ import { routes } from './routes';
 import CsrfProvider from './components/security/CsrfProvider';
 
 const App: React.FC = () => {
-  return (
+   return (
     <CsrfProvider>
       <ConfigProvider theme={{ token: { colorPrimary: '#1890ff', borderRadius: 4 } }}>
         <Router>

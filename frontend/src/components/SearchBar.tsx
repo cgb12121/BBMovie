@@ -35,21 +35,24 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSelect, onSearch, placeholder, 
     const [options, setOptions] = useState<AutoCompleteOption[]>([]);
     const [isLoading, setIsLoading] = useState(loading);
 
-    const searchMovies = async (query: string) => {
+    const searchMovies = async (query: string, limit?: number) => {
         if (!query) {
             setOptions([]);
             return;
         }
-
+    
+        const params = new URLSearchParams({ query });
+        if (limit) params.append("limit", String(limit));
+    
         setIsLoading(true);
         try {
-            const response = await api.get<Movie[]>(`/movies/search?query=${query}`);
+            const response = await api.get<Movie[]>(`/api/search/similar-search?${params.toString()}`);
             const movies = response.data;
-
+    
             setOptions(movies.map(movie => ({
                 value: movie.id,
                 label: (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div key={movie.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                         <img
                             src={movie.posterUrl}
                             alt={movie.title}
@@ -71,6 +74,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSelect, onSearch, placeholder, 
             setIsLoading(false);
         }
     };
+    
 
     const debouncedSearch = debounce(searchMovies, 300);
 

@@ -25,7 +25,7 @@ const CsrfProvider: React.FC<CsrfProviderProps> = ({ children }) => {
                     }
                }
 
-          setIsLoading(false);
+               setIsLoading(false);
           };
 
           initializeCsrf();

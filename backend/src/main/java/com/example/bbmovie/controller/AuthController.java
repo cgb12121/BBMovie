@@ -40,6 +40,18 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final GoogleTokenVerifier googleTokenVerifier;
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @GetMapping("/hello")
+    public ResponseEntity<ApiResponse<String>> hello() {
+        return ResponseEntity.ok(ApiResponse.success("Hello World!"));
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
+        return ResponseEntity.ok(ApiResponse.success(authService.loadAuthenticatedUser(userDetails.getUsername())));
+    }
+
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
             @Valid @RequestBody RegisterRequest request,
@@ -67,12 +79,6 @@ public class AuthController {
         }
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @GetMapping("/profile")
-    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
-        return ResponseEntity.ok(ApiResponse.success(authService.loadAuthenticatedUser(userDetails.getUsername())));
     }
 
     @PostMapping("/access-token/v2")
@@ -105,7 +111,7 @@ public class AuthController {
         boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bear") || tokenHeader.startsWith("Authorization");
         if (isValidAuthorizationHeader) {
             String accessToken = tokenHeader.substring(7);
-            authService.logout(accessToken);
+            authService.revokeAccessTokenAndRefreshToken(accessToken);
             return ResponseEntity.ok(ApiResponse.success("Logout successful"));
         }
         return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));

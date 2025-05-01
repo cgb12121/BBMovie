@@ -197,7 +197,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public void logout(String accessToken) {
+    public void revokeAccessTokenAndRefreshToken(String accessToken) {
         String email = tokenProvider.getUsernameFromToken(accessToken);
         refreshTokenService.deleteByEmail(email);
         tokenProvider.invalidateToken(accessToken);

@@ -26,7 +26,7 @@ public interface AuthService {
 
     LoginResponse login(AuthRequest request);
 
-    void logout(String accessToken);
+    void revokeAccessTokenAndRefreshToken(String accessToken);
 
     UserResponse loadAuthenticatedUser(String email);
 

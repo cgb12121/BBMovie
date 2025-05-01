@@ -1,8 +1,15 @@
 package com.example.bbmovie.security;
 
 import com.example.bbmovie.exception.BlacklistedJwtTokenException;
+import com.example.bbmovie.service.auth.CustomUserDetailsService;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
-import org.springframework.lang.NonNull;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.jetbrains.annotations.NotNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -12,35 +19,28 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
 @Component
+@RequiredArgsConstructor
+@Log4j2
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
-
-    public JwtAuthenticationFilter(JwtTokenProvider tokenProvider) {
-        this.tokenProvider = tokenProvider;
-    }
+    private final CustomUserDetailsService userDetailsService;
 
     @Override
     protected void doFilterInternal(
-        @NonNull HttpServletRequest request, 
-        @NonNull HttpServletResponse response, 
-        @NonNull FilterChain filterChain
+            @NotNull HttpServletRequest request,
+            @NotNull HttpServletResponse response,
+            @NotNull FilterChain filterChain
     ) throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
 
             if (jwt != null && tokenProvider.validateToken(jwt)) {
-
                 if (tokenProvider.isTokenBlacklisted(jwt)) {
                     throw new BlacklistedJwtTokenException("Token has been invalidated");
                 }
@@ -54,15 +54,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 UserDetails userDetails = new org.springframework.security.core.userdetails.User(
                         username, "", authorities
                 );
+
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, "", authorities
+                        userDetails, null, authorities
                 );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {
-            logger.error("Could not set user authentication in security context", ex);
+            log.error("Could not set user authentication in security context", ex);
         }
         filterChain.doFilter(request, response);
     }
@@ -76,14 +77,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
-                if ("access_token".equals(cookie.getName())) {
-                    return cookie.getValue();
-                }
-                if ("access-token".equals(cookie.getName())) {
+                if ("access_token".equals(cookie.getName()) || "access-token".equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }
         }
         return null;
     }
-} 
+}

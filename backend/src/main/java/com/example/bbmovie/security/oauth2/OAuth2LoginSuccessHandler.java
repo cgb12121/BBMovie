@@ -110,7 +110,7 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
         response.addHeader("Set-Cookie",
                 ResponseCookie.from("accessToken", accessToken)
                         .httpOnly(true)
-                        .secure(true)
+                        .secure(false) //set to true when using https
                         .sameSite("Strict")
                         .path("/")
                         .maxAge(Duration.ofMinutes(15))
