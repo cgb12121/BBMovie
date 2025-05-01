@@ -5,8 +5,10 @@ import com.example.bbmovie.dto.request.ChangePasswordRequest;
 import com.example.bbmovie.dto.request.RegisterRequest;
 import com.example.bbmovie.dto.request.ResetPasswordRequest;
 import com.example.bbmovie.dto.response.AuthResponse;
+import com.example.bbmovie.dto.response.LoginResponse;
 import com.example.bbmovie.dto.response.UserResponse;
 import com.example.bbmovie.entity.enumerate.AuthProvider;
+import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.exception.*;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.repository.UserRepository;
@@ -26,7 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
 
 @Service
 @Log4j2
@@ -63,7 +64,7 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(passwordEncoder.encode(request.getPassword()));
         user.setFirstName(request.getFirstName());
         user.setLastName(request.getLastName());
-        user.setRoles(Collections.singleton("ROLE_USER"));
+        user.setRole(Role.USER);
         user.setAuthProvider(AuthProvider.LOCAL);
         user.setIsEnabled(false);
 
@@ -154,7 +155,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public AuthResponse login(AuthRequest request) {
+    public LoginResponse login(AuthRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
 
@@ -179,12 +180,20 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = tokenProvider.generateAccessToken(authentication);
         String refreshToken = tokenProvider.generateRefreshToken(authentication);
 
-        return AuthResponse.builder()
+        AuthResponse authResponse = AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
                 .email(user.getEmail())
-                .role(user.getRoles().toString())
+                .role(user.getRole())
                 .build();
+        UserResponse userResponse = UserResponse.builder()
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .profilePictureUrl(user.getProfilePictureUrl())
+                .build();
+        return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
     }
 
     @Override
@@ -204,7 +213,6 @@ public class AuthServiceImpl implements AuthService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .profilePictureUrl(user.getProfilePictureUrl())
-                .roles(user.getRoles())
                 .build();
     }
 

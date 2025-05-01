@@ -5,6 +5,7 @@ import com.example.bbmovie.dto.request.ChangePasswordRequest;
 import com.example.bbmovie.dto.request.RegisterRequest;
 import com.example.bbmovie.dto.request.ResetPasswordRequest;
 import com.example.bbmovie.dto.response.AuthResponse;
+import com.example.bbmovie.dto.response.LoginResponse;
 import com.example.bbmovie.dto.response.UserResponse;
 import jakarta.validation.Valid;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +24,7 @@ public interface AuthService {
 
     void sendOtp(String email);
 
-    AuthResponse login(AuthRequest request);
+    LoginResponse login(AuthRequest request);
 
     void logout(String accessToken);
 

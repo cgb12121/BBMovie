@@ -1,10 +1,14 @@
 package com.example.bbmovie.dto.response;
 
+import com.example.bbmovie.entity.enumerate.Role;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.Collections;
+import java.util.Set;
 
 @Data
 @Builder
@@ -20,5 +24,5 @@ public class AuthResponse {
     private String email;
 
     @Builder.Default
-    private String role = "ROLE_USER";
+    private Role role = Role.USER;
 }

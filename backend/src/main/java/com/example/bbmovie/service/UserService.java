@@ -16,7 +16,8 @@ public class UserService {
         return userRepository.findByEmail(email);
     }
 
-    public void createUserFromOAuth2(User user) {
+    public User createUserFromOAuth2(User user) {
         userRepository.save(user);
+        return user;
     }
 }

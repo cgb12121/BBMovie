@@ -48,7 +48,7 @@ public class JwtTokenProvider {
 
         String accessToken = Jwts.builder()
                 .setSubject(username)
-                .claim("roles", roles)
+                .claim("role", roles)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key)
@@ -72,7 +72,7 @@ public class JwtTokenProvider {
 
         String refreshToken = Jwts.builder()
                 .setSubject(username)
-                .claim("roles", roles)
+                .claim("role", roles)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .signWith(key)

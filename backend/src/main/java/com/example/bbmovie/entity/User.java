@@ -2,6 +2,7 @@ package com.example.bbmovie.entity;
 
 import com.example.bbmovie.entity.base.BaseEntity;
 import com.example.bbmovie.entity.enumerate.AuthProvider;
+import com.example.bbmovie.entity.enumerate.Role;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,7 +13,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
-import java.util.Set;
+import java.util.List;
 
 @Entity
 @Table(name = "users")
@@ -56,10 +57,9 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "last_logged_in")
     private LocalDateTime lastLoginTime;
 
-    @ElementCollection(fetch = FetchType.EAGER)
-    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
-    @Column(name = "role")
-    private Set<String> roles;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    private Role role;
 
     @Override
     public String getUsername() {
@@ -68,9 +68,7 @@ public class User extends BaseEntity implements UserDetails {
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return roles.stream()
-                .map(SimpleGrantedAuthority::new)
-                .toList();
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
     @Override
@@ -92,4 +90,4 @@ public class User extends BaseEntity implements UserDetails {
     public boolean isEnabled() {
         return isEnabled;
     }
-} 
+}

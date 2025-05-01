@@ -5,28 +5,30 @@ import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.dto.request.*;
 import com.example.bbmovie.dto.response.AccessTokenResponse;
 import com.example.bbmovie.dto.response.AuthResponse;
+import com.example.bbmovie.dto.response.LoginResponse;
 import com.example.bbmovie.dto.response.UserResponse;
-import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnauthorizedUserException;
-import com.example.bbmovie.service.UserService;
+import com.example.bbmovie.security.oauth2.GoogleTokenVerifier;
 import com.example.bbmovie.service.auth.RefreshTokenService;
 import com.example.bbmovie.service.auth.AuthService;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import lombok.extern.log4j.Log4j2;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
+import org.springframework.http.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -36,7 +38,7 @@ public class AuthController {
 
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
-    private final UserService userService;
+    private final GoogleTokenVerifier googleTokenVerifier;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<AuthResponse>> register(
@@ -55,7 +57,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(
+    public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody AuthRequest request,
             BindingResult bindingResult
     ) {
@@ -63,8 +65,25 @@ public class AuthController {
             return ResponseEntity.badRequest().body(ApiResponse.validationError(
                             ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
-        AuthResponse response = authService.login(request);
+        LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
+        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
+        return ResponseEntity.ok(ApiResponse.success(authService.loadAuthenticatedUser(userDetails.getUsername())));
+    }
+
+    @PostMapping("/access-token/v2")
+    public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessTokenFromRefreshToken(@RequestHeader("Authorization") String tokenHeader) {
+        boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bear") || tokenHeader.startsWith("Authorization");
+        if (isValidAuthorizationHeader) {
+            String accessToken = tokenHeader.substring(7);
+            AccessTokenResponse accessTokenResponse = new AccessTokenResponse(accessToken);
+            return ResponseEntity.ok(ApiResponse.success(accessTokenResponse));
+        }
+        return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
     }
 
     @PostMapping("/access-token")
@@ -155,5 +174,46 @@ public class AuthController {
     @GetMapping("/csrf")
     public ResponseEntity<Void> csrf() {
         return ResponseEntity.ok().build();
+    }
+
+    //FIXME: not tested
+    @PreAuthorize("denyAll()")
+    @PostMapping("/oauth2/google")
+    public ResponseEntity<?> loginWithGoogle(@RequestBody Map<String, String> body) {
+        String idToken = body.get("idToken");
+        try {
+            GoogleIdToken.Payload payload = googleTokenVerifier.verify(idToken);
+            String email = payload.getEmail();
+            // Check if a user exists, create JWT, etc...
+            return ResponseEntity.ok().body("Login successful");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid token");
+        }
+    }
+
+    //FIXME: not tested
+    @PreAuthorize("denyAll()")
+    @GetMapping("/verify-google-token")
+    public ResponseEntity<?> verifyGoogleToken(@RequestHeader("Authorization") String bearerToken) {
+        String token = bearerToken.replace("Bearer ", "");
+        RestTemplate restTemplate = new RestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(token);
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+                "https://www.googleapis.com/oauth2/v3/userinfo",
+                HttpMethod.GET,
+                entity,
+                Map.class
+        );
+
+        if (response.getStatusCode() == HttpStatus.OK) {
+            Map userInfo = response.getBody();
+            // Validate email, use user info...
+            return ResponseEntity.ok(userInfo);
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid access token");
+        }
     }
 }
