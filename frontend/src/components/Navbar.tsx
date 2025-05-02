@@ -39,7 +39,7 @@ const Navbar: React.FC = () => {
         <NavLink to="/categories">Categories</NavLink>
 
         {isAuthenticated ? (
-          <UserMenu userEmail={user?.email} />
+          <UserMenu />
         ) : (
           <AuthLinks />
         )}

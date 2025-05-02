@@ -73,18 +73,29 @@ const Login: React.FC = () => {
     if (isLoggedIn) navigate("/")
   }, [navigate])
 
-  // Show success/error modal from URL query
+  // Handle OAuth2 redirect and fetch user data
   useEffect(() => {
-    if (status) {
-      setNotificationVisible(true)
+    if (status === "success" && messageFromQuery === "oauth2") {
+      setNotificationVisible(true);
+      // Fetch user data after OAuth2 success
+      const fetchUserData = async () => {
+        try {
+          const { data } = await api.get("/api/auth/oauth2-callback");
+          onLoginSuccess(data.data);
+        } catch (err: any) {
+          console.error("Failed to fetch user data:", err);
+          setError("Failed to load user data after OAuth2 login.");
+        }
+      };
+      fetchUserData();
       const timer = setTimeout(() => {
-        setNotificationVisible(false)
-        navigate("/login", { replace: true })
-      }, 5000)
-      return () => clearTimeout(timer)
+        setNotificationVisible(false);
+        navigate("/", { replace: true }); // Redirect to home after success
+      }, 5000);
+      return () => clearTimeout(timer);
     }
-  }, [status, navigate])
-
+  }, [status, messageFromQuery, navigate, dispatch]);
+  
   const onFinish = async (values: LoginFormData) => {
     setLoading(true)
     setError(null)
@@ -118,9 +129,9 @@ const Login: React.FC = () => {
       setSocialLoading(provider)
       window.location.href = `${OAUTH_BASE_URL}/${provider.toLowerCase()}`
     } catch (err) {
-      console.error(`${provider} login error:`, err)
-      setError(`Failed to initiate ${provider} login. Please try again.`)
-      setSocialLoading(null)
+      console.error("Failed to fetch user data:", err);
+      setError("Failed to load user data after OAuth2 login.");
+      navigate("/login", { replace: true });
     }
   }
 

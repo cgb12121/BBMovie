@@ -10,6 +10,7 @@ import CategoryDetail from '../pages/CategoryDetail';
 import NotFound from '../pages/NotFound';
 import Forbidden from '../pages/Forbidden';
 import SearchResults from '../pages/SearchResults';
+import Profile from '../pages/Profile';
 
 export type AppRoute = RouteObject & {
     name?: string;
@@ -72,4 +73,9 @@ export const routes: AppRoute[] = [
         element: <Forbidden/>,
         name: 'Forbidden'
     },
+    {
+        path: '/profile',
+        element: <Profile/>,
+        name: 'Profile'
+    }
 ]; 

@@ -1,26 +1,23 @@
-import axios from 'axios';
+import api from "./api";
 
-const API_URL = process.env.REACT_APP_API_URL ?? 'http://localhost:8080/api';
 
 export interface LoginCredentials {
     username: string;
     password: string;
 }
 
-export interface AuthResponse {
+export interface AccessTokenResponse {
     accessToken: string;
-    refreshToken: string;
 }
+
 
 class AuthService {
     private static instance: AuthService;
     private accessToken: string | null = null;
-    private refreshToken: string | null = null;
-    private refreshPromise: Promise<AuthResponse> | null = null;
+    private refreshAccessTokenPromise: Promise<AccessTokenResponse> | null = null;
 
     private constructor() {
         this.accessToken = localStorage.getItem('accessToken');
-        this.refreshToken = localStorage.getItem('refreshToken');
         this.setupAxiosInterceptors();
     }
 
@@ -32,7 +29,7 @@ class AuthService {
     }
 
     private setupAxiosInterceptors() {
-        axios.interceptors.request.use(
+        api.interceptors.request.use(
             (config) => {
                 if (this.accessToken) {
                     config.headers.Authorization = `Bearer ${this.accessToken}`;
@@ -44,7 +41,7 @@ class AuthService {
             }
         );
 
-        axios.interceptors.response.use(
+        api.interceptors.response.use(
             (response) => response,
             async (error) => {
                 const originalRequest = error.config;
@@ -55,7 +52,7 @@ class AuthService {
                     try {
                         const newTokens = await this.refreshAccessToken();
                         originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
-                        return axios(originalRequest);
+                        return api(originalRequest);
                     } catch (refreshError) {
                         this.logout();
                         return Promise.reject(refreshError as Error);
@@ -67,47 +64,45 @@ class AuthService {
         );
     }
 
-    private async refreshAccessToken(): Promise<AuthResponse> {
-        if (!this.refreshToken) {
-            throw new Error('No refresh token available');
+    private async refreshAccessToken(): Promise<AccessTokenResponse> {
+        if (!this.accessToken) {
+            throw new Error('No new access token available');
         }
 
-        if (this.refreshPromise) {
-            return this.refreshPromise;
+        if (this.refreshAccessTokenPromise) {
+            return this.refreshAccessTokenPromise;
         }
 
-        this.refreshPromise = axios.post<AuthResponse>(`${API_URL}/auth/refresh`, {
-            refreshToken: this.refreshToken
+        this.refreshAccessTokenPromise = api.post<AccessTokenResponse>(`/api/auth/access-token`, {
+            accessToken: this.accessToken
         }).then(response => {
-            const { accessToken, refreshToken } = response.data;
-            this.setTokens(accessToken, refreshToken);
+            const { accessToken } = response.data;
+            this.setTokens(accessToken);
             return response.data;
         }).finally(() => {
-            this.refreshPromise = null;
+            this.refreshAccessTokenPromise = null;
         });
 
-        return this.refreshPromise;
+        return this.refreshAccessTokenPromise;
     }
 
-    private setTokens(accessToken: string, refreshToken: string) {
+    private setTokens(accessToken: string) {
         this.accessToken = accessToken;
-        this.refreshToken = refreshToken;
         localStorage.setItem('accessToken', accessToken);
-        localStorage.setItem('refreshToken', refreshToken);
     }
 
-    public async login(credentials: LoginCredentials): Promise<AuthResponse> {
-        const response = await axios.post<AuthResponse>(`${API_URL}/auth/login`, credentials);
-        const { accessToken, refreshToken } = response.data;
-        this.setTokens(accessToken, refreshToken);
+    public async login(credentials: LoginCredentials): Promise<AccessTokenResponse> {
+        const response = await api.post<AccessTokenResponse>(`$/api/auth/login`, credentials);
+        const { accessToken } = response.data;
+        this.setTokens(accessToken);
         return response.data;
     }
 
     public async logout(): Promise<void> {
-        if (this.refreshToken) {
+        if (this.accessToken) {
             try {
-                await axios.post(`${API_URL}/auth/logout`, {
-                    refreshToken: this.refreshToken
+                await api.post(`/api/auth/logout`, {
+                    accessToken: this.accessToken
                 });
             } catch (error) {
                 console.error('Logout error:', error);
@@ -115,10 +110,7 @@ class AuthService {
         }
         
         this.accessToken = null;
-        this.refreshToken = null;
         localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
     }
 
     public getAccessToken(): string | null {
