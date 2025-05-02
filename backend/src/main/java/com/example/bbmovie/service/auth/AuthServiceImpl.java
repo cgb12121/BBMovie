@@ -207,7 +207,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public UserResponse loadAuthenticatedUser(String email) {
+    public UserResponse loadAuthenticatedUserInformation(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
         return UserResponse.builder()
@@ -217,6 +217,11 @@ public class AuthServiceImpl implements AuthService {
                 .lastName(user.getLastName())
                 .profilePictureUrl(user.getProfilePictureUrl())
                 .build();
+    }
+
+    @Override
+    public User loadAuthenticatedUser(String email) {
+        return userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
     }
 
     @Override

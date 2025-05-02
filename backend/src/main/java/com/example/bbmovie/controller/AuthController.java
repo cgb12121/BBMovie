@@ -7,7 +7,7 @@ import com.example.bbmovie.dto.response.AccessTokenResponse;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.LoginResponse;
 import com.example.bbmovie.dto.response.UserResponse;
-import com.example.bbmovie.entity.enumerate.Role;
+import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnauthorizedUserException;
 import com.example.bbmovie.security.oauth2.GoogleTokenVerifier;
 import com.example.bbmovie.service.auth.RefreshTokenService;
@@ -53,7 +53,7 @@ public class AuthController {
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
         if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
-        return ResponseEntity.ok(ApiResponse.success(authService.loadAuthenticatedUser(userDetails.getUsername())));
+        return ResponseEntity.ok(ApiResponse.success(authService.loadAuthenticatedUserInformation(userDetails.getUsername())));
     }
 
     @PostMapping("/register")
@@ -96,10 +96,11 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(accessTokenResponse));
     }
 
-    //TODO: test again to check if meet jwt expiration exception
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader("Authorization") String tokenHeader) {
-        boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bear") || tokenHeader.startsWith("Authorization");
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestHeader("Authorization") String tokenHeader
+    ) {
+        boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bear");
         if (isValidAuthorizationHeader) {
             String accessToken = tokenHeader.substring(7);
             authService.revokeAccessTokenAndRefreshToken(accessToken);
@@ -221,16 +222,18 @@ public class AuthController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("User not authenticated"));
         }
         Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
-        UserResponse userResponse = authService.loadAuthenticatedUser(userDetails.getUsername());
+        User user = authService.loadAuthenticatedUser(userDetails.getUsername());
+        UserResponse userResponse = authService.loadAuthenticatedUserInformation(userDetails.getUsername());
         assert accessTokenCookie != null;
         AuthResponse authResponse = AuthResponse
                 .builder()
                 .accessToken(accessTokenCookie.getValue())
                 .refreshToken(null)
-                .email(userResponse.getEmail())
-                .role(Role.USER)
+                .email(user.getEmail())
+                .role(user.getRole())
                 .build();
-
-        return ResponseEntity.ok(ApiResponse.success(LoginResponse.fromUserAndAuthResponse(userResponse, authResponse)));
+        return ResponseEntity.ok(
+                ApiResponse.success(LoginResponse.fromUserAndAuthResponse(userResponse, authResponse))
+        );
     }
 }

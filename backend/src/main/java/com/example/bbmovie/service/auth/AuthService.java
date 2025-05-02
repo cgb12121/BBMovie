@@ -7,6 +7,7 @@ import com.example.bbmovie.dto.request.ResetPasswordRequest;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.LoginResponse;
 import com.example.bbmovie.dto.response.UserResponse;
+import com.example.bbmovie.entity.User;
 import jakarta.validation.Valid;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +29,9 @@ public interface AuthService {
 
     void revokeAccessTokenAndRefreshToken(String accessToken);
 
-    UserResponse loadAuthenticatedUser(String email);
+    UserResponse loadAuthenticatedUserInformation(String email);
+
+    User loadAuthenticatedUser(String email);
 
     void changePassword(String requestEmail, @Valid ChangePasswordRequest request);
 

@@ -1,5 +1,6 @@
 package com.example.bbmovie.security;
 
+import com.example.bbmovie.security.oauth2.CustomAuthorizationRequestResolver;
 import com.example.bbmovie.security.oauth2.OAuth2LoginSuccessHandler;
 import com.example.bbmovie.service.auth.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ import org.springframework.security.config.annotation.web.configurers.RequestCac
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -50,6 +52,7 @@ public class SecurityConfig {
     private final CorsConfigurationSource corsConfigurationSource;
     private final CustomUserDetailsService userDetailsService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final ClientRegistrationRepository clientRegistrationRepository;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -108,10 +111,14 @@ public class SecurityConfig {
                                 "http://localhost:3000/login?status=error&message=" + URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8)
                         );
                     })
+                    .authorizationEndpoint(authorization -> authorization
+                            .authorizationRequestResolver(new CustomAuthorizationRequestResolver(clientRegistrationRepository))
+                    )
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }
+
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
