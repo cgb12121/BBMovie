@@ -180,6 +180,8 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = tokenProvider.generateAccessToken(authentication);
         String refreshToken = tokenProvider.generateRefreshToken(authentication);
 
+        refreshTokenService.saveRefreshToken(refreshToken, user.getEmail());
+
         AuthResponse authResponse = AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -197,6 +199,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
     public void revokeAccessTokenAndRefreshToken(String accessToken) {
         String email = tokenProvider.getUsernameFromToken(accessToken);
         refreshTokenService.deleteByEmail(email);

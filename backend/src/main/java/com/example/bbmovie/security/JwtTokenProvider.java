@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Component;
 
@@ -71,7 +72,16 @@ public class JwtTokenProvider {
         if (principal instanceof UserDetails userDetails) {
             return userDetails.getUsername();
         } else if (principal instanceof DefaultOAuth2User oauth2User) {
-            String email = oauth2User.getAttributes().getOrDefault("email", "").toString();
+            OAuth2AuthenticationToken oAuth2Token = (OAuth2AuthenticationToken) authentication;
+            String provider = oAuth2Token.getAuthorizedClientRegistrationId();
+            Map<String, Object> attributes = oauth2User.getAttributes();
+
+            String email = switch (provider) {
+                case "github" -> attributes.get("login").toString();
+                case "google", "facebook" -> attributes.get("email").toString();
+                default -> "";
+            };
+
             if (email.isEmpty()) {
                 throw new IllegalStateException("Email not found in OAuth2 user attributes");
             }
@@ -104,13 +114,23 @@ public class JwtTokenProvider {
     }
 
     public String getUsernameFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(key)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        log.info("Token subject (username): {}", claims.getSubject());
-        return claims.getSubject();
+        try {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+            log.info("Token subject (username): {}", claims.getSubject());
+            return claims.getSubject();
+        } catch (ExpiredJwtException e) {
+            // Extract claims from an expired token
+            Claims claims = e.getClaims();
+            log.info("Extracted username from expired token: {}", claims.getSubject());
+            return claims.getSubject();
+        } catch (JwtException e) {
+            log.error("Invalid token: {}", e.getMessage());
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
     }
 
     public Date getExpirationDateFromToken(String token) {
@@ -137,13 +157,23 @@ public class JwtTokenProvider {
     }
 
     public void invalidateToken(String accessToken) {
-        String blacklistKey = "blacklist:" + accessToken;
-        redisTemplate.opsForValue().set(
-                blacklistKey,
-                "invalidated",
-                getExpirationDateFromToken(accessToken).getTime() - System.currentTimeMillis(),
-                TimeUnit.MILLISECONDS
-        );
+        try {
+            String blacklistKey = "blacklist:" + accessToken;
+            redisTemplate.opsForValue().set(
+                    blacklistKey,
+                    "invalidated",
+                    getExpirationDateFromToken(accessToken).getTime() - System.currentTimeMillis(),
+                    TimeUnit.MILLISECONDS
+            );
+        } catch (ExpiredJwtException ex) {
+            String blacklistKey = "blacklist:" + accessToken;
+            redisTemplate.opsForValue().set(
+                    blacklistKey,
+                    "invalidated",
+                    jwtRefreshExpirationInMs,
+                    TimeUnit.MILLISECONDS
+            );
+        }
     }
 
     public boolean isTokenBlacklisted(String token) {

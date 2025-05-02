@@ -4,49 +4,82 @@ import com.example.bbmovie.entity.User;
 import com.example.bbmovie.entity.enumerate.AuthProvider;
 import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.entity.jwt.RefreshToken;
-import com.example.bbmovie.repository.RefreshTokenRepository;
 import com.example.bbmovie.security.JwtTokenProvider;
 import com.example.bbmovie.service.UserService;
+import com.example.bbmovie.service.auth.RefreshTokenService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.RandomStringUtils;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.ResponseCookie;
+import org.springframework.http.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.security.SecureRandom;
 import java.time.Duration;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
 /**
  * Handles successful OAuth2 login by processing user data, generating jwt tokens, and redirecting to the frontend.
  */
+@Log4j2
 @Component
 @RequiredArgsConstructor
 public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSuccessHandler {
 
     private final UserService userService;
     private final JwtTokenProvider jwtTokenProvider;
-    private final RefreshTokenRepository refreshTokenRepository;
+    private final RefreshTokenService refreshTokenService;
+    private final ObjectProvider<PasswordEncoder> passwordEncoderProvider;
 
     @Value("${app.frontend.url}")
     private String frontendUrl;
+
+    private PasswordEncoder getPasswordEncoder() {
+        return passwordEncoderProvider.getIfAvailable();
+    }
 
     private static final Map<String, ProviderConfig> PROVIDER_CONFIGS = initializeProviderConfigs();
 
     private static Map<String, ProviderConfig> initializeProviderConfigs() {
         Map<String, ProviderConfig> configs = new HashMap<>();
-        configs.put("github", new ProviderConfig("email", "name", "id", AuthProvider.GITHUB));
-        configs.put("google", new ProviderConfig("email", "name", "sub", AuthProvider.GOOGLE));
-        configs.put("facebook", new ProviderConfig("email", "name", "id", AuthProvider.FACEBOOK));
+        configs.put("github",
+                new ProviderConfig(
+                        "login",
+                        "name",
+                        "id",
+                        "avatar_url",
+                        AuthProvider.GITHUB)
+        );
+        configs.put("google",
+                new ProviderConfig(
+                        "email",
+                        "name",
+                        "sub",
+                        "avatar_url",
+                        AuthProvider.GOOGLE)
+        );
+        configs.put("facebook",
+                new ProviderConfig(
+                        "email",
+                        "name",
+                        "id",
+                        "avatar_url",
+                        AuthProvider.FACEBOOK)
+        );
         return configs;
     }
 
@@ -54,12 +87,15 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
         String emailAttribute;
         String nameAttribute;
         String userNameAttribute;
+        String avatarUrlAttribute;
         AuthProvider authProvider;
 
-        ProviderConfig(String emailAttribute, String nameAttribute, String userNameAttribute, AuthProvider authProvider) {
+        ProviderConfig(String emailAttribute, String nameAttribute, String userNameAttribute,
+                       String avatarUrlAttribute, AuthProvider authProvider) {
             this.emailAttribute = emailAttribute;
             this.nameAttribute = nameAttribute;
             this.userNameAttribute = userNameAttribute;
+            this.avatarUrlAttribute = avatarUrlAttribute;
             this.authProvider = authProvider;
         }
     }
@@ -69,21 +105,20 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
                                         Authentication authentication) throws IOException, ServletException {
         OAuth2AuthenticationToken oAuth2Token = (OAuth2AuthenticationToken) authentication;
         String provider = oAuth2Token.getAuthorizedClientRegistrationId();
-        ProviderConfig config = PROVIDER_CONFIGS.getOrDefault(provider, PROVIDER_CONFIGS.get("google"));
+        ProviderConfig config = PROVIDER_CONFIGS.get(provider);
 
         DefaultOAuth2User principal = (DefaultOAuth2User) authentication.getPrincipal();
         Map<String, Object> attributes = principal.getAttributes();
-        String email = attributes.getOrDefault(config.emailAttribute, "").toString();
-        String name = attributes.getOrDefault(config.nameAttribute, "").toString();
-
-        if (email.isBlank()) {
-            throw new IllegalStateException("Email not provided by OAuth2 provider: " + provider);
-        }
+        String email = attributes.getOrDefault(config.emailAttribute, "email").toString();
+        String name = attributes.getOrDefault(config.nameAttribute, "name").toString();
+        String avatarUrl = attributes.getOrDefault(config.avatarUrlAttribute, "avatar_url").toString();
 
         User user = userService.findByEmail(email).orElseGet(() -> {
             User newUser = new User();
             newUser.setEmail(email);
             newUser.setUsername(email);
+            newUser.setPassword(getPasswordEncoder().encode(generateRandomPasswordFoForOauth2()));
+            newUser.setProfilePictureUrl(avatarUrl);
             newUser.setRole(Role.USER);
             String[] nameParts = name.split(" ");
             newUser.setFirstName(nameParts.length > 0 ? nameParts[0] : "");
@@ -105,7 +140,8 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
                 .expiryDate(expirationDate)
                 .revoked(false)
                 .build();
-        refreshTokenRepository.save(refreshTokenToDb);
+
+        refreshTokenService.saveRefreshToken(refreshTokenToDb.getToken(), user.getEmail());
 
         response.addHeader("Set-Cookie",
                 ResponseCookie.from("accessToken", accessToken)
@@ -135,5 +171,10 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
                 ((OAuth2AuthenticationToken) authentication).getAuthorizedClientRegistrationId()
         );
         SecurityContextHolder.getContext().setAuthentication(securityAuth);
+    }
+
+    private String generateRandomPasswordFoForOauth2() {
+        Random random = new SecureRandom();
+        return RandomStringUtils.random(20, 0, 0, true, true, null, random);
     }
 }

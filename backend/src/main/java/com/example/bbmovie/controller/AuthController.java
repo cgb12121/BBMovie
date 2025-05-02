@@ -7,12 +7,15 @@ import com.example.bbmovie.dto.response.AccessTokenResponse;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.LoginResponse;
 import com.example.bbmovie.dto.response.UserResponse;
+import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.exception.UnauthorizedUserException;
 import com.example.bbmovie.security.oauth2.GoogleTokenVerifier;
 import com.example.bbmovie.service.auth.RefreshTokenService;
 import com.example.bbmovie.service.auth.AuthService;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -27,6 +30,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.WebUtils;
 
 import java.util.Map;
 
@@ -58,8 +62,7 @@ public class AuthController {
             BindingResult bindingResult
     ) {
         if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(ApiResponse.validationError(
-                            ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
+            return ResponseEntity.badRequest().body(ApiResponse.validationError(ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
 
         AuthResponse response = authService.register(request);
@@ -74,22 +77,10 @@ public class AuthController {
             BindingResult bindingResult
     ) {
         if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(ApiResponse.validationError(
-                            ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
+            return ResponseEntity.badRequest().body(ApiResponse.validationError(ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
         LoginResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success(response));
-    }
-
-    @PostMapping("/access-token/v2")
-    public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessTokenFromRefreshToken(@RequestHeader("Authorization") String tokenHeader) {
-        boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bear") || tokenHeader.startsWith("Authorization");
-        if (isValidAuthorizationHeader) {
-            String accessToken = tokenHeader.substring(7);
-            AccessTokenResponse accessTokenResponse = new AccessTokenResponse(accessToken);
-            return ResponseEntity.ok(ApiResponse.success(accessTokenResponse));
-        }
-        return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
     }
 
     @PostMapping("/access-token")
@@ -98,14 +89,14 @@ public class AuthController {
             BindingResult bindingResult
     ) {
         if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(ApiResponse.validationError(
-                            ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
+            return ResponseEntity.badRequest().body(ApiResponse.validationError(ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
         String newAccessToken = refreshTokenService.refreshAccessToken(request.getRefreshToken());
         AccessTokenResponse accessTokenResponse = new AccessTokenResponse(newAccessToken);
         return ResponseEntity.ok(ApiResponse.success(accessTokenResponse));
     }
 
+    //TODO: test again to check if meet jwt expiration exception
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(@RequestHeader("Authorization") String tokenHeader) {
         boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bear") || tokenHeader.startsWith("Authorization");
@@ -129,8 +120,7 @@ public class AuthController {
             BindingResult bindingResult
     ) {
         if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(ApiResponse.validationError(
-                            ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
+            return ResponseEntity.badRequest().body(ApiResponse.validationError(ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
         authService.sendVerificationEmail(request.getEmail());
         return ResponseEntity.ok(ApiResponse.success("Verification email has been resent. Please check your email."));
@@ -143,8 +133,7 @@ public class AuthController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(ApiResponse.validationError(
-                    ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
+            return ResponseEntity.badRequest().body(ApiResponse.validationError(ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
         authService.changePassword(userDetails.getUsername(), request);
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully"));
@@ -156,8 +145,7 @@ public class AuthController {
             BindingResult bindingResult
     ) {
         if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(ApiResponse.validationError(
-                    ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
+            return ResponseEntity.badRequest().body(ApiResponse.validationError(ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
         authService.sendForgotPasswordEmail(request.getEmail());
         return ResponseEntity.ok(ApiResponse.success("Password reset instructions have been sent to your email"));
@@ -170,8 +158,7 @@ public class AuthController {
             BindingResult bindingResult
     ) {
         if (bindingResult.hasErrors()) {
-            return ResponseEntity.badRequest().body(ApiResponse.validationError(
-                    ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
+            return ResponseEntity.badRequest().body(ApiResponse.validationError(ValidationHandler.processValidationErrors(bindingResult.getAllErrors())));
         }
         authService.resetPassword(token, request);
         return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully"));
@@ -184,7 +171,8 @@ public class AuthController {
 
     //FIXME: not tested
     @PreAuthorize("denyAll()")
-    @PostMapping("/oauth2/google")
+    @SuppressWarnings("all")
+    @PostMapping("/spa-frontend/oauth2/google/")
     public ResponseEntity<?> loginWithGoogle(@RequestBody Map<String, String> body) {
         String idToken = body.get("idToken");
         try {
@@ -199,7 +187,8 @@ public class AuthController {
 
     //FIXME: not tested
     @PreAuthorize("denyAll()")
-    @GetMapping("/verify-google-token")
+    @SuppressWarnings("all")
+    @GetMapping("/spa-frontend/verify-google-token")
     public ResponseEntity<?> verifyGoogleToken(@RequestHeader("Authorization") String bearerToken) {
         String token = bearerToken.replace("Bearer ", "");
         RestTemplate restTemplate = new RestTemplate();
@@ -221,5 +210,27 @@ public class AuthController {
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid access token");
         }
+    }
+
+    @GetMapping("/oauth2-callback")
+    public ResponseEntity<ApiResponse<LoginResponse>> getCurrentUserFromOAuth2(
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest request
+    ) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("User not authenticated"));
+        }
+        Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
+        UserResponse userResponse = authService.loadAuthenticatedUser(userDetails.getUsername());
+        assert accessTokenCookie != null;
+        AuthResponse authResponse = AuthResponse
+                .builder()
+                .accessToken(accessTokenCookie.getValue())
+                .refreshToken(null)
+                .email(userResponse.getEmail())
+                .role(Role.USER)
+                .build();
+
+        return ResponseEntity.ok(ApiResponse.success(LoginResponse.fromUserAndAuthResponse(userResponse, authResponse)));
     }
 }

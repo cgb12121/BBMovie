@@ -19,6 +19,11 @@ import org.thymeleaf.exceptions.TemplateProcessingException;
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+    @ExceptionHandler(io.jsonwebtoken.ExpiredJwtException.class)
+    public ResponseEntity<ApiResponse<Void>> handleExpiredJwtException(io.jsonwebtoken.ExpiredJwtException e) {
+        return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "Invalid token");
+    }
+
     @ExceptionHandler(MultipartException.class)
     public ResponseEntity<ApiResponse<Void>> handleMultipartException(MultipartException e) {
         return buildErrorResponse(e, HttpStatus.BAD_REQUEST, "Invalid file format");
