@@ -8,6 +8,7 @@ import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.LoginResponse;
 import com.example.bbmovie.dto.response.UserResponse;
 import com.example.bbmovie.entity.User;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +28,7 @@ public interface AuthService {
 
     LoginResponse login(AuthRequest request);
 
+    @Transactional
     void revokeAccessTokenAndRefreshToken(String accessToken);
 
     UserResponse loadAuthenticatedUserInformation(String email);
@@ -38,4 +40,6 @@ public interface AuthService {
     void sendForgotPasswordEmail(String email);
 
     void resetPassword(String token, ResetPasswordRequest request);
+
+    void revokeCookies(HttpServletResponse response);
 }

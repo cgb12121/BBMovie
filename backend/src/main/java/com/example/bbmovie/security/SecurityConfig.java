@@ -1,5 +1,6 @@
 package com.example.bbmovie.security;
 
+import com.example.bbmovie.security.jwt.asymmetric.JwtPairedKeyAuthenticationFilter;
 import com.example.bbmovie.security.oauth2.CustomAuthorizationRequestResolver;
 import com.example.bbmovie.security.oauth2.OAuth2LoginSuccessHandler;
 import com.example.bbmovie.service.auth.CustomUserDetailsService;
@@ -48,7 +49,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtPairedKeyAuthenticationFilter jwtPairedKeyAuthenticationFilter;
     private final CorsConfigurationSource corsConfigurationSource;
     private final CustomUserDetailsService userDetailsService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -115,10 +116,9 @@ public class SecurityConfig {
                             .authorizationRequestResolver(new CustomAuthorizationRequestResolver(clientRegistrationRepository))
                     )
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtPairedKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }
-
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {

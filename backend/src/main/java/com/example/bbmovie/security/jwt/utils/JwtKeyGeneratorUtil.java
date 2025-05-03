@@ -1,4 +1,4 @@
-package com.example.bbmovie.security;
+package com.example.bbmovie.security.jwt.utils;
 
 import java.security.SecureRandom;
 import java.util.Base64;

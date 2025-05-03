@@ -4,11 +4,13 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 
+@Log4j2
 @Service
 public class GoogleTokenVerifier {
 
@@ -28,6 +30,9 @@ public class GoogleTokenVerifier {
             String email = payload.getEmail();
             String name = (String) payload.get("name");
 
+            log.info("Get something from google payload: {} {} {} {} {}" ,
+                    payload.toString(), email, name, emailVerified, clientId
+            );
             return payload;
         } else {
             throw new IllegalArgumentException("Invalid ID token.");

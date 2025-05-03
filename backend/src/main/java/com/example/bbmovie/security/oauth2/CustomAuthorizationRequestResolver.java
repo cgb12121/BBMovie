@@ -40,14 +40,13 @@ public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRe
         String uri = request.getRequestURI();
         String registrationId = uri.substring(uri.lastIndexOf("/") + 1);
 
+
+        // Parameters that control login behavior
         switch (registrationId) {
             case "google" -> extraParams.put("prompt", GooglePrompt.CONSENT.getOption());
-            case "facebook" -> extraParams.put("auth_type", "rerequest");
-            case "github" -> {}
+            case "facebook" -> extraParams.put("auth_type", FacebookAuthType.REREQUEST.getOption());
+            case "github", "discord" -> {}
         }
-
-        String option = GooglePrompt.CONSENT.getOption();
-        extraParams.put("prompt", option);
 
         return OAuth2AuthorizationRequest.from(req)
                 .additionalParameters(extraParams)
@@ -56,7 +55,6 @@ public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRe
 
     @Getter
     enum GooglePrompt {
-
         /**
          * 🔑 Prompt=consent
          * <p>
@@ -99,6 +97,46 @@ public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRe
         private final String option;
 
         GooglePrompt(String option) {
+            this.option = option;
+        }
+    }
+
+    @Getter
+    enum FacebookAuthType {
+
+        /**
+         * 🔑 Auth_type=reauthenticate
+         * <p>
+         * - What it does: forces the user to re-enter their Facebook password,
+         *   even if they are already logged in to Facebook and have previously authorized your app.
+         * <p>
+         * - When to use it: useful in scenarios where you need to confirm the user's identity again
+         * <p>
+         * - Example use case: Application wants to perform a sensitive action with the user's Facebook account.
+         * <p>
+         * ✅ Shows: The provider's login form, even if the user is already signed in.
+         */
+        REAUTHENTICATE("reauthenticate"),
+        /**
+         * 🔑 Auth_type=rerequest
+         * <p>
+         * - What it does: The login dialog will reappear, focusing on the permissions they haven't yet granted
+         * <p>
+         * - When to use it: If a user has previously declined one or more of the permissions your app requested,
+         *   to prompt them again for those specific declined permissions.
+         *   Or just simply wants them to re-approve your app's permissions.
+         * <p>
+         * - Example use case:
+         *   prompt them again for those specific declined permissions
+         *   or make sure they re-approve your app's permissions.
+         * <p>
+         * ✅ Shows: This app wants access to your email/profile/etc...
+         */
+        REREQUEST("rerequest");
+
+        private final String option;
+
+        FacebookAuthType(String option) {
             this.option = option;
         }
     }

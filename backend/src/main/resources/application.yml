@@ -1,5 +1,7 @@
 app:
   jwt-secret: ${JWT_SECRET}
+  jwt-private-key: ${JWT_PRIVATE_KEY}
+  jwt-public-key: ${JWT_PUBLIC_KEY}
   jwt-expiration-milliseconds: ${JWT_EXPIRATION}
   jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION}
 
@@ -11,10 +13,6 @@ app:
   frontend:
     url: http://localhost:3000
 
-
-github:
-  webhook:
-    secret: ${GITHUB_WEBHOOK_SECRET}
 
 spring:
   datasource:
@@ -101,6 +99,12 @@ spring:
             client-secret: ${FACEBOOK_CLIENT_SECRET}
             redirect-uri: "http://localhost:8080/login/oauth2/code/facebook"
             scope: public_profile,email
+          discord:
+            client-id: ${DISCORD_CLIENT_ID}
+            client-secret: ${DISCORD_CLIENT_SECRET}
+            redirect-uri: "http://localhost:8080/login/oauth2/code/discord"
+            authorization-grant-type: authorization_code
+            scope: identify,email
         provider:
           github:
             user-info-uri: https://api.github.com/user
@@ -108,6 +112,12 @@ spring:
             user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
           facebook:
             user-info-uri: https://graph.facebook.com/me?fields=id,name,email
+          discord:
+            authorization-uri: https://discord.com/oauth2/authorize
+            token-uri: https://discord.com/api/oauth2/token
+            user-info-uri: https://discord.com/api/users/@me
+            user-name-attribute: id
+
 
   ai:
     vectorstore:

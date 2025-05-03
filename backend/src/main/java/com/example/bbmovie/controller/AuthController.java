@@ -7,15 +7,13 @@ import com.example.bbmovie.dto.response.AccessTokenResponse;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.LoginResponse;
 import com.example.bbmovie.dto.response.UserResponse;
-import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnauthorizedUserException;
 import com.example.bbmovie.security.oauth2.GoogleTokenVerifier;
 import com.example.bbmovie.service.auth.RefreshTokenService;
 import com.example.bbmovie.service.auth.AuthService;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -30,7 +28,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.WebUtils;
 
 import java.util.Map;
 
@@ -44,8 +41,8 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
     private final GoogleTokenVerifier googleTokenVerifier;
 
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @GetMapping("/hello")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ResponseEntity<ApiResponse<String>> hello() {
         return ResponseEntity.ok(ApiResponse.success("Hello World!"));
     }
@@ -72,7 +69,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<LoginResponse>> login(
+    public ResponseEntity<ApiResponse<LoginResponse>> loginV2(
             @Valid @RequestBody AuthRequest request,
             BindingResult bindingResult
     ) {
@@ -84,7 +81,7 @@ public class AuthController {
     }
 
     @PostMapping("/access-token")
-    public ResponseEntity<ApiResponse<AccessTokenResponse>> accessTokenFromRefreshToken(
+    public ResponseEntity<ApiResponse<AccessTokenResponse>> accessTokenFromRefreshTokenV2(
             @Valid @RequestBody AccessTokenRequest request,
             BindingResult bindingResult
     ) {
@@ -97,13 +94,14 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(
-            @RequestHeader("Authorization") String tokenHeader
+    public ResponseEntity<ApiResponse<Void>> logoutV2(
+            @RequestHeader("Authorization") String tokenHeader, HttpServletResponse response
     ) {
-        boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bear");
+        boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bearer ");
         if (isValidAuthorizationHeader) {
             String accessToken = tokenHeader.substring(7);
             authService.revokeAccessTokenAndRefreshToken(accessToken);
+            authService.revokeCookies(response);
             return ResponseEntity.ok(ApiResponse.success("Logout successful"));
         }
         return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
@@ -127,6 +125,8 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Verification email has been resent. Please check your email."));
     }
 
+    //TODO: revoke access token, refresh token after success
+    //      (no transaction unless exception occurs when changing password)
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
@@ -140,6 +140,8 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully"));
     }
 
+    //TODO: revoke access token, refresh token after success
+    //      (no transaction unless exception occurs when changing password)
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request,
@@ -152,6 +154,8 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Password reset instructions have been sent to your email"));
     }
 
+    //TODO: revoke access token, refresh token after success
+    //      (no transaction unless exception occurs when changing password)
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<Void>> resetPassword(
             @RequestParam("token") String token,
@@ -165,14 +169,20 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully"));
     }
 
+    //TODO: implement forced logout (revoke all tokens when user request: a email or otp send(choice) -> revoke when valid)
+    @PostMapping("force-logout")
+    public ResponseEntity<ApiResponse<Void>> forceLogout() {
+        return ResponseEntity.ok(ApiResponse.success("Logout from all devices successful"));
+    }
+
     @GetMapping("/csrf")
     public ResponseEntity<Void> csrf() {
         return ResponseEntity.ok().build();
     }
 
-    //FIXME: not tested
-    @PreAuthorize("denyAll()")
+    //FIXME: implement
     @SuppressWarnings("all")
+    @PreAuthorize("denyAll()")
     @PostMapping("/spa-frontend/oauth2/google/")
     public ResponseEntity<?> loginWithGoogle(@RequestBody Map<String, String> body) {
         String idToken = body.get("idToken");
@@ -186,9 +196,9 @@ public class AuthController {
         }
     }
 
-    //FIXME: not tested
-    @PreAuthorize("denyAll()")
+    //FIXME: implement
     @SuppressWarnings("all")
+    @PreAuthorize("denyAll()")
     @GetMapping("/spa-frontend/verify-google-token")
     public ResponseEntity<?> verifyGoogleToken(@RequestHeader("Authorization") String bearerToken) {
         String token = bearerToken.replace("Bearer ", "");
@@ -211,29 +221,5 @@ public class AuthController {
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid access token");
         }
-    }
-
-    @GetMapping("/oauth2-callback")
-    public ResponseEntity<ApiResponse<LoginResponse>> getCurrentUserFromOAuth2(
-            @AuthenticationPrincipal UserDetails userDetails,
-            HttpServletRequest request
-    ) {
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("User not authenticated"));
-        }
-        Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
-        User user = authService.loadAuthenticatedUser(userDetails.getUsername());
-        UserResponse userResponse = authService.loadAuthenticatedUserInformation(userDetails.getUsername());
-        assert accessTokenCookie != null;
-        AuthResponse authResponse = AuthResponse
-                .builder()
-                .accessToken(accessTokenCookie.getValue())
-                .refreshToken(null)
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
-        return ResponseEntity.ok(
-                ApiResponse.success(LoginResponse.fromUserAndAuthResponse(userResponse, authResponse))
-        );
     }
 }

@@ -1,4 +1,4 @@
-package com.example.bbmovie.security;
+package com.example.bbmovie.security.jwt.asymmetric;
 
 import com.example.bbmovie.exception.BlacklistedJwtTokenException;
 import jakarta.servlet.FilterChain;
@@ -22,12 +22,12 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Log4j2
 @Component
 @RequiredArgsConstructor
-@Log4j2
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtPairedKeyAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtTokenProvider tokenProvider;
+    private final JwtTokenPairedKeyProvider jwtTokenPairedKeyProvider;
 
     @Override
     protected void doFilterInternal(
@@ -38,13 +38,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (jwt != null && tokenProvider.validateToken(jwt)) {
-                if (tokenProvider.isTokenBlacklisted(jwt)) {
+            if (jwt != null && jwtTokenPairedKeyProvider.validateToken(jwt)) {
+                if (jwtTokenPairedKeyProvider.isTokenBlacklisted(jwt)) {
                     throw new BlacklistedJwtTokenException("Token has been invalidated");
                 }
 
-                String username = tokenProvider.getUsernameFromToken(jwt);
-                List<String> roles = tokenProvider.getRolesFromToken(jwt);
+                String username = jwtTokenPairedKeyProvider.getUsernameFromToken(jwt);
+                List<String> roles = jwtTokenPairedKeyProvider.getRolesFromToken(jwt);
                 List<GrantedAuthority> authorities = roles.stream()
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());

@@ -12,11 +12,13 @@ import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.exception.*;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.repository.UserRepository;
-import com.example.bbmovie.security.JwtTokenProvider;
+import com.example.bbmovie.security.jwt.asymmetric.JwtTokenPairedKeyProvider;
 import com.example.bbmovie.service.auth.verify.otp.OtpService;
 import com.example.bbmovie.service.auth.verify.token.ChangePasswordTokenService;
 import com.example.bbmovie.service.auth.verify.token.EmailVerifyTokenService;
 import com.example.bbmovie.service.email.EmailService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -35,7 +37,7 @@ import java.time.LocalDateTime;
 public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
-    private final JwtTokenProvider tokenProvider;
+    private final JwtTokenPairedKeyProvider jwtTokenPairedKeyProvider;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final EmailVerifyTokenService emailVerifyTokenService;
@@ -177,8 +179,8 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginTime(LocalDateTime.now());
         userRepository.save(user);
 
-        String accessToken = tokenProvider.generateAccessToken(authentication);
-        String refreshToken = tokenProvider.generateRefreshToken(authentication);
+        String accessToken = jwtTokenPairedKeyProvider.generateAccessToken(authentication);
+        String refreshToken = jwtTokenPairedKeyProvider.generateRefreshToken(authentication);
 
         refreshTokenService.saveRefreshToken(refreshToken, user.getEmail());
 
@@ -198,12 +200,12 @@ public class AuthServiceImpl implements AuthService {
         return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
     }
 
-    @Override
     @Transactional
+    @Override
     public void revokeAccessTokenAndRefreshToken(String accessToken) {
-        String email = tokenProvider.getUsernameFromToken(accessToken);
+        String email = jwtTokenPairedKeyProvider.getUsernameFromToken(accessToken);
         refreshTokenService.deleteByEmail(email);
-        tokenProvider.invalidateToken(accessToken);
+        jwtTokenPairedKeyProvider.invalidateToken(accessToken);
     }
 
     @Override
@@ -277,5 +279,22 @@ public class AuthServiceImpl implements AuthService {
         changePasswordTokenService.deleteToken(token);
         emailService.notifyChangedPassword(user.getEmail());
         log.info("Password reset for user {} successful", email);
+    }
+
+    @Override
+    public void revokeCookies(HttpServletResponse response) {
+        Cookie revokeAccessTokenCookie = revokeCookie("accessToken");
+        response.addCookie(revokeAccessTokenCookie);
+
+        Cookie revokeJSESSIONID = revokeCookie("JSESSIONID");
+        response.addCookie(revokeJSESSIONID);
+    }
+
+    private Cookie revokeCookie(String cookieName) {
+        Cookie cookie = new Cookie(cookieName, null);
+        cookie.setMaxAge(0);
+        cookie.setHttpOnly(true);
+        cookie.setPath("/");
+        return cookie;
     }
 }
