@@ -6,65 +6,79 @@ import com.example.bbmovie.security.jwt.asymmetric.JwtTokenPairedKeyProvider;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
     private final JwtTokenPairedKeyProvider jwtTokenPairedKeyProvider;
-    private final CustomUserDetailsService userDetailsService;
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Transactional
-    public void deleteByEmail(String email) {
-        refreshTokenRepository.deleteByEmail(email);
+    public void deleteByEmailAndDeviceName(String email, String deviceName) {
+        refreshTokenRepository.deleteByEmailAndDeviceName(email, deviceName);
     }
 
-    public String refreshAccessToken(String refreshToken) {
-        if (!jwtTokenPairedKeyProvider.validateToken(refreshToken)) {
-            throw new RuntimeException("Invalid refresh token");
-        }
+    @Transactional
+    public void deleteAllRefreshTokenByEmail(String email) {
+        refreshTokenRepository.deleteAllByEmail(email);
+    }
 
-        String username = jwtTokenPairedKeyProvider.getUsernameFromToken(refreshToken);
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+    public String refreshAccessToken(String oldAccessToken, String deviceName) {
+        String username = jwtTokenPairedKeyProvider.getUsernameFromToken(oldAccessToken);
+        List<String> roles = jwtTokenPairedKeyProvider.getRolesFromToken(oldAccessToken);
+        List<GrantedAuthority> authorities = roles.stream()
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
 
-        RefreshToken tokenEntity = refreshTokenRepository.findByToken(refreshToken)
+        RefreshToken userRefreshToken = refreshTokenRepository.findByEmailAndDeviceName(username, deviceName)
                 .orElseThrow(() -> new RuntimeException("Refresh token not found"));
 
-        if (tokenEntity.isRevoked() || tokenEntity.getExpiryDate().before(new Date())) {
+        if (userRefreshToken.isRevoked() || userRefreshToken.getExpiryDate().before(new Date())) {
             throw new RuntimeException("Refresh token is expired or revoked");
         }
 
-        return jwtTokenPairedKeyProvider.generateAccessToken(
-                new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities())
-        );
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(username, "", authorities);
+        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
+        return jwtTokenPairedKeyProvider.generateAccessToken(authentication);
     }
 
     @Transactional
-    public void revokeRefreshToken(String token) {
-        refreshTokenRepository.findByToken(token).ifPresent(refreshToken -> refreshToken.setRevoked(true));
-    }
+    public void saveRefreshToken(
+            String refreshToken, String email,
+            String deviceIpAddress, String deviceName, String deviceOs,
+            String browser, String browserVersion
+    ) {
+        Date expiryDate = jwtTokenPairedKeyProvider.getExpirationDateFromToken(refreshToken);
 
-    @Transactional
-    public void saveRefreshToken(String token, String email) {
-        Optional<RefreshToken> existingToken = refreshTokenRepository.findByEmail(email);
-        Date expiryDate = jwtTokenPairedKeyProvider.getExpirationDateFromToken(token);
+        Optional<RefreshToken> existingToken = refreshTokenRepository.findByDeviceIpAddress(deviceIpAddress);
 
-        RefreshToken refreshToken;
-        if (existingToken.isPresent()) {
-            refreshToken = existingToken.get();
-            refreshToken.setToken(token);
-            refreshToken.setExpiryDate(expiryDate);
-            refreshToken.setRevoked(false);
-        } else {
-            refreshToken = new RefreshToken(token, email, expiryDate);
-        }
+        RefreshToken token = existingToken.map(existing -> {
+            existing.setToken(refreshToken);
+            existing.setEmail(email);
+            existing.setExpiryDate(expiryDate);
+            existing.setDeviceName(deviceName);
+            existing.setDeviceOs(deviceOs);
+            existing.setBrowser(browser);
+            existing.setBrowserVersion(browserVersion);
+            existing.setRevoked(false);
+            return existing;
+        }).orElseGet(() -> new RefreshToken(
+                refreshToken, email, expiryDate,
+                deviceIpAddress, deviceName, deviceOs,
+                browser, browserVersion
+        ));
 
-        refreshTokenRepository.save(refreshToken);
+        refreshTokenRepository.save(token);
     }
 }

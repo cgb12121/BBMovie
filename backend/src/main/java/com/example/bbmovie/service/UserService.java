@@ -20,4 +20,8 @@ public class UserService {
         userRepository.save(user);
         return user;
     }
+
+    public boolean isOwner(String userName, Long accountId) {
+        return userName.equalsIgnoreCase("quanbaoyb@gmail.com") && accountId == 1L ;
+    }
 }

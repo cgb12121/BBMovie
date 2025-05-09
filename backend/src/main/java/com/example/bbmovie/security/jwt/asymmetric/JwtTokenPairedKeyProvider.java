@@ -1,11 +1,14 @@
 package com.example.bbmovie.security.jwt.asymmetric;
 
 import com.example.bbmovie.entity.User;
+import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
+import com.example.bbmovie.exception.UnsupportedPrincipalType;
 import io.jsonwebtoken.*;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
@@ -24,8 +27,8 @@ import java.util.Base64;
 @Log4j2
 public class JwtTokenPairedKeyProvider {
 
-    private final int jwtExpirationInMs;
-    private final int jwtRefreshExpirationInMs;
+    private final int jwtAccessTokenExpirationInMs;
+    private final int jwtRefreshTokenExpirationInMs;
     private final PrivateKey privateKey;
     private final PublicKey publicKey;
     private final RedisTemplate<Object, Object> redisTemplate;
@@ -33,12 +36,12 @@ public class JwtTokenPairedKeyProvider {
     public JwtTokenPairedKeyProvider(
             @Value("${app.jwt-private-key}") String privateKeyStr,
             @Value("${app.jwt-public-key}") String publicKeyStr,
-            @Value("${app.jwt-expiration-milliseconds}") int jwtExpirationInMs,
-            @Value("${app.jwt-refresh-expiration-milliseconds}") int jwtRefreshExpirationInMs,
+            @Value("${app.jwt-access-expiration-milliseconds}") int jwtAccessTokenExpirationInMs,
+            @Value("${app.jwt-refresh-expiration-milliseconds}") int jwtRefreshTokenExpirationInMs,
             RedisTemplate<Object, Object> redisTemplate
     ) throws Exception {
-        this.jwtExpirationInMs = jwtExpirationInMs;
-        this.jwtRefreshExpirationInMs = jwtRefreshExpirationInMs;
+        this.jwtAccessTokenExpirationInMs = jwtAccessTokenExpirationInMs;
+        this.jwtRefreshTokenExpirationInMs = jwtRefreshTokenExpirationInMs;
         this.privateKey = getPrivateKeyFromString(privateKeyStr);
         this.publicKey = getPublicKeyFromString(publicKeyStr);
         this.redisTemplate = redisTemplate;
@@ -55,11 +58,11 @@ public class JwtTokenPairedKeyProvider {
     }
 
     public String generateAccessToken(Authentication authentication) {
-        return generateToken(authentication, jwtExpirationInMs);
+        return generateToken(authentication, jwtAccessTokenExpirationInMs);
     }
 
     public String generateRefreshToken(Authentication authentication) {
-        return generateToken(authentication, jwtRefreshExpirationInMs);
+        return generateToken(authentication, jwtRefreshTokenExpirationInMs);
     }
 
     private String generateToken(Authentication authentication, int expirationInMs) {
@@ -69,6 +72,7 @@ public class JwtTokenPairedKeyProvider {
         Date expiryDate = new Date(now.getTime() + expirationInMs);
 
         return Jwts.builder()
+                .setHeaderParam("typ", "JWT")
                 .setSubject(username)
                 .claim("role", role)
                 .setIssuedAt(now)
@@ -89,26 +93,37 @@ public class JwtTokenPairedKeyProvider {
             return switch (provider) {
                 case "github" -> attributes.get("login").toString();
                 case "google", "facebook", "discord" -> attributes.get("email").toString();
-                default -> throw new IllegalStateException("Unsupported provider or missing email");
+                default -> throw new UnsupportedOAuth2Provider("Unsupported provider or missing email");
             };
         }
-        throw new IllegalStateException("Unsupported principal type: " + principal.getClass().getName());
+        throw new UnsupportedPrincipalType("Unsupported principal type: " + principal.getClass().getName());
     }
 
     private String getRoleFromAuthentication(Authentication authentication) {
         Object principal = authentication.getPrincipal();
+        log.info("getRoleFromAuthentication: {}", principal);
         if (principal instanceof User user) {
             return "ROLE_" + user.getRole().name();
+        } else if (principal instanceof UserDetails userDetails) {
+            return userDetails.getAuthorities().stream()
+                    .findFirst()
+                    .map(GrantedAuthority::getAuthority)
+                    .orElse("ROLE_USER");
         } else if (principal instanceof DefaultOAuth2User) {
             return "ROLE_USER";
         }
-        throw new IllegalStateException("Unsupported principal type: " + principal.getClass().getName());
+        throw new UnsupportedPrincipalType("Unsupported principal type: " + principal.getClass().getName());
     }
 
     public List<String> getRolesFromToken(String token) {
-        Claims claims = parseClaims(token);
-        String role = claims.get("role", String.class);
-        return Collections.singletonList(role);
+        try {
+            Claims claims = parseClaims(token);
+            String role = claims.get("role", String.class);
+            return Collections.singletonList(role);
+        } catch (ExpiredJwtException e) {
+            String role = e.getClaims().get("role", String.class);
+            return Collections.singletonList(role);
+        }
     }
 
     public String getUsernameFromToken(String token) {
@@ -136,9 +151,17 @@ public class JwtTokenPairedKeyProvider {
         }
     }
 
-    public void invalidateToken(String accessToken) {
+    private Claims parseClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(publicKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+    }
+
+    public void invalidateAccessToken(String accessToken) {
         try {
-            String blacklistKey = "rsa-blacklist:" + accessToken;
+            String blacklistKey = "jwt-blacklist:" + accessToken;
             redisTemplate.opsForValue().set(
                     blacklistKey,
                     "invalidated",
@@ -147,23 +170,30 @@ public class JwtTokenPairedKeyProvider {
             );
         } catch (ExpiredJwtException e) {
             redisTemplate.opsForValue().set(
-                    "rsa-blacklist:" + accessToken,
+                    "jwt-blacklist:" + accessToken,
                     "invalidated",
-                    jwtRefreshExpirationInMs,
-                    TimeUnit.MILLISECONDS
+                    15,
+                    TimeUnit.MINUTES
             );
         }
     }
 
     public boolean isTokenBlacklisted(String token) {
-        return redisTemplate.hasKey("rsa-blacklist:" + token);
+        return redisTemplate.hasKey("jwt-blacklist:" + token);
     }
 
-    private Claims parseClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(publicKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+    public void invalidateAccessTokenByEmailAndDevice(String email, String deviceId) {
+        String key = "jwt-block-access-token:" + email + ":" + deviceId;
+        redisTemplate.opsForValue().set(key, "true", 15, TimeUnit.MINUTES);
+    }
+
+    public boolean isAccessTokenBlockedForEmailAndDevice(String email, String deviceId) {
+        String key = "jwt-block-access-token:" + email + ":" + deviceId;
+        return redisTemplate.hasKey(key);
+    }
+
+    public void removeJwtBlockAccessTokenOfEmailAndDevice(String email, String deviceId) {
+        String key = "jwt-block-access-token:" + email + ":" + deviceId;
+        redisTemplate.delete(key);
     }
 }

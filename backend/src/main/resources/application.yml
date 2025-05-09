@@ -1,8 +1,7 @@
 app:
-  jwt-secret: ${JWT_SECRET}
   jwt-private-key: ${JWT_PRIVATE_KEY}
   jwt-public-key: ${JWT_PUBLIC_KEY}
-  jwt-expiration-milliseconds: ${JWT_EXPIRATION}
+  jwt-access-expiration-milliseconds: ${JWT_EXPIRATION}
   jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION}
 
   change-password-token-expiration-minutes: 15
@@ -12,6 +11,14 @@ app:
 
   frontend:
     url: http://localhost:3000
+
+
+database:
+  secret-key-password: ${DATABASE_SECRET_KEY_PASSWORD}
+  algorithm: ${DATABASE_ALGORITHM}
+  secret-factory.algorithm: ${DATABASE_SECRET_FACTORY_ALGORITHM}
+  salt: ${DATABASE_SALT}
+  iterations: ${DATABASE_ITERATIONS}
 
 
 spring:

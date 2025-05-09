@@ -156,7 +156,7 @@
 //        }
 //    }
 //
-//    public void invalidateToken(String accessToken) {
+//    public void invalidateAccessToken(String accessToken) {
 //        try {
 //            String blacklistKey = "blacklist:" + accessToken;
 //            redisTemplate.opsForValue().set(

@@ -11,8 +11,8 @@ import com.example.bbmovie.service.elasticsearch.sample.SampleDataLoaderService;
 import java.io.IOException;
 
 @RestController
-@RequestMapping("/api/sample-data")
 @RequiredArgsConstructor
+@RequestMapping("/api/sample-data")
 @PreAuthorize("hasRole('ROLE_ADMIN')")
 public class SampleDataController {
 

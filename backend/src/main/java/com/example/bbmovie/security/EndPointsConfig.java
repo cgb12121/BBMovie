@@ -2,7 +2,8 @@ package com.example.bbmovie.security;
 
 public class EndPointsConfig {
     protected static final String[] AUTH_ENDPOINTS = {
-            "/api/auth/**"
+            "/api/auth/**",
+            "/api/device/**"
     };
 
     protected static final String[] SWAGGER_ENDPOINTS = {

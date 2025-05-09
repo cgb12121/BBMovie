@@ -11,8 +11,10 @@ import lombok.ToString;
 @NoArgsConstructor
 @AllArgsConstructor
 public class LoginResponse {
+
     private UserResponse userResponse;
     private AuthResponse authResponse;
+    private UserAgentResponse userAgentResponse;
 
     public static LoginResponse fromUserResponse(UserResponse userResponse) {
         return LoginResponse.builder()
@@ -26,10 +28,24 @@ public class LoginResponse {
                 .build();
     }
 
+    public static LoginResponse fromUserAgentResponse(UserAgentResponse userAgentResponse) {
+        return LoginResponse.builder()
+                .userAgentResponse(userAgentResponse)
+                .build();
+    }
+
     public static LoginResponse fromUserAndAuthResponse(UserResponse userResponse, AuthResponse authResponse) {
         return LoginResponse.builder()
                 .userResponse(userResponse)
                 .authResponse(authResponse)
+                .build();
+    }
+
+    public static LoginResponse fromUserAndAuthAndUserAgentResponse(UserResponse userResponse, AuthResponse authResponse, UserAgentResponse userAgentResponse) {
+        return LoginResponse.builder()
+                .userResponse(userResponse)
+                .authResponse(authResponse)
+                .userAgentResponse(userAgentResponse)
                 .build();
     }
 }

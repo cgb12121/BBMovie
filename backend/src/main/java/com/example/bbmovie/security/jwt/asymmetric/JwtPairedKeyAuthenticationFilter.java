@@ -37,6 +37,7 @@ public class JwtPairedKeyAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
+            String deviceId = getDeviceIdFromRequest(request);
 
             if (jwt != null && jwtTokenPairedKeyProvider.validateToken(jwt)) {
                 if (jwtTokenPairedKeyProvider.isTokenBlacklisted(jwt)) {
@@ -44,6 +45,10 @@ public class JwtPairedKeyAuthenticationFilter extends OncePerRequestFilter {
                 }
 
                 String username = jwtTokenPairedKeyProvider.getUsernameFromToken(jwt);
+                if (jwtTokenPairedKeyProvider.isAccessTokenBlockedForEmailAndDevice(username, deviceId)) {
+                    throw new BlacklistedJwtTokenException("Access token has been blocked for this email and device");
+                }
+
                 List<String> roles = jwtTokenPairedKeyProvider.getRolesFromToken(jwt);
                 List<GrantedAuthority> authorities = roles.stream()
                         .map(SimpleGrantedAuthority::new)
@@ -81,5 +86,13 @@ public class JwtPairedKeyAuthenticationFilter extends OncePerRequestFilter {
             }
         }
         return null;
+    }
+
+    private String getDeviceIdFromRequest(HttpServletRequest request) {
+        String deviceId = request.getParameter("X-DEVICE-ID");
+        if (deviceId == null || deviceId.trim().isEmpty()) {
+            return null;
+        }
+        return deviceId;
     }
 }

@@ -1,9 +1,19 @@
 package com.example.bbmovie.entity.jwt;
 
-import jakarta.persistence.*;
-import lombok.*;
-
 import java.util.Date;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Entity
 @Getter
@@ -12,7 +22,7 @@ import java.util.Date;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "refresh_token", uniqueConstraints = {
-        @UniqueConstraint(columnNames = "email")
+        @UniqueConstraint(columnNames = "device_ip_address")
 })
 public class RefreshToken {
 
@@ -20,21 +30,45 @@ public class RefreshToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false)
+    private String email;
+
+    @Column(name = "device_name", nullable = false)
+    private String deviceName;
+
+    @Column(name = "device_os", nullable = false)
+    private String deviceOs;
+
+    @Column(name = "device_ip_address", nullable = false)
+    private String deviceIpAddress;
+
+    @Column(name = "browser", nullable = false)
+    private String browser;
+
+    @Column(name = "browser_version", nullable = false)
+    private String browserVersion;
+
     @Column(length = 1000, nullable = false)
     private String token;
-
-    @Column(nullable = false, unique = true)
-    private String email;
 
     @Column(nullable = false)
     private Date expiryDate;
 
     private boolean revoked;
 
-    public RefreshToken(String token, String email, Date expiryDate) {
+    public RefreshToken(
+            String token, String email, Date expiryDate,
+            String deviceIpAddress, String deviceName, String deviceOs,
+            String browser, String browserVersion
+    ) {
         this.token = token;
         this.email = email;
         this.expiryDate = expiryDate;
         this.revoked = false;
+        this.deviceName = deviceName;
+        this.deviceOs = deviceOs;
+        this.deviceIpAddress = deviceIpAddress;
+        this.browser = browser;
+        this.browserVersion = browserVersion;
     }
 }

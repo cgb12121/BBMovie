@@ -19,10 +19,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.UUID;
 
-@RestController
 @PreAuthorize( "denyAll()")
 @Deprecated(forRemoval = true)
+@RestController("/api/auth")
 public class ZaloOAuth {
+
     @GetMapping("/zalo/login")
     public void redirectToZalo(HttpServletResponse response) throws IOException {
         String clientId = "Not Yet Implemented";

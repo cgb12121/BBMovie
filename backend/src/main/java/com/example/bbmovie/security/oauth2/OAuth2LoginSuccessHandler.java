@@ -7,11 +7,14 @@ import com.example.bbmovie.entity.jwt.RefreshToken;
 import com.example.bbmovie.security.jwt.asymmetric.JwtTokenPairedKeyProvider;
 import com.example.bbmovie.service.UserService;
 import com.example.bbmovie.service.auth.RefreshTokenService;
+import com.example.bbmovie.utils.IpAddressUtils;
+import com.example.bbmovie.utils.UserAgentAnalyzerUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import nl.basjes.parse.useragent.UserAgent;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,6 +40,7 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     private final UserService userService;
     private final JwtTokenPairedKeyProvider jwtTokenPairedKeyProvider;
     private final RefreshTokenService refreshTokenService;
+    private final UserAgentAnalyzerUtils userAgentAnalyzer;
     private final ObjectProvider<PasswordEncoder> passwordEncoderProvider;
 
     @Value("${app.frontend.url}")
@@ -64,7 +68,13 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
         String avatarUrlAttribute;
         AuthProvider authProvider;
 
-        ProviderConfig(String emailAttribute, String nameAttribute, String userNameAttribute, String avatarUrlAttribute, AuthProvider authProvider) {
+        ProviderConfig(
+                String emailAttribute,
+                String nameAttribute,
+                String userNameAttribute,
+                String avatarUrlAttribute,
+                AuthProvider authProvider
+        ) {
             this.emailAttribute = emailAttribute;
             this.nameAttribute = nameAttribute;
             this.userNameAttribute = userNameAttribute;
@@ -74,7 +84,11 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     }
 
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+    public void onAuthenticationSuccess(
+            HttpServletRequest request,
+            HttpServletResponse response,
+            Authentication authentication
+    ) throws IOException, ServletException {
         OAuth2AuthenticationToken oAuth2Token = (OAuth2AuthenticationToken) authentication;
         String provider = oAuth2Token.getAuthorizedClientRegistrationId();
         ProviderConfig config = PROVIDER_CONFIGS.get(provider);
@@ -116,7 +130,15 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
 
         updateAuthentication(authentication, attributes, config, user);
 
-        String accessToken = generateAccessTokenAndSaveRefreshTokenForOAuth2(authentication, user.getEmail());
+        String userAgentString = request.getHeader("User-Agent");
+        UserAgent agent = userAgentAnalyzer.parse(userAgentString);        String deviceName = agent.getValue("DeviceName");
+        String deviceIpAddress = IpAddressUtils.getClientIp(request);
+        String deviceOsName = agent.getValue("OperatingSystemName");
+        String browser = agent.getValue("AgentName");
+        String browserVersion = agent.getValue("AgentVersion");
+        String accessToken = generateAccessTokenAndSaveRefreshTokenForOAuth2(
+                authentication, email, deviceIpAddress, deviceName, deviceOsName, browser, browserVersion
+        );
 
         response.addHeader("Set-Cookie",
                 ResponseCookie.from("accessToken", accessToken)
@@ -135,17 +157,27 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
         super.onAuthenticationSuccess(request, response, authentication);
     }
 
-    private String generateAccessTokenAndSaveRefreshTokenForOAuth2(Authentication authentication, String email) {
+    private String generateAccessTokenAndSaveRefreshTokenForOAuth2(
+            Authentication authentication, String email, String deviceIpAddress,
+            String deviceName, String deviceOs, String browser, String browserVersion
+    ) {
         String accessToken = jwtTokenPairedKeyProvider.generateAccessToken(authentication);
         String refreshToken = jwtTokenPairedKeyProvider.generateRefreshToken(authentication);
         Date expirationDate = jwtTokenPairedKeyProvider.getExpirationDateFromToken(refreshToken);
+        
         RefreshToken refreshTokenToDb = RefreshToken.builder()
                 .token(refreshToken)
                 .email(authentication.getName())
+                .deviceIpAddress(deviceIpAddress)
                 .expiryDate(expirationDate)
                 .revoked(false)
                 .build();
-        refreshTokenService.saveRefreshToken(refreshTokenToDb.getToken(), email);
+                
+        refreshTokenService.saveRefreshToken(
+                refreshTokenToDb.getToken(), email,
+                deviceIpAddress, deviceName, deviceOs,
+                browser, browserVersion
+        );
         return accessToken;
     }
 
@@ -163,17 +195,17 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
 
     private static String generateRandomPasswordFoForOauth2() {
         Random random = new SecureRandom();
-        return RandomStringUtils.random(20, 0, 0, true, true, null, random);
+        return RandomStringUtils.random(20, 0, 0, true,true, null, random);
     }
 
     private static String generateRandomUsername() {
         Random random = new SecureRandom();
-        return RandomStringUtils.random(10, 0, 0, true, true, null, random);
+        return RandomStringUtils.random(10, 0, 0, true,true, null, random);
     }
 
     private static String generateRandomEmail() {
         Random random = new SecureRandom();
-        return RandomStringUtils.random(10, 0, 0, true, true, null, random) + "@bbmovie.com";
+        return RandomStringUtils.random(10, 0, 0, true,true, null, random) + "@bbmovie.com";
     }
 
     private static String generateRandomAvatarUrl() {

@@ -37,6 +37,7 @@ public class CorsConfig {
             "Access-Control-Allow-Origin",
             "X-XSRF-TOKEN",
             "Range",
-            "Content-Range"
+            "Content-Range",
+            "X-Device-ID"
     };
 }

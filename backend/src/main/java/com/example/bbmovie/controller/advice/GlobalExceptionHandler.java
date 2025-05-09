@@ -1,7 +1,11 @@
-package com.example.bbmovie.exception.advice;
+package com.example.bbmovie.controller.advice;
 
 import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.exception.*;
+import com.example.bbmovie.exception.BlacklistedJwtTokenException;
+import com.example.bbmovie.exception.InvalidTokenException;
+import com.example.bbmovie.exception.TokenExpiredException;
+import com.example.bbmovie.exception.TokenVerificationException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.expression.spel.SpelEvaluationException;
 import org.springframework.http.HttpStatus;

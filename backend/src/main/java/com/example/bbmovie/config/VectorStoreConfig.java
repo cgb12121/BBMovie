@@ -24,7 +24,6 @@ public class VectorStoreConfig {
                         .map(text -> new Embedding(huggingFaceEmbeddingService.generateEmbedding(text), text.hashCode()))
                         .collect(Collectors.toList());
                 return new EmbeddingResponse(embeddings);
-
             }
 
             @NotNull

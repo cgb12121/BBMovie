@@ -1,26 +1,32 @@
 package com.example.bbmovie.service.auth;
 
-import com.example.bbmovie.dto.request.AuthRequest;
+import com.example.bbmovie.dto.request.LoginRequest;
 import com.example.bbmovie.dto.request.ChangePasswordRequest;
 import com.example.bbmovie.dto.request.RegisterRequest;
 import com.example.bbmovie.dto.request.ResetPasswordRequest;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.LoginResponse;
+import com.example.bbmovie.dto.response.UserAgentResponse;
 import com.example.bbmovie.dto.response.UserResponse;
 import com.example.bbmovie.entity.enumerate.AuthProvider;
 import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.exception.*;
 import com.example.bbmovie.entity.User;
+import com.example.bbmovie.exception.TokenVerificationException;
 import com.example.bbmovie.repository.UserRepository;
 import com.example.bbmovie.security.jwt.asymmetric.JwtTokenPairedKeyProvider;
 import com.example.bbmovie.service.auth.verify.otp.OtpService;
 import com.example.bbmovie.service.auth.verify.token.ChangePasswordTokenService;
 import com.example.bbmovie.service.auth.verify.token.EmailVerifyTokenService;
 import com.example.bbmovie.service.email.EmailService;
+import com.example.bbmovie.utils.IpAddressUtils;
+import com.example.bbmovie.utils.UserAgentAnalyzerUtils;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import nl.basjes.parse.useragent.UserAgent;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -30,6 +36,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @Log4j2
@@ -45,6 +52,72 @@ public class AuthServiceImpl implements AuthService {
     private final RefreshTokenService refreshTokenService;
     private final ChangePasswordTokenService changePasswordTokenService;
     private final OtpService otpService;
+    private final UserAgentAnalyzerUtils userAgentAnalyzer;
+
+    @Override
+    public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {
+        User user = userRepository.findByEmail(loginRequest.getEmail())
+                .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
+
+        String userAgentString = request.getHeader("User-Agent");
+        UserAgent agent = userAgentAnalyzer.parse(userAgentString);
+
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        boolean isUserEnabled = user.isEnabled();
+        if (!isUserEnabled) {
+            throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
+        }
+
+        boolean correctPassword = passwordEncoder.matches(loginRequest.getPassword(), user.getPassword());
+        if (!correctPassword) {
+            throw new InvalidCredentialsException("Invalid username/email or password");
+        }
+
+        user.setLastLoginTime(LocalDateTime.now());
+        userRepository.save(user);
+
+        String deviceName = agent.getValue("DeviceName");
+        String deviceIpAddress = IpAddressUtils.getClientIp(request);
+        String deviceOsName = agent.getValue("OperatingSystemName");
+        String browser = agent.getValue("AgentName");
+        String browserVersion = agent.getValue("AgentVersion");
+
+        String accessToken = jwtTokenPairedKeyProvider.generateAccessToken(authentication);
+        String refreshToken = jwtTokenPairedKeyProvider.generateRefreshToken(authentication);
+
+        refreshTokenService.saveRefreshToken(
+                refreshToken, user.getEmail(), deviceIpAddress, deviceName, deviceOsName, browser, browserVersion
+        );
+
+        AuthResponse authResponse = AuthResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .email(user.getEmail())
+                .role(user.getRole())
+                .build();
+        UserResponse userResponse = UserResponse.builder()
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .profilePictureUrl(user.getProfilePictureUrl())
+                .build();
+        UserAgentResponse userAgentResponse = UserAgentResponse.builder()
+                .deviceName(deviceName)
+                .deviceIpAddress(deviceIpAddress)
+                .deviceOs(deviceOsName)
+                .browser(browser)
+                .browserVersion(browserVersion)
+                .build();
+
+        return LoginResponse.fromUserAndAuthAndUserAgentResponse(
+                userResponse, authResponse, userAgentResponse
+        );
+    }
 
     @Override
     @Transactional
@@ -73,7 +146,14 @@ public class AuthServiceImpl implements AuthService {
         User savedUser = userRepository.save(user);
 
         String verificationToken = emailVerifyTokenService.generateVerificationToken(savedUser);
-        emailService.sendVerificationEmail(savedUser.getEmail(), verificationToken);
+
+        CompletableFuture.runAsync(() -> {
+            try {
+                emailService.sendVerificationEmail(savedUser.getEmail(), verificationToken);
+            } catch (Exception ex) {
+                log.error("Async email sending failed: {}", ex.getMessage());
+            }
+        });
 
         return savedUser;
     }
@@ -157,55 +237,18 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public LoginResponse login(AuthRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
-
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
-        );
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        boolean isUserEnabled = user.isEnabled();
-        if (!isUserEnabled) {
-            throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
-        }
-
-        boolean correctPassword = passwordEncoder.matches(request.getPassword(), user.getPassword());
-        if (!correctPassword) {
-            throw new InvalidCredentialsException("Invalid username/email or password");
-        }
-
-        user.setLastLoginTime(LocalDateTime.now());
-        userRepository.save(user);
-
-        String accessToken = jwtTokenPairedKeyProvider.generateAccessToken(authentication);
-        String refreshToken = jwtTokenPairedKeyProvider.generateRefreshToken(authentication);
-
-        refreshTokenService.saveRefreshToken(refreshToken, user.getEmail());
-
-        AuthResponse authResponse = AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
-        UserResponse userResponse = UserResponse.builder()
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .profilePictureUrl(user.getProfilePictureUrl())
-                .build();
-        return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
+    @Transactional
+    public void revokeAccessTokenAndRefreshToken(String accessToken, String deviceName) {
+        String email = jwtTokenPairedKeyProvider.getUsernameFromToken(accessToken);
+        refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
+        jwtTokenPairedKeyProvider.invalidateAccessToken(accessToken);
     }
 
-    @Transactional
     @Override
-    public void revokeAccessTokenAndRefreshToken(String accessToken) {
-        String email = jwtTokenPairedKeyProvider.getUsernameFromToken(accessToken);
-        refreshTokenService.deleteByEmail(email);
-        jwtTokenPairedKeyProvider.invalidateToken(accessToken);
+    @Transactional
+    public void revokeAllTokensByEmail(String email, String deviceId) {
+        refreshTokenService.deleteAllRefreshTokenByEmail(email);
+        jwtTokenPairedKeyProvider.invalidateAccessTokenByEmailAndDevice(email, deviceId);
     }
 
     @Override
