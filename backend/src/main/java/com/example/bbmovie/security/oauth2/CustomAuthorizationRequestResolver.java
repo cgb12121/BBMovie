@@ -40,7 +40,6 @@ public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRe
         String uri = request.getRequestURI();
         String registrationId = uri.substring(uri.lastIndexOf("/") + 1);
 
-
         // Parameters that control login behavior
         switch (registrationId) {
             case "google" -> extraParams.put("prompt", GooglePrompt.CONSENT.getOption());

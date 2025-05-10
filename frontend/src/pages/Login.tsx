@@ -13,12 +13,13 @@ import {
   Col
 } from "antd"
 import { FcGoogle } from "react-icons/fc"
-import { FaFacebookF, FaGithub } from "react-icons/fa"
+import { FaFacebookF, FaGithub, FaDiscord } from "react-icons/fa"
 import {
   LockOutlined,
   MailOutlined,
   CheckCircleFilled,
-  CloseCircleFilled} from "@ant-design/icons"
+  CloseCircleFilled
+} from "@ant-design/icons"
 import { motion, AnimatePresence } from "framer-motion"
 import api from "../services/api"
 import AuthLayout from "../styles/AuthLayout"
@@ -31,7 +32,8 @@ import {
   FacebookButton,
   GithubButton,
   LinkText,
-  OrDivider
+  OrDivider,
+  DiscordButton
 } from "../styles/AuthStyles"
 import {
   IconWrapper,
@@ -81,6 +83,7 @@ const Login: React.FC = () => {
       const fetchUserData = async () => {
         try {
           const { data } = await api.get("/api/auth/oauth2-callback");
+          console.log(data);
           onLoginSuccess(data.data);
         } catch (err: any) {
           console.error("Failed to fetch user data:", err);
@@ -104,7 +107,7 @@ const Login: React.FC = () => {
       const { data } = await api.post("/api/auth/login", values)
       onLoginSuccess(data.data)
     } catch (err: any) {
-      const msg = err?.response?.data?.message || "Login failed. Please check your credentials."
+      const msg = err?.response?.data?.message ?? "Login failed. Please check your credentials."
       setError(msg)
     } finally {
       setLoading(false)
@@ -112,15 +115,15 @@ const Login: React.FC = () => {
   }
 
   const onLoginSuccess = (userData: any) => {
-    const { userResponse, authResponse } = userData
+    const { userResponse, authResponse, userAgentResponse } = userData
 
     // Save to Redux
-    dispatch(setCredentials({ user: userResponse, auth: authResponse }))
+    dispatch(setCredentials({ user: userResponse, auth: authResponse, userAgent: userAgentResponse }))  
 
     // Save to localStorage (optional)
     localStorage.setItem("user", JSON.stringify(userResponse))
     localStorage.setItem("auth", JSON.stringify(authResponse))
-
+    localStorage.setItem("userAgent", JSON.stringify(userAgentResponse))
     navigate("/")
   }
 
@@ -145,9 +148,10 @@ const Login: React.FC = () => {
   const googleIcon = FcGoogle({ size: 20 }) as JSX.Element;
   const facebookIcon = FaFacebookF({ size: 20 }) as JSX.Element;
   const githubIcon = FaGithub({ size: 20 }) as JSX.Element;
+  const discordIcon = FaDiscord({ size: 20 }) as JSX.Element;
 
   return (
-    <AuthLayout title="Welcome Back" subtitle="Sign in to continue to BBMovie">
+    <AuthLayout>
       <StyledCard>
         <AnimatePresence mode="wait">
           <motion.div key="login-form" variants={formVariants} initial="hidden" animate="visible" exit="exit">
@@ -211,7 +215,7 @@ const Login: React.FC = () => {
               </OrDivider>
 
               <Row gutter={16}>
-                <Col span={8}>
+                <Col span={6}>
                   <GoogleButton
                     onClick={() => handleSocialLogin("Google")}
                     icon={ googleIcon }
@@ -219,10 +223,10 @@ const Login: React.FC = () => {
                     disabled={!!socialLoading}
                     block
                   >
-                    Google
+                    
                   </GoogleButton>
                 </Col>
-                <Col span={8}>
+                <Col span={6}>
                   <FacebookButton
                     onClick={() => handleSocialLogin("Facebook")}
                     icon={ facebookIcon }
@@ -230,10 +234,10 @@ const Login: React.FC = () => {
                     disabled={!!socialLoading}
                     block
                   >
-                    Facebook
+                    
                   </FacebookButton>
                 </Col>
-                <Col span={8}>
+                <Col span={6}>
                   <GithubButton
                     onClick={() => handleSocialLogin("Github")}
                     icon={ githubIcon }
@@ -241,8 +245,19 @@ const Login: React.FC = () => {
                     disabled={!!socialLoading}
                     block
                   >
-                    GitHub
+                    
                   </GithubButton>
+                </Col>
+                <Col span={6}>
+                  <DiscordButton
+                    onClick={() => handleSocialLogin("Discord")}
+                    icon={ discordIcon }
+                    loading={socialLoading === "Discord"}
+                    disabled={!!socialLoading}
+                    block
+                  >
+                    
+                  </DiscordButton>
                 </Col>
               </Row>
             </Form>

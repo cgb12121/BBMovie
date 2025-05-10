@@ -1,6 +1,7 @@
 package com.example.bbmovie.service.auth;
 
 import com.example.bbmovie.entity.jwt.RefreshToken;
+import com.example.bbmovie.exception.NoRefreshTokenException;
 import com.example.bbmovie.repository.RefreshTokenRepository;
 import com.example.bbmovie.security.jwt.asymmetric.JwtTokenPairedKeyProvider;
 import jakarta.transaction.Transactional;
@@ -42,10 +43,10 @@ public class RefreshTokenService {
                 .collect(Collectors.toList());
 
         RefreshToken userRefreshToken = refreshTokenRepository.findByEmailAndDeviceName(username, deviceName)
-                .orElseThrow(() -> new RuntimeException("Refresh token not found"));
+                .orElseThrow(() -> new NoRefreshTokenException("Refresh token not found"));
 
         if (userRefreshToken.isRevoked() || userRefreshToken.getExpiryDate().before(new Date())) {
-            throw new RuntimeException("Refresh token is expired or revoked");
+            throw new NoRefreshTokenException("Refresh token is expired or revoked");
         }
 
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(username, "", authorities);
@@ -61,7 +62,7 @@ public class RefreshTokenService {
     ) {
         Date expiryDate = jwtTokenPairedKeyProvider.getExpirationDateFromToken(refreshToken);
 
-        Optional<RefreshToken> existingToken = refreshTokenRepository.findByDeviceIpAddress(deviceIpAddress);
+        Optional<RefreshToken> existingToken = refreshTokenRepository.findByEmailAndDeviceName(email, deviceName);
 
         RefreshToken token = existingToken.map(existing -> {
             existing.setToken(refreshToken);
@@ -80,5 +81,11 @@ public class RefreshTokenService {
         ));
 
         refreshTokenRepository.save(token);
+    }
+
+    public List<String> getAllDeviceNameByEmail(String email) {
+        return refreshTokenRepository.findAllByEmail(email).stream()
+               .map(RefreshToken::getDeviceName)
+               .collect(Collectors.toList());
     }
 }

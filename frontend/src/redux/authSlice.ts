@@ -14,14 +14,24 @@ interface AuthResponse {
   role: string
 }
 
+interface UserAgentResponse {
+  deviceName: string
+  deviceOs: string
+  deviceIpAddress: string
+  browser: string
+  browserVersion: string
+}
+
 interface AuthState {
   user: UserResponse | null
   auth: AuthResponse | null
+  userAgent: UserAgentResponse | null
 }
 
 const initialState: AuthState = {
   user: null,
-  auth: null
+  auth: null,
+  userAgent: null
 }
 
 const authSlice = createSlice({
@@ -30,18 +40,20 @@ const authSlice = createSlice({
   reducers: {
     setCredentials: (
       state,
-      action: PayloadAction<{ user: UserResponse; auth: AuthResponse }>
+      action: PayloadAction<{ user: UserResponse; auth: AuthResponse; userAgent: UserAgentResponse }>
     ) => {
       state.user = action.payload.user
       state.auth = action.payload.auth
+      state.userAgent = action.payload.userAgent
     },
     logout: (state) => {
       state.user = null
       state.auth = null
-
+      state.userAgent = null
       localStorage.removeItem('user');
       localStorage.removeItem('auth');
       localStorage.removeItem('accessToken');
+      localStorage.removeItem('userAgent');
     }
   }
 })

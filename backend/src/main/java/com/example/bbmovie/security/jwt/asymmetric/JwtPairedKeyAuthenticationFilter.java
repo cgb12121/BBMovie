@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -37,15 +38,11 @@ public class JwtPairedKeyAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         try {
             String jwt = getJwtFromRequest(request);
-            String deviceId = getDeviceIdFromRequest(request);
+            String deviceName = getDeviceIdFromRequest(request);
 
             if (jwt != null && jwtTokenPairedKeyProvider.validateToken(jwt)) {
-                if (jwtTokenPairedKeyProvider.isTokenBlacklisted(jwt)) {
-                    throw new BlacklistedJwtTokenException("Token has been invalidated");
-                }
-
                 String username = jwtTokenPairedKeyProvider.getUsernameFromToken(jwt);
-                if (jwtTokenPairedKeyProvider.isAccessTokenBlockedForEmailAndDevice(username, deviceId)) {
+                if (jwtTokenPairedKeyProvider.isAccessTokenBlacklistedForEmailAndDevice(username, deviceName)) {
                     throw new BlacklistedJwtTokenException("Access token has been blocked for this email and device");
                 }
 
@@ -89,10 +86,19 @@ public class JwtPairedKeyAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private String getDeviceIdFromRequest(HttpServletRequest request) {
-        String deviceId = request.getParameter("X-DEVICE-ID");
-        if (deviceId == null || deviceId.trim().isEmpty()) {
-            return null;
+        String deviceName = request.getHeader("X-DEVICE-NAME");
+        if (deviceName != null && !deviceName.isBlank()) {
+            return StringUtils.deleteWhitespace(deviceName);
         }
-        return deviceId;
+
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("deviceName".equals(cookie.getName())) {
+                    return StringUtils.deleteWhitespace(cookie.getValue());
+                }
+            }
+        }
+        return null;
     }
 }

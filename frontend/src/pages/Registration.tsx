@@ -1,5 +1,3 @@
-"use client"
-
 import type React from "react"
 import { useState, useEffect } from "react"
 import { Link, useNavigate } from "react-router-dom"
@@ -219,7 +217,7 @@ const Registration: React.FC = () => {
   ]
 
   return (
-    <AuthLayout title="Create Account" subtitle="Join BBMovie and start exploring">
+    <AuthLayout>
       <StyledCard>
         <StyledSteps current={currentStep} size="small">
           {steps.map((step) => (

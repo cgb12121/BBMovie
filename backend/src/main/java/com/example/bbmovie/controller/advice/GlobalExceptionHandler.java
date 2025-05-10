@@ -19,9 +19,16 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import org.thymeleaf.exceptions.TemplateInputException;
 import org.thymeleaf.exceptions.TemplateProcessingException;
 
+import java.io.IOException;
+
 @Log4j2
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+
+    @ExceptionHandler(NoRefreshTokenException.class)
+    public ResponseEntity<ApiResponse<Void>> handleNoRefreshTokenException(NoRefreshTokenException e) {
+        return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "No refresh token found");
+    }
 
     @ExceptionHandler(io.jsonwebtoken.ExpiredJwtException.class)
     public ResponseEntity<ApiResponse<Void>> handleExpiredJwtException(io.jsonwebtoken.ExpiredJwtException e) {
@@ -125,7 +132,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(BlacklistedJwtTokenException.class)
     public ResponseEntity<ApiResponse<Void>> handleBlacklistedJwtTokenException(BlacklistedJwtTokenException ex) {
-        return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, "Invalid token");
+        return buildErrorResponse(ex, HttpStatus.UNAUTHORIZED, "Access token has been blocked for this email and device");
     }
 
     @ExceptionHandler(CustomEmailException.class)

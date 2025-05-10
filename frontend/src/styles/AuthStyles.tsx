@@ -210,6 +210,20 @@ export const GithubButton = styled(SocialButton)`
   }
 `;
 
+export const DiscordButton = styled(SocialButton)`
+  background: #5865f2;
+  color: #ffffff;
+  border: 1px solid #5865f2;
+
+  &:hover,
+  &:focus {
+    background: #4752c4 !important;
+    color: #ffffff !important;
+    border-color: #4752c4 !important;
+    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);
+  }
+`;
+
 export const LinkText = styled.div`
   text-align: center;
   margin-top: 1.5rem;

@@ -1,4 +1,4 @@
-package com.example.bbmovie.security.jwt.utils;
+package com.example.bbmovie.utils;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;

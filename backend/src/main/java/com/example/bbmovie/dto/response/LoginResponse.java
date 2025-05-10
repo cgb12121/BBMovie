@@ -43,9 +43,9 @@ public class LoginResponse {
 
     public static LoginResponse fromUserAndAuthAndUserAgentResponse(UserResponse userResponse, AuthResponse authResponse, UserAgentResponse userAgentResponse) {
         return LoginResponse.builder()
+                .userAgentResponse(userAgentResponse)
                 .userResponse(userResponse)
                 .authResponse(authResponse)
-                .userAgentResponse(userAgentResponse)
                 .build();
     }
 }

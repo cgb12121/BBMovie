@@ -1,0 +1,14 @@
+.device-management-container {
+  padding: 24px;
+}
+
+.device-management-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.device-management-header h2 {
+  margin: 0;
+} 

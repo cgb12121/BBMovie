@@ -5,6 +5,7 @@ import { useEffect } from "react"
 import styled, { keyframes } from "styled-components"
 import { Typography } from "antd"
 import { motion } from "framer-motion"
+import { Link } from "react-router-dom"
 
 const { Title, Text } = Typography
 
@@ -53,7 +54,7 @@ const Logo = styled.div`
   margin-bottom: 1.5rem;
 `
 
-const LogoText = styled.h1`
+const LogoText = styled(Link)`
   color: #e50914;
   font-size: 2.5rem;
   margin: 0;
@@ -78,8 +79,6 @@ const StyledSubtitle = styled(Text)`
 
 interface AuthLayoutProps {
   children: React.ReactNode
-  title: string
-  subtitle?: string
 }
 
 const containerVariants = {
@@ -103,7 +102,7 @@ const itemVariants = {
   },
 }
 
-const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) => {
+const AuthLayout: React.FC<AuthLayoutProps> = ({ children }) => {
   useEffect(() => {
     document.body.style.overflow = "hidden"
     return () => {
@@ -118,15 +117,9 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ children, title, subtitle }) =>
         <motion.div variants={containerVariants} initial="hidden" animate="visible">
           <motion.div variants={itemVariants}>
             <Logo>
-              <LogoText>BBMovie</LogoText>
+              <LogoText to="/">BBMovie</LogoText>
             </Logo>
           </motion.div>
-
-          <motion.div variants={itemVariants}>
-            <StyledTitle level={2}>{title}</StyledTitle>
-            {subtitle && <StyledSubtitle>{subtitle}</StyledSubtitle>}
-          </motion.div>
-
           <motion.div variants={itemVariants}>{children}</motion.div>
         </motion.div>
       </Content>

@@ -5,6 +5,7 @@ import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
 import io.jsonwebtoken.*;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
@@ -101,7 +102,6 @@ public class JwtTokenPairedKeyProvider {
 
     private String getRoleFromAuthentication(Authentication authentication) {
         Object principal = authentication.getPrincipal();
-        log.info("getRoleFromAuthentication: {}", principal);
         if (principal instanceof User user) {
             return "ROLE_" + user.getRole().name();
         } else if (principal instanceof UserDetails userDetails) {
@@ -138,7 +138,11 @@ public class JwtTokenPairedKeyProvider {
     }
 
     public Date getExpirationDateFromToken(String token) {
-        return parseClaims(token).getExpiration();
+        try {
+            return parseClaims(token).getExpiration();
+        } catch (ExpiredJwtException e) {
+            return e.getClaims().getExpiration();
+        }
     }
 
     public boolean validateToken(String token) {
@@ -159,41 +163,18 @@ public class JwtTokenPairedKeyProvider {
                 .getBody();
     }
 
-    public void invalidateAccessToken(String accessToken) {
-        try {
-            String blacklistKey = "jwt-blacklist:" + accessToken;
-            redisTemplate.opsForValue().set(
-                    blacklistKey,
-                    "invalidated",
-                    getExpirationDateFromToken(accessToken).getTime() - System.currentTimeMillis(),
-                    TimeUnit.MILLISECONDS
-            );
-        } catch (ExpiredJwtException e) {
-            redisTemplate.opsForValue().set(
-                    "jwt-blacklist:" + accessToken,
-                    "invalidated",
-                    15,
-                    TimeUnit.MINUTES
-            );
-        }
-    }
-
-    public boolean isTokenBlacklisted(String token) {
-        return redisTemplate.hasKey("jwt-blacklist:" + token);
-    }
-
-    public void invalidateAccessTokenByEmailAndDevice(String email, String deviceId) {
-        String key = "jwt-block-access-token:" + email + ":" + deviceId;
+    public void invalidateAccessTokenByEmailAndDevice(String email, String deviceName) {
+        String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.opsForValue().set(key, "true", 15, TimeUnit.MINUTES);
     }
 
-    public boolean isAccessTokenBlockedForEmailAndDevice(String email, String deviceId) {
-        String key = "jwt-block-access-token:" + email + ":" + deviceId;
+    public boolean isAccessTokenBlacklistedForEmailAndDevice(String email, String deviceName) {
+        String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
         return redisTemplate.hasKey(key);
     }
 
-    public void removeJwtBlockAccessTokenOfEmailAndDevice(String email, String deviceId) {
-        String key = "jwt-block-access-token:" + email + ":" + deviceId;
+    public void removeJwtBlockAccessTokenOfEmailAndDevice(String email, String deviceName) {
+        String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.delete(key);
     }
 }

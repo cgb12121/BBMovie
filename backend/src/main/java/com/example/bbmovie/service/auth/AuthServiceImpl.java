@@ -27,15 +27,20 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import nl.basjes.parse.useragent.UserAgent;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.util.WebUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 @Service
@@ -93,6 +98,8 @@ public class AuthServiceImpl implements AuthService {
                 refreshToken, user.getEmail(), deviceIpAddress, deviceName, deviceOsName, browser, browserVersion
         );
 
+        jwtTokenPairedKeyProvider.removeJwtBlockAccessTokenOfEmailAndDevice(user.getEmail(), deviceName);
+
         AuthResponse authResponse = AuthResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -112,6 +119,44 @@ public class AuthServiceImpl implements AuthService {
                 .deviceOs(deviceOsName)
                 .browser(browser)
                 .browserVersion(browserVersion)
+                .build();
+
+        return LoginResponse.fromUserAndAuthAndUserAgentResponse(
+                userResponse, authResponse, userAgentResponse
+        );
+    }
+
+    @Override
+    public LoginResponse getLoginResponseFromOAuth2Login(UserDetails userDetails, HttpServletRequest request) {
+        String userAgentString = request.getHeader("User-Agent");
+        UserAgent agent = userAgentAnalyzer.parse(userAgentString);
+
+        String deviceName = agent.getValue("DeviceName");
+        String deviceIpAddress = IpAddressUtils.getClientIp(request);
+        String deviceOs = agent.getValue("OperatingSystemName");
+        String browser = agent.getValue("AgentName");
+        String browserVersion = agent.getValue("AgentVersion");
+
+        UserAgentResponse userAgentResponse = UserAgentResponse.builder()
+                .deviceName(deviceName)
+                .deviceIpAddress(deviceIpAddress)
+                .deviceOs(deviceOs)
+                .browser(browser)
+                .browserVersion(browserVersion)
+                .build();
+
+        Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
+        if (accessTokenCookie == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Access token cookie is missing");
+        }
+
+        UserResponse userResponse = loadAuthenticatedUserInformation(userDetails.getUsername());
+
+        AuthResponse authResponse = AuthResponse.builder()
+                .accessToken(accessTokenCookie.getValue())
+                .refreshToken(null)
+                .email(userResponse.getEmail())
+                .role(Role.USER)
                 .build();
 
         return LoginResponse.fromUserAndAuthAndUserAgentResponse(
@@ -160,23 +205,25 @@ public class AuthServiceImpl implements AuthService {
 
     @Transactional
     @Override
-    public void verifyAccountByEmail(String token) {
+    public String verifyAccountByEmail(String token) {
         if (token == null || token.trim().isEmpty()) {
             throw new TokenVerificationException("Verification token cannot be null or empty");
         }
         String email = emailVerifyTokenService.getEmailForToken(token);
         if (email == null) {
             log.warn("Token {} was already used or is invalid", token);
-            return;
+            return "Account verification failed. Please try again.";
         }
         User user = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
         if (user.isEnabled()) {
             log.info("Email {} already verified", email);
-            return;
+            return "Account already verified.";
         }
         user.setIsEnabled(true);
         userRepository.save(user);
         emailVerifyTokenService.deleteToken(token);
+
+        return "Account verification successful. Please login to continue.";
     }
 
     @Override
@@ -238,17 +285,61 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public void revokeAccessTokenAndRefreshToken(String accessToken, String deviceName) {
-        String email = jwtTokenPairedKeyProvider.getUsernameFromToken(accessToken);
-        refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
-        jwtTokenPairedKeyProvider.invalidateAccessToken(accessToken);
+    public void logoutFromAllDevices(String email) {
+        revokeAllTokensFromAllDevicesByEmail(email);
     }
 
     @Override
     @Transactional
-    public void revokeAllTokensByEmail(String email, String deviceId) {
+    public void logoutFromCurrentDevice(String accessToken, String deviceName) {
+        revokeAccessTokenAndRefreshTokenFromCurrentDevice(accessToken, deviceName);
+    }
+
+    @Override
+    @Transactional
+    public void logoutFromOneDevice(String username, String deviceName) {
+        revokeAccessTokenAndRefreshTokenFromOneDevice(username, deviceName);
+    }
+
+    @Override
+    public List<String> getAllLoggedInDevices(String email, HttpServletRequest request) {
+        String userAgentString = request.getHeader("User-Agent");
+        UserAgent agent = userAgentAnalyzer.parse(userAgentString);
+        String deviceName = agent.getValue("DeviceName");
+
+        List<String> allLoggedInDevices = getAllLoggedInDevices(email);
+        for (int i = 0; i < allLoggedInDevices.size(); i++) {
+            String device = allLoggedInDevices.get(i);
+            if (device.equals(deviceName)) {
+                String highLightCurrentDevice = "(Current device) " + device;
+                allLoggedInDevices.set(i, highLightCurrentDevice);
+                break;
+            }
+        }
+        return allLoggedInDevices;
+    }
+
+    private void revokeAccessTokenAndRefreshTokenFromCurrentDevice(String accessToken, String deviceName) {
+        String email = jwtTokenPairedKeyProvider.getUsernameFromToken(accessToken);
+        refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
+        jwtTokenPairedKeyProvider.invalidateAccessTokenByEmailAndDevice(email, deviceName);
+    }
+
+    private void revokeAccessTokenAndRefreshTokenFromOneDevice(String email, String deviceName) {
+        refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
+        jwtTokenPairedKeyProvider.invalidateAccessTokenByEmailAndDevice(email, deviceName);
+    }
+
+    private void revokeAllTokensFromAllDevicesByEmail(String email) {
+        List<String> allDevicesName = getAllLoggedInDevices(email);
         refreshTokenService.deleteAllRefreshTokenByEmail(email);
-        jwtTokenPairedKeyProvider.invalidateAccessTokenByEmailAndDevice(email, deviceId);
+        for (String device : allDevicesName) {
+            jwtTokenPairedKeyProvider.invalidateAccessTokenByEmailAndDevice(email, device);
+        }
+    }
+
+    private List<String> getAllLoggedInDevices(String email) {
+        return refreshTokenService.getAllDeviceNameByEmail(email);
     }
 
     @Override
@@ -262,11 +353,6 @@ public class AuthServiceImpl implements AuthService {
                 .lastName(user.getLastName())
                 .profilePictureUrl(user.getProfilePictureUrl())
                 .build();
-    }
-
-    @Override
-    public User loadAuthenticatedUser(String email) {
-        return userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
     }
 
     @Override
@@ -293,6 +379,8 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         emailService.notifyChangedPassword(user.getEmail());
+
+        revokeAllTokensFromAllDevicesByEmail(user.getEmail());
     }
 
     @Override
@@ -322,6 +410,8 @@ public class AuthServiceImpl implements AuthService {
         changePasswordTokenService.deleteToken(token);
         emailService.notifyChangedPassword(user.getEmail());
         log.info("Password reset for user {} successful", email);
+
+        revokeAllTokensFromAllDevicesByEmail(email);
     }
 
     @Override

@@ -21,6 +21,24 @@ api.interceptors.request.use(
         return Promise.reject(new Error(error));
     }
 );
+
+api.interceptors.request.use(
+    (config) => {
+        const userAgent = JSON.parse(localStorage.getItem("userAgent") ?? '{}');
+        if (userAgent) {
+            config.headers['X-DEVICE-NAME'] = userAgent.deviceName ?? '';
+            config.headers['X-DEVICE-OS'] = userAgent.deviceOs ?? '';
+            config.headers['X-DEVICE-IP-ADDRESS'] = userAgent.deviceIpAddress ?? '';
+            config.headers['X-BROWSER'] = userAgent.browser ?? '';
+            config.headers['X-BROWSER-VERSION'] = userAgent.browserVersion ?? '';
+        }
+        return config;
+    },
+    (error) => {
+        return Promise.reject(new Error(error));
+    }
+);
+
 api.interceptors.request.use(
     (config) => {
         const token = getCookie('XSRF-TOKEN');

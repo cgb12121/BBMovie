@@ -3,10 +3,7 @@ package com.example.bbmovie.controller;
 import com.example.bbmovie.common.ValidationHandler;
 import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.dto.request.*;
-import com.example.bbmovie.dto.response.AccessTokenResponse;
-import com.example.bbmovie.dto.response.AuthResponse;
-import com.example.bbmovie.dto.response.LoginResponse;
-import com.example.bbmovie.dto.response.UserResponse;
+import com.example.bbmovie.dto.response.*;
 import com.example.bbmovie.exception.UnauthorizedUserException;
 import com.example.bbmovie.service.auth.RefreshTokenService;
 import com.example.bbmovie.service.auth.AuthService;
@@ -16,7 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -27,7 +23,9 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@Slf4j
+import java.util.ArrayList;
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
@@ -76,16 +74,9 @@ public class AuthController {
     ) {
         ResponseEntity<ApiResponse<LoginResponse>> errorResponse = ValidationHandler.handleBindingErrors(bindingResult);
         if (errorResponse != null) return errorResponse;
-
         LoginResponse response = authService.login(loginRequest, request);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
-
-//    @PostMapping("/login/ott")
-//    public ResponseEntity<ApiResponse<LoginResponse>> loginWithOtt() {
-//        LoginResponse response = authService.loginWithOtt();
-//        return ResponseEntity.ok(ApiResponse.success(response));
-//    }
 
     @PostMapping("/access-token")
     public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessToken(
@@ -110,7 +101,7 @@ public class AuthController {
         boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bearer ");
         if (isValidAuthorizationHeader) {
             String accessToken = tokenHeader.substring(7);
-            authService.revokeAccessTokenAndRefreshToken(accessToken, deviceName);
+            authService.logoutFromCurrentDevice(accessToken, deviceName);
             authService.revokeCookies(response);
             return ResponseEntity.ok(ApiResponse.success("Logout successful"));
         }
@@ -119,8 +110,7 @@ public class AuthController {
 
     @GetMapping("/verify-email")
     public ResponseEntity<ApiResponse<Void>> verifyEmail(@RequestParam("token") String token) {
-        authService.verifyAccountByEmail(token);
-        return ResponseEntity.ok(ApiResponse.success("Email verified successfully. You can now login."));
+        return ResponseEntity.ok(ApiResponse.success(authService.verifyAccountByEmail(token)));
     }
 
     @PostMapping("/send-verification")
@@ -134,8 +124,6 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Verification email has been resent. Please check your email."));
     }
 
-    //TODO: revoke access token, refresh token after success
-    //      (no transaction unless exception occurs when changing password)
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
@@ -148,8 +136,6 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Password changed successfully"));
     }
 
-    //TODO: revoke access token, refresh token after success
-    //      (no transaction unless exception occurs when changing password)
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<Void>> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request,
@@ -161,8 +147,6 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Password reset instructions have been sent to your email"));
     }
 
-    //TODO: revoke access token, refresh token after success
-    //      (no transaction unless exception occurs when changing password)
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<Void>> resetPassword(
             @RequestParam("token") String token,
@@ -175,10 +159,43 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully"));
     }
 
-    //TODO: implement forced logout (revoke all tokens when user request: a email or otp send(choice) -> revoke when valid)
-    @PostMapping("/force-logout")
-    public ResponseEntity<ApiResponse<Void>> forceLogout() {
-        return ResponseEntity.ok(ApiResponse.success("Logout from all devices successful"));
+    @GetMapping("/sessions/devices")
+    public ResponseEntity<ApiResponse<List<String>>> getAllDeviceLoggedIntoAccount(
+            @AuthenticationPrincipal UserDetails userDetails, HttpServletRequest request
+    ) {
+        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
+        List<String> devices = authService.getAllLoggedInDevices(userDetails.getUsername(), request);
+        return devices.isEmpty()
+                ? ResponseEntity.ok(ApiResponse.success(List.of()))
+                : ResponseEntity.ok(ApiResponse.success(devices));
+    }
+
+    @PostMapping("/sessions/devices/revoke")
+    public ResponseEntity<ApiResponse<String>> revokeDeviceLoggedIntoAccount(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestBody RevokeDeviceRequest request
+    ) {
+        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
+        List<String> revokedDevices = new ArrayList<>();
+        for (DeviceRevokeEntry device : request.getDevices()) {
+            authService.logoutFromOneDevice(userDetails.getUsername(), device.getDeviceName());
+            revokedDevices.add(device.getDeviceName());
+        }
+        return ResponseEntity.ok(ApiResponse.success(
+                String.join(", ", revokedDevices) + " was forced to logout successfully")
+        );
+    }
+
+    @GetMapping("/oauth2-callback")
+    public ResponseEntity<ApiResponse<LoginResponse>> getCurrentUserFromOAuth2(
+            @AuthenticationPrincipal UserDetails userDetails,
+            HttpServletRequest request
+    ) {
+        if (userDetails == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("User not authenticated"));
+        }
+        LoginResponse loginResponse = authService.getLoginResponseFromOAuth2Login(userDetails, request);
+        return ResponseEntity.ok(ApiResponse.success(loginResponse));
     }
 
     @GetMapping("/csrf")

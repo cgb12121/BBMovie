@@ -7,18 +7,22 @@ import com.example.bbmovie.dto.request.ResetPasswordRequest;
 import com.example.bbmovie.dto.response.AuthResponse;
 import com.example.bbmovie.dto.response.LoginResponse;
 import com.example.bbmovie.dto.response.UserResponse;
-import com.example.bbmovie.entity.User;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
 
 
 public interface AuthService {
+    LoginResponse getLoginResponseFromOAuth2Login(UserDetails userDetails, HttpServletRequest request);
+
     AuthResponse register(RegisterRequest request);
 
     @Transactional
-    void verifyAccountByEmail(String token);
+    String verifyAccountByEmail(String token);
 
     @Transactional
     void verifyAccountByOtp(String otp);
@@ -30,14 +34,14 @@ public interface AuthService {
     LoginResponse login(LoginRequest loginRequest, HttpServletRequest request);
 
     @Transactional
-    void revokeAccessTokenAndRefreshToken(String accessToken, String deviceId);
+    void logoutFromAllDevices(String email);
 
     @Transactional
-    void revokeAllTokensByEmail(String email, String deviceId);
+    void logoutFromCurrentDevice(String email, String deviceName);
+
+    List<String> getAllLoggedInDevices(String email, HttpServletRequest request);
 
     UserResponse loadAuthenticatedUserInformation(String email);
-
-    User loadAuthenticatedUser(String email);
 
     void changePassword(String requestEmail, @Valid ChangePasswordRequest request);
 
@@ -46,4 +50,6 @@ public interface AuthService {
     void resetPassword(String token, ResetPasswordRequest request);
 
     void revokeCookies(HttpServletResponse response);
+
+    void logoutFromOneDevice(String username, String deviceName);
 }
