@@ -67,5 +67,6 @@ public class RefreshToken {
         this.deviceIpAddress = deviceIpAddress;
         this.browser = browser;
         this.browserVersion = browserVersion;
+        this.revoked = false;
     }
 }

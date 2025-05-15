@@ -19,8 +19,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 import org.thymeleaf.exceptions.TemplateInputException;
 import org.thymeleaf.exceptions.TemplateProcessingException;
 
-import java.io.IOException;
-
 @Log4j2
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
@@ -32,7 +30,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(io.jsonwebtoken.ExpiredJwtException.class)
     public ResponseEntity<ApiResponse<Void>> handleExpiredJwtException(io.jsonwebtoken.ExpiredJwtException e) {
-        return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "Invalid token");
+        return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "Invalid token: token has expired");
     }
 
     @ExceptionHandler(MultipartException.class)

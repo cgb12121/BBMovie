@@ -4,9 +4,7 @@ import com.example.bbmovie.entity.base.BaseEntity;
 import com.example.bbmovie.entity.enumerate.AuthProvider;
 import com.example.bbmovie.entity.enumerate.Role;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,11 +13,14 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+@Builder
 @Entity
 @Table(name = "users")
 @Getter
 @Setter
 @ToString
+@NoArgsConstructor
+@AllArgsConstructor
 public class User extends BaseEntity implements UserDetails {
     @Column(nullable = false, unique = true)
     private String username;

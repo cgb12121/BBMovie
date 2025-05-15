@@ -1,7 +1,8 @@
 package com.example.bbmovie.security.oauth2;
 
+import com.example.bbmovie.security.oauth2.strategy.request.customizer.OAuth2RequestCustomizer;
 import jakarta.servlet.http.HttpServletRequest;
-import lombok.Getter;
+import org.springframework.context.annotation.Bean;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
@@ -9,15 +10,32 @@ import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequ
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Component
 public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRequestResolver {
 
     private final OAuth2AuthorizationRequestResolver defaultResolver;
+    private final Map<String, OAuth2RequestCustomizer> customizerMap;
 
-    public CustomAuthorizationRequestResolver(ClientRegistrationRepository repo) {
+    public CustomAuthorizationRequestResolver(
+            ClientRegistrationRepository repo,
+            List<OAuth2RequestCustomizer> customizers
+    ) {
         this.defaultResolver = new DefaultOAuth2AuthorizationRequestResolver(repo, "/oauth2/authorization");
+        this.customizerMap = new HashMap<>();
+        for (OAuth2RequestCustomizer customizer : customizers) {
+            this.customizerMap.put(customizer.getRegistrationId(), customizer);
+        }
+    }
+
+    @Bean(value = "CustomAuthorizationRequestResolver")
+    public OAuth2AuthorizationRequestResolver customAuthorizationRequestResolver(
+            ClientRegistrationRepository repo,
+            List<OAuth2RequestCustomizer> customizers
+    ) {
+        return new CustomAuthorizationRequestResolver(repo, customizers);
     }
 
     @Override
@@ -36,107 +54,16 @@ public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRe
         if (req == null) return null;
 
         Map<String, Object> extraParams = new HashMap<>(req.getAdditionalParameters());
-
         String uri = request.getRequestURI();
         String registrationId = uri.substring(uri.lastIndexOf("/") + 1);
 
-        // Parameters that control login behavior
-        switch (registrationId) {
-            case "google" -> extraParams.put("prompt", GooglePrompt.CONSENT.getOption());
-            case "facebook" -> extraParams.put("auth_type", FacebookAuthType.REREQUEST.getOption());
-            case "github", "discord" -> {}
+        OAuth2RequestCustomizer customizer = customizerMap.get(registrationId);
+        if (customizer != null) {
+            customizer.customize(extraParams);
         }
 
         return OAuth2AuthorizationRequest.from(req)
                 .additionalParameters(extraParams)
                 .build();
-    }
-
-    @Getter
-    enum GooglePrompt {
-        /**
-         * 🔑 Prompt=consent
-         * <p>
-         * - What it does: Forces the provider to show the consent screen again.
-         * <p>
-         * - When to use it: When you want the user to re-authorize your app and re-grant permissions.
-         * <p>
-         * - Example use case: Your app requests new scopes (permissions), or you're testing user approval flow.
-         * <p>
-         * ✅ Shows: "This app wants access to your email/profile/etc..."
-         */
-        CONSENT("consent"),
-        /**
-         * 🔑 Prompt=login
-         * <p>
-         * - What it does: Forces the user to re-authenticate (log in again), even if they're already logged into the provider.
-         * <p>
-         * - When to use it: For high-security flows (e.g., banking), or when you don't want auto-login.
-         * <p>
-         * - Example use case: Logging in again to confirm identity for sensitive actions.
-         * <p>
-         * ✅ Shows: The provider's login form, even if the user is already signed in.
-         */
-        LOGIN("login"),
-
-        /**
-         * 🔑 Prompt=select_account
-         * <p>
-         * - What it does: Forces the provider to ask the user to choose an account.
-         * <p>
-         * - When to use it: When users have multiple Google or GitHub accounts, and you want to let them pick explicitly.
-         * <p>
-         * - Example use case: Apps where users might have multiple identities.
-         * <p>
-         * ✅ Shows: Account selection screen, even if only one account is signed in.
-         */
-        SELECT_ACCOUNT("select_account"),;
-
-
-        private final String option;
-
-        GooglePrompt(String option) {
-            this.option = option;
-        }
-    }
-
-    @Getter
-    enum FacebookAuthType {
-
-        /**
-         * 🔑 Auth_type=reauthenticate
-         * <p>
-         * - What it does: forces the user to re-enter their Facebook password,
-         *   even if they are already logged in to Facebook and have previously authorized your app.
-         * <p>
-         * - When to use it: useful in scenarios where you need to confirm the user's identity again
-         * <p>
-         * - Example use case: Application wants to perform a sensitive action with the user's Facebook account.
-         * <p>
-         * ✅ Shows: The provider's login form, even if the user is already signed in.
-         */
-        REAUTHENTICATE("reauthenticate"),
-        /**
-         * 🔑 Auth_type=rerequest
-         * <p>
-         * - What it does: The login dialog will reappear, focusing on the permissions they haven't yet granted
-         * <p>
-         * - When to use it: If a user has previously declined one or more of the permissions your app requested,
-         *   to prompt them again for those specific declined permissions.
-         *   Or just simply wants them to re-approve your app's permissions.
-         * <p>
-         * - Example use case:
-         *   prompt them again for those specific declined permissions
-         *   or make sure they re-approve your app's permissions.
-         * <p>
-         * ✅ Shows: This app wants access to your email/profile/etc...
-         */
-        REREQUEST("rerequest");
-
-        private final String option;
-
-        FacebookAuthType(String option) {
-            this.option = option;
-        }
     }
 }

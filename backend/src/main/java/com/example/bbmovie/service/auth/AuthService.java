@@ -4,9 +4,7 @@ import com.example.bbmovie.dto.request.LoginRequest;
 import com.example.bbmovie.dto.request.ChangePasswordRequest;
 import com.example.bbmovie.dto.request.RegisterRequest;
 import com.example.bbmovie.dto.request.ResetPasswordRequest;
-import com.example.bbmovie.dto.response.AuthResponse;
-import com.example.bbmovie.dto.response.LoginResponse;
-import com.example.bbmovie.dto.response.UserResponse;
+import com.example.bbmovie.dto.response.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -17,6 +15,8 @@ import java.util.List;
 
 
 public interface AuthService {
+    UserAgentResponse getUserDeviceInformation(HttpServletRequest request);
+
     LoginResponse getLoginResponseFromOAuth2Login(UserDetails userDetails, HttpServletRequest request);
 
     AuthResponse register(RegisterRequest request);
@@ -39,7 +39,7 @@ public interface AuthService {
     @Transactional
     void logoutFromCurrentDevice(String email, String deviceName);
 
-    List<String> getAllLoggedInDevices(String email, HttpServletRequest request);
+    List<LoggedInDeviceResponse> getAllLoggedInDevices(String email, HttpServletRequest request);
 
     UserResponse loadAuthenticatedUserInformation(String email);
 

@@ -160,11 +160,11 @@ public class AuthController {
     }
 
     @GetMapping("/sessions/devices")
-    public ResponseEntity<ApiResponse<List<String>>> getAllDeviceLoggedIntoAccount(
+    public ResponseEntity<ApiResponse<List<LoggedInDeviceResponse>>> getAllDeviceLoggedIntoAccount(
             @AuthenticationPrincipal UserDetails userDetails, HttpServletRequest request
     ) {
         if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
-        List<String> devices = authService.getAllLoggedInDevices(userDetails.getUsername(), request);
+        List<LoggedInDeviceResponse> devices = authService.getAllLoggedInDevices(userDetails.getUsername(), request);
         return devices.isEmpty()
                 ? ResponseEntity.ok(ApiResponse.success(List.of()))
                 : ResponseEntity.ok(ApiResponse.success(devices));
@@ -196,6 +196,12 @@ public class AuthController {
         }
         LoginResponse loginResponse = authService.getLoginResponseFromOAuth2Login(userDetails, request);
         return ResponseEntity.ok(ApiResponse.success(loginResponse));
+    }
+
+    @GetMapping("/user-agent")
+    public ResponseEntity<ApiResponse<UserAgentResponse>> getUserAgent(HttpServletRequest request) {
+        UserAgentResponse userAgentResponse = authService.getUserDeviceInformation(request);
+        return ResponseEntity.ok(ApiResponse.success(userAgentResponse));
     }
 
     @GetMapping("/csrf")

@@ -1,15 +1,14 @@
 package com.example.bbmovie.service.auth;
 
+import com.example.bbmovie.dto.DeviceInfo;
 import com.example.bbmovie.dto.request.LoginRequest;
 import com.example.bbmovie.dto.request.ChangePasswordRequest;
 import com.example.bbmovie.dto.request.RegisterRequest;
 import com.example.bbmovie.dto.request.ResetPasswordRequest;
-import com.example.bbmovie.dto.response.AuthResponse;
-import com.example.bbmovie.dto.response.LoginResponse;
-import com.example.bbmovie.dto.response.UserAgentResponse;
-import com.example.bbmovie.dto.response.UserResponse;
+import com.example.bbmovie.dto.response.*;
 import com.example.bbmovie.entity.enumerate.AuthProvider;
 import com.example.bbmovie.entity.enumerate.Role;
+import com.example.bbmovie.entity.jwt.RefreshToken;
 import com.example.bbmovie.exception.*;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.TokenVerificationException;
@@ -40,6 +39,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.WebUtils;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
@@ -64,8 +64,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
 
-        String userAgentString = request.getHeader("User-Agent");
-        UserAgent agent = userAgentAnalyzer.parse(userAgentString);
+        UserAgentResponse userAgentResponse = getUserDeviceInformation(request);
 
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
@@ -85,20 +84,19 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginTime(LocalDateTime.now());
         userRepository.save(user);
 
-        String deviceName = agent.getValue("DeviceName");
-        String deviceIpAddress = IpAddressUtils.getClientIp(request);
-        String deviceOsName = agent.getValue("OperatingSystemName");
-        String browser = agent.getValue("AgentName");
-        String browserVersion = agent.getValue("AgentVersion");
-
         String accessToken = jwtTokenPairedKeyProvider.generateAccessToken(authentication);
         String refreshToken = jwtTokenPairedKeyProvider.generateRefreshToken(authentication);
 
         refreshTokenService.saveRefreshToken(
-                refreshToken, user.getEmail(), deviceIpAddress, deviceName, deviceOsName, browser, browserVersion
+                refreshToken, user.getEmail(),
+                userAgentResponse.getDeviceIpAddress(),
+                userAgentResponse.getDeviceName(),
+                userAgentResponse.getDeviceOs(),
+                userAgentResponse.getBrowser(),
+                userAgentResponse.getBrowserVersion()
         );
 
-        jwtTokenPairedKeyProvider.removeJwtBlockAccessTokenOfEmailAndDevice(user.getEmail(), deviceName);
+        jwtTokenPairedKeyProvider.removeJwtBlockAccessTokenOfEmailAndDevice(user.getEmail(), userAgentResponse.getDeviceName());
 
         AuthResponse authResponse = AuthResponse.builder()
                 .accessToken(accessToken)
@@ -113,17 +111,30 @@ public class AuthServiceImpl implements AuthService {
                 .lastName(user.getLastName())
                 .profilePictureUrl(user.getProfilePictureUrl())
                 .build();
-        UserAgentResponse userAgentResponse = UserAgentResponse.builder()
+
+        return LoginResponse.fromUserAndAuthAndUserAgentResponse(
+                userResponse, authResponse, userAgentResponse
+        );
+    }
+
+    @Override
+    public UserAgentResponse getUserDeviceInformation(HttpServletRequest request) {
+        String userAgentString = request.getHeader("User-Agent");
+        UserAgent agent = userAgentAnalyzer.parse(userAgentString);
+
+        String deviceName = agent.getValue("DeviceName");
+        String deviceIpAddress = IpAddressUtils.getClientIp(request);
+        String deviceOsName = agent.getValue("OperatingSystemName");
+        String browser = agent.getValue("AgentName");
+        String browserVersion = agent.getValue("AgentVersion");
+
+        return UserAgentResponse.builder()
                 .deviceName(deviceName)
                 .deviceIpAddress(deviceIpAddress)
                 .deviceOs(deviceOsName)
                 .browser(browser)
                 .browserVersion(browserVersion)
                 .build();
-
-        return LoginResponse.fromUserAndAuthAndUserAgentResponse(
-                userResponse, authResponse, userAgentResponse
-        );
     }
 
     @Override
@@ -167,13 +178,6 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        User user = registerUser(request);
-        return AuthResponse.builder()
-                .email(user.getEmail())
-                .build();
-    }
-
-    private User registerUser(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistsException("Email already exists");
         }
@@ -189,9 +193,15 @@ public class AuthServiceImpl implements AuthService {
         user.setIsEnabled(false);
 
         User savedUser = userRepository.save(user);
+        sendRegisterEmailToUser(savedUser);
 
+        return AuthResponse.builder()
+                .email(user.getEmail())
+                .build();
+    }
+
+    private void sendRegisterEmailToUser(User savedUser) {
         String verificationToken = emailVerifyTokenService.generateVerificationToken(savedUser);
-
         CompletableFuture.runAsync(() -> {
             try {
                 emailService.sendVerificationEmail(savedUser.getEmail(), verificationToken);
@@ -199,8 +209,6 @@ public class AuthServiceImpl implements AuthService {
                 log.error("Async email sending failed: {}", ex.getMessage());
             }
         });
-
-        return savedUser;
     }
 
     @Transactional
@@ -302,21 +310,30 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public List<String> getAllLoggedInDevices(String email, HttpServletRequest request) {
+    public List<LoggedInDeviceResponse> getAllLoggedInDevices(String email, HttpServletRequest request) {
         String userAgentString = request.getHeader("User-Agent");
-        UserAgent agent = userAgentAnalyzer.parse(userAgentString);
-        String deviceName = agent.getValue("DeviceName");
+        UserAgent currentAgent = userAgentAnalyzer.parse(userAgentString);
+        String currentDeviceName = currentAgent.getValue("DeviceName");
+        String currentIp = IpAddressUtils.getClientIp(request);
 
-        List<String> allLoggedInDevices = getAllLoggedInDevices(email);
-        for (int i = 0; i < allLoggedInDevices.size(); i++) {
-            String device = allLoggedInDevices.get(i);
-            if (device.equals(deviceName)) {
-                String highLightCurrentDevice = "(Current device) " + device;
-                allLoggedInDevices.set(i, highLightCurrentDevice);
-                break;
-            }
+        List<DeviceInfo> allDevices = getAllLoggedInDevicesRaw(email);
+        List<LoggedInDeviceResponse> result = new ArrayList<>();
+
+        for (DeviceInfo device : allDevices) {
+            boolean isCurrent = device.deviceName().equals(currentDeviceName)
+                                && device.ipAddress().equals(currentIp);
+            result.add(new LoggedInDeviceResponse(device.deviceName(), device.ipAddress(), isCurrent));
         }
-        return allLoggedInDevices;
+
+        return result;
+    }
+
+    public List<DeviceInfo> getAllLoggedInDevicesRaw(String email) {
+        List<RefreshToken> tokens = refreshTokenService.findAllValidByEmail(email);
+        return tokens.stream()
+                .map(token -> new DeviceInfo(token.getDeviceName(), token.getDeviceIpAddress()))
+                .distinct()
+                .toList();
     }
 
     private void revokeAccessTokenAndRefreshTokenFromCurrentDevice(String accessToken, String deviceName) {
