@@ -32,6 +32,7 @@ public class User extends BaseEntity implements UserDetails {
     private String email;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "auth_provider")
     private AuthProvider authProvider = AuthProvider.LOCAL;
 
     @Column(name = "first_name")

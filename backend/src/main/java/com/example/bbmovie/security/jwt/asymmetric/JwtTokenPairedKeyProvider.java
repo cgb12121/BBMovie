@@ -3,6 +3,7 @@ package com.example.bbmovie.security.jwt.asymmetric;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
+import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import io.jsonwebtoken.*;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
@@ -33,19 +34,22 @@ public class JwtTokenPairedKeyProvider {
     private final PrivateKey privateKey;
     private final PublicKey publicKey;
     private final RedisTemplate<Object, Object> redisTemplate;
+    private final List<OAuth2UserInfoStrategy> strategies;
 
     public JwtTokenPairedKeyProvider(
             @Value("${app.jwt-private-key}") String privateKeyStr,
             @Value("${app.jwt-public-key}") String publicKeyStr,
             @Value("${app.jwt-access-expiration-milliseconds}") int jwtAccessTokenExpirationInMs,
             @Value("${app.jwt-refresh-expiration-milliseconds}") int jwtRefreshTokenExpirationInMs,
-            RedisTemplate<Object, Object> redisTemplate
+            RedisTemplate<Object, Object> redisTemplate,
+            List<OAuth2UserInfoStrategy> strategies
     ) throws Exception {
         this.jwtAccessTokenExpirationInMs = jwtAccessTokenExpirationInMs;
         this.jwtRefreshTokenExpirationInMs = jwtRefreshTokenExpirationInMs;
         this.privateKey = getPrivateKeyFromString(privateKeyStr);
         this.publicKey = getPublicKeyFromString(publicKeyStr);
         this.redisTemplate = redisTemplate;
+        this.strategies = strategies;
     }
 
     private PrivateKey getPrivateKeyFromString(String key) throws Exception {
@@ -82,6 +86,7 @@ public class JwtTokenPairedKeyProvider {
                 .compact();
     }
 
+/*
     private String getUsernameFromAuthentication(Authentication authentication) {
         Object principal = authentication.getPrincipal();
         if (principal instanceof UserDetails userDetails) {
@@ -94,10 +99,43 @@ public class JwtTokenPairedKeyProvider {
             return switch (provider) {
                 case "github" -> attributes.get("login").toString();
                 case "google", "facebook", "discord" -> attributes.get("email").toString();
+                case "x" -> {
+                    Map<String, Object> data = (Map<String, Object>) attributes.get("data");
+                    if (data == null || data.get("username") == null) {
+                        throw new UnsupportedOAuth2Provider("Missing 'username' in X provider data");
+                    }
+                    yield data.get("username").toString();
+                }
                 default -> throw new UnsupportedOAuth2Provider("Unsupported provider or missing email");
             };
         }
         throw new UnsupportedPrincipalType("Unsupported principal type: " + principal.getClass().getName());
+    }
+*/
+
+    private String getUsernameFromAuthentication(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+
+        if (principal instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        } else if (principal instanceof DefaultOAuth2User oauth2User) {
+            OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
+            String provider = token.getAuthorizedClientRegistrationId();
+            Map<String, Object> attributes = oauth2User.getAttributes();
+
+            OAuth2UserInfoStrategy strategy = getStrategyForProvider(provider);
+            return strategy.getUsername(attributes);
+        }
+        throw new UnsupportedPrincipalType(
+                "Unsupported principal type: " + principal.getClass().getName()
+        );
+    }
+
+    private OAuth2UserInfoStrategy getStrategyForProvider(String provider) {
+        return strategies.stream()
+                .filter(s -> s.getAuthProvider().name().equalsIgnoreCase(provider))
+                .findFirst()
+                .orElseThrow(() -> new UnsupportedOAuth2Provider("Unsupported provider: " + provider));
     }
 
     private String getRoleFromAuthentication(Authentication authentication) {

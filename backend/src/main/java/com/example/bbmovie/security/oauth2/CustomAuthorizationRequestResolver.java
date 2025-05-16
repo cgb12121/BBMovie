@@ -2,9 +2,9 @@ package com.example.bbmovie.security.oauth2;
 
 import com.example.bbmovie.security.oauth2.strategy.request.customizer.OAuth2RequestCustomizer;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.context.annotation.Bean;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestCustomizers;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.stereotype.Component;
@@ -17,6 +17,7 @@ import java.util.Map;
 public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRequestResolver {
 
     private final OAuth2AuthorizationRequestResolver defaultResolver;
+    private final OAuth2AuthorizationRequestResolver pkceResolver;
     private final Map<String, OAuth2RequestCustomizer> customizerMap;
 
     public CustomAuthorizationRequestResolver(
@@ -24,30 +25,39 @@ public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRe
             List<OAuth2RequestCustomizer> customizers
     ) {
         this.defaultResolver = new DefaultOAuth2AuthorizationRequestResolver(repo, "/oauth2/authorization");
+
+        DefaultOAuth2AuthorizationRequestResolver pkceResolver = new DefaultOAuth2AuthorizationRequestResolver(repo, "/oauth2/authorization");
+        pkceResolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
+        this.pkceResolver = pkceResolver;
+
         this.customizerMap = new HashMap<>();
         for (OAuth2RequestCustomizer customizer : customizers) {
             this.customizerMap.put(customizer.getRegistrationId(), customizer);
         }
     }
 
-    @Bean(value = "CustomAuthorizationRequestResolver")
-    public OAuth2AuthorizationRequestResolver customAuthorizationRequestResolver(
-            ClientRegistrationRepository repo,
-            List<OAuth2RequestCustomizer> customizers
-    ) {
-        return new CustomAuthorizationRequestResolver(repo, customizers);
-    }
-
     @Override
     public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
-        OAuth2AuthorizationRequest req = defaultResolver.resolve(request);
-        return customizeRequest(request, req);
+        String uri = request.getRequestURI();
+        String registrationId = uri.substring(uri.lastIndexOf("/") + 1);
+        // Use PKCE resolver for X OAuth2
+        if ("x".equals(registrationId)) {
+            return pkceResolver.resolve(request);
+        } else {
+            OAuth2AuthorizationRequest req = defaultResolver.resolve(request);
+            return customizeRequest(request, req);
+        }
     }
 
     @Override
     public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String clientRegistrationId) {
-        OAuth2AuthorizationRequest req = defaultResolver.resolve(request, clientRegistrationId);
-        return customizeRequest(request, req);
+        // Use PKCE resolver for X OAuth2
+        if ("x".equals(clientRegistrationId)) {
+            return pkceResolver.resolve(request, clientRegistrationId);
+        } else {
+            OAuth2AuthorizationRequest req = defaultResolver.resolve(request, clientRegistrationId);
+            return customizeRequest(request, req);
+        }
     }
 
     private OAuth2AuthorizationRequest customizeRequest(HttpServletRequest request, OAuth2AuthorizationRequest req) {

@@ -1,8 +1,12 @@
 package com.example.bbmovie.security.oauth2.strategy.request.customizer;
 
+import com.example.bbmovie.utils.PkceUtil;
 import org.springframework.stereotype.Component;
+
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 @Component("x")
 public class XOAuth2RequestCustomizer implements OAuth2RequestCustomizer {
@@ -14,6 +18,19 @@ public class XOAuth2RequestCustomizer implements OAuth2RequestCustomizer {
 
     @Override
     public void customize(Map<String, Object> parameters) {
+        String codeVerifier = PkceUtil.generateCodeVerifier();
+        String codeChallenge = PkceUtil.generateCodeChallenge(codeVerifier);
 
+        parameters.put("code_challenge", codeChallenge);
+        parameters.put("code_challenge_method", "S256");
+
+        Map<String, String> state = new HashMap<>();
+        state.put("code_verifier", codeVerifier);
+
+        String stateJson = Base64.getUrlEncoder().encodeToString(
+                state.toString().getBytes(StandardCharsets.UTF_8)
+        );
+        parameters.put("state", stateJson);
     }
+
 }

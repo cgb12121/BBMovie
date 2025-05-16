@@ -5,47 +5,55 @@ import org.springframework.stereotype.Component;
 
 import java.util.Map;
 
+/**
+ * Spring does not support nested JSON objects, so we need to extract the data from the "data" key.
+ */
 @Component
+@SuppressWarnings("unchecked")
 public class XOAuth2UserInfoStrategy implements OAuth2UserInfoStrategy {
 
     @Override
     public String getEmailAttributeKey(Map<String, Object> attributes) {
-        return "email";
+        return "data"; // Top-level key used in DefaultOAuth2User
     }
 
     @Override
     public String getEmail(Map<String, Object> attributes) {
-        return (String) attributes.get("email");
+        Map<String, Object> data = (Map<String, Object>) attributes.get("data");
+        return data != null ? data.get("username") + "x.bbmovie@gmail.com" : null;
     }
 
     @Override
     public String getNameAttributeKey(Map<String, Object> attributes) {
-        return "global_name";
+        return "data"; // Top-level key used in DefaultOAuth2User
     }
 
     @Override
     public String getName(Map<String, Object> attributes) {
-        return (String) attributes.get("global_name");
+        Map<String, Object> data = (Map<String, Object>) attributes.get("data");
+        return data != null ? (String) data.get("name") : null;
     }
 
     @Override
     public String getUsernameAttributeKey(Map<String, Object> attributes) {
-        return "id";
+        return "data"; // Top-level key used in DefaultOAuth2User
     }
 
     @Override
     public String getUsername(Map<String, Object> attributes) {
-        return (String) attributes.get("id");
+        Map<String, Object> data = (Map<String, Object>) attributes.get("data");
+        return data != null ? (String) data.get("username") : null;
     }
 
     @Override
     public String getAvatarUrlAttributeKey(Map<String, Object> attributes) {
-        return "avatar";
+        return "data"; // Top-level key used in DefaultOAuth2User
     }
 
     @Override
     public String getAvatarUrl(Map<String, Object> attributes) {
-        return (String) attributes.get("avatar");
+        Map<String, Object> data = (Map<String, Object>) attributes.get("data");
+        return data != null ? (String) data.get("profile_image_url") : null;
     }
 
     @Override
