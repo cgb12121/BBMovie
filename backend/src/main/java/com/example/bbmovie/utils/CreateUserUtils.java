@@ -3,7 +3,6 @@ package com.example.bbmovie.utils;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
-import com.twilio.auth_strategy.AuthStrategy;
 import org.apache.commons.lang3.RandomStringUtils;
 
 import java.security.SecureRandom;
@@ -24,7 +23,7 @@ public class CreateUserUtils {
                 .profilePictureUrl(avatarUrl)
                 .firstName(firstName)
                 .lastName(lastName)
-                .role(Role.USER)
+                .role(role)
                 .isAccountNonExpired(true)
                 .isAccountNonLocked(true)
                 .isCredentialsNonExpired(true)
