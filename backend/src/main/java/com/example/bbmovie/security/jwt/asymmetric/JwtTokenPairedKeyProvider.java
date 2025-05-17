@@ -150,7 +150,9 @@ public class JwtTokenPairedKeyProvider {
         } else if (principal instanceof DefaultOAuth2User) {
             return "ROLE_USER";
         }
-        throw new UnsupportedPrincipalType("Unsupported principal type: " + principal.getClass().getName());
+        throw new UnsupportedPrincipalType(
+                "Unsupported principal type: " + principal.getClass().getName()
+        );
     }
 
     public List<String> getRolesFromToken(String token) {

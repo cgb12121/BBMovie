@@ -1,5 +1,6 @@
 package com.example.bbmovie.security.oauth2;
 
+import com.example.bbmovie.dto.response.UserAgentResponse;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.entity.jwt.RefreshToken;
@@ -9,14 +10,12 @@ import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStra
 import com.example.bbmovie.service.UserService;
 import com.example.bbmovie.service.auth.RefreshTokenService;
 import com.example.bbmovie.utils.CreateUserUtils;
-import com.example.bbmovie.utils.IpAddressUtils;
-import com.example.bbmovie.utils.UserAgentAnalyzerUtils;
+import com.example.bbmovie.utils.DeviceInfoUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import nl.basjes.parse.useragent.UserAgent;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -43,9 +42,9 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     private final UserService userService;
     private final JwtTokenPairedKeyProvider jwtTokenPairedKeyProvider;
     private final RefreshTokenService refreshTokenService;
-    private final UserAgentAnalyzerUtils userAgentAnalyzer;
     private final ObjectProvider<PasswordEncoder> passwordEncoderProvider;
     private final OAuth2UserInfoStrategyFactory strategyFactory;
+    private final DeviceInfoUtils deviceInfoUtils;
 
     private PasswordEncoder getPasswordEncoder() {
         return passwordEncoderProvider.getIfAvailable();
@@ -58,14 +57,33 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
             Authentication authentication
     ) throws IOException, ServletException {
         OAuth2AuthenticationToken oAuth2Token = (OAuth2AuthenticationToken) authentication;
-        log.info("OAuth2 login success for provider: {}", oAuth2Token);
         String provider = oAuth2Token.getAuthorizedClientRegistrationId();
         OAuth2UserInfoStrategy strategy = strategyFactory.getStrategy(provider);
-        log.info("OAuth2 login success for provider: {} with strategy: {}", provider, strategy);
 
         DefaultOAuth2User principal = (DefaultOAuth2User) authentication.getPrincipal();
         Map<String, Object> attributes = principal.getAttributes();
 
+        User user = createAndSavaUserFromOAuth2(strategy, attributes);
+        updateAuthentication(authentication, attributes, strategy, user);
+
+        UserAgentResponse userAgentInfo = deviceInfoUtils.extractUserAgentInfo(request);
+
+        String accessToken = generateAccessTokenAndSaveRefreshTokenForOAuth2(
+                authentication, user.getEmail(), userAgentInfo
+        );
+
+        addAccessTokenToCookie(response, accessToken);
+
+        String redirectUrl = frontendUrl + "/login?status=success&message=oauth2";
+        setAlwaysUseDefaultTargetUrl(true);
+        setDefaultTargetUrl(redirectUrl);
+        super.onAuthenticationSuccess(request, response, authentication);
+    }
+
+    private User createAndSavaUserFromOAuth2(
+            OAuth2UserInfoStrategy strategy,
+            Map<String, Object> attributes
+    ) {
         String name = Optional.ofNullable(strategy.getName(attributes))
                 .orElse(CreateUserUtils.generateRandomUsername());
         String email = Optional.ofNullable(strategy.getEmail(attributes))
@@ -73,7 +91,7 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
         String avatarUrl = Optional.ofNullable(strategy.getAvatarUrl(attributes))
                 .orElse(CreateUserUtils.generateRandomAvatarUrl());
 
-        User user = userService.findByEmail(email).orElseGet(() -> {
+        return userService.findByEmail(email).orElseGet(() -> {
             String randomPasswordForOauth2 = CreateUserUtils.generateRandomPasswordFoForOauth2();
             String encodedPassword = getPasswordEncoder().encode(randomPasswordForOauth2);
             String[] nameParts = name.split(" ");
@@ -85,33 +103,39 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
                     lastNameBuilder.append(" ");
                 }
             }
-            User newUser = User.builder()
-                    .email(email)
-                    .username(email)
-                    .password(encodedPassword)
-                    .profilePictureUrl(avatarUrl)
-                    .firstName(firstName)
-                    .lastName(lastNameBuilder.toString())
-                    .role(Role.USER)
-                    .isAccountNonExpired(true)
-                    .authProvider(strategy.getAuthProvider())
-                    .build();
+            String lastName = lastNameBuilder.toString();
+
+            User newUser = CreateUserUtils.createUserForOauth2(
+                    email, encodedPassword, firstName, lastName, avatarUrl, strategy, Role.USER
+            );
             return userService.createUserFromOAuth2(newUser);
         });
+    }
 
-        updateAuthentication(authentication, attributes, strategy, user);
+    private String generateAccessTokenAndSaveRefreshTokenForOAuth2(
+            Authentication authentication, String email, UserAgentResponse userAgentInfo
+    ) {
+        String accessToken = jwtTokenPairedKeyProvider.generateAccessToken(authentication);
+        String refreshToken = jwtTokenPairedKeyProvider.generateRefreshToken(authentication);
+        Date expirationDate = jwtTokenPairedKeyProvider.getExpirationDateFromToken(refreshToken);
 
-        String userAgentString = request.getHeader("User-Agent");
-        UserAgent agent = userAgentAnalyzer.parse(userAgentString);
-        String deviceName = agent.getValue("DeviceName");
-        String deviceIpAddress = IpAddressUtils.getClientIp(request);
-        String deviceOsName = agent.getValue("OperatingSystemName");
-        String browser = agent.getValue("AgentName");
-        String browserVersion = agent.getValue("AgentVersion");
-        String accessToken = generateAccessTokenAndSaveRefreshTokenForOAuth2(
-                authentication, email, deviceIpAddress, deviceName, deviceOsName, browser, browserVersion
+        RefreshToken refreshTokenToDb = RefreshToken.builder()
+                .token(refreshToken)
+                .email(authentication.getName())
+                .deviceIpAddress(userAgentInfo.getDeviceIpAddress())
+                .expiryDate(expirationDate)
+                .revoked(false)
+                .build();
+
+        refreshTokenService.saveRefreshToken(
+                refreshTokenToDb.getToken(), email,
+                userAgentInfo.getDeviceIpAddress(), userAgentInfo.getDeviceName(), userAgentInfo.getDeviceOs(),
+                userAgentInfo.getBrowser(), userAgentInfo.getBrowserVersion()
         );
+        return accessToken;
+    }
 
+    private void addAccessTokenToCookie(HttpServletResponse response, String accessToken) {
         response.addHeader("Set-Cookie",
                 ResponseCookie.from("accessToken", accessToken)
                         .httpOnly(true)
@@ -122,35 +146,6 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
                         .build()
                         .toString()
         );
-
-        String redirectUrl = frontendUrl + "/login?status=success&message=oauth2";
-        setAlwaysUseDefaultTargetUrl(true);
-        setDefaultTargetUrl(redirectUrl);
-        super.onAuthenticationSuccess(request, response, authentication);
-    }
-
-    private String generateAccessTokenAndSaveRefreshTokenForOAuth2(
-            Authentication authentication, String email, String deviceIpAddress,
-            String deviceName, String deviceOs, String browser, String browserVersion
-    ) {
-        String accessToken = jwtTokenPairedKeyProvider.generateAccessToken(authentication);
-        String refreshToken = jwtTokenPairedKeyProvider.generateRefreshToken(authentication);
-        Date expirationDate = jwtTokenPairedKeyProvider.getExpirationDateFromToken(refreshToken);
-
-        RefreshToken refreshTokenToDb = RefreshToken.builder()
-                .token(refreshToken)
-                .email(authentication.getName())
-                .deviceIpAddress(deviceIpAddress)
-                .expiryDate(expirationDate)
-                .revoked(false)
-                .build();
-
-        refreshTokenService.saveRefreshToken(
-                refreshTokenToDb.getToken(), email,
-                deviceIpAddress, deviceName, deviceOs,
-                browser, browserVersion
-        );
-        return accessToken;
     }
 
     private void updateAuthentication(

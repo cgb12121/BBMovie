@@ -18,6 +18,7 @@ import com.example.bbmovie.service.auth.verify.otp.OtpService;
 import com.example.bbmovie.service.auth.verify.token.ChangePasswordTokenService;
 import com.example.bbmovie.service.auth.verify.token.EmailVerifyTokenService;
 import com.example.bbmovie.service.email.EmailService;
+import com.example.bbmovie.utils.DeviceInfoUtils;
 import com.example.bbmovie.utils.IpAddressUtils;
 import com.example.bbmovie.utils.UserAgentAnalyzerUtils;
 import jakarta.servlet.http.Cookie;
@@ -57,6 +58,7 @@ public class AuthServiceImpl implements AuthService {
     private final RefreshTokenService refreshTokenService;
     private final ChangePasswordTokenService changePasswordTokenService;
     private final OtpService otpService;
+    private final DeviceInfoUtils deviceInfoUtils;
     private final UserAgentAnalyzerUtils userAgentAnalyzer;
 
     @Override
@@ -96,7 +98,9 @@ public class AuthServiceImpl implements AuthService {
                 userAgentResponse.getBrowserVersion()
         );
 
-        jwtTokenPairedKeyProvider.removeJwtBlockAccessTokenOfEmailAndDevice(user.getEmail(), userAgentResponse.getDeviceName());
+        jwtTokenPairedKeyProvider.removeJwtBlockAccessTokenOfEmailAndDevice(
+                user.getEmail(), userAgentResponse.getDeviceName()
+        );
 
         AuthResponse authResponse = AuthResponse.builder()
                 .accessToken(accessToken)
@@ -119,42 +123,12 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public UserAgentResponse getUserDeviceInformation(HttpServletRequest request) {
-        String userAgentString = request.getHeader("User-Agent");
-        UserAgent agent = userAgentAnalyzer.parse(userAgentString);
-
-        String deviceName = agent.getValue("DeviceName");
-        String deviceIpAddress = IpAddressUtils.getClientIp(request);
-        String deviceOsName = agent.getValue("OperatingSystemName");
-        String browser = agent.getValue("AgentName");
-        String browserVersion = agent.getValue("AgentVersion");
-
-        return UserAgentResponse.builder()
-                .deviceName(deviceName)
-                .deviceIpAddress(deviceIpAddress)
-                .deviceOs(deviceOsName)
-                .browser(browser)
-                .browserVersion(browserVersion)
-                .build();
+        return deviceInfoUtils.extractUserAgentInfo(request);
     }
 
     @Override
     public LoginResponse getLoginResponseFromOAuth2Login(UserDetails userDetails, HttpServletRequest request) {
-        String userAgentString = request.getHeader("User-Agent");
-        UserAgent agent = userAgentAnalyzer.parse(userAgentString);
-
-        String deviceName = agent.getValue("DeviceName");
-        String deviceIpAddress = IpAddressUtils.getClientIp(request);
-        String deviceOs = agent.getValue("OperatingSystemName");
-        String browser = agent.getValue("AgentName");
-        String browserVersion = agent.getValue("AgentVersion");
-
-        UserAgentResponse userAgentResponse = UserAgentResponse.builder()
-                .deviceName(deviceName)
-                .deviceIpAddress(deviceIpAddress)
-                .deviceOs(deviceOs)
-                .browser(browser)
-                .browserVersion(browserVersion)
-                .build();
+        UserAgentResponse userAgentResponse = deviceInfoUtils.extractUserAgentInfo(request);
 
         Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
         if (accessTokenCookie == null) {
@@ -182,15 +156,16 @@ public class AuthServiceImpl implements AuthService {
             throw new EmailAlreadyExistsException("Email already exists");
         }
 
-        User user = new User();
-        user.setEmail(request.getEmail());
-        user.setUsername(request.getUsername());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setRole(Role.USER);
-        user.setAuthProvider(AuthProvider.LOCAL);
-        user.setIsEnabled(false);
+        User user = User.builder()
+                .email(request.getEmail())
+                .username(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .role(Role.USER)
+                .authProvider(AuthProvider.LOCAL)
+                .isEnabled(false)
+                .build();
 
         User savedUser = userRepository.save(user);
         sendRegisterEmailToUser(savedUser);
@@ -320,8 +295,7 @@ public class AuthServiceImpl implements AuthService {
         List<LoggedInDeviceResponse> result = new ArrayList<>();
 
         for (DeviceInfo device : allDevices) {
-            boolean isCurrent = device.deviceName().equals(currentDeviceName)
-                                && device.ipAddress().equals(currentIp);
+            boolean isCurrent = device.deviceName().equals(currentDeviceName) && device.ipAddress().equals(currentIp);
             result.add(new LoggedInDeviceResponse(device.deviceName(), device.ipAddress(), isCurrent));
         }
 

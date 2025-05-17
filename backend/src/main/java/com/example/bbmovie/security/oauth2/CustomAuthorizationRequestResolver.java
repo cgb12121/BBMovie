@@ -41,7 +41,7 @@ public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRe
         String uri = request.getRequestURI();
         String registrationId = uri.substring(uri.lastIndexOf("/") + 1);
         // Use PKCE resolver for X OAuth2
-        if ("x".equals(registrationId)) {
+        if ("x".equalsIgnoreCase(registrationId)) {
             return pkceResolver.resolve(request);
         } else {
             OAuth2AuthorizationRequest req = defaultResolver.resolve(request);
@@ -52,7 +52,7 @@ public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRe
     @Override
     public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String clientRegistrationId) {
         // Use PKCE resolver for X OAuth2
-        if ("x".equals(clientRegistrationId)) {
+        if ("x".equalsIgnoreCase(clientRegistrationId)) {
             return pkceResolver.resolve(request, clientRegistrationId);
         } else {
             OAuth2AuthorizationRequest req = defaultResolver.resolve(request, clientRegistrationId);
