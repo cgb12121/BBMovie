@@ -4,6 +4,7 @@ import com.example.bbmovie.entity.enumerate.AuthProvider;
 
 import java.util.Map;
 
+@SuppressWarnings("unused")
 public interface OAuth2UserInfoStrategy {
     String getEmailAttributeKey(Map<String, Object> attributes);
     String getEmail(Map<String, Object> attributes);

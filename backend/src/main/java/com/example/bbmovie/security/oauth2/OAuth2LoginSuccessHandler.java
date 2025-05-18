@@ -4,7 +4,7 @@ import com.example.bbmovie.dto.response.UserAgentResponse;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.entity.jwt.RefreshToken;
-import com.example.bbmovie.security.jwt.asymmetric.JwtTokenPairedKeyProvider;
+import com.example.bbmovie.security.jwt.JwtProviderStrategyContext;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategyFactory;
 import com.example.bbmovie.service.UserService;
@@ -28,6 +28,8 @@ import org.springframework.security.web.authentication.SavedRequestAwareAuthenti
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.*;
 
@@ -40,7 +42,7 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     private String frontendUrl;
 
     private final UserService userService;
-    private final JwtTokenPairedKeyProvider jwtTokenPairedKeyProvider;
+    private final JwtProviderStrategyContext jwtProviderStrategyContext;
     private final RefreshTokenService refreshTokenService;
     private final ObjectProvider<PasswordEncoder> passwordEncoderProvider;
     private final OAuth2UserInfoStrategyFactory strategyFactory;
@@ -74,7 +76,8 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
 
         addAccessTokenToCookie(response, accessToken);
 
-        String redirectUrl = frontendUrl + "/login?status=success&message=oauth2";
+        String redirectUrl = frontendUrl + "/login?status=success&message=" +
+                URLEncoder.encode("login via oauth2 success", StandardCharsets.UTF_8);
         setAlwaysUseDefaultTargetUrl(true);
         setDefaultTargetUrl(redirectUrl);
         super.onAuthenticationSuccess(request, response, authentication);
@@ -115,9 +118,9 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     private String generateAccessTokenAndSaveRefreshTokenForOAuth2(
             Authentication authentication, String email, UserAgentResponse userAgentInfo
     ) {
-        String accessToken = jwtTokenPairedKeyProvider.generateAccessToken(authentication);
-        String refreshToken = jwtTokenPairedKeyProvider.generateRefreshToken(authentication);
-        Date expirationDate = jwtTokenPairedKeyProvider.getExpirationDateFromToken(refreshToken);
+        String accessToken = jwtProviderStrategyContext.get().generateAccessToken(authentication);
+        String refreshToken = jwtProviderStrategyContext.get().generateRefreshToken(authentication);
+        Date expirationDate = jwtProviderStrategyContext.get().getExpirationDateFromToken(refreshToken);
 
         RefreshToken refreshTokenToDb = RefreshToken.builder()
                 .token(refreshToken)

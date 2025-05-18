@@ -1,4 +1,4 @@
-package com.example.bbmovie.security.jwt.asymmetric;
+package com.example.bbmovie.security.jwt;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
@@ -25,9 +25,9 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.Base64;
 
-@Component
 @Log4j2
-public class JwtTokenPairedKeyProvider {
+@Component("pairKey")
+public class JwtTokenPairedKeyProvider implements JwtProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
@@ -37,10 +37,10 @@ public class JwtTokenPairedKeyProvider {
     private final List<OAuth2UserInfoStrategy> strategies;
 
     public JwtTokenPairedKeyProvider(
-            @Value("${app.jwt-private-key}") String privateKeyStr,
-            @Value("${app.jwt-public-key}") String publicKeyStr,
-            @Value("${app.jwt-access-expiration-milliseconds}") int jwtAccessTokenExpirationInMs,
-            @Value("${app.jwt-refresh-expiration-milliseconds}") int jwtRefreshTokenExpirationInMs,
+            @Value("${app.jwt.key.private}") String privateKeyStr,
+            @Value("${app.jwt.key.public}") String publicKeyStr,
+            @Value("${app.jwt.expiration.access-token}") int jwtAccessTokenExpirationInMs,
+            @Value("${app.jwt.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
             RedisTemplate<Object, Object> redisTemplate,
             List<OAuth2UserInfoStrategy> strategies
     ) throws Exception {
@@ -62,10 +62,12 @@ public class JwtTokenPairedKeyProvider {
         return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(bytes));
     }
 
+    @Override
     public String generateAccessToken(Authentication authentication) {
         return generateToken(authentication, jwtAccessTokenExpirationInMs);
     }
 
+    @Override
     public String generateRefreshToken(Authentication authentication) {
         return generateToken(authentication, jwtRefreshTokenExpirationInMs);
     }
@@ -85,33 +87,6 @@ public class JwtTokenPairedKeyProvider {
                 .signWith(privateKey, SignatureAlgorithm.RS256)
                 .compact();
     }
-
-/*
-    private String getUsernameFromAuthentication(Authentication authentication) {
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof UserDetails userDetails) {
-            return userDetails.getUsername();
-        } else if (principal instanceof DefaultOAuth2User oauth2User) {
-            OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
-            String provider = token.getAuthorizedClientRegistrationId();
-            Map<String, Object> attributes = oauth2User.getAttributes();
-
-            return switch (provider) {
-                case "github" -> attributes.get("login").toString();
-                case "google", "facebook", "discord" -> attributes.get("email").toString();
-                case "x" -> {
-                    Map<String, Object> data = (Map<String, Object>) attributes.get("data");
-                    if (data == null || data.get("username") == null) {
-                        throw new UnsupportedOAuth2Provider("Missing 'username' in X provider data");
-                    }
-                    yield data.get("username").toString();
-                }
-                default -> throw new UnsupportedOAuth2Provider("Unsupported provider or missing email");
-            };
-        }
-        throw new UnsupportedPrincipalType("Unsupported principal type: " + principal.getClass().getName());
-    }
-*/
 
     private String getUsernameFromAuthentication(Authentication authentication) {
         Object principal = authentication.getPrincipal();
@@ -155,6 +130,7 @@ public class JwtTokenPairedKeyProvider {
         );
     }
 
+    @Override
     public List<String> getRolesFromToken(String token) {
         try {
             Claims claims = parseClaims(token);
@@ -166,6 +142,7 @@ public class JwtTokenPairedKeyProvider {
         }
     }
 
+    @Override
     public String getUsernameFromToken(String token) {
         try {
             return parseClaims(token).getSubject();
@@ -177,6 +154,7 @@ public class JwtTokenPairedKeyProvider {
         }
     }
 
+    @Override
     public Date getExpirationDateFromToken(String token) {
         try {
             return parseClaims(token).getExpiration();
@@ -185,6 +163,7 @@ public class JwtTokenPairedKeyProvider {
         }
     }
 
+    @Override
     public boolean validateToken(String token) {
         try {
             parseClaims(token);
@@ -203,16 +182,19 @@ public class JwtTokenPairedKeyProvider {
                 .getBody();
     }
 
+    @Override
     public void invalidateAccessTokenByEmailAndDevice(String email, String deviceName) {
         String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.opsForValue().set(key, "true", 15, TimeUnit.MINUTES);
     }
 
+    @Override
     public boolean isAccessTokenBlacklistedForEmailAndDevice(String email, String deviceName) {
         String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
         return redisTemplate.hasKey(key);
     }
 
+    @Override
     public void removeJwtBlockAccessTokenOfEmailAndDevice(String email, String deviceName) {
         String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.delete(key);

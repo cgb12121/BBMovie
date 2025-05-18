@@ -13,11 +13,12 @@ import com.example.bbmovie.exception.*;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.TokenVerificationException;
 import com.example.bbmovie.repository.UserRepository;
-import com.example.bbmovie.security.jwt.asymmetric.JwtTokenPairedKeyProvider;
+import com.example.bbmovie.security.jwt.JwtProviderStrategyContext;
 import com.example.bbmovie.service.auth.verify.otp.OtpService;
 import com.example.bbmovie.service.auth.verify.token.ChangePasswordTokenService;
 import com.example.bbmovie.service.auth.verify.token.EmailVerifyTokenService;
 import com.example.bbmovie.service.email.EmailService;
+import com.example.bbmovie.utils.CreateUserUtils;
 import com.example.bbmovie.utils.DeviceInfoUtils;
 import com.example.bbmovie.utils.IpAddressUtils;
 import com.example.bbmovie.utils.UserAgentAnalyzerUtils;
@@ -50,7 +51,7 @@ import java.util.concurrent.CompletableFuture;
 public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
-    private final JwtTokenPairedKeyProvider jwtTokenPairedKeyProvider;
+    private final JwtProviderStrategyContext jwtProviderStrategyContext;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final EmailVerifyTokenService emailVerifyTokenService;
@@ -86,8 +87,8 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginTime(LocalDateTime.now());
         userRepository.save(user);
 
-        String accessToken = jwtTokenPairedKeyProvider.generateAccessToken(authentication);
-        String refreshToken = jwtTokenPairedKeyProvider.generateRefreshToken(authentication);
+        String accessToken = jwtProviderStrategyContext.get().generateAccessToken(authentication);
+        String refreshToken = jwtProviderStrategyContext.get().generateRefreshToken(authentication);
 
         refreshTokenService.saveRefreshToken(
                 refreshToken, user.getEmail(),
@@ -98,7 +99,7 @@ public class AuthServiceImpl implements AuthService {
                 userAgentResponse.getBrowserVersion()
         );
 
-        jwtTokenPairedKeyProvider.removeJwtBlockAccessTokenOfEmailAndDevice(
+        jwtProviderStrategyContext.get().removeJwtBlockAccessTokenOfEmailAndDevice(
                 user.getEmail(), userAgentResponse.getDeviceName()
         );
 
@@ -165,6 +166,10 @@ public class AuthServiceImpl implements AuthService {
                 .role(Role.USER)
                 .authProvider(AuthProvider.LOCAL)
                 .isEnabled(false)
+                .isAccountNonExpired(true)
+                .isAccountNonLocked(true)
+                .isCredentialsNonExpired(true)
+                .profilePictureUrl(CreateUserUtils.generateDefaultProfilePictureUrl())
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -311,21 +316,21 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void revokeAccessTokenAndRefreshTokenFromCurrentDevice(String accessToken, String deviceName) {
-        String email = jwtTokenPairedKeyProvider.getUsernameFromToken(accessToken);
+        String email = jwtProviderStrategyContext.get().getUsernameFromToken(accessToken);
         refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
-        jwtTokenPairedKeyProvider.invalidateAccessTokenByEmailAndDevice(email, deviceName);
+        jwtProviderStrategyContext.get().invalidateAccessTokenByEmailAndDevice(email, deviceName);
     }
 
     private void revokeAccessTokenAndRefreshTokenFromOneDevice(String email, String deviceName) {
         refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
-        jwtTokenPairedKeyProvider.invalidateAccessTokenByEmailAndDevice(email, deviceName);
+        jwtProviderStrategyContext.get().invalidateAccessTokenByEmailAndDevice(email, deviceName);
     }
 
     private void revokeAllTokensFromAllDevicesByEmail(String email) {
         List<String> allDevicesName = getAllLoggedInDevices(email);
         refreshTokenService.deleteAllRefreshTokenByEmail(email);
         for (String device : allDevicesName) {
-            jwtTokenPairedKeyProvider.invalidateAccessTokenByEmailAndDevice(email, device);
+            jwtProviderStrategyContext.get().invalidateAccessTokenByEmailAndDevice(email, device);
         }
     }
 

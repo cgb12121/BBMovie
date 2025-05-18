@@ -1,4 +1,4 @@
-package com.example.bbmovie.security.jwt.asymmetric;
+package com.example.bbmovie.security.jwt;
 
 import com.example.bbmovie.exception.BlacklistedJwtTokenException;
 import jakarta.servlet.FilterChain;
@@ -26,9 +26,9 @@ import java.util.stream.Collectors;
 @Log4j2
 @Component
 @RequiredArgsConstructor
-public class JwtPairedKeyAuthenticationFilter extends OncePerRequestFilter {
+public class JwtFilter extends OncePerRequestFilter {
 
-    private final JwtTokenPairedKeyProvider jwtTokenPairedKeyProvider;
+    private final JwtProviderStrategyContext jwtStrategyContext;
 
     @Override
     protected void doFilterInternal(
@@ -40,13 +40,13 @@ public class JwtPairedKeyAuthenticationFilter extends OncePerRequestFilter {
             String jwt = getJwtFromRequest(request);
             String deviceName = getDeviceIdFromRequest(request);
 
-            if (jwt != null && jwtTokenPairedKeyProvider.validateToken(jwt)) {
-                String username = jwtTokenPairedKeyProvider.getUsernameFromToken(jwt);
-                if (jwtTokenPairedKeyProvider.isAccessTokenBlacklistedForEmailAndDevice(username, deviceName)) {
+            if (jwt != null && jwtStrategyContext.get().validateToken(jwt)) {
+                String username = jwtStrategyContext.get().getUsernameFromToken(jwt);
+                if (jwtStrategyContext.get().isAccessTokenBlacklistedForEmailAndDevice(username, deviceName)) {
                     throw new BlacklistedJwtTokenException("Access token has been blocked for this email and device");
                 }
 
-                List<String> roles = jwtTokenPairedKeyProvider.getRolesFromToken(jwt);
+                List<String> roles = jwtStrategyContext.get().getRolesFromToken(jwt);
                 List<GrantedAuthority> authorities = roles.stream()
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());
@@ -62,8 +62,13 @@ public class JwtPairedKeyAuthenticationFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
+        } catch (BlacklistedJwtTokenException ex) {
+            log.warn("Blacklisted token detected: {}", ex.getMessage());
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, ex.getMessage());
+            return;
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);
+            return;
         }
         filterChain.doFilter(request, response);
     }

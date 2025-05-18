@@ -1,6 +1,6 @@
 package com.example.bbmovie.security;
 
-import com.example.bbmovie.security.jwt.asymmetric.JwtPairedKeyAuthenticationFilter;
+import com.example.bbmovie.security.jwt.JwtFilter;
 import com.example.bbmovie.security.oauth2.CustomAuthorizationRequestResolver;
 import com.example.bbmovie.security.oauth2.OAuth2LoginSuccessHandler;
 import com.example.bbmovie.service.auth.CustomUserDetailsService;
@@ -48,7 +48,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtPairedKeyAuthenticationFilter jwtPairedKeyAuthenticationFilter;
+    private final JwtFilter jwtFilter;
     private final CorsConfigurationSource corsConfigurationSource;
     private final CustomUserDetailsService userDetailsService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -108,14 +108,15 @@ public class SecurityConfig {
                     .failureHandler((request, response, exception) -> {
                         log.error(exception.getMessage(), exception);
                         response.sendRedirect(
-                                "http://localhost:3000/login?status=error&message=" + URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8)
+                                "http://localhost:3000/login?status=error&message=" +
+                                URLEncoder.encode("login via oauth2 failed", StandardCharsets.UTF_8)
                         );
                     })
                     .authorizationEndpoint(authorization -> authorization
                             .authorizationRequestResolver(customAuthorizationRequestResolver)
                     )
             )
-            .addFilterBefore(jwtPairedKeyAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }
 

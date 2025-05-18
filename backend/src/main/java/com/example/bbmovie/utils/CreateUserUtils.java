@@ -49,4 +49,8 @@ public class CreateUserUtils {
         int from1to1084cuzFreeApiHas1084img = new Random().nextInt(1084) + 1;
         return "https://picsum.photos/id/" + from1to1084cuzFreeApiHas1084img + "/200/200";
     }
+
+    public static String generateDefaultProfilePictureUrl() {
+        return "https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png";
+    }
 }

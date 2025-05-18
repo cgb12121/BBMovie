@@ -1,8 +1,13 @@
 app:
-  jwt-private-key: ${JWT_PRIVATE_KEY}
-  jwt-public-key: ${JWT_PUBLIC_KEY}
-  jwt-access-expiration-milliseconds: ${JWT_EXPIRATION}
-  jwt-refresh-expiration-milliseconds: ${JWT_REFRESH_EXPIRATION}
+  jwt:
+    strategy: pairKey # or sharedSecret
+    key:
+      secret: ${JWT_SECRET}
+      private: ${JWT_PRIVATE_KEY}
+      public: ${JWT_PUBLIC_KEY}
+    expiration:
+      access-token: ${JWT_EXPIRATION}
+      refresh-token: ${JWT_REFRESH_EXPIRATION}
 
   change-password-token-expiration-minutes: 15
   verification-token-expiration-minutes: 15
@@ -28,7 +33,7 @@ spring:
     password: ${DATABASE_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: create
     show-sql: false
     properties:
       hibernate:
