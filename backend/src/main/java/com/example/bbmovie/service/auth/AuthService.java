@@ -24,12 +24,12 @@ public interface AuthService {
     @Transactional
     String verifyAccountByEmail(String token);
 
+    void sendOtp(com.example.bbmovie.entity.User user);
+
     @Transactional
     void verifyAccountByOtp(String otp);
 
     void sendVerificationEmail(String email);
-
-    void sendOtp(String email);
 
     LoginResponse login(LoginRequest loginRequest, HttpServletRequest request);
 

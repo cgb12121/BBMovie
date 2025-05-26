@@ -39,14 +39,15 @@ public class JwtFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
             String deviceName = getDeviceIdFromRequest(request);
+            JwtProviderStrategy jwtProvider = jwtStrategyContext.get();
 
-            if (jwt != null && jwtStrategyContext.get().validateToken(jwt)) {
-                String username = jwtStrategyContext.get().getUsernameFromToken(jwt);
-                if (jwtStrategyContext.get().isAccessTokenBlacklistedForEmailAndDevice(username, deviceName)) {
+            if (jwt != null && jwtProvider.validateToken(jwt)) {
+                String username = jwtProvider.getUsernameFromToken(jwt);
+                if (jwtProvider.isAccessTokenBlacklistedForEmailAndDevice(username, deviceName)) {
                     throw new BlacklistedJwtTokenException("Access token has been blocked for this email and device");
                 }
 
-                List<String> roles = jwtStrategyContext.get().getRolesFromToken(jwt);
+                List<String> roles = jwtProvider.getRolesFromToken(jwt);
                 List<GrantedAuthority> authorities = roles.stream()
                         .map(SimpleGrantedAuthority::new)
                         .collect(Collectors.toList());

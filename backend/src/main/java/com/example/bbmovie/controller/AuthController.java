@@ -14,7 +14,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.*;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.BindingResult;
@@ -33,18 +32,6 @@ public class AuthController {
 
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
-
-    @GetMapping("/hello")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public ResponseEntity<ApiResponse<String>> hello() {
-        return ResponseEntity.ok(ApiResponse.success("Hello World!"));
-    }
-
-    @GetMapping("/test")
-    @PreAuthorize("isAccountOwner(#userName, #authentication)")
-    public ResponseEntity<String> testSecurityExpression(String userName, @AuthenticationPrincipal UserDetails authentication) {
-        return ResponseEntity.ok("Hello " + userName + "!" + authentication + " is authenticated.");
-    }
 
     @GetMapping("/profile")
     public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {

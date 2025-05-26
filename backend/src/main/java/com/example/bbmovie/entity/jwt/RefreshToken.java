@@ -61,7 +61,6 @@ public class RefreshToken {
         this.token = token;
         this.email = email;
         this.expiryDate = expiryDate;
-        this.revoked = false;
         this.deviceName = deviceName;
         this.deviceOs = deviceOs;
         this.deviceIpAddress = deviceIpAddress;

@@ -10,6 +10,7 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.json.JsonData;
 import com.example.bbmovie.entity.Movie;
 import com.example.bbmovie.entity.elasticsearch.MovieVectorDocument;
+import com.example.bbmovie.service.elasticsearch.QueryEmbeddingField;
 import com.example.bbmovie.service.embedding.LocalEmbeddingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -42,14 +43,14 @@ public class LocalEmbeddingSearchService {
         SearchResponse<?> response = elasticsearchClient.search(searchRequest -> searchRequest
                         .index(indexName)
                         .knn(knn -> knn
-                                .field("contentVector")
+                                .field(QueryEmbeddingField.EMBEDDING_FIELD)
                                 .queryVector(queryVector)
                                 .k(limit)
                                 .numCandidates(limit * 2)
                         )
                         .source(src -> src
                                 .filter(f -> f
-                                        .excludes("contentVector")
+                                        .excludes(QueryEmbeddingField.EMBEDDING_FIELD)
                                 )
                         ),
                 Object.class
@@ -58,7 +59,7 @@ public class LocalEmbeddingSearchService {
         log.info("response: {}", response);
         return response.hits().hits().stream()
                 .map(Hit::source)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<?> getAllMovies() throws IOException {
@@ -67,7 +68,7 @@ public class LocalEmbeddingSearchService {
                         .query(q -> q.matchAll(m -> m))
                         .source(src -> src
                                 .filter(f -> f
-                                        .excludes("contentVector")
+                                        .excludes(QueryEmbeddingField.EMBEDDING_FIELD)
                                 )
                         )
                         .size(1000),
@@ -81,7 +82,7 @@ public class LocalEmbeddingSearchService {
 
         return response.hits().hits().stream()
                 .map(Hit::source)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public void indexMovieWithVector(Movie movie) throws IOException, TranslateException {

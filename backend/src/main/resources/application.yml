@@ -1,6 +1,6 @@
 app:
   jwt:
-    strategy: pairKey # or sharedSecret
+    strategy: rsa # or hmac
     key:
       secret: ${JWT_SECRET}
       private: ${JWT_PRIVATE_KEY}
@@ -208,3 +208,9 @@ management:
   endpoint:
     shutdown:
       access: none
+
+
+payment:
+  vnpay:
+    TmnCode: ${VNPAY_TMN_CODE}
+    HashSecret: ${VNPAY_HASH_SECRET}

@@ -23,7 +23,7 @@ import java.util.List;
 @AllArgsConstructor
 public class User extends BaseEntity implements UserDetails {
     @Column(nullable = false, unique = true)
-    private String username;
+    private String displayedUsername;
 
     @Column(nullable = false)
     private String password;

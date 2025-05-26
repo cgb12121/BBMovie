@@ -10,6 +10,9 @@ import java.time.LocalDateTime;
 import java.util.Random;
 
 public class CreateUserUtils {
+
+    private CreateUserUtils() {}
+
     private static final Random random = new SecureRandom();
 
     public static User createUserForOauth2(
@@ -18,7 +21,7 @@ public class CreateUserUtils {
     ) {
         return User.builder()
                 .email(email)
-                .username(email)
+                .displayedUsername(email)
                 .password(encodedPassword)
                 .profilePictureUrl(avatarUrl)
                 .firstName(firstName)
@@ -46,7 +49,7 @@ public class CreateUserUtils {
     }
 
     public static String generateRandomAvatarUrl() {
-        int from1to1084cuzFreeApiHas1084img = new Random().nextInt(1084) + 1;
+        int from1to1084cuzFreeApiHas1084img = random.nextInt(1084) + 1;
         return "https://picsum.photos/id/" + from1to1084cuzFreeApiHas1084img + "/200/200";
     }
 

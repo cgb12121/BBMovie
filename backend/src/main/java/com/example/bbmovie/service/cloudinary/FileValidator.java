@@ -1,5 +1,6 @@
 package com.example.bbmovie.service.cloudinary;
 
+import com.example.bbmovie.constant.MimeType;
 import com.example.bbmovie.exception.FileValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,22 +13,20 @@ import java.util.List;
 import java.util.Map;
 
 public class FileValidator {
+
     private static final Logger logger = LoggerFactory.getLogger(FileValidator.class);
 
-    private static final List<String> ALLOWED_CONTENT_TYPES = List.of(
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "video/mp4",
-            "video/quicktime"
-    );
+    private FileValidator() {}
+
+    private static final List<String> ALLOWED_CONTENT_TYPES = MimeType.getAllowedContentTypes();
+
 
     private static final Map<String, byte[]> SIMPLE_MAGIC_NUMBERS = Map.of(
             "image/jpeg", new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF},
             "image/png", new byte[] {(byte) 0x89, (byte) 0x50, (byte) 0x4E, (byte) 0x47}
     );
 
-    private static final long MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+    private static final long MAX_FILE_SIZE_BYTES = (50 * 1024 * 1024); // 50 MB
 
     public static void validate(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
@@ -96,14 +95,10 @@ public class FileValidator {
         return false;
     }
 
-    @SuppressWarnings("all")
     private static boolean checkQuickTimeMagicNumber(InputStream inputStream) throws IOException {
         byte[] header = new byte[12];
         int bytesRead = inputStream.read(header);
         if (bytesRead < 12) return false;
-        if (header[4] == 'm' && header[5] == 'o' && header[6] == 'o' && header[7] == 'v') {
-            return true;
-        }
-        return false;
+        return header[4] == 'm' && header[5] == 'o' && header[6] == 'o' && header[7] == 'v';
     }
 }

@@ -1,10 +1,15 @@
-package com.example.bbmovie.security.jwt;
+package com.example.bbmovie.security.jwt.nimbus;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
+import com.example.bbmovie.security.jwt.JwtProviderStrategy;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
-import io.jsonwebtoken.*;
+import com.nimbusds.jose.*;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,24 +24,27 @@ import org.springframework.stereotype.Component;
 import java.security.KeyFactory;
 import java.security.PrivateKey;
 import java.security.PublicKey;
+import java.security.interfaces.RSAPrivateKey;
+import java.security.interfaces.RSAPublicKey;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
+import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 import java.util.Base64;
 
 @Log4j2
-@Component("pairKey")
-public class JwtTokenPairedKeyProvider implements JwtProviderStrategy {
+@Component("rsa-nimbus")
+public class JwtRsaNimbusProvider implements JwtProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
-    private final PrivateKey privateKey;
-    private final PublicKey publicKey;
+    private final RSAPrivateKey privateKey;
+    private final RSAPublicKey publicKey;
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
 
-    public JwtTokenPairedKeyProvider(
+    public JwtRsaNimbusProvider(
             @Value("${app.jwt.key.private}") String privateKeyStr,
             @Value("${app.jwt.key.public}") String publicKeyStr,
             @Value("${app.jwt.expiration.access-token}") int jwtAccessTokenExpirationInMs,
@@ -46,8 +54,8 @@ public class JwtTokenPairedKeyProvider implements JwtProviderStrategy {
     ) throws Exception {
         this.jwtAccessTokenExpirationInMs = jwtAccessTokenExpirationInMs;
         this.jwtRefreshTokenExpirationInMs = jwtRefreshTokenExpirationInMs;
-        this.privateKey = getPrivateKeyFromString(privateKeyStr);
-        this.publicKey = getPublicKeyFromString(publicKeyStr);
+        this.privateKey = (RSAPrivateKey) getPrivateKeyFromString(privateKeyStr);
+        this.publicKey = (RSAPublicKey) getPublicKeyFromString(publicKeyStr);
         this.redisTemplate = redisTemplate;
         this.strategies = strategies;
     }
@@ -73,19 +81,28 @@ public class JwtTokenPairedKeyProvider implements JwtProviderStrategy {
     }
 
     private String generateToken(Authentication authentication, int expirationInMs) {
-        String username = getUsernameFromAuthentication(authentication);
-        String role = getRoleFromAuthentication(authentication);
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + expirationInMs);
+        try {
+            String username = getUsernameFromAuthentication(authentication);
+            String role = getRoleFromAuthentication(authentication);
+            Date now = new Date();
+            Date expiryDate = new Date(now.getTime() + expirationInMs);
 
-        return Jwts.builder()
-                .setHeaderParam("typ", "JWT")
-                .setSubject(username)
-                .claim("role", role)
-                .setIssuedAt(now)
-                .setExpiration(expiryDate)
-                .signWith(privateKey, SignatureAlgorithm.RS256)
-                .compact();
+            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                    .subject(username)
+                    .claim("role", role)
+                    .issueTime(now)
+                    .expirationTime(expiryDate)
+                    .build();
+
+            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256).type(JOSEObjectType.JWT).build();
+            SignedJWT signedJWT = new SignedJWT(header, claimsSet);
+            signedJWT.sign(new RSASSASigner(privateKey));
+
+            return signedJWT.serialize();
+        } catch (Exception e) {
+            log.error("Token generation error: {}", e.getMessage());
+            throw new IllegalStateException("Failed to generate JWT", e);
+        }
     }
 
     private String getUsernameFromAuthentication(Authentication authentication) {
@@ -133,12 +150,11 @@ public class JwtTokenPairedKeyProvider implements JwtProviderStrategy {
     @Override
     public List<String> getRolesFromToken(String token) {
         try {
-            Claims claims = parseClaims(token);
-            String role = claims.get("role", String.class);
-            return Collections.singletonList(role);
-        } catch (ExpiredJwtException e) {
-            String role = e.getClaims().get("role", String.class);
-            return Collections.singletonList(role);
+            JWTClaimsSet claims = parseClaims(token);
+            String role = (String) claims.getClaim("role");
+            return List.of(role);
+        } catch (ParseException e) {
+            throw new IllegalArgumentException("Failed to parse JWT", e);
         }
     }
 
@@ -146,10 +162,7 @@ public class JwtTokenPairedKeyProvider implements JwtProviderStrategy {
     public String getUsernameFromToken(String token) {
         try {
             return parseClaims(token).getSubject();
-        } catch (ExpiredJwtException e) {
-            return e.getClaims().getSubject();
-        } catch (JwtException e) {
-            log.error("Invalid JWT token: {}", e.getMessage());
+        } catch (ParseException e) {
             throw new IllegalArgumentException("Invalid JWT token", e);
         }
     }
@@ -157,29 +170,26 @@ public class JwtTokenPairedKeyProvider implements JwtProviderStrategy {
     @Override
     public Date getExpirationDateFromToken(String token) {
         try {
-            return parseClaims(token).getExpiration();
-        } catch (ExpiredJwtException e) {
-            return e.getClaims().getExpiration();
+            return parseClaims(token).getExpirationTime();
+        } catch (ParseException e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
         }
     }
 
     @Override
     public boolean validateToken(String token) {
         try {
-            parseClaims(token);
-            return true;
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            return signedJWT.verify(new RSASSAVerifier(publicKey));
         } catch (Exception e) {
-            log.error("Token validation error: {}", e.getMessage());
+            log.error("Token validation failed: {}", e.getMessage());
             return false;
         }
     }
 
-    private Claims parseClaims(String token) {
-        return Jwts.parserBuilder()
-                .setSigningKey(publicKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
+    private JWTClaimsSet parseClaims(String token) throws ParseException {
+        SignedJWT signedJWT = SignedJWT.parse(token);
+        return signedJWT.getJWTClaimsSet();
     }
 
     @Override

@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.example.bbmovie.entity.elasticsearch.MovieVectorDocument;
+import com.example.bbmovie.service.elasticsearch.QueryEmbeddingField;
 import com.example.bbmovie.service.embedding.HuggingFaceEmbeddingService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
@@ -13,7 +14,6 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Log4j2
 @Service(value = "vectorElastic")
@@ -35,14 +35,14 @@ public class MovieVectorSearchService {
         SearchResponse<?> response = elasticsearchClient.search(s -> s
                         .index(indexName)
                         .knn(knn -> knn
-                                .field("contentVector")
+                                .field(QueryEmbeddingField.EMBEDDING_FIELD)
                                 .queryVector(queryVector)
                                 .k(limit)
                                 .numCandidates(limit * 2)
                         )
                         .source(src -> src
                                 .filter(f -> f
-                                        .excludes("contentVector")
+                                        .excludes(QueryEmbeddingField.EMBEDDING_FIELD)
                                 )
                         ),
                 Object.class
@@ -51,7 +51,7 @@ public class MovieVectorSearchService {
         log.info("response: {}", response);
         return response.hits().hits().stream()
                 .map(Hit::source)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<?> getAllMovies() throws IOException {
@@ -60,7 +60,7 @@ public class MovieVectorSearchService {
                         .query(q -> q.matchAll(m -> m))
                         .source(src -> src
                                 .filter(f -> f
-                                        .excludes("contentVector")
+                                        .excludes(QueryEmbeddingField.EMBEDDING_FIELD)
                                 )
                         )
                         .size(1000),
@@ -74,7 +74,7 @@ public class MovieVectorSearchService {
 
         return response.hits().hits().stream()
                 .map(Hit::source)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public void indexMovieDocument(MovieVectorDocument doc) throws IOException {

@@ -8,7 +8,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Configuration
 public class VectorStoreConfig {
@@ -22,7 +21,7 @@ public class VectorStoreConfig {
                 List<String> texts = request.getInstructions();
                 List<Embedding> embeddings = texts.stream()
                         .map(text -> new Embedding(huggingFaceEmbeddingService.generateEmbedding(text), text.hashCode()))
-                        .collect(Collectors.toList());
+                        .toList();
                 return new EmbeddingResponse(embeddings);
             }
 
@@ -43,7 +42,7 @@ public class VectorStoreConfig {
             public List<float[]> embed(@NotNull List<String> texts) {
                 return texts.stream()
                         .map(huggingFaceEmbeddingService::generateEmbedding)
-                        .collect(Collectors.toList());
+                        .toList();
             }
 
             @NotNull
@@ -55,7 +54,7 @@ public class VectorStoreConfig {
             ) {
                 return documents.stream()
                         .map(document -> huggingFaceEmbeddingService.generateEmbedding(document.getFormattedContent()))
-                        .collect(Collectors.toList());
+                        .toList();
             }
 
             @Override

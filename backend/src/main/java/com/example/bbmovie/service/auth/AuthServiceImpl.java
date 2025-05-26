@@ -45,6 +45,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
+import static com.example.bbmovie.constant.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
+
 @Service
 @Log4j2
 @RequiredArgsConstructor
@@ -110,7 +112,7 @@ public class AuthServiceImpl implements AuthService {
                 .role(user.getRole())
                 .build();
         UserResponse userResponse = UserResponse.builder()
-                .username(user.getUsername())
+                .username(user.getDisplayedUsername())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
@@ -159,7 +161,7 @@ public class AuthServiceImpl implements AuthService {
 
         User user = User.builder()
                 .email(request.getEmail())
-                .username(request.getUsername())
+                .displayedUsername(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
@@ -202,7 +204,10 @@ public class AuthServiceImpl implements AuthService {
             log.warn("Token {} was already used or is invalid", token);
             return "Account verification failed. Please try again.";
         }
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException(
+                        String.format(USER_NOT_FOUND_BY_EMAIL, email)
+                ));
         if (user.isEnabled()) {
             log.info("Email {} already verified", email);
             return "Account already verified.";
@@ -219,7 +224,10 @@ public class AuthServiceImpl implements AuthService {
         if (email == null || email.trim().isEmpty()) {
             throw new IllegalArgumentException("Email cannot be null or empty");
         }
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException(
+                        String.format(USER_NOT_FOUND_BY_EMAIL, email)
+                ));
 
         if (user.isEnabled()) {
             throw new EmailAlreadyVerifiedException("Email is already verified");
@@ -230,6 +238,11 @@ public class AuthServiceImpl implements AuthService {
         } catch (Exception e) {
             throw new TokenVerificationException("Failed to send verification email: " + e.getMessage());
         }
+    }
+
+    @Override
+    public void sendOtp(User user) {
+        //TODO: implement send otp via twilio
     }
 
     @Transactional
@@ -243,7 +256,10 @@ public class AuthServiceImpl implements AuthService {
             log.warn("Otp {} was already used or is invalid", otp);
             return;
         }
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException(
+                        String.format(USER_NOT_FOUND_BY_EMAIL, email)
+                ));
         if (user.isEnabled()) {
             log.info("Account {} already verified", email);
             return;
@@ -251,24 +267,6 @@ public class AuthServiceImpl implements AuthService {
         user.setIsEnabled(true);
         userRepository.save(user);
         otpService.deleteOtpToken(otp);
-    }
-
-    @Override
-    public void sendOtp(String email) {
-        if (email == null || email.trim().isEmpty()) {
-            throw new IllegalArgumentException("Email cannot be null or empty");
-        }
-        User user = userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
-
-        if (user.isEnabled()) {
-            throw new EmailAlreadyVerifiedException("Email is already verified");
-        }
-        try {
-            String token = emailVerifyTokenService.generateVerificationToken(user);
-            emailService.sendVerificationEmail(email, token);
-        } catch (Exception e) {
-            throw new TokenVerificationException("Failed to send verification email: " + e.getMessage());
-        }
     }
 
     @Override
@@ -341,9 +339,9 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public UserResponse loadAuthenticatedUserInformation(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
+                .orElseThrow(() -> new UserNotFoundException(String.format(USER_NOT_FOUND_BY_EMAIL, email)));
         return UserResponse.builder()
-                .username(user.getUsername())
+                .username(user.getDisplayedUsername())
                 .email(user.getEmail())
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())

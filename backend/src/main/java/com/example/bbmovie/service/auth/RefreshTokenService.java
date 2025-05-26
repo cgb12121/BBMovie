@@ -86,7 +86,7 @@ public class RefreshTokenService {
     public List<String> getAllDeviceNameByEmail(String email) {
         return refreshTokenRepository.findAllByEmail(email).stream()
                .map(RefreshToken::getDeviceName)
-               .collect(Collectors.toList());
+               .toList();
     }
 
     public List<RefreshToken> findAllValidByEmail(String email) {

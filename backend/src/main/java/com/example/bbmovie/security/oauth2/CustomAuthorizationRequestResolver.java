@@ -26,9 +26,9 @@ public class CustomAuthorizationRequestResolver implements OAuth2AuthorizationRe
     ) {
         this.defaultResolver = new DefaultOAuth2AuthorizationRequestResolver(repo, "/oauth2/authorization");
 
-        DefaultOAuth2AuthorizationRequestResolver pkceResolver = new DefaultOAuth2AuthorizationRequestResolver(repo, "/oauth2/authorization");
-        pkceResolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
-        this.pkceResolver = pkceResolver;
+        DefaultOAuth2AuthorizationRequestResolver defaultPkceResolver = new DefaultOAuth2AuthorizationRequestResolver(repo, "/oauth2/authorization");
+        defaultPkceResolver.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
+        this.pkceResolver = defaultPkceResolver;
 
         this.customizerMap = new HashMap<>();
         for (OAuth2RequestCustomizer customizer : customizers) {

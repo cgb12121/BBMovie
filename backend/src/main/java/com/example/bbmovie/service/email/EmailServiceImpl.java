@@ -41,6 +41,8 @@ public class EmailServiceImpl implements EmailService {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
+    private static final String CHAR_ENCODING_UTF_8 = "UTF-8";
+
     @Override
     @Async("emailExecutor")
     @Retryable(
@@ -55,7 +57,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendVerificationEmail(String receiver, String verificationToken) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, CHAR_ENCODING_UTF_8);
 
             helper.setFrom(fromEmail);
             helper.setTo(receiver);
@@ -90,7 +92,7 @@ public class EmailServiceImpl implements EmailService {
     public void notifyChangedPassword(String receiver) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, CHAR_ENCODING_UTF_8);
 
             helper.setFrom(fromEmail);
             helper.setTo(receiver);
@@ -125,7 +127,7 @@ public class EmailServiceImpl implements EmailService {
     public void sendForgotPasswordEmail(String receiver, String resetPasswordToken) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, CHAR_ENCODING_UTF_8);
 
             helper.setFrom(fromEmail);
             helper.setTo(receiver);
@@ -147,16 +149,19 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Recover
+    @SuppressWarnings("unused")
     public void recoverSendVerificationEmail(CustomEmailException e, String receiver, String verificationToken) {
         log.error("All retry attempts failed for sendVerificationEmail to {}: {}", receiver, e.getMessage());
     }
 
     @Recover
+    @SuppressWarnings("unused")
     public void recoverNotifyChangedPassword(CustomEmailException e, String receiver) {
         log.error("All retry attempts failed for notifyChangedPassword to {}: {}", receiver, e.getMessage());
     }
 
     @Recover
+    @SuppressWarnings("unused")
     public void recoverSendForgotPasswordEmail(CustomEmailException e, String receiver, String resetPasswordToken) {
         log.error("All retry attempts failed for sendForgotPasswordEmail to {}: {}", receiver, e.getMessage());
     }
