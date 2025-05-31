@@ -13,4 +13,6 @@ public class MovieServiceImpl implements MovieService {
      public void updatePoster(Long id) {
           movieRepository.updatePoster(id, null, null);
      }
+
+     //TODO: implemet HLS for video
 }

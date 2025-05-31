@@ -8,6 +8,7 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 @Service
+@SuppressWarnings("all")
 public class CurrencyConversionService {
 
     private final RestTemplate restTemplate = new RestTemplate();

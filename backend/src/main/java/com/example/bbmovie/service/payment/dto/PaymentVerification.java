@@ -1,6 +1,5 @@
 package com.example.bbmovie.service.payment.dto;
 
-import com.example.bbmovie.service.payment.PaymentStatus;
 import lombok.*;
 
 @Data
@@ -9,8 +8,7 @@ import lombok.*;
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
-public class PaymentResponse {
+public class PaymentVerification {
+    private boolean isValid;
     private String transactionId;
-    private PaymentStatus status;
-    private String providerReference;
 }

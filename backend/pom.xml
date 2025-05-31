@@ -252,7 +252,20 @@
 		<dependency>
 			<groupId>com.stripe</groupId>
 			<artifactId>stripe-java</artifactId>
-			<version>20.41.0</version>
+			<version>26.2.0</version>
+		</dependency>
+
+		<dependency>
+			<groupId>com.paypal.sdk</groupId>
+			<artifactId>rest-api-sdk</artifactId>
+			<version>1.14.0</version>
+		</dependency>
+
+		<dependency>
+			<groupId>io.ipinfo</groupId>
+			<artifactId>ipinfo-api</artifactId>
+			<version>3.0.2</version>
+			<scope>compile</scope>
 		</dependency>
 	</dependencies>
 

@@ -210,7 +210,20 @@ management:
       access: none
 
 
+ipinfo:
+  token: ${IP_INFO_TOKEN}
+
+
 payment:
   vnpay:
     TmnCode: ${VNPAY_TMN_CODE}
     HashSecret: ${VNPAY_HASH_SECRET}
+  paypal:
+    client-id: ${PAYPAL_CLIENT_ID}
+    client-secret: ${PAYPAL_CLIENT_SECRET}
+    mode: ${PAYPAL_MODE}
+  stripe:
+    publishable-key: ${STRIPE_PUBLISHABLE_KEY}
+    secret-key: ${STRIPE_SECRET_KEY}
+
+

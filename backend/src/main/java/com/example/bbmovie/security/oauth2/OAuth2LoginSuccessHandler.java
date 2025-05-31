@@ -9,13 +9,13 @@ import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStra
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategyFactory;
 import com.example.bbmovie.service.UserService;
 import com.example.bbmovie.service.auth.RefreshTokenService;
-import com.example.bbmovie.utils.CreateUserUtils;
 import com.example.bbmovie.utils.DeviceInfoUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
@@ -31,7 +31,10 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.LocalDateTime;
 import java.util.*;
+
+import static com.example.bbmovie.utils.RandomUtils.random;
 
 @Log4j2
 @Component
@@ -88,14 +91,14 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
             Map<String, Object> attributes
     ) {
         String name = Optional.ofNullable(strategy.getName(attributes))
-                .orElse(CreateUserUtils.generateRandomUsername());
+                .orElse(generateRandomUsername());
         String email = Optional.ofNullable(strategy.getEmail(attributes))
-                .orElse(CreateUserUtils.generateRandomEmail());
+                .orElse(generateRandomEmail());
         String avatarUrl = Optional.ofNullable(strategy.getAvatarUrl(attributes))
-                .orElse(CreateUserUtils.generateRandomAvatarUrl());
+                .orElse(generateRandomAvatarUrl());
 
         return userService.findByEmail(email).orElseGet(() -> {
-            String randomPasswordForOauth2 = CreateUserUtils.generateRandomPasswordFoForOauth2();
+            String randomPasswordForOauth2 = generateRandomPasswordFoForOauth2();
             String encodedPassword = getPasswordEncoder().encode(randomPasswordForOauth2);
             String[] nameParts = name.split(" ");
             String firstName = nameParts.length > 0 ? nameParts[0] : "";
@@ -108,8 +111,8 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
             }
             String lastName = lastNameBuilder.toString();
 
-            User newUser = CreateUserUtils.createUserForOauth2(
-                    email, encodedPassword, firstName, lastName, avatarUrl, strategy, Role.USER
+            User newUser = createUserForOauth2(
+                    email, encodedPassword, firstName, lastName, avatarUrl, strategy
             );
             return userService.createUserFromOAuth2(newUser);
         });
@@ -152,10 +155,8 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     }
 
     private void updateAuthentication(
-            Authentication authentication,
-            Map<String, Object> attributes,
-            OAuth2UserInfoStrategy strategy,
-            User user
+            Authentication authentication, Map<String, Object> attributes,
+            OAuth2UserInfoStrategy strategy, User user
     ) {
         String usernameAttributeKey  = strategy.getEmailAttributeKey(attributes);
         DefaultOAuth2User newUser = new DefaultOAuth2User(
@@ -167,5 +168,43 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
                 ((OAuth2AuthenticationToken) authentication).getAuthorizedClientRegistrationId()
         );
         SecurityContextHolder.getContext().setAuthentication(securityAuth);
+    }
+
+    private static User createUserForOauth2(
+            String email, String encodedPassword, String avatarUrl, String firstName, String lastName,
+            OAuth2UserInfoStrategy strategy
+    ) {
+        return User.builder()
+                .email(email)
+                .displayedUsername(email)
+                .password(encodedPassword)
+                .profilePictureUrl(avatarUrl)
+                .firstName(firstName)
+                .lastName(lastName)
+                .role(Role.USER)
+                .isAccountNonExpired(true)
+                .isAccountNonLocked(true)
+                .isCredentialsNonExpired(true)
+                .isEnabled(true)
+                .lastLoginTime(LocalDateTime.now())
+                .authProvider(strategy.getAuthProvider())
+                .build();
+    }
+
+    private static String generateRandomPasswordFoForOauth2() {
+        return RandomStringUtils.random(20, 0, 0, true,true, null, random);
+    }
+
+    private static String generateRandomUsername() {
+        return RandomStringUtils.random(10, 0, 0, true,true, null, random);
+    }
+
+    private static String generateRandomEmail() {
+        return RandomStringUtils.random(10, 0, 0, true,true, null, random) + "@bbmovie.com";
+    }
+
+    private static String generateRandomAvatarUrl() {
+        int from1to1084cuzFreeApiHas1084img = random.nextInt(1084) + 1;
+        return "https://picsum.photos/id/" + from1to1084cuzFreeApiHas1084img + "/200/200";
     }
 }

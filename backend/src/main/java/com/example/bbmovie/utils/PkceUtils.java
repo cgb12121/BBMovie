@@ -2,13 +2,15 @@ package com.example.bbmovie.utils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.util.Base64;
 import java.security.NoSuchAlgorithmException;
 
-public class PkceUtil {
+import static com.example.bbmovie.utils.RandomUtils.secureRandom;
 
-    private static final SecureRandom secureRandom = new SecureRandom();
+public class PkceUtils {
+
+    private PkceUtils() {}
+
     private static final String ALLOWED_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
 
     public static String generateCodeVerifier() {

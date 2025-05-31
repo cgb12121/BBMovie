@@ -1,6 +1,7 @@
 package com.example.bbmovie.entity;
 
 import com.example.bbmovie.entity.base.BaseEntity;
+import com.example.bbmovie.service.payment.PaymentProvider;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -42,14 +43,11 @@ public class UserSubscription extends BaseEntity {
     @Column(name = "next_payment_date")
     private LocalDateTime nextPaymentDate;
 
-    @Column(name = "payment_method")
+    @Column(name = "payment_provider")
     @Enumerated(EnumType.STRING)
-    private PaymentMethod paymentMethod;
+    private PaymentProvider paymentProvider;
 
     @Column(name = "payment_gateway_id")
-    private String paymentGatewayId; // ID from PayPal, VNPay
+    private String paymentGatewayId;
 
-    public enum PaymentMethod {
-        PAYPAL, VNPAY
-    }
 } 

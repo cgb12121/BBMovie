@@ -1,6 +1,6 @@
 package com.example.bbmovie.security.oauth2.strategy.request.customizer;
 
-import com.example.bbmovie.utils.PkceUtil;
+import com.example.bbmovie.utils.PkceUtils;
 import org.springframework.stereotype.Component;
 
 import java.nio.charset.StandardCharsets;
@@ -18,8 +18,8 @@ public class XOAuth2RequestCustomizer implements OAuth2RequestCustomizer {
 
     @Override
     public void customize(Map<String, Object> parameters) {
-        String codeVerifier = PkceUtil.generateCodeVerifier();
-        String codeChallenge = PkceUtil.generateCodeChallenge(codeVerifier);
+        String codeVerifier = PkceUtils.generateCodeVerifier();
+        String codeChallenge = PkceUtils.generateCodeChallenge(codeVerifier);
 
         parameters.put("code_challenge", codeChallenge);
         parameters.put("code_challenge_method", "S256");

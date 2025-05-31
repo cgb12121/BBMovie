@@ -18,7 +18,6 @@ import com.example.bbmovie.service.auth.verify.otp.OtpService;
 import com.example.bbmovie.service.auth.verify.token.ChangePasswordTokenService;
 import com.example.bbmovie.service.auth.verify.token.EmailVerifyTokenService;
 import com.example.bbmovie.service.email.EmailService;
-import com.example.bbmovie.utils.CreateUserUtils;
 import com.example.bbmovie.utils.DeviceInfoUtils;
 import com.example.bbmovie.utils.IpAddressUtils;
 import com.example.bbmovie.utils.UserAgentAnalyzerUtils;
@@ -171,7 +170,7 @@ public class AuthServiceImpl implements AuthService {
                 .isAccountNonExpired(true)
                 .isAccountNonLocked(true)
                 .isCredentialsNonExpired(true)
-                .profilePictureUrl(CreateUserUtils.generateDefaultProfilePictureUrl())
+                .profilePictureUrl("https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png")
                 .build();
 
         User savedUser = userRepository.save(user);
@@ -352,7 +351,7 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional(noRollbackFor = CustomEmailException.class)
     public void changePassword(String requestEmail, ChangePasswordRequest request) {
-        User user = userRepository.findByUsername(requestEmail)
+        User user = userRepository.findByDisplayedUsername(requestEmail)
                 .orElseThrow(() -> new UserNotFoundException("User not found for username: " + requestEmail));
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(requestEmail, request.getCurrentPassword())

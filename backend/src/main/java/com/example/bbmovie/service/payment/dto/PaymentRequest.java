@@ -1,19 +1,19 @@
 package com.example.bbmovie.service.payment.dto;
 
-import com.example.bbmovie.service.payment.PaymentProviderType;
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
+import lombok.*;
 
 import java.math.BigDecimal;
 
-@Builder
 @Data
+@Getter
+@Setter
+@Builder
 @AllArgsConstructor
+@NoArgsConstructor
 public class PaymentRequest {
+    private String paymentMethodId;
     private BigDecimal amount;
     private String currency;
-    private PaymentProviderType provider;
-    private String description;
-    private String ipAddress;
+    private String userId;
+    private String orderId;
 }

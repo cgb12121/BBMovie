@@ -1,66 +1,99 @@
 package com.example.bbmovie.controller;
 
-import com.example.bbmovie.service.payment.PaymentProviderType;
+import com.example.bbmovie.dto.ApiResponse;
+import com.example.bbmovie.dto.request.PaymentRequestDto;
+import com.example.bbmovie.dto.request.RefundRequestDto;
+import com.example.bbmovie.service.payment.PaymentService;
+import com.example.bbmovie.service.payment.PaymentStatus;
 import com.example.bbmovie.service.payment.dto.PaymentRequest;
 import com.example.bbmovie.service.payment.dto.PaymentResponse;
-import com.example.bbmovie.service.payment.manager.CallbackStrategyManager;
-import com.example.bbmovie.service.payment.manager.PaymentStrategyManager;
-import com.example.bbmovie.service.payment.callback.PaymentCallbackHandler;
+import com.example.bbmovie.service.payment.dto.PaymentVerification;
+import com.example.bbmovie.service.payment.dto.RefundResponse;
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.Map;
 
-@Log4j2
 @RestController
-@RequiredArgsConstructor
-@RequestMapping("/api/payments")
+@RequestMapping("/api/payment")
 public class PaymentController {
 
-    private final PaymentStrategyManager paymentManager;
-    private final CallbackStrategyManager callbackManager;
+    private final PaymentService paymentService;
 
-    @PostMapping("/create")
-    public void createPayment(@RequestBody PaymentRequest request, HttpServletRequest httpServletRequest, HttpServletResponse response) {
-        PaymentResponse paymentResponse = paymentManager.createPayment(request, httpServletRequest);
+    @Autowired
+    public PaymentController(PaymentService paymentService) {
+        this.paymentService = paymentService;
+    }
+
+    @PostMapping("/initiate")
+    public ResponseEntity<ApiResponse<PaymentResponse>> initiatePayment(
+            @RequestBody PaymentRequestDto request,
+            HttpServletRequest httpServletRequest
+    ) {
         try {
-            response.sendRedirect(paymentResponse.getPaymentUrl());
-        } catch (IOException e) {
-            log.error("Failed to redirect to payment page", e);
+            PaymentRequest paymentRequest = new PaymentRequest();
+            paymentRequest.setAmount(request.getAmount());
+            paymentRequest.setCurrency(request.getCurrency());
+            paymentRequest.setUserId(request.getUserId());
+            paymentRequest.setOrderId(request.getOrderId());
+            PaymentResponse response = paymentService.processPayment(request.getProvider(), paymentRequest, httpServletRequest);
+            return ResponseEntity.ok(ApiResponse.success(response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    ApiResponse.error(String.valueOf(new PaymentResponse(null, PaymentStatus.FAILED, e.getMessage())))
+            );
         }
     }
 
-    @PostMapping("/callback/{provider}")
-    public ResponseEntity<?> handleCallback(
-            @PathVariable PaymentProviderType provider,
-            @RequestBody(required = false) String body,
-            @RequestParam Map<String, String> queryParams,
-            HttpServletRequest request
+    @GetMapping("/vnpay/callback")
+    public ResponseEntity<ApiResponse<PaymentVerification>> handleVNPayCallback(
+            @RequestParam Map<String, String> params,
+            HttpServletRequest httpServletRequest
     ) {
-        PaymentCallbackHandler handler = callbackManager.getHandler(provider);
-        if (handler == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No handler found");
+        try {
+            PaymentVerification verification = paymentService.verifyPayment(
+                    "vnpayProvider", params, httpServletRequest
+            );
+            return ResponseEntity.ok(ApiResponse.success(verification));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    ApiResponse.error(String.valueOf(new PaymentVerification(false, null)))
+            );
         }
-        handler.handleCallback(body, queryParams, request);
-        return ResponseEntity.ok("Callback processed");
     }
 
-    @GetMapping("/return/{provider}")
-    public ResponseEntity<?> handleReturn(
-            @PathVariable PaymentProviderType provider,
-            @RequestParam Map<String, String> queryParams
+    @PostMapping("/webhook")
+    public ResponseEntity<ApiResponse<PaymentVerification>> handleWebhook(
+            @RequestHeader("X-Payment-Provider") String provider,
+            @RequestBody Map<String, String> paymentData,
+            HttpServletRequest httpServletRequest
     ) {
-        PaymentCallbackHandler handler = callbackManager.getHandler(provider);
-        if (handler == null) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("No return handler found");
+        try {
+            PaymentVerification verification = paymentService.verifyPayment(provider, paymentData, httpServletRequest);
+            return ResponseEntity.ok(ApiResponse.success(verification));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    ApiResponse.error(String.valueOf(new PaymentVerification(false, null)))
+            );
         }
-        return handler.handleReturn(queryParams);
+    }
+
+    @PostMapping("/refund")
+    public ResponseEntity<ApiResponse<RefundResponse>> refundPayment(
+            @RequestBody RefundRequestDto request,
+            HttpServletRequest httpServletRequest
+    ) {
+        try {
+            RefundResponse response = paymentService.refundPayment(
+                    request.getProvider(), request.getPaymentId(), httpServletRequest
+            );
+            return ResponseEntity.ok(ApiResponse.success(response));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    ApiResponse.error(String.valueOf(new RefundResponse(null, PaymentStatus.FAILED.getStatus())))
+            );
+        }
     }
 }
-
