@@ -40,11 +40,12 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.util.WebUtils;
 
 import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
-import static com.example.bbmovie.constant.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
+import static com.example.bbmovie.constant.error.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
 
 @Service
 @Log4j2
@@ -371,7 +372,7 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        emailService.notifyChangedPassword(user.getEmail());
+        emailService.notifyChangedPassword(user.getEmail(), ZonedDateTime.now());
 
         revokeAllTokensFromAllDevicesByEmail(user.getEmail());
     }
@@ -401,7 +402,7 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         changePasswordTokenService.deleteToken(token);
-        emailService.notifyChangedPassword(user.getEmail());
+        emailService.notifyChangedPassword(user.getEmail(), ZonedDateTime.now());
         log.info("Password reset for user {} successful", email);
 
         revokeAllTokensFromAllDevicesByEmail(email);

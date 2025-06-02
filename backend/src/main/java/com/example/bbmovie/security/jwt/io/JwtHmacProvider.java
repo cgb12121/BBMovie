@@ -1,8 +1,9 @@
-package com.example.bbmovie.security.jwt;
+package com.example.bbmovie.security.jwt.io;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
+import com.example.bbmovie.security.jwt.JwtProviderStrategy;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.log4j.Log4j2;

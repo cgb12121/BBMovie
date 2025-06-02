@@ -2,7 +2,7 @@ package com.example.bbmovie.service.payment.vnpay;
 
 import com.example.bbmovie.exception.VNPayException;
 import com.example.bbmovie.service.payment.PaymentProviderAdapter;
-import com.example.bbmovie.service.payment.PaymentStatus;
+import com.example.bbmovie.entity.enumerate.PaymentStatus;
 import com.example.bbmovie.service.payment.dto.PaymentRequest;
 import com.example.bbmovie.service.payment.dto.PaymentResponse;
 import com.example.bbmovie.service.payment.dto.PaymentVerification;
@@ -95,7 +95,7 @@ public class VNPayAdapter implements PaymentProviderAdapter {
         String vnpTransactionNo = getTransactionNo(paymentId); // Fetch from stored data or API
         String vnpTransactionDate = getTransactionDate(paymentId); // Fetch from stored data or API
         String vnpCreateDate = new SimpleDateFormat(VnPayConstraint.DATE_FORMAT).format(new Date());
-        String vnpIpAddr = IpAddressUtils.getServerIp();
+        String vnpIpAddr = IpAddressUtils.getPublicServerIp();
         String vnpAmount = "10000"; // Example: refund 100 VND (replace with actual amount * 100)
 
         Map<String, String> vnpParams = new HashMap<>();

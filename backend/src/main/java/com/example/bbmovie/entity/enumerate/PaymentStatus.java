@@ -1,4 +1,4 @@
-package com.example.bbmovie.service.payment;
+package com.example.bbmovie.entity.enumerate;
 
 import lombok.Getter;
 

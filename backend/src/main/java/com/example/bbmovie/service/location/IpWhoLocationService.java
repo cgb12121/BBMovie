@@ -15,20 +15,20 @@ public class IpWhoLocationService implements LocationService{
     private final RestTemplate restTemplate = new RestTemplate();
 
     @Override
+    @SuppressWarnings("all")
     public Optional<String> getCountryCodeByIp(String ip) {
         if (ip == null || ip.trim().isEmpty()) {
-            System.out.println("Invalid IP address: " + ip);
+            log.error("IP address is null or empty");
             return Optional.empty();
         }
 
         String url = UriComponentsBuilder.fromUriString("https://ipwho.is/")
                 .pathSegment(ip)
                 .toUriString();
-        System.out.println("Constructed URL: " + url);
 
         try {
             ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-            System.out.println("API Response: " + response);
+            log.info("Response from API: {}", response);
 
             if (response.getStatusCode().is2xxSuccessful()) {
                 Map body = response.getBody();

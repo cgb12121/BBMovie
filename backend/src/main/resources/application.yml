@@ -1,6 +1,6 @@
 app:
   jwt:
-    strategy: rsa # or hmac
+    strategy: rsa
     key:
       secret: ${JWT_SECRET}
       private: ${JWT_PRIVATE_KEY}
@@ -85,12 +85,14 @@ spring:
 #            private-key-password: ${SERVER_PRIVATE_KEY_PASSWORD}
 #          reload-on-update: ${SERVER_RELOAD_ON_UPDATE}
 
+
   elasticsearch:
     uris: http://localhost:9200
     username: elastic
     password: changeme
     connection-timeout: 10s
     socket-timeout: 10s
+
 
   security:
     oauth2:
@@ -196,6 +198,10 @@ huggingface:
 
 
 server:
+  tomcat:
+    remote-ip-header: X-Forwarded-For
+    protocol-header: X-Forwarded-Proto
+    internal-proxies: 10\.+\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.+\d{1,3}\.\d{1,3}|172\.1[6-9]\.\d{1,3}\.\d{1,3}|172\.2[0-9]\.\d{1,3}\.\d{1,3}|172\.3[0-1]\.\d{1,3}\.\d{1,3}
 #  ssl:
 #    bundle: ${SERVER_SSL_BUNDLE}
   port: 8080
@@ -213,6 +219,9 @@ management:
 ipinfo:
   token: ${IP_INFO_TOKEN}
 
+
+mail-sender:
+  token: ${MAIL_SENDER_TOKEN}
 
 payment:
   vnpay:

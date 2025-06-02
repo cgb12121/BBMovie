@@ -1,7 +1,7 @@
 package com.example.bbmovie.entity;
 
 import com.example.bbmovie.entity.base.BaseEntity;
-import com.example.bbmovie.service.payment.PaymentProvider;
+import com.example.bbmovie.entity.enumerate.PaymentProvider;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -49,5 +49,4 @@ public class UserSubscription extends BaseEntity {
 
     @Column(name = "payment_gateway_id")
     private String paymentGatewayId;
-
 } 

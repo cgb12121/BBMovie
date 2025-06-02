@@ -1,6 +1,7 @@
 package com.example.bbmovie.service.payment;
 
 import com.example.bbmovie.entity.PaymentTransaction;
+import com.example.bbmovie.entity.enumerate.PaymentStatus;
 import com.example.bbmovie.repository.PaymentTransactionRepository;
 import com.example.bbmovie.service.payment.dto.PaymentRequest;
 import com.example.bbmovie.service.payment.dto.PaymentResponse;
@@ -38,7 +39,7 @@ public class PaymentService {
             String providerName,
             PaymentRequest request,
             HttpServletRequest httpServletRequest
-    ) throws Exception {
+    ) {
         PaymentProviderAdapter provider = providers.get(providerName);
         if (provider == null) {
             throw new IllegalArgumentException("Provider " + providerName + " not supported");
@@ -56,7 +57,7 @@ public class PaymentService {
             String providerName,
             Map<String, String> paymentData,
             HttpServletRequest httpServletRequest
-    ) throws Exception {
+    ) {
         PaymentProviderAdapter provider = providers.get(providerName);
         if (provider == null) {
             throw new IllegalArgumentException("Provider " + providerName + " not supported");

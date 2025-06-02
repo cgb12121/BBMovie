@@ -1,6 +1,7 @@
-package com.example.bbmovie.service.email;
+package com.example.bbmovie.service.email.gmail;
 
 import com.example.bbmovie.exception.CustomEmailException;
+import com.example.bbmovie.service.email.EmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
@@ -18,7 +19,7 @@ import org.thymeleaf.context.Context;
 
 import lombok.extern.log4j.Log4j2;
 
-import java.time.LocalTime;
+import java.time.ZonedDateTime;
 
 /*
  * This class is used to send emails to users.
@@ -27,10 +28,10 @@ import java.time.LocalTime;
  * It uses the @Async annotation to send emails asynchronously.
  * 🛡️ Bonus: Don’t throw exception from Async method
  */
-@Service
 @Log4j2
+@Service("gmailSmtp")
 @RequiredArgsConstructor
-public class EmailServiceImpl implements EmailService {
+public class GmailSmtpService implements EmailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
@@ -66,7 +67,6 @@ public class EmailServiceImpl implements EmailService {
             Context context = new Context();
             context.setVariable("verificationUrl", frontendUrl + "/verify-email?token=" + verificationToken);
             context.setVariable("user", receiver);
-
             String htmlContent = templateEngine.process("verification", context);
             helper.setText(htmlContent, true);
 
@@ -89,7 +89,7 @@ public class EmailServiceImpl implements EmailService {
             maxAttempts = 2,
             backoff = @Backoff(delay = 2000, multiplier = 2)
     )
-    public void notifyChangedPassword(String receiver) {
+    public void notifyChangedPassword(String receiver, ZonedDateTime timeChanged) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, CHAR_ENCODING_UTF_8);
@@ -99,8 +99,7 @@ public class EmailServiceImpl implements EmailService {
             helper.setSubject("Notify on password change");
 
             Context context = new Context();
-            context.setVariable("timeChanged", LocalTime.now().toString());
-
+            context.setVariable("timeChanged", timeChanged.toString());
             String htmlContent = templateEngine.process("password-change", context);
             helper.setText(htmlContent, true);
 
@@ -136,7 +135,6 @@ public class EmailServiceImpl implements EmailService {
             Context context = new Context();
             context.setVariable("resetPasswordUrl", frontendUrl + "/reset-password?token=" + resetPasswordToken);
             context.setVariable("user", receiver);
-
             String htmlContent = templateEngine.process("reset-password", context);
             helper.setText(htmlContent, true);
 

@@ -2,7 +2,7 @@ package com.example.bbmovie.service.cloudinary;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.example.bbmovie.constant.CloudinaryErrorMessages;
+import com.example.bbmovie.constant.error.CloudinaryErrorMessages;
 import com.example.bbmovie.entity.Movie;
 import com.example.bbmovie.exception.MovieNotFoundException;
 import com.example.bbmovie.repository.MovieRepository;

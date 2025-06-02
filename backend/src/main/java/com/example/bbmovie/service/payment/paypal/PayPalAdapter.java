@@ -1,7 +1,7 @@
 package com.example.bbmovie.service.payment.paypal;
 
 import com.example.bbmovie.service.payment.PaymentProviderAdapter;
-import com.example.bbmovie.service.payment.PaymentStatus;
+import com.example.bbmovie.entity.enumerate.PaymentStatus;
 import com.example.bbmovie.service.payment.dto.PaymentRequest;
 import com.example.bbmovie.service.payment.dto.PaymentResponse;
 import com.example.bbmovie.service.payment.dto.PaymentVerification;

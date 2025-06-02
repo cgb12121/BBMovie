@@ -1,7 +1,7 @@
 package com.example.bbmovie.service.payment.stripe;
 
 import com.example.bbmovie.exception.StripePaymentException;
-import com.example.bbmovie.service.payment.PaymentStatus;
+import com.example.bbmovie.entity.enumerate.PaymentStatus;
 import lombok.Getter;
 
 @Getter

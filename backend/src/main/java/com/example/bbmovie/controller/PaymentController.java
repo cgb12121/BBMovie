@@ -4,7 +4,7 @@ import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.dto.request.PaymentRequestDto;
 import com.example.bbmovie.dto.request.RefundRequestDto;
 import com.example.bbmovie.service.payment.PaymentService;
-import com.example.bbmovie.service.payment.PaymentStatus;
+import com.example.bbmovie.entity.enumerate.PaymentStatus;
 import com.example.bbmovie.service.payment.dto.PaymentRequest;
 import com.example.bbmovie.service.payment.dto.PaymentResponse;
 import com.example.bbmovie.service.payment.dto.PaymentVerification;
@@ -27,6 +27,7 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
+    //TODO: fix this
     @PostMapping("/initiate")
     public ResponseEntity<ApiResponse<PaymentResponse>> initiatePayment(
             @RequestBody PaymentRequestDto request,
@@ -38,7 +39,9 @@ public class PaymentController {
             paymentRequest.setCurrency(request.getCurrency());
             paymentRequest.setUserId(request.getUserId());
             paymentRequest.setOrderId(request.getOrderId());
-            PaymentResponse response = paymentService.processPayment(request.getProvider(), paymentRequest, httpServletRequest);
+            PaymentResponse response = paymentService.processPayment(
+                    request.getProvider(), paymentRequest, httpServletRequest
+            );
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(

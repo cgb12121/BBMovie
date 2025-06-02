@@ -1,6 +1,6 @@
 package com.example.bbmovie.service.payment.dto;
 
-import com.example.bbmovie.service.payment.PaymentStatus;
+import com.example.bbmovie.entity.enumerate.PaymentStatus;
 import lombok.*;
 
 @Data

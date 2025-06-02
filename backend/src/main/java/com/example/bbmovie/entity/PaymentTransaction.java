@@ -1,8 +1,8 @@
 package com.example.bbmovie.entity;
 
 import com.example.bbmovie.entity.base.BaseEntity;
-import com.example.bbmovie.service.payment.PaymentProvider;
-import com.example.bbmovie.service.payment.PaymentStatus;
+import com.example.bbmovie.entity.enumerate.PaymentProvider;
+import com.example.bbmovie.entity.enumerate.PaymentStatus;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -41,13 +41,13 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "payment_method", nullable = false)
     private String paymentMethod; //card, bank, etc.
 
-    @Column(name = "payment_gateway_id")
+    @Column(name = "payment_gateway_id", nullable = false)
     private String paymentGatewayId; // e.g., vnp_TxnRef, stripePaymentIntentId
 
     @Column(name = "payment_gateway_order_id")
     private String paymentGatewayOrderId;
 
-    @Column(name = "provider_status")
+    @Column(name = "provider_status", nullable = false)
     private String providerStatus; // e.g., VNPAY_00, STRIPE_SUCCEEDED
 
     @Column(name = "transaction_date", nullable = false)

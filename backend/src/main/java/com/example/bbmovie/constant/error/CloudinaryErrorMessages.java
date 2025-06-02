@@ -1,4 +1,4 @@
-package com.example.bbmovie.constant;
+package com.example.bbmovie.constant.error;
 
 @SuppressWarnings("unused")
 public class CloudinaryErrorMessages {
