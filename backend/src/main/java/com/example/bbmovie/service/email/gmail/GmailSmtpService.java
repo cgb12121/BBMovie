@@ -21,6 +21,9 @@ import lombok.extern.log4j.Log4j2;
 
 import java.time.ZonedDateTime;
 
+import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
+import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
+
 /*
  * This class is used to send emails to users.
  * It uses Spring Boot's JavaMailSender to send emails.
@@ -65,7 +68,7 @@ public class GmailSmtpService implements EmailService {
             helper.setSubject("Verify your email address");
 
             Context context = new Context();
-            context.setVariable("verificationUrl", frontendUrl + "/verify-email?token=" + verificationToken);
+            context.setVariable("verificationUrl", createVerificationEmailUrl(frontendUrl, verificationToken));
             context.setVariable("user", receiver);
             String htmlContent = templateEngine.process("verification", context);
             helper.setText(htmlContent, true);
@@ -133,7 +136,7 @@ public class GmailSmtpService implements EmailService {
             helper.setSubject("Verify your email address");
 
             Context context = new Context();
-            context.setVariable("resetPasswordUrl", frontendUrl + "/reset-password?token=" + resetPasswordToken);
+            context.setVariable("resetPasswordUrl", createResetPasswordEmailUrl(frontendUrl, resetPasswordToken));
             context.setVariable("user", receiver);
             String htmlContent = templateEngine.process("reset-password", context);
             helper.setText(htmlContent, true);

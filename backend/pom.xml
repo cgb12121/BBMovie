@@ -150,6 +150,16 @@
 			<artifactId>google-api-client</artifactId>
 			<version>2.7.2</version>
 		</dependency>
+		<dependency>
+			<groupId>com.google.oauth-client</groupId>
+			<artifactId>google-oauth-client-jetty</artifactId>
+			<version>1.36.0</version>
+		</dependency>
+		<dependency>
+			<groupId>com.google.apis</groupId>
+			<artifactId>google-api-services-gmail</artifactId>
+			<version>v1-rev20240520-2.0.0</version>
+		</dependency>
 
 		<dependency>
 			<groupId>com.cloudinary</groupId>
@@ -187,36 +197,39 @@
 			<artifactId>jackson-datatype-jsr310</artifactId>
 		</dependency>
 
-		<!-- https://mvnrepository.com/artifact/ai.djl/api -->
 		<dependency>
 			<groupId>ai.djl</groupId>
 			<artifactId>api</artifactId>
-			<version>0.32.0</version>
+			<version>0.31.0</version>
 		</dependency>
-		<!-- PyTorch Engine (CPU or GPU) -->
+
 		<dependency>
 			<groupId>ai.djl.pytorch</groupId>
 			<artifactId>pytorch-engine</artifactId>
-			<version>0.32.0</version>
+			<version>0.31.0</version>
 		</dependency>
+
 		<dependency>
 			<groupId>ai.djl.pytorch</groupId>
 			<artifactId>pytorch-model-zoo</artifactId>
-			<version>0.32.0</version>
+			<version>0.31.0</version>
 		</dependency>
-		<!-- Hugging Face Model Zoo -->
+
 		<dependency>
 			<groupId>ai.djl.huggingface</groupId>
 			<artifactId>tokenizers</artifactId>
-			<version>0.32.0</version>
+			<version>0.31.0</version>
 		</dependency>
-		<!-- https://mvnrepository.com/artifact/ai.djl.pytorch/pytorch-native-cpu -->
+
+		<!-- GPU Backend -->
 		<dependency>
 			<groupId>ai.djl.pytorch</groupId>
-			<artifactId>pytorch-native-cu118</artifactId>
-			<version>2.0.1</version>
+			<artifactId>pytorch-native-cu117</artifactId>
+			<version>1.13.1</version>
 			<scope>runtime</scope>
 		</dependency>
+
+
 
 		<!-- https://mvnrepository.com/artifact/com.twilio.sdk/twilio -->
 		<dependency>

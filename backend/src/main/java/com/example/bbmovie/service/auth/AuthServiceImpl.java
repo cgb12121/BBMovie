@@ -18,15 +18,16 @@ import com.example.bbmovie.service.auth.verify.otp.OtpService;
 import com.example.bbmovie.service.auth.verify.token.ChangePasswordTokenService;
 import com.example.bbmovie.service.auth.verify.token.EmailVerifyTokenService;
 import com.example.bbmovie.service.email.EmailService;
+import com.example.bbmovie.service.email.EmailServiceFactory;
 import com.example.bbmovie.utils.DeviceInfoUtils;
 import com.example.bbmovie.utils.IpAddressUtils;
 import com.example.bbmovie.utils.UserAgentAnalyzerUtils;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import nl.basjes.parse.useragent.UserAgent;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -49,7 +50,6 @@ import static com.example.bbmovie.constant.error.UserErrorMessages.USER_NOT_FOUN
 
 @Service
 @Log4j2
-@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
@@ -63,6 +63,33 @@ public class AuthServiceImpl implements AuthService {
     private final OtpService otpService;
     private final DeviceInfoUtils deviceInfoUtils;
     private final UserAgentAnalyzerUtils userAgentAnalyzer;
+
+    @Autowired
+    public AuthServiceImpl(
+            AuthenticationManager authenticationManager,
+            JwtProviderStrategyContext jwtProviderStrategyContext,
+            PasswordEncoder passwordEncoder,
+            UserRepository userRepository,
+            EmailVerifyTokenService emailVerifyTokenService,
+            EmailServiceFactory emailServiceFactory,
+            RefreshTokenService refreshTokenService,
+            ChangePasswordTokenService changePasswordTokenService,
+            OtpService otpService,
+            DeviceInfoUtils deviceInfoUtils,
+            UserAgentAnalyzerUtils userAgentAnalyzer
+    ) {
+        this.authenticationManager = authenticationManager;
+        this.jwtProviderStrategyContext = jwtProviderStrategyContext;
+        this.passwordEncoder = passwordEncoder;
+        this.userRepository = userRepository;
+        this.emailVerifyTokenService = emailVerifyTokenService;
+        this.emailService = emailServiceFactory.getDefaultStrategy();
+        this.refreshTokenService = refreshTokenService;
+        this.changePasswordTokenService = changePasswordTokenService;
+        this.otpService = otpService;
+        this.deviceInfoUtils = deviceInfoUtils;
+        this.userAgentAnalyzer = userAgentAnalyzer;
+    }
 
     @Override
     public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {

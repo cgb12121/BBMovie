@@ -14,6 +14,9 @@ app:
 
   otp-expiration-minutes: 1
 
+  mail:
+    default: gmailSmtp
+
   frontend:
     url: http://localhost:3000
 
@@ -220,7 +223,7 @@ ipinfo:
   token: ${IP_INFO_TOKEN}
 
 
-mail-sender:
+mailer-sender:
   token: ${MAIL_SENDER_TOKEN}
 
 payment:

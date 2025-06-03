@@ -8,7 +8,6 @@ import com.mailersend.sdk.emails.Email;
 import com.mailersend.sdk.exceptions.MailerSendException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
@@ -17,11 +16,13 @@ import org.thymeleaf.context.Context;
 import java.time.ZonedDateTime;
 
 import static com.example.bbmovie.constant.Domain.DOMAIN_NAME;
+import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
+import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
 
 @Log4j2
 @Service("mailersendApi")
 @RequiredArgsConstructor
-public class MailSenderApiService implements EmailService {
+public class MailerSenderApiService implements EmailService {
 
     @Value("${mail-sender.token}")
     private String mailSenderToken;
@@ -42,7 +43,7 @@ public class MailSenderApiService implements EmailService {
     public void sendVerificationEmail(String to, String verificationToken) {
         try {
             Context context = new Context();
-            context.setVariable("verificationUrl", frontendUrl + "/verify-email?token=" + verificationToken);
+            context.setVariable("verificationUrl", createVerificationEmailUrl(frontendUrl, verificationToken));
             context.setVariable("user", to);
             String htmlContent = templateEngine.process("verification", context);
 
@@ -93,7 +94,7 @@ public class MailSenderApiService implements EmailService {
     public void sendForgotPasswordEmail(String receiver, String resetPasswordToken) {
         try {
             Context context = new Context();
-            context.setVariable("resetPasswordUrl", frontendUrl + "/reset-password?token=" + resetPasswordToken);
+            context.setVariable("resetPasswordUrl", createResetPasswordEmailUrl(frontendUrl, resetPasswordToken));
             context.setVariable("user", receiver);
             String htmlContent = templateEngine.process("reset-password", context);
 

@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Log4j2
+@SuppressWarnings("unused")
 public class MimeType {
     public static final String APNG = "image/apng";
     public static final String JPEG = "image/jpeg";
@@ -34,9 +35,10 @@ public class MimeType {
         for (Field field : fields) {
             int modifiers = field.getModifiers();
             if (Modifier.isPublic(modifiers) &&
-                    Modifier.isStatic(modifiers) &&
-                    Modifier.isFinal(modifiers) &&
-                    field.getType().equals(String.class)) {
+                Modifier.isStatic(modifiers) &&
+                Modifier.isFinal(modifiers) &&
+                field.getType().equals(String.class)
+            ) {
                 try {
                     String value = (String) field.get(null);
                     ALLOWED_CONTENT_TYPES.add(value);

@@ -9,11 +9,14 @@ import org.thymeleaf.context.Context;
 
 import java.time.ZonedDateTime;
 
+import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
+import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
+
 @Service("mailersendSmtp")
 @RequiredArgsConstructor
-public class MailSenderSmtpService implements EmailService {
+public class MailerSenderSmtpService implements EmailService {
 
-    @Value("${mail-sender.token}")
+    @Value("${mailer-sender.token}")
     private String mailSenderToken;
 
     @Value("${app.frontend.url}")
@@ -27,7 +30,7 @@ public class MailSenderSmtpService implements EmailService {
     @Override
     public void sendVerificationEmail(String to, String verificationToken) {
         Context context = new Context();
-        context.setVariable("verificationUrl", frontendUrl + "/verify-email?token=" + verificationToken);
+        context.setVariable("verificationUrl", createVerificationEmailUrl(frontendUrl, verificationToken));
         context.setVariable("user", to);
         String htmlContent = templateEngine.process("verification", context);
     }
@@ -43,7 +46,7 @@ public class MailSenderSmtpService implements EmailService {
     @Override
     public void sendForgotPasswordEmail(String receiver, String resetPasswordToken) {
         Context context = new Context();
-        context.setVariable("resetPasswordUrl", frontendUrl + "/reset-password?token=" + resetPasswordToken);
+        context.setVariable("resetPasswordUrl", createResetPasswordEmailUrl(frontendUrl, resetPasswordToken));
         context.setVariable("user", receiver);
         String htmlContent = templateEngine.process("reset-password", context);
     }
