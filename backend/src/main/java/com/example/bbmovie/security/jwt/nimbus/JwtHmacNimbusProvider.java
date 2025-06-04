@@ -26,7 +26,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Log4j2
-@Component("hmac-nimbus")
+@Component("hmacNimbus")
 public class JwtHmacNimbusProvider implements JwtProviderStrategy {
 
     private final int jwtAccessExpirationInMs;
@@ -34,6 +34,7 @@ public class JwtHmacNimbusProvider implements JwtProviderStrategy {
     private final String jwtSecret;
     private SecretKey secretKey;
     private final RedisTemplate<Object, Object> redisTemplate;
+    private static final String JWT_BLACKLIST_PREFIX = "jwt-blacklist:";
 
     public JwtHmacNimbusProvider(
             @Value("${app.jwt.key.secret}") String jwtSecret,
@@ -170,19 +171,19 @@ public class JwtHmacNimbusProvider implements JwtProviderStrategy {
 
     @Override
     public void invalidateAccessTokenByEmailAndDevice(String email, String deviceName) {
-        String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
+        String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.opsForValue().set(key, "true", 15, TimeUnit.MINUTES);
     }
 
     @Override
     public boolean isAccessTokenBlacklistedForEmailAndDevice(String email, String deviceName) {
-        String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
-        return redisTemplate.hasKey(key);
+        String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
+        return redisTemplate != null && redisTemplate.hasKey(key);
     }
 
     @Override
     public void removeJwtBlockAccessTokenOfEmailAndDevice(String email, String deviceName) {
-        String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
+        String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.delete(key);
     }
 }

@@ -12,10 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 
 @Service
 public class PaymentService {
@@ -24,15 +21,15 @@ public class PaymentService {
 
     @Autowired
     public PaymentService(
-            List<PaymentProviderAdapter> providerList,
+            Map<String, PaymentProviderAdapter> providers,
             PaymentTransactionRepository paymentTransactionRepository
     ) {
-        this.providers = new HashMap<>();
-        for (PaymentProviderAdapter provider : providerList) {
-            String name = Objects.requireNonNull(provider.getClass().getAnnotation(Service.class)).value();
-            providers.put(name, provider);
-        }
+        this.providers = providers;
         this.paymentTransactionRepository = paymentTransactionRepository;
+    }
+
+    public PaymentProviderAdapter getProvider(String name) {
+        return providers.get(name);
     }
 
     public PaymentResponse processPayment(

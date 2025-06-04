@@ -112,7 +112,7 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
             String lastName = lastNameBuilder.toString();
 
             User newUser = createUserForOauth2(
-                    email, encodedPassword, firstName, lastName, avatarUrl, strategy
+                    email, encodedPassword, avatarUrl, firstName, lastName, strategy
             );
             return userService.createUserFromOAuth2(newUser);
         });

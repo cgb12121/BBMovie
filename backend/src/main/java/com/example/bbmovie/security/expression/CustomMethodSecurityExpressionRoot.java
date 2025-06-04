@@ -18,6 +18,7 @@ public class CustomMethodSecurityExpressionRoot extends SecurityExpressionRoot i
         this.userService = userService;
     }
 
+    //TODO: fix this so it is compatible with multiple jwt strategy
     public boolean isAccountOwner(Long accountId, Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             return false;

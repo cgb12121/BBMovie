@@ -22,10 +22,12 @@ import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Component;
 
 import java.security.KeyFactory;
+import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
 import java.security.interfaces.RSAPrivateKey;
 import java.security.interfaces.RSAPublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.text.ParseException;
@@ -34,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.Base64;
 
 @Log4j2
-@Component("rsa-nimbus")
+@Component("rsaNimbus")
 public class JwtRsaNimbusProvider implements JwtProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
@@ -44,6 +46,9 @@ public class JwtRsaNimbusProvider implements JwtProviderStrategy {
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
 
+    private static final String ALGORITHM = "RSA";
+    private static final String JWT_BLACKLIST_PREFIX = "jwt-blacklist:";
+
     public JwtRsaNimbusProvider(
             @Value("${app.jwt.key.private}") String privateKeyStr,
             @Value("${app.jwt.key.public}") String publicKeyStr,
@@ -51,7 +56,7 @@ public class JwtRsaNimbusProvider implements JwtProviderStrategy {
             @Value("${app.jwt.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
             RedisTemplate<Object, Object> redisTemplate,
             List<OAuth2UserInfoStrategy> strategies
-    ) throws Exception {
+    ) throws NoSuchAlgorithmException, InvalidKeySpecException {
         this.jwtAccessTokenExpirationInMs = jwtAccessTokenExpirationInMs;
         this.jwtRefreshTokenExpirationInMs = jwtRefreshTokenExpirationInMs;
         this.privateKey = (RSAPrivateKey) getPrivateKeyFromString(privateKeyStr);
@@ -60,14 +65,18 @@ public class JwtRsaNimbusProvider implements JwtProviderStrategy {
         this.strategies = strategies;
     }
 
-    private PrivateKey getPrivateKeyFromString(String key) throws Exception {
+    private PrivateKey getPrivateKeyFromString(String key)
+            throws NoSuchAlgorithmException, InvalidKeySpecException
+    {
         byte[] bytes = Base64.getDecoder().decode(key);
-        return KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(bytes));
+        return KeyFactory.getInstance(ALGORITHM).generatePrivate(new PKCS8EncodedKeySpec(bytes));
     }
 
-    private PublicKey getPublicKeyFromString(String key) throws Exception {
+    private PublicKey getPublicKeyFromString(String key)
+            throws NoSuchAlgorithmException, InvalidKeySpecException
+    {
         byte[] bytes = Base64.getDecoder().decode(key);
-        return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(bytes));
+        return KeyFactory.getInstance(ALGORITHM).generatePublic(new X509EncodedKeySpec(bytes));
     }
 
     @Override
@@ -194,19 +203,22 @@ public class JwtRsaNimbusProvider implements JwtProviderStrategy {
 
     @Override
     public void invalidateAccessTokenByEmailAndDevice(String email, String deviceName) {
-        String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
+        String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.opsForValue().set(key, "true", 15, TimeUnit.MINUTES);
     }
 
     @Override
     public boolean isAccessTokenBlacklistedForEmailAndDevice(String email, String deviceName) {
-        String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
-        return redisTemplate.hasKey(key);
+        if (email == null || deviceName == null) {
+            return false;
+        }
+        String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
+        return redisTemplate != null && redisTemplate.hasKey(key);
     }
 
     @Override
     public void removeJwtBlockAccessTokenOfEmailAndDevice(String email, String deviceName) {
-        String key = "jwt-blacklist:" + email + ":" + StringUtils.deleteWhitespace(deviceName);
+        String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.delete(key);
     }
 }

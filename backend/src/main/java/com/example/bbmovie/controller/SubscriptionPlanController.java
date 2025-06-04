@@ -23,6 +23,12 @@ public class SubscriptionPlanController {
         return ResponseEntity.ok(ApiResponse.success(plan));
     }
 
+    @GetMapping("/plan/{id}")
+    public ResponseEntity<ApiResponse<SubscriptionPlan>> getSubscriptionPlanById(@PathVariable Long id) {
+        SubscriptionPlan plan = subscriptionPlanService.getSubscriptionPlanById(id);
+        return ResponseEntity.ok(ApiResponse.success(plan));
+    }
+
     @GetMapping("/plan/{name}")
     public ResponseEntity<ApiResponse<Object>> getSubscriptionPlanByName(@PathVariable String name) {
         Object plan = subscriptionPlanService.getSubscriptionPlanByName(name);

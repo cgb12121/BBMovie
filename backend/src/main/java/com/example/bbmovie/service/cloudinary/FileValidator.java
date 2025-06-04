@@ -26,7 +26,7 @@ public class FileValidator {
             "image/png", new byte[] {(byte) 0x89, (byte) 0x50, (byte) 0x4E, (byte) 0x47}
     );
 
-    private static final long MAX_FILE_SIZE_BYTES = (50 * 1024 * 1024); // 50 MB
+    private static final long MAX_FILE_SIZE_BYTES = (50 * 1024 * 1024); // 50 MB for BOTH video and img
 
     public static void validate(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {

@@ -74,11 +74,17 @@ public class RefreshTokenService {
             existing.setBrowserVersion(browserVersion);
             existing.setRevoked(false);
             return existing;
-        }).orElseGet(() -> new RefreshToken(
-                refreshToken, email, expiryDate,
-                deviceIpAddress, deviceName, deviceOs,
-                browser, browserVersion
-        ));
+        }).orElseGet(() -> RefreshToken.builder()
+                        .token(refreshToken)
+                        .email(email)
+                        .expiryDate(expiryDate)
+                        .deviceIpAddress(deviceIpAddress)
+                        .deviceName(deviceName)
+                        .deviceOs(deviceOs)
+                        .browser(browser)
+                        .browserVersion(browserVersion)
+                        .build()
+        );
 
         refreshTokenRepository.save(token);
     }

@@ -1,6 +1,9 @@
 package com.example.bbmovie.security;
 
 public class EndPointsConfig {
+
+    protected EndPointsConfig() {}
+
     protected static final String[] AUTH_ENDPOINTS = {
             "/api/auth/**",
             "/api/device/**"

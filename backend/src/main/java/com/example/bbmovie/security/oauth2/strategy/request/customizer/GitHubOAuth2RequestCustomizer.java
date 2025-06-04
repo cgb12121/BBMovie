@@ -13,6 +13,6 @@ public class GitHubOAuth2RequestCustomizer implements OAuth2RequestCustomizer {
 
     @Override
     public void customize(Map<String, Object> parameters) {
-        // Github does not support customize parameters to control logi behavior
+        // GitHub does not support customizing parameters to control logi behavior
     }
 }

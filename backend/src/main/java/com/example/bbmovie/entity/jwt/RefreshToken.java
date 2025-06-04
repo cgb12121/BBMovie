@@ -52,20 +52,4 @@ public class RefreshToken {
     private Date expiryDate;
 
     private boolean revoked;
-
-    public RefreshToken(
-            String token, String email, Date expiryDate,
-            String deviceIpAddress, String deviceName, String deviceOs,
-            String browser, String browserVersion
-    ) {
-        this.token = token;
-        this.email = email;
-        this.expiryDate = expiryDate;
-        this.deviceName = deviceName;
-        this.deviceOs = deviceOs;
-        this.deviceIpAddress = deviceIpAddress;
-        this.browser = browser;
-        this.browserVersion = browserVersion;
-        this.revoked = false;
-    }
 }

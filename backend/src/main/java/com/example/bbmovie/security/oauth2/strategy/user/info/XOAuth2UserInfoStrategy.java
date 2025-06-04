@@ -25,7 +25,7 @@ public class XOAuth2UserInfoStrategy implements OAuth2UserInfoStrategy {
 
     @Override
     public String getNameAttributeKey(Map<String, Object> attributes) {
-        return "data"; // Top-level key used in DefaultOAuth2User
+        return "data";
     }
 
     @Override
@@ -36,7 +36,7 @@ public class XOAuth2UserInfoStrategy implements OAuth2UserInfoStrategy {
 
     @Override
     public String getUsernameAttributeKey(Map<String, Object> attributes) {
-        return "data"; // Top-level key used in DefaultOAuth2User
+        return "data";
     }
 
     @Override
@@ -47,7 +47,7 @@ public class XOAuth2UserInfoStrategy implements OAuth2UserInfoStrategy {
 
     @Override
     public String getAvatarUrlAttributeKey(Map<String, Object> attributes) {
-        return "data"; // Top-level key used in DefaultOAuth2User
+        return "data";
     }
 
     @Override
