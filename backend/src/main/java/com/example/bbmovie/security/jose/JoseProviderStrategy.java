@@ -1,11 +1,11 @@
-package com.example.bbmovie.security.jwt;
+package com.example.bbmovie.security.jose;
 
 import org.springframework.security.core.Authentication;
 
 import java.util.Date;
 import java.util.List;
 
-public interface JwtProviderStrategy {
+public interface JoseProviderStrategy {
     String generateAccessToken(Authentication authentication);
 
     String generateRefreshToken(Authentication authentication);
@@ -20,7 +20,7 @@ public interface JwtProviderStrategy {
 
     Date getExpirationDateFromToken(String token);
 
-    void removeJwtBlockAccessTokenOfEmailAndDevice(String email, String deviceName);
+    void removeBlacklistedAccessTokenOfEmailAndDevice(String email, String deviceName);
 
     void invalidateAccessTokenByEmailAndDevice(String email, String deviceName);
 }

@@ -1,9 +1,9 @@
-package com.example.bbmovie.security.jwt.nimbus;
+package com.example.bbmovie.security.jose.jwt.nimbus;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
-import com.example.bbmovie.security.jwt.JwtProviderStrategy;
+import com.example.bbmovie.security.jose.JoseProviderStrategy;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
@@ -37,7 +37,7 @@ import java.util.Base64;
 
 @Log4j2
 @Component("rsaNimbus")
-public class JwtRsaNimbusProvider implements JwtProviderStrategy {
+public class JoseRsaNimbusProvider implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
@@ -49,11 +49,11 @@ public class JwtRsaNimbusProvider implements JwtProviderStrategy {
     private static final String ALGORITHM = "RSA";
     private static final String JWT_BLACKLIST_PREFIX = "jwt-blacklist:";
 
-    public JwtRsaNimbusProvider(
-            @Value("${app.jwt.key.private}") String privateKeyStr,
-            @Value("${app.jwt.key.public}") String publicKeyStr,
-            @Value("${app.jwt.expiration.access-token}") int jwtAccessTokenExpirationInMs,
-            @Value("${app.jwt.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
+    public JoseRsaNimbusProvider(
+            @Value("${app.jose.key.private}") String privateKeyStr,
+            @Value("${app.jose.key.public}") String publicKeyStr,
+            @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,
+            @Value("${app.jose.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
             RedisTemplate<Object, Object> redisTemplate,
             List<OAuth2UserInfoStrategy> strategies
     ) throws NoSuchAlgorithmException, InvalidKeySpecException {
@@ -217,7 +217,7 @@ public class JwtRsaNimbusProvider implements JwtProviderStrategy {
     }
 
     @Override
-    public void removeJwtBlockAccessTokenOfEmailAndDevice(String email, String deviceName) {
+    public void removeBlacklistedAccessTokenOfEmailAndDevice(String email, String deviceName) {
         String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.delete(key);
     }

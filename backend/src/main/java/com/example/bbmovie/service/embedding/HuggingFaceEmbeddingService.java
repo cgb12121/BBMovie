@@ -63,7 +63,7 @@ public class HuggingFaceEmbeddingService implements EmbeddingService {
         }
 
         if (response == null || response.getBody() == null) {
-            throw new EmbeddingException("Failed to get embedding from HuggingFace: No response");
+            throw new EmbeddingException("Failed to getActiveProvider embedding from HuggingFace: No response");
         }
 
         List<?> result = (List<?>) response.getBody().get(0);
@@ -113,7 +113,7 @@ public class HuggingFaceEmbeddingService implements EmbeddingService {
         }
 
         if (response == null || response.getBody() == null) {
-            throw new EmbeddingException("Failed to get embedding from HuggingFace: No response");
+            throw new EmbeddingException("Failed to getActiveProvider embedding from HuggingFace: No response");
         }
 
         List<?> outerList = response.getBody();

@@ -43,7 +43,7 @@ public class MimeType {
                     String value = (String) field.get(null);
                     ALLOWED_CONTENT_TYPES.add(value);
                 } catch (IllegalAccessException e) {
-                    log.error("Failed to get value of static field", e);
+                    log.error("Failed to getActiveProvider value of static field", e);
                 }
             }
         }

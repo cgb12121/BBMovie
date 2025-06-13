@@ -1,6 +1,6 @@
 package com.example.bbmovie.security;
 
-import com.example.bbmovie.security.jwt.JwtFilter;
+import com.example.bbmovie.security.jose.JoseFilter;
 import com.example.bbmovie.security.oauth2.CustomAuthorizationRequestResolver;
 import com.example.bbmovie.security.oauth2.OAuth2LoginSuccessHandler;
 import com.example.bbmovie.service.auth.CustomUserDetailsService;
@@ -48,7 +48,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtFilter jwtFilter;
+    private final JoseFilter joseFilter;
     private final CorsConfigurationSource corsConfigurationSource;
     private final CustomUserDetailsService userDetailsService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -116,7 +116,7 @@ public class SecurityConfig {
                             .authorizationRequestResolver(customAuthorizationRequestResolver)
                     )
             )
-            .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(joseFilter, UsernamePasswordAuthenticationFilter.class)
             .build();
     }
 

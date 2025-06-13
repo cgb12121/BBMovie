@@ -1,9 +1,9 @@
-package com.example.bbmovie.security.jwt.io;
+package com.example.bbmovie.security.jose.jwt.io;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
-import com.example.bbmovie.security.jwt.JwtProviderStrategy;
+import com.example.bbmovie.security.jose.JoseProviderStrategy;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import io.jsonwebtoken.*;
 import lombok.extern.log4j.Log4j2;
@@ -30,7 +30,7 @@ import java.util.Base64;
 
 @Log4j2
 @Component("rsa")
-public class JwtRsaProvider implements JwtProviderStrategy {
+public class JoseRsaProvider implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
@@ -40,11 +40,11 @@ public class JwtRsaProvider implements JwtProviderStrategy {
     private final List<OAuth2UserInfoStrategy> strategies;
     private static final String JWT_BLACKLIST_PREFIX = "jwt-blacklist:";
 
-    public JwtRsaProvider(
-            @Value("${app.jwt.key.private}") String privateKeyStr,
-            @Value("${app.jwt.key.public}") String publicKeyStr,
-            @Value("${app.jwt.expiration.access-token}") int jwtAccessTokenExpirationInMs,
-            @Value("${app.jwt.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
+    public JoseRsaProvider(
+            @Value("${app.jose.key.private}") String privateKeyStr,
+            @Value("${app.jose.key.public}") String publicKeyStr,
+            @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,
+            @Value("${app.jose.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
             RedisTemplate<Object, Object> redisTemplate,
             List<OAuth2UserInfoStrategy> strategies
     ) throws NoSuchAlgorithmException, InvalidKeySpecException {
@@ -203,7 +203,7 @@ public class JwtRsaProvider implements JwtProviderStrategy {
     }
 
     @Override
-    public void removeJwtBlockAccessTokenOfEmailAndDevice(String email, String deviceName) {
+    public void removeBlacklistedAccessTokenOfEmailAndDevice(String email, String deviceName) {
         String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.delete(key);
     }

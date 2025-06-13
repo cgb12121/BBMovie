@@ -4,15 +4,14 @@ import com.example.bbmovie.common.ValidationHandler;
 import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.dto.request.*;
 import com.example.bbmovie.dto.response.*;
-import com.example.bbmovie.exception.UnauthorizedUserException;
 import com.example.bbmovie.service.auth.RefreshTokenService;
 import com.example.bbmovie.service.auth.AuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -22,21 +21,17 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
-import java.util.ArrayList;
-import java.util.List;
-
 @RestController
 @RequestMapping("/api/auth")
-@RequiredArgsConstructor
 public class AuthController {
 
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
 
-    @GetMapping("/profile")
-    public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(@AuthenticationPrincipal UserDetails userDetails) {
-        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
-        return ResponseEntity.ok(ApiResponse.success(authService.loadAuthenticatedUserInformation(userDetails.getUsername())));
+    @Autowired
+    public AuthController(AuthService authService, RefreshTokenService refreshTokenService) {
+        this.authService = authService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @PostMapping("/register")
@@ -144,33 +139,6 @@ public class AuthController {
         if (errorResponse != null) return errorResponse;
         authService.resetPassword(token, request);
         return ResponseEntity.ok(ApiResponse.success("Password has been reset successfully"));
-    }
-
-    @GetMapping("/sessions/devices")
-    public ResponseEntity<ApiResponse<List<LoggedInDeviceResponse>>> getAllDeviceLoggedIntoAccount(
-            @AuthenticationPrincipal UserDetails userDetails, HttpServletRequest request
-    ) {
-        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
-        List<LoggedInDeviceResponse> devices = authService.getAllLoggedInDevices(userDetails.getUsername(), request);
-        return devices.isEmpty()
-                ? ResponseEntity.ok(ApiResponse.success(List.of()))
-                : ResponseEntity.ok(ApiResponse.success(devices));
-    }
-
-    @PostMapping("/sessions/devices/revoke")
-    public ResponseEntity<ApiResponse<String>> revokeDeviceLoggedIntoAccount(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody RevokeDeviceRequest request
-    ) {
-        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
-        List<String> revokedDevices = new ArrayList<>();
-        for (DeviceRevokeEntry device : request.getDevices()) {
-            authService.logoutFromOneDevice(userDetails.getUsername(), device.getDeviceName());
-            revokedDevices.add(device.getDeviceName());
-        }
-        return ResponseEntity.ok(ApiResponse.success(
-                String.join(", ", revokedDevices) + " was forced to logout successfully")
-        );
     }
 
     @GetMapping("/oauth2-callback")

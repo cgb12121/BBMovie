@@ -55,7 +55,7 @@ public class IpAddressUtils {
                         return publicIp;
                     }
                 } catch (Exception e) {
-                    log.warn("Failed to get public IP from {}: {}", serviceUrl, e.getMessage());
+                    log.warn("Failed to getActiveProvider public IP from {}: {}", serviceUrl, e.getMessage());
                 }
             }
             log.error("Unable to determine public server IP from any external service.");

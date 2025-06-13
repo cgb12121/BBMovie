@@ -4,7 +4,7 @@ import com.example.bbmovie.dto.response.UserAgentResponse;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.entity.jwt.RefreshToken;
-import com.example.bbmovie.security.jwt.JwtProviderStrategyContext;
+import com.example.bbmovie.security.jose.JoseProviderStrategyContext;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategyFactory;
 import com.example.bbmovie.service.UserService;
@@ -45,7 +45,7 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     private String frontendUrl;
 
     private final UserService userService;
-    private final JwtProviderStrategyContext jwtProviderStrategyContext;
+    private final JoseProviderStrategyContext joseProviderStrategyContext;
     private final RefreshTokenService refreshTokenService;
     private final ObjectProvider<PasswordEncoder> passwordEncoderProvider;
     private final OAuth2UserInfoStrategyFactory strategyFactory;
@@ -121,9 +121,9 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     private String generateAccessTokenAndSaveRefreshTokenForOAuth2(
             Authentication authentication, String email, UserAgentResponse userAgentInfo
     ) {
-        String accessToken = jwtProviderStrategyContext.get().generateAccessToken(authentication);
-        String refreshToken = jwtProviderStrategyContext.get().generateRefreshToken(authentication);
-        Date expirationDate = jwtProviderStrategyContext.get().getExpirationDateFromToken(refreshToken);
+        String accessToken = joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication);
+        String refreshToken = joseProviderStrategyContext.getActiveProvider().generateRefreshToken(authentication);
+        Date expirationDate = joseProviderStrategyContext.getActiveProvider().getExpirationDateFromToken(refreshToken);
 
         RefreshToken refreshTokenToDb = RefreshToken.builder()
                 .token(refreshToken)

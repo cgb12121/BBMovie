@@ -1,13 +1,13 @@
 app:
-  jwt:
-    strategy: rsa
+  jose:
+    strategy: jweRsaNimbus
     key:
-      secret: ${JWT_SECRET}
-      private: ${JWT_PRIVATE_KEY}
-      public: ${JWT_PUBLIC_KEY}
+      secret: ${JOSE_SECRET}
+      private: ${JOSE_PRIVATE_KEY}
+      public: ${JOSE_PUBLIC_KEY}
     expiration:
-      access-token: ${JWT_EXPIRATION}
-      refresh-token: ${JWT_REFRESH_EXPIRATION}
+      access-token: ${JOSE_EXPIRATION}
+      refresh-token: ${JOSE_REFRESH_EXPIRATION}
 
   change-password-token-expiration-minutes: 15
   verification-token-expiration-minutes: 15
@@ -147,7 +147,7 @@ spring:
             authorization-uri: https://x.com/i/oauth2/authorize
             token-uri: https://api.x.com/2/oauth2/token
             user-info-uri: https://api.x.com/2/users/me
-            #Spring can't get nested data from JSON such as data.username => must implement custom service
+            #Spring can't getActiveProvider nested data from JSON such as data.username => must implement custom service
             user-name-attribute: data
 
 

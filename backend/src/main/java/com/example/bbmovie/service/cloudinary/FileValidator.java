@@ -26,7 +26,8 @@ public class FileValidator {
             "image/png", new byte[] {(byte) 0x89, (byte) 0x50, (byte) 0x4E, (byte) 0x47}
     );
 
-    private static final long MAX_FILE_SIZE_BYTES = (50 * 1024 * 1024); // 50 MB for BOTH video and img
+    private static final long MAX_IMAGE_SIZE_BYTES = (10 * 1024 * 1024); // 10 MB
+    private static final long MAX_VIDEO_SIZE_BYTES = (100 * 1024 * 1024); // 100 MB
 
     public static void validate(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty()) {
@@ -39,7 +40,18 @@ public class FileValidator {
             throw new FileValidationException("Invalid file type: " + contentType);
         }
 
-        if (file.getSize() > MAX_FILE_SIZE_BYTES) {
+        String fileType = "";
+        String type = contentType.split("/")[0];
+        if (type.startsWith("image/")) {
+            fileType = "image";
+        } else if (type.startsWith("video/")) {
+            fileType = "video";
+        }
+        if (file.getSize() > MAX_IMAGE_SIZE_BYTES && fileType.contains("image")) {
+            logger.warn("File size exceeds maximum limit: {} bytes", file.getSize());
+            throw new FileValidationException("File size exceeds maximum limit of 10 MB");
+        }
+        if (file.getSize() > MAX_VIDEO_SIZE_BYTES && fileType.contains("video")) {
             logger.warn("File size exceeds maximum limit: {} bytes", file.getSize());
             throw new FileValidationException("File size exceeds maximum limit of 50 MB");
         }

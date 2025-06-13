@@ -5,17 +5,16 @@ import com.example.bbmovie.dto.ApiResponse;
 import com.example.bbmovie.service.elasticsearch.huggingface.MovieVectorSearchService;
 import com.example.bbmovie.service.elasticsearch.local.LocalEmbeddingSearchService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.log4j.Log4j2;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
 import java.util.List;
 
-@Log4j2
 @RestController
-@RequestMapping("/api/search")
 @RequiredArgsConstructor
+@RequestMapping("/api/search")
 public class SearchController {
 
     private final MovieVectorSearchService movieVectorSearchService;
@@ -36,12 +35,14 @@ public class SearchController {
         return ResponseEntity.ok(ApiResponse.success(results));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @GetMapping("/hugging-face-api/all")
-    public ResponseEntity<ApiResponse<?>> getAllMovies() throws Exception {
+    public ResponseEntity<ApiResponse<?>> getAllMovies() throws IOException {
         List<?> movies = movieVectorSearchService.getAllMovies();
         return ResponseEntity.ok(ApiResponse.success(movies));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     @GetMapping("/hugging-face-api/semantic-search")
     public ResponseEntity<ApiResponse<List<?>>> semanticSearch(
             @RequestParam String query,

@@ -13,7 +13,7 @@ import com.example.bbmovie.exception.*;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.TokenVerificationException;
 import com.example.bbmovie.repository.UserRepository;
-import com.example.bbmovie.security.jwt.JwtProviderStrategyContext;
+import com.example.bbmovie.security.jose.JoseProviderStrategyContext;
 import com.example.bbmovie.service.auth.verify.otp.OtpService;
 import com.example.bbmovie.service.auth.verify.token.ChangePasswordTokenService;
 import com.example.bbmovie.service.auth.verify.token.EmailVerifyTokenService;
@@ -53,7 +53,7 @@ import static com.example.bbmovie.constant.error.UserErrorMessages.USER_NOT_FOUN
 public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
-    private final JwtProviderStrategyContext jwtProviderStrategyContext;
+    private final JoseProviderStrategyContext joseProviderStrategyContext;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final EmailVerifyTokenService emailVerifyTokenService;
@@ -67,7 +67,7 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     public AuthServiceImpl(
             AuthenticationManager authenticationManager,
-            JwtProviderStrategyContext jwtProviderStrategyContext,
+            JoseProviderStrategyContext joseProviderStrategyContext,
             PasswordEncoder passwordEncoder,
             UserRepository userRepository,
             EmailVerifyTokenService emailVerifyTokenService,
@@ -79,7 +79,7 @@ public class AuthServiceImpl implements AuthService {
             UserAgentAnalyzerUtils userAgentAnalyzer
     ) {
         this.authenticationManager = authenticationManager;
-        this.jwtProviderStrategyContext = jwtProviderStrategyContext;
+        this.joseProviderStrategyContext = joseProviderStrategyContext;
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.emailVerifyTokenService = emailVerifyTokenService;
@@ -116,8 +116,8 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginTime(LocalDateTime.now());
         userRepository.save(user);
 
-        String accessToken = jwtProviderStrategyContext.get().generateAccessToken(authentication);
-        String refreshToken = jwtProviderStrategyContext.get().generateRefreshToken(authentication);
+        String accessToken = joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication);
+        String refreshToken = joseProviderStrategyContext.getActiveProvider().generateRefreshToken(authentication);
 
         refreshTokenService.saveRefreshToken(
                 refreshToken, user.getEmail(),
@@ -128,7 +128,7 @@ public class AuthServiceImpl implements AuthService {
                 userAgentResponse.getBrowserVersion()
         );
 
-        jwtProviderStrategyContext.get().removeJwtBlockAccessTokenOfEmailAndDevice(
+        joseProviderStrategyContext.getActiveProvider().removeBlacklistedAccessTokenOfEmailAndDevice(
                 user.getEmail(), userAgentResponse.getDeviceName()
         );
 
@@ -341,21 +341,21 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void revokeAccessTokenAndRefreshTokenFromCurrentDevice(String accessToken, String deviceName) {
-        String email = jwtProviderStrategyContext.get().getUsernameFromToken(accessToken);
+        String email = joseProviderStrategyContext.getActiveProvider().getUsernameFromToken(accessToken);
         refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
-        jwtProviderStrategyContext.get().invalidateAccessTokenByEmailAndDevice(email, deviceName);
+        joseProviderStrategyContext.getActiveProvider().invalidateAccessTokenByEmailAndDevice(email, deviceName);
     }
 
     private void revokeAccessTokenAndRefreshTokenFromOneDevice(String email, String deviceName) {
         refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
-        jwtProviderStrategyContext.get().invalidateAccessTokenByEmailAndDevice(email, deviceName);
+        joseProviderStrategyContext.getActiveProvider().invalidateAccessTokenByEmailAndDevice(email, deviceName);
     }
 
     private void revokeAllTokensFromAllDevicesByEmail(String email) {
         List<String> allDevicesName = getAllLoggedInDevices(email);
         refreshTokenService.deleteAllRefreshTokenByEmail(email);
         for (String device : allDevicesName) {
-            jwtProviderStrategyContext.get().invalidateAccessTokenByEmailAndDevice(email, device);
+            joseProviderStrategyContext.getActiveProvider().invalidateAccessTokenByEmailAndDevice(email, device);
         }
     }
 

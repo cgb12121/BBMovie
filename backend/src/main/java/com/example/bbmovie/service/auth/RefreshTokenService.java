@@ -3,7 +3,7 @@ package com.example.bbmovie.service.auth;
 import com.example.bbmovie.entity.jwt.RefreshToken;
 import com.example.bbmovie.exception.NoRefreshTokenException;
 import com.example.bbmovie.repository.RefreshTokenRepository;
-import com.example.bbmovie.security.jwt.JwtProviderStrategyContext;
+import com.example.bbmovie.security.jose.JoseProviderStrategyContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -22,7 +22,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RefreshTokenService {
 
-    private final JwtProviderStrategyContext jwtProviderStrategyContext;
+    private final JoseProviderStrategyContext joseProviderStrategyContext;
     private final RefreshTokenRepository refreshTokenRepository;
 
     @Transactional
@@ -36,8 +36,8 @@ public class RefreshTokenService {
     }
 
     public String refreshAccessToken(String oldAccessToken, String deviceName) {
-        String username = jwtProviderStrategyContext.get().getUsernameFromToken(oldAccessToken);
-        List<String> roles = jwtProviderStrategyContext.get().getRolesFromToken(oldAccessToken);
+        String username = joseProviderStrategyContext.getActiveProvider().getUsernameFromToken(oldAccessToken);
+        List<String> roles = joseProviderStrategyContext.getActiveProvider().getRolesFromToken(oldAccessToken);
         List<GrantedAuthority> authorities = roles.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
@@ -51,7 +51,7 @@ public class RefreshTokenService {
 
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(username, "", authorities);
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
-        return jwtProviderStrategyContext.get().generateAccessToken(authentication);
+        return joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication);
     }
 
     @Transactional
@@ -60,7 +60,7 @@ public class RefreshTokenService {
             String deviceIpAddress, String deviceName, String deviceOs,
             String browser, String browserVersion
     ) {
-        Date expiryDate = jwtProviderStrategyContext.get().getExpirationDateFromToken(refreshToken);
+        Date expiryDate = joseProviderStrategyContext.getActiveProvider().getExpirationDateFromToken(refreshToken);
 
         Optional<RefreshToken> existingToken = refreshTokenRepository.findByEmailAndDeviceName(email, deviceName);
 
