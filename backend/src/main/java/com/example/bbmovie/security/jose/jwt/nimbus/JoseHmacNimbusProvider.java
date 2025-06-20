@@ -34,7 +34,7 @@ public class JoseHmacNimbusProvider implements JoseProviderStrategy {
     private final String jwtSecret;
     private SecretKey secretKey;
     private final RedisTemplate<Object, Object> redisTemplate;
-    private static final String JWT_BLACKLIST_PREFIX = "jwt-blacklist:";
+    private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
     public JoseHmacNimbusProvider(
             @Value("${app.jose.key.secret}") String jwtSecret,

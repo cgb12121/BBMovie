@@ -8,7 +8,7 @@ import com.example.bbmovie.dto.request.ResetPasswordRequest;
 import com.example.bbmovie.dto.response.*;
 import com.example.bbmovie.entity.enumerate.AuthProvider;
 import com.example.bbmovie.entity.enumerate.Role;
-import com.example.bbmovie.entity.jwt.RefreshToken;
+import com.example.bbmovie.entity.jose.RefreshToken;
 import com.example.bbmovie.exception.*;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.TokenVerificationException;

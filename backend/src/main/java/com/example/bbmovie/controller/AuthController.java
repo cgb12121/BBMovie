@@ -29,7 +29,10 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
 
     @Autowired
-    public AuthController(AuthService authService, RefreshTokenService refreshTokenService) {
+    public AuthController(
+            AuthService authService,
+            RefreshTokenService refreshTokenService
+    ) {
         this.authService = authService;
         this.refreshTokenService = refreshTokenService;
     }

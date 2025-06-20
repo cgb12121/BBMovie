@@ -1,6 +1,6 @@
 app:
   jose:
-    strategy: jweRsaNimbus
+    strategy: jwkJwe
     key:
       secret: ${JOSE_SECRET}
       private: ${JOSE_PRIVATE_KEY}
@@ -201,10 +201,6 @@ huggingface:
 
 
 server:
-  tomcat:
-    remote-ip-header: X-Forwarded-For
-    protocol-header: X-Forwarded-Proto
-    internal-proxies: 10\.+\d{1,3}\.\d{1,3}\.\d{1,3}|192\.168\.+\d{1,3}\.\d{1,3}|172\.1[6-9]\.\d{1,3}\.\d{1,3}|172\.2[0-9]\.\d{1,3}\.\d{1,3}|172\.3[0-1]\.\d{1,3}\.\d{1,3}
 #  ssl:
 #    bundle: ${SERVER_SSL_BUNDLE}
   port: 8080

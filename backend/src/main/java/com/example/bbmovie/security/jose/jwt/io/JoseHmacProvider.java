@@ -28,7 +28,7 @@ public class JoseHmacProvider implements JoseProviderStrategy {
     private final int jwtRefreshExpirationInMs;
     private final SecretKey secretKey;
     private final RedisTemplate<Object, Object> redisTemplate;
-    private static final String JWT_BLACKLIST_PREFIX = "jwt-blacklist:";
+    private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
     public JoseHmacProvider(
             @Value("${app.jose.key.secret}") String jwtSecret,

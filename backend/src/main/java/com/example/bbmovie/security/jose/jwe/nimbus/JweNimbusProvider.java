@@ -42,13 +42,13 @@ public class JweNimbusProvider implements JoseProviderStrategy {
 
     private final int jweAccessTokenExpirationInMs;
     private final int jweRefreshTokenExpirationInMs;
-    private final RSAPrivateKey privateKey;
-    private final RSAPublicKey publicKey;
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
+    private final RSADecrypter rsaDecrypter;
+    private final RSAEncrypter rsaEncrypter;
 
     private static final String ALGORITHM = "RSA";
-    private static final String JWE_BLACKLIST_PREFIX = "jwe-blacklist:";
+    private static final String JWE_BLACKLIST_PREFIX = "jose-blacklist:";
 
     public JweNimbusProvider(
             @Value("${app.jose.key.private}") String privateKeyStr,
@@ -60,8 +60,10 @@ public class JweNimbusProvider implements JoseProviderStrategy {
     ) {
         this.jweAccessTokenExpirationInMs = jweAccessTokenExpirationInMs;
         this.jweRefreshTokenExpirationInMs = jweRefreshTokenExpirationInMs;
-        this.privateKey = (RSAPrivateKey) getPrivateKeyFromString(privateKeyStr);
-        this.publicKey = (RSAPublicKey) getPublicKeyFromString(publicKeyStr);
+        RSAPrivateKey privateKey = (RSAPrivateKey) getPrivateKeyFromString(privateKeyStr);
+        RSAPublicKey publicKey = (RSAPublicKey) getPublicKeyFromString(publicKeyStr);
+        this.rsaDecrypter = new RSADecrypter(privateKey);
+        this.rsaEncrypter = new RSAEncrypter(publicKey);
         this.redisTemplate = redisTemplate;
         this.strategies = strategies;
     }
@@ -112,7 +114,7 @@ public class JweNimbusProvider implements JoseProviderStrategy {
 
             JWEHeader header = new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A128GCM).build();
             EncryptedJWT encryptedJWT = new EncryptedJWT(header, claimsSet);
-            encryptedJWT.encrypt(new RSAEncrypter(publicKey));
+            encryptedJWT.encrypt(rsaEncrypter);
 
             return encryptedJWT.serialize();
         } catch (Exception e) {
@@ -184,7 +186,7 @@ public class JweNimbusProvider implements JoseProviderStrategy {
     public boolean validateToken(String token) {
         try {
             EncryptedJWT encryptedJWT = EncryptedJWT.parse(token);
-            encryptedJWT.decrypt(new RSADecrypter(privateKey));
+            encryptedJWT.decrypt(rsaDecrypter);
             return true;
         } catch (Exception e) {
             log.error("Token validation failed: {}", e.getMessage());
@@ -195,7 +197,7 @@ public class JweNimbusProvider implements JoseProviderStrategy {
     private JWTClaimsSet parseClaims(String token) {
         try {
             EncryptedJWT encryptedJWT = EncryptedJWT.parse(token);
-            encryptedJWT.decrypt(new RSADecrypter(privateKey));
+            encryptedJWT.decrypt(this.rsaDecrypter);
             return encryptedJWT.getJWTClaimsSet();
         } catch (ParseException | JOSEException e) {
             log.error("Failed to parse JWT token: ", e);

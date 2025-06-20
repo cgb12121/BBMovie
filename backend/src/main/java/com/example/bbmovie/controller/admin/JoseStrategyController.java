@@ -1,16 +1,13 @@
-package com.example.bbmovie.controller;
+package com.example.bbmovie.controller.admin;
 
 import com.example.bbmovie.security.jose.JoseProviderStrategy;
 import com.example.bbmovie.security.jose.JoseProviderStrategyContext;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationContext;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 
 @Log4j2
@@ -19,20 +16,17 @@ import java.util.Map;
 @RequestMapping("/admin/jose")
 public class JoseStrategyController {
 
-    private final JoseProviderStrategyContext context;
-    private final ApplicationContext applicationContext;
-
+    private final JoseProviderStrategyContext joseProviderStrategyContext;
 
     @Autowired
-    public JoseStrategyController(JoseProviderStrategyContext context, ApplicationContext applicationContext) {
-        this.context = context;
-        this.applicationContext = applicationContext;
+    public JoseStrategyController(JoseProviderStrategyContext joseProviderStrategyContext) {
+        this.joseProviderStrategyContext = joseProviderStrategyContext;
     }
 
     @PostMapping("/switch/{strategy}")
     public ResponseEntity<String> switchStrategy(@PathVariable String strategy) {
         try {
-            context.changeProvider(strategy);
+            joseProviderStrategyContext.changeProvider(strategy);
             return ResponseEntity.ok("Switched to: " + strategy);
         } catch (Exception e) {
             log.error(e.getMessage(), e);
@@ -42,8 +36,8 @@ public class JoseStrategyController {
 
     @GetMapping("/active")
     public Map<String, String> currentStrategy() {
-        String activeName = getStrategyName(context.getActiveProvider());
-        String previousName = getStrategyName(context.getPreviousProvider());
+        String activeName = getStrategyName(joseProviderStrategyContext.getActiveProvider());
+        String previousName = getStrategyName(joseProviderStrategyContext.getPreviousProvider());
 
         return Map.of(
                 "active", activeName != null ? activeName : "null",
@@ -52,7 +46,7 @@ public class JoseStrategyController {
     }
 
     private String getStrategyName(JoseProviderStrategy provider) {
-        return context.getAll().entrySet().stream()
+        return joseProviderStrategyContext.getAll().entrySet().stream()
                 .filter(e -> e.getValue() == provider)
                 .map(Map.Entry::getKey)
                 .findFirst()

@@ -1,4 +1,4 @@
-package com.example.bbmovie.service;
+package com.example.bbmovie.service.payment;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
@@ -14,8 +14,12 @@ public class CurrencyConversionService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public BigDecimal convert(String from, String to, BigDecimal amount) {
-        String url = String.format("https://api.exchangerate.host/convert?from=%s&to=%s&amount=%s",
-                from, to, amount.toPlainString());
+        String url = String.format(
+                "https://api.exchangerate.host/convert?from=%s&to=%s&amount=%s",
+                from,
+                to,
+                amount.toPlainString()
+        );
 
         ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
         if (response.getStatusCode().is2xxSuccessful()) {

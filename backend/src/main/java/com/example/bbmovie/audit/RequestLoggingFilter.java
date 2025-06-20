@@ -1,11 +1,10 @@
 package com.example.bbmovie.audit;
 
+import com.example.bbmovie.utils.IpAddressUtils;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
-import org.springframework.web.context.request.ServletRequestAttributes;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
@@ -21,6 +20,7 @@ public class RequestLoggingFilter implements Filter {
 
         if (request instanceof HttpServletRequest httpRequest) {
             String contentType = httpRequest.getContentType();
+            String clientIp = IpAddressUtils.getClientIp(httpRequest);
 
             boolean isMultipart = false;
             if (contentType != null) {
@@ -31,7 +31,7 @@ public class RequestLoggingFilter implements Filter {
 
             if (isMultipart) {
                 log.info("\n [{}] [Ip: {}/{}] Incoming Multipart Request: {} {} {} \n Body: [multipart content omitted]",
-                        LocalDateTime.now(), httpRequest.getRemoteAddr(), getClientIP(),
+                        LocalDateTime.now(), httpRequest.getRemoteAddr(), clientIp,
                         httpRequest.getMethod(), httpRequest.getRequestURI(),
                         httpRequest.getQueryString() != null ? "?" + httpRequest.getQueryString() : ""
                 );
@@ -43,7 +43,7 @@ public class RequestLoggingFilter implements Filter {
                         .collect(Collectors.joining(System.lineSeparator()));
 
                 log.info("\n [{}] [Ip: {}/{}] Incoming Request: {} {}{} \n Body: {}",
-                        LocalDateTime.now(), cachedRequest.getRemoteAddr(), getClientIP(),
+                        LocalDateTime.now(), cachedRequest.getRemoteAddr(), clientIp,
                         cachedRequest.getMethod(), cachedRequest.getRequestURI(),
                         cachedRequest.getQueryString() != null ? "?" + cachedRequest.getQueryString() : "",
                         requestBody
@@ -53,33 +53,5 @@ public class RequestLoggingFilter implements Filter {
         } else {
             chain.doFilter(request, response);
         }
-    }
-
-    private String getClientIP() {
-        HttpServletRequest request = ((ServletRequestAttributes) RequestContextHolder.currentRequestAttributes()).getRequest();
-
-        String ipAddress = request.getHeader("X-Forwarded-For");
-        String unknownClient = "unknown";
-        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("Proxy-Client-IP");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("WL-Proxy-Client-IP");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("HTTP_CLIENT_IP");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getHeader("HTTP_X_FORWARDED_FOR");
-        }
-        if (ipAddress == null || ipAddress.isEmpty() || unknownClient.equalsIgnoreCase(ipAddress)) {
-            ipAddress = request.getRemoteAddr();
-        }
-
-        if (ipAddress != null && ipAddress.contains(",")) {
-            ipAddress = ipAddress.split(",")[0].trim();
-        }
-
-        return ipAddress;
     }
 }

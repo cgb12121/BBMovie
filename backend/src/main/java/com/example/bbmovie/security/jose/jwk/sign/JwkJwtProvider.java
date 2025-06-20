@@ -1,17 +1,21 @@
-package com.example.bbmovie.security.jose.jwt.nimbus;
+package com.example.bbmovie.security.jose.jwk.sign;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
 import com.example.bbmovie.security.jose.JoseProviderStrategy;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
-import com.nimbusds.jose.*;
+import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
+import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
@@ -21,62 +25,39 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Component;
 
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
-import java.security.PublicKey;
-import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPublicKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 import java.text.ParseException;
-import java.util.*;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
-import java.util.Base64;
 
 @Log4j2
-@Component("rsaNimbus")
-public class JoseRsaNimbusProvider implements JoseProviderStrategy {
+@Component("jwkJwt")
+public class JwkJwtProvider implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
-    private final RSAPrivateKey privateKey;
-    private final RSAPublicKey publicKey;
+    private final RSAKey activePrivateKey;
+    private final List<RSAKey> publicKeys;
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
-
-    private static final String ALGORITHM = "RSA";
     private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
-    public JoseRsaNimbusProvider(
-            @Value("${app.jose.key.private}") String privateKeyStr,
-            @Value("${app.jose.key.public}") String publicKeyStr,
+    public JwkJwtProvider(
             @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
+            @Qualifier("activePrivateKey") RSAKey activePrivateKey,
+            List<RSAKey> publicKeys,
             RedisTemplate<Object, Object> redisTemplate,
             List<OAuth2UserInfoStrategy> strategies
-    ) throws NoSuchAlgorithmException, InvalidKeySpecException {
+    ) {
         this.jwtAccessTokenExpirationInMs = jwtAccessTokenExpirationInMs;
         this.jwtRefreshTokenExpirationInMs = jwtRefreshTokenExpirationInMs;
-        this.privateKey = (RSAPrivateKey) getPrivateKeyFromString(privateKeyStr);
-        this.publicKey = (RSAPublicKey) getPublicKeyFromString(publicKeyStr);
+        this.activePrivateKey = activePrivateKey;
+        this.publicKeys = publicKeys;
         this.redisTemplate = redisTemplate;
         this.strategies = strategies;
-    }
-
-    private PrivateKey getPrivateKeyFromString(String key)
-            throws NoSuchAlgorithmException, InvalidKeySpecException
-    {
-        byte[] bytes = Base64.getDecoder().decode(key);
-        return KeyFactory.getInstance(ALGORITHM).generatePrivate(new PKCS8EncodedKeySpec(bytes));
-    }
-
-    private PublicKey getPublicKeyFromString(String key)
-            throws NoSuchAlgorithmException, InvalidKeySpecException
-    {
-        byte[] bytes = Base64.getDecoder().decode(key);
-        return KeyFactory.getInstance(ALGORITHM).generatePublic(new X509EncodedKeySpec(bytes));
     }
 
     @Override
@@ -96,17 +77,20 @@ public class JoseRsaNimbusProvider implements JoseProviderStrategy {
             Date now = new Date();
             Date expiryDate = new Date(now.getTime() + expirationInMs);
 
-            JWTClaimsSet claimsSet =  new JWTClaimsSet.Builder()
+            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(username)
                     .claim("role", role)
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .build();
 
-            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256).type(JOSEObjectType.JWT).build();
-            SignedJWT signedJWT = new SignedJWT(header, claimsSet);
-            signedJWT.sign(new RSASSASigner(privateKey));
+            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
+                    .type(JOSEObjectType.JWT)
+                    .keyID(activePrivateKey.getKeyID())
+                    .build();
 
+            SignedJWT signedJWT = new SignedJWT(header, claimsSet);
+            signedJWT.sign(new RSASSASigner(activePrivateKey.toRSAPrivateKey()));
             return signedJWT.serialize();
         } catch (Exception e) {
             log.error("Token generation error: {}", e.getMessage());
@@ -157,52 +141,57 @@ public class JoseRsaNimbusProvider implements JoseProviderStrategy {
     }
 
     @Override
-    public List<String> getRolesFromToken(String token) {
+    public boolean validateToken(String token) {
+        Optional<SignedJWT> verifiedJwt = resolveAndVerify(token);
+        if (verifiedJwt.isEmpty()) {
+            return false;
+        }
         try {
-            JWTClaimsSet claims = parseClaims(token);
-            String role = (String) claims.getClaim("role");
-            return List.of(role);
+            return verifiedJwt.get().getJWTClaimsSet().getExpirationTime().after(new Date());
         } catch (ParseException e) {
-            throw new IllegalArgumentException("Failed to parse JWT", e);
+            log.error("Failed to parse token expiration: {}", e.getMessage());
+            return false;
         }
     }
 
     @Override
     public String getUsernameFromToken(String token) {
-        try {
-            return parseClaims(token).getSubject();
-        } catch (ParseException e) {
-            throw new IllegalArgumentException("Invalid JWT token", e);
-        }
+        return resolveAndVerify(token)
+                .map(jwt -> {
+                    try {
+                        return jwt.getJWTClaimsSet().getSubject();
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("Invalid JWK username", e);
+                    }
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Failed to parse username from JWK token"));
+    }
+
+    @Override
+    public List<String> getRolesFromToken(String token) {
+        return resolveAndVerify(token)
+                .map(jwt -> {
+                    try {
+                        String role = (String) jwt.getJWTClaimsSet().getClaim("role");
+                        return List.of(role);
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("Invalid JWK", e);
+                    }
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Invalid JWK"));
     }
 
     @Override
     public Date getExpirationDateFromToken(String token) {
-        try {
-            return parseClaims(token).getExpirationTime();
-        } catch (ParseException e) {
-            throw new IllegalArgumentException("Invalid JWT token", e);
-        }
-    }
-
-    @Override
-    public boolean validateToken(String token) {
-        try {
-            SignedJWT signedJWT = SignedJWT.parse(token);
-            if (signedJWT.getJWTClaimsSet().getExpirationTime().after(new Date())) {
-                return false;
-            }
-            log.info("Token validated: {}", signedJWT);
-            return signedJWT.verify(new RSASSAVerifier(publicKey));
-        } catch (Exception e) {
-            log.error("Token validation failed: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    private JWTClaimsSet parseClaims(String token) throws ParseException {
-        SignedJWT signedJWT = SignedJWT.parse(token);
-        return signedJWT.getJWTClaimsSet();
+        return resolveAndVerify(token)
+                .map(jwt -> {
+                    try {
+                        return jwt.getJWTClaimsSet().getExpirationTime();
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("Invalid JWK", e);
+                    }
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Invalid JWK"));
     }
 
     @Override
@@ -224,5 +213,38 @@ public class JoseRsaNimbusProvider implements JoseProviderStrategy {
     public void removeBlacklistedAccessTokenOfEmailAndDevice(String email, String deviceName) {
         String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
         redisTemplate.delete(key);
+    }
+
+    private Optional<SignedJWT> resolveAndVerify(String token) {
+        if (token == null || token.isBlank()) {
+            log.warn("Invalid token format (null, blank, or missing 3 JWT parts): '{}'", token);
+            return Optional.empty();
+        }
+
+        try {
+            SignedJWT jwt = SignedJWT.parse(token);
+            String kid = jwt.getHeader().getKeyID();
+            if (kid == null) {
+                log.error("Token missing key ID (kid)");
+                return Optional.empty();
+            }
+
+            for (RSAKey key : publicKeys) {
+                if (key.getKeyID().equals(kid)) {
+                    if (jwt.verify(new RSASSAVerifier(key.toRSAPublicKey()))) {
+                        log.info("Token verified with kid: {}", kid);
+                        return Optional.of(jwt);
+                    } else {
+                        log.error("Token verification failed for kid: {}", kid);
+                        return Optional.empty();
+                    }
+                }
+            }
+            log.error("No matching key found for kid: {}", kid);
+            return Optional.empty();
+        } catch (Exception e) {
+            log.error("Failed to verify token: {}", e.getMessage());
+            return Optional.empty();
+        }
     }
 }

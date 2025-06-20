@@ -3,7 +3,7 @@ package com.example.bbmovie.security.oauth2;
 import com.example.bbmovie.dto.response.UserAgentResponse;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.entity.enumerate.Role;
-import com.example.bbmovie.entity.jwt.RefreshToken;
+import com.example.bbmovie.entity.jose.RefreshToken;
 import com.example.bbmovie.security.jose.JoseProviderStrategyContext;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategyFactory;

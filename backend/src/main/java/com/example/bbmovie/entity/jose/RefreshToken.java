@@ -1,4 +1,4 @@
-package com.example.bbmovie.entity.jwt;
+package com.example.bbmovie.entity.jose;
 
 import java.util.Date;
 

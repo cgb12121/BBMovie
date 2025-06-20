@@ -1,6 +1,6 @@
 package com.example.bbmovie.service.auth;
 
-import com.example.bbmovie.entity.jwt.RefreshToken;
+import com.example.bbmovie.entity.jose.RefreshToken;
 import com.example.bbmovie.exception.NoRefreshTokenException;
 import com.example.bbmovie.repository.RefreshTokenRepository;
 import com.example.bbmovie.security.jose.JoseProviderStrategyContext;

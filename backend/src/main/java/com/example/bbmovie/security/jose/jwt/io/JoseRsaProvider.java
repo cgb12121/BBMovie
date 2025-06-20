@@ -38,7 +38,7 @@ public class JoseRsaProvider implements JoseProviderStrategy {
     private final PublicKey publicKey;
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
-    private static final String JWT_BLACKLIST_PREFIX = "jwt-blacklist:";
+    private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
     public JoseRsaProvider(
             @Value("${app.jose.key.private}") String privateKeyStr,

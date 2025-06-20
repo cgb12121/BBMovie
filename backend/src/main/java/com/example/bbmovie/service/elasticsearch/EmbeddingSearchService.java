@@ -1,4 +1,4 @@
-package com.example.bbmovie.service.elasticsearch.local;
+package com.example.bbmovie.service.elasticsearch;
 
 import ai.djl.translate.TranslateException;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
@@ -10,10 +10,11 @@ import co.elastic.clients.elasticsearch.core.search.Hit;
 import co.elastic.clients.json.JsonData;
 import com.example.bbmovie.entity.Movie;
 import com.example.bbmovie.entity.elasticsearch.MovieVectorDocument;
-import com.example.bbmovie.service.elasticsearch.QueryEmbeddingField;
 import com.example.bbmovie.service.embedding.LocalEmbeddingService;
-import lombok.RequiredArgsConstructor;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -21,18 +22,25 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Log4j2
-@Service(value = "localVectorElastic")
-@RequiredArgsConstructor
-public class LocalEmbeddingSearchService {
+@Service(value = "vectorElastic")
+public class EmbeddingSearchService {
 
    private final ElasticsearchClient elasticsearchClient;
    private final LocalEmbeddingService localEmbeddingService;
 
    @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
    private String indexName;
+
+   @Autowired
+    public EmbeddingSearchService(
+            ElasticsearchClient elasticsearchClient,
+            LocalEmbeddingService localEmbeddingService
+    ) {
+        this.elasticsearchClient = elasticsearchClient;
+        this.localEmbeddingService = localEmbeddingService;
+    }
 
     public List<?> searchSimilarMovies(String query, int limit) throws IOException, TranslateException {
         float[] queryVectorArray = localEmbeddingService.generateEmbedding(query);
@@ -56,7 +64,12 @@ public class LocalEmbeddingSearchService {
                 Object.class
         );
 
-        log.info("response: {}", response);
+        //This will try to make the object JSON so we can try to make java object to replace ?
+        ObjectMapper objectMapper = new ObjectMapper();
+        objectMapper.enable(SerializationFeature.INDENT_OUTPUT);
+        String jsonString = objectMapper.writeValueAsString(response);
+
+        log.info("response: {}", jsonString);
         return response.hits().hits().stream()
                 .map(Hit::source)
                 .toList();
