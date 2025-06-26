@@ -11,6 +11,7 @@ import NotFound from '../pages/NotFound';
 import Forbidden from '../pages/Forbidden';
 import SearchResults from '../pages/SearchResults';
 import Profile from '../pages/Profile';
+import JoseDebug from '../pages/JoseDebug';
 
 export type AppRoute = RouteObject & {
     name?: string;
@@ -77,5 +78,10 @@ export const routes: AppRoute[] = [
         path: '/profile',
         element: <Profile/>,
         name: 'Profile'
+    },
+    {
+        path: '/jose-debug',
+        element: <JoseDebug />,
+        name: 'JOSE Debug'
     }
 ]; 

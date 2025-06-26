@@ -23,14 +23,15 @@ public class JoseStrategyController {
         this.joseProviderStrategyContext = joseProviderStrategyContext;
     }
 
-    @PostMapping("/switch/{strategy}")
-    public ResponseEntity<String> switchStrategy(@PathVariable String strategy) {
+    @PostMapping("/switch")
+    public ResponseEntity<String> switchStrategy(@RequestBody Map<String, String> strategyParam) {
         try {
+            String strategy = strategyParam.get("strategy");
             joseProviderStrategyContext.changeProvider(strategy);
             return ResponseEntity.ok("Switched to: " + strategy);
         } catch (Exception e) {
             log.error(e.getMessage(), e);
-            return ResponseEntity.badRequest().body("Unable to Switched to: " + strategy);
+            return ResponseEntity.badRequest().body("Unable to Switched to: " + strategyParam.get("strategy"));
         }
     }
 

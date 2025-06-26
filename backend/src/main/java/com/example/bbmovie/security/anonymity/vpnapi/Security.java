@@ -1,8 +1,11 @@
-package com.example.bbmovie.security.anonymity.ipapi;
+package com.example.bbmovie.security.anonymity.vpnapi;
 
+import lombok.Data;
+
+@Data
 public class Security {
-    public boolean vpn;
-    public boolean proxy;
-    public boolean tor;
-    public boolean relay;
+    private boolean vpn;
+    private boolean proxy;
+    private boolean tor;
+    private boolean relay;
 }

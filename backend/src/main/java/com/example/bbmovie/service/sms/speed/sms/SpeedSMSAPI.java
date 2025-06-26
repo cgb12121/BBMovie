@@ -1,6 +1,8 @@
-package com.example.bbmovie.service.sms;
+package com.example.bbmovie.service.sms.speed.sms;
 
 import jakarta.xml.bind.DatatypeConverter;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -11,13 +13,13 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 
+@Component
 public class SpeedSMSAPI {
+
 	public static final String API_URL = "https://api.speedsms.vn/index.php";
-	protected String mAccessToken;
-	
-	public SpeedSMSAPI(String accessToken) {
-		this.mAccessToken = accessToken;
-	}
+
+	@Value("${sms.speed-sms.api-access-token}")
+	private String mAccessToken;
 
 	public String getUserInfo() throws IOException, URISyntaxException {
 		URL url = new URI(API_URL + "/user/info").toURL();
@@ -26,7 +28,7 @@ public class SpeedSMSAPI {
 		String userCredentials = mAccessToken + ":x";
 		String basicAuth = "Basic " + DatatypeConverter.printBase64Binary(userCredentials.getBytes());
 		conn.setRequestProperty ("Authorization", basicAuth);
-		
+
 		BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
 		String inputLine = "";
 		StringBuilder buffer = new StringBuilder();
@@ -47,13 +49,13 @@ public class SpeedSMSAPI {
 		String basicAuth = "Basic " + DatatypeConverter.printBase64Binary(userCredentials.getBytes());
 		conn.setRequestProperty ("Authorization", basicAuth);
 		conn.setRequestProperty("Content-Type", "application/json");
-		
+
 		conn.setDoOutput(true);
 		DataOutputStream wr = new DataOutputStream(conn.getOutputStream());
 		wr.writeBytes(json);
 		wr.flush();
 		wr.close();
-		
+
 		BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
 		String inputLine = "";
 		StringBuilder buffer = new StringBuilder();
@@ -64,20 +66,20 @@ public class SpeedSMSAPI {
 		in.close();
 		return buffer.toString();
 	}
-	
+
 	private String encodeNonAsciiCharacters(String value) {
 		StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < value.length(); i++) {
-        	char c = value.charAt(i);
-            if (c > 127) {
-        		String hex = String.format("%04x", (int) c);
-	        	String encodedValue = "\\u" + hex;
-	        	sb.append(encodedValue);
-        	}
-        	else {
-        		sb.append(c);
-        	}
-        }
-        return sb.toString();
-    }
+		for (int i = 0; i < value.length(); i++) {
+			char c = value.charAt(i);
+			if (c > 127) {
+				String hex = String.format("%04x", (int) c);
+				String encodedValue = "\\u" + hex;
+				sb.append(encodedValue);
+			}
+			else {
+				sb.append(c);
+			}
+		}
+		return sb.toString();
+	}
 }

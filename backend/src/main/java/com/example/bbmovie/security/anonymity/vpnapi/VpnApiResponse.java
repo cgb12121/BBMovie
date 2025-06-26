@@ -1,8 +1,11 @@
 package com.example.bbmovie.security.anonymity.vpnapi;
 
+import lombok.Data;
+
+@Data
 public class VpnApiResponse {
-    public String ip;
-    public Security security;
-    public Location location;
-    public Network network;
+    private String ip;
+    private Security security;
+    private Location location;
+    private Network network;
 }

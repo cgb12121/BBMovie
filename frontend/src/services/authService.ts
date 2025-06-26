@@ -7,9 +7,19 @@ import {
     UserAgentResponse,
     Device
 } from '../types/auth';
+import axios from 'axios';
 
+interface DeviceRevokeEntry {
+    deviceName: string;
+    ip: string;
+}
+
+interface RevokeDeviceRequest {
+    devices: DeviceRevokeEntry[];
+}
 
 class AuthService {
+    [x: string]: any;
     private static instance: AuthService;
     private accessToken: string | null = null;
     private refreshAccessTokenPromise: Promise<ApiResponse<AccessTokenResponse>> | null = null;
@@ -183,10 +193,15 @@ class AuthService {
     }
 
     async getAllLoggedInDevices(): Promise<ApiResponse<Device[]>> {
-        const response = await api.get<ApiResponse<Device[]>>('/api/auth/sessions/devices', {
-            headers: this.getHeaders()
-        });
-        return response.data;
+        try {
+            const response = await api.get('/api/auth/sessions/devices', {
+                headers: this.getHeaders()
+            });
+            return response.data;
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
     }
 
     async revokeDevices(deviceNames: string[]): Promise<ApiResponse<string>> {
@@ -201,6 +216,16 @@ class AuthService {
         );
         return response.data;
     }
+
+    async getUserAgent(): Promise<UserAgentResponse> {
+        try {
+            const response = await axios.get('/api/user-agent');
+            return response.data.data;
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
+    };
 }
 
 export default AuthService.getInstance();

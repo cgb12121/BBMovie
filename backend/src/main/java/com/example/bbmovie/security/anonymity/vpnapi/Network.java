@@ -1,11 +1,10 @@
-package com.example.bbmovie.security.anonymity.ipapi;
+package com.example.bbmovie.security.anonymity.vpnapi;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
 
+@Data
 public class Network{
-    public String network;
-    @JsonProperty("autonomous_system_number")
-    public String autonomousSystemNumber;
-    @JsonProperty("autonomous_system_organization")
-    public String autonomousSystemOrganization;
+    private String network;
+    private String autonomous_system_number;
+    private String autonomous_system_organization;
 }

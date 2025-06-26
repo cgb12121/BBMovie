@@ -1,6 +1,6 @@
 app:
   jose:
-    strategy: jwkJwe
+    strategy: jwkJwt
     key:
       secret: ${JOSE_SECRET}
       private: ${JOSE_PRIVATE_KEY}
@@ -76,8 +76,8 @@ spring:
   servlet:
     multipart:
       enabled: true
-      max-file-size: 50MB
-      max-request-size: 10MB
+      max-file-size: 2024MB
+      max-request-size: 2024MB
   #  ssl:
 #    bundle:
 #      pem:
@@ -87,7 +87,6 @@ spring:
 #            private-key: ${SERVER_PRIVATE_KEY}
 #            private-key-password: ${SERVER_PRIVATE_KEY_PASSWORD}
 #          reload-on-update: ${SERVER_RELOAD_ON_UPDATE}
-
 
   elasticsearch:
     uris: http://localhost:9200
@@ -150,7 +149,6 @@ spring:
             #Spring can't getActiveProvider nested data from JSON such as data.username => must implement custom service
             user-name-attribute: data
 
-
   ai:
     vectorstore:
       elasticsearch:
@@ -165,13 +163,6 @@ spring:
 #  database.salt: ${DATABASE_SALT}
 #  database.iterations: ${DATABASE_ITERATIONS}
 
-#Twilio
-#twilio:
-#  account-sid: ${TWILIO_ACCOUNT_SID}
-#  auth-token: ${TWILIO_AUTH_TOKEN}
-#  phone-number: ${TWILIO_PHONE_NUMBER}
-#  verification.service.sid: ${TWILIO_SERVICE_SID}
-
 
 logging:
   level:
@@ -179,6 +170,8 @@ logging:
       org.springframework.security: TRACE
       org.springframework.security.oauth2: TRACE
       org.springframework.web.client: DEBUG
+      org.springframework.web.socket: DEBUG
+      org.springframework.messaging: DEBUG
       elasticsearch: DEBUG
       springframework:
         security: DEBUG
@@ -188,17 +181,10 @@ logging:
     ai:
       djl: DEBUG
 
-
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
-
-
-huggingface:
-  api:
-    key: ${HUGGING_FACE_BBMOVIE_API_KEY}
-
 
 server:
 #  ssl:
@@ -214,13 +200,26 @@ management:
     shutdown:
       access: none
 
-
-ipinfo:
-  token: ${IP_INFO_TOKEN}
+ip:
+  ipinfo:
+    token: ${IP_INFO_TOKEN}
+  vpnapi:
+    api-key: ${VNP_API_API_KEY}
+  ipapi:
+    api-key: ${IP_API_KEY}
 
 
 mailer-sender:
   token: ${MAIL_SENDER_TOKEN}
+
+huggingface:
+  api:
+    key: ${HUGGING_FACE_BBMOVIE_API_KEY}
+
+sms:
+  speed-sms:
+    api-access-token: ${SPEED_SMS_API}
+    brand-name: ${SPEED_SMS_BRAND_NAME}
 
 payment:
   vnpay:

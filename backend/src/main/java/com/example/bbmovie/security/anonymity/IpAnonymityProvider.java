@@ -1,5 +1,6 @@
 package com.example.bbmovie.security.anonymity;
 
-public interface AnonymityDetectionStrategy {
+public interface IpAnonymityProvider {
     boolean isAnonymity(String ip);
+    String getName();
 }

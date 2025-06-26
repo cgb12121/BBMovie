@@ -5,6 +5,7 @@ import com.example.bbmovie.repository.JwkKeyRepository;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
+import java.util.Collections;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,6 +22,14 @@ public class JwkService {
     @Autowired
     public JwkService(JwkKeyRepository keyRepo) {
         this.keyRepo = keyRepo;
+    }
+
+    public Map<String, Object> getJwk() {
+        List<RSAKey> rsaKeys = getAllActivePublicKeys();
+        if (rsaKeys.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return rsaKeys.get(0).toPublicJWK().toJSONObject();
     }
 
     public Map<String, Object> getAllActiveJwks() {

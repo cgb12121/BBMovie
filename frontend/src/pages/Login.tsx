@@ -13,7 +13,7 @@ import {
   Col
 } from "antd"
 import { FcGoogle } from "react-icons/fc"
-import { FaFacebookF, FaGithub, FaDiscord } from "react-icons/fa"
+import { FaFacebookF, FaGithub, FaDiscord, FaTwitter } from "react-icons/fa"
 import {
   LockOutlined,
   MailOutlined,
@@ -33,7 +33,8 @@ import {
   GithubButton,
   LinkText,
   OrDivider,
-  DiscordButton
+  DiscordButton,
+  XButton
 } from "../styles/AuthStyles"
 import {
   IconWrapper,
@@ -149,6 +150,7 @@ const Login: React.FC = () => {
   const facebookIcon = FaFacebookF({ size: 20 }) as JSX.Element;
   const githubIcon = FaGithub({ size: 20 }) as JSX.Element;
   const discordIcon = FaDiscord({ size: 20 }) as JSX.Element;
+  const XIcon = FaTwitter({ size: 20 }) as JSX.Element;
 
   return (
     <AuthLayout>
@@ -215,7 +217,7 @@ const Login: React.FC = () => {
               </OrDivider>
 
               <Row gutter={16}>
-                <Col span={6}>
+                <Col span={4}>
                   <GoogleButton
                     onClick={() => handleSocialLogin("Google")}
                     icon={ googleIcon }
@@ -226,7 +228,7 @@ const Login: React.FC = () => {
                     
                   </GoogleButton>
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
                   <FacebookButton
                     onClick={() => handleSocialLogin("Facebook")}
                     icon={ facebookIcon }
@@ -237,7 +239,7 @@ const Login: React.FC = () => {
                     
                   </FacebookButton>
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
                   <GithubButton
                     onClick={() => handleSocialLogin("Github")}
                     icon={ githubIcon }
@@ -248,7 +250,7 @@ const Login: React.FC = () => {
                     
                   </GithubButton>
                 </Col>
-                <Col span={6}>
+                <Col span={4}>
                   <DiscordButton
                     onClick={() => handleSocialLogin("Discord")}
                     icon={ discordIcon }
@@ -258,6 +260,17 @@ const Login: React.FC = () => {
                   >
                     
                   </DiscordButton>
+                </Col>
+                {/* x is not working */}
+                <Col span={4}>
+                  <XButton
+                    onClick={() => handleSocialLogin("x")}
+                    icon={ XIcon }
+                    loading={socialLoading === "x"}
+                    disabled={!!socialLoading}
+                    block
+                  > 
+                  </XButton>
                 </Col>
               </Row>
             </Form>

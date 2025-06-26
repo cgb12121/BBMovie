@@ -1,4 +1,4 @@
-package com.example.bbmovie.service.sms;
+package com.example.bbmovie.service.sms.twillio;
 
 import com.twilio.Twilio;
 import jakarta.annotation.PostConstruct;

@@ -1,20 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { Table, Button, message, Modal, Space } from 'antd';
+import { Table, Button, message, Modal, Space, Tag } from 'antd';
 import { LogoutOutlined } from '@ant-design/icons';
 import authService from '../services/authService';
+import { useUserAgent } from '../hooks/useUserAgent';
 
 interface Device {
   deviceName: string;
-  deviceIpAddress: string;
   deviceOs: string;
+  deviceIpAddress: string;
   browser: string;
   browserVersion: string;
+}
+
+interface DeviceRevokeEntry {
+  deviceName: string;
+  ip: string;
 }
 
 const DeviceManagement: React.FC = () => {
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(false);
-  const [selectedDevices, setSelectedDevices] = useState<string[]>([]);
+  const [selectedDevices, setSelectedDevices] = useState<DeviceRevokeEntry[]>([]);
+  const { userAgent, loading: userAgentLoading } = useUserAgent();
 
   useEffect(() => {
     fetchDevices();
@@ -25,25 +32,31 @@ const DeviceManagement: React.FC = () => {
       setLoading(true);
       const response = await authService.getAllLoggedInDevices();
       if (response.success) {
-        setDevices(response.data);
+        const transformedDevices = response.data.map((device: Device) => ({
+          ...device,
+          isCurrentDevice: userAgent ? device.deviceName === userAgent.deviceName : false
+        }));
+        setDevices(transformedDevices);
       }
     } catch (error: any) {
+      console.log(error);
       message.error('Failed to fetch devices');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRevokeDevices = async (p0: string[]) => {
+  const handleRevokeDevices = async (devicesToRevoke: DeviceRevokeEntry[]) => {
     try {
       setLoading(true);
-      const response = await authService.revokeDevices(selectedDevices);
+      const response = await authService.revokeDevices(devicesToRevoke.map(device => device.deviceName));
       if (response.success) {
-        message.success('Selected devices have been logged out');
-        fetchDevices(); // Refresh the list
-        setSelectedDevices([]); // Clear selection
+        message.success(response.data);
+        fetchDevices();
+        setSelectedDevices([]);
       }
     } catch (error: any) {
+      console.log(error);
       message.error('Failed to revoke devices');
     } finally {
       setLoading(false);
@@ -55,6 +68,14 @@ const DeviceManagement: React.FC = () => {
       title: 'Device Name',
       dataIndex: 'deviceName',
       key: 'deviceName',
+      render: (text: string, record: Device) => (
+        <Space>
+          {text}
+          {record.deviceName === userAgent?.deviceName && (
+            <Tag color="blue">Current Device</Tag>
+          )}
+        </Space>
+      ),
     },
     {
       title: 'IP Address',
@@ -70,7 +91,8 @@ const DeviceManagement: React.FC = () => {
       title: 'Browser',
       dataIndex: 'browser',
       key: 'browser',
-      render: (text: string, record: Device) => `${record.browser} ${record.browserVersion}`,
+      render: (_: any, record: Device) => 
+        record.browser ? `${record.browser} ${record.browserVersion}` : 'N/A',
     },
     {
       title: 'Action',
@@ -80,7 +102,11 @@ const DeviceManagement: React.FC = () => {
           type="text"
           danger
           icon={<LogoutOutlined />}
-          onClick={() => handleRevokeDevices([record.deviceName])}
+          onClick={() => handleRevokeDevices([{ 
+            deviceName: record.deviceName, 
+            ip: record.deviceIpAddress 
+          }])}
+          disabled={record.deviceName === userAgent?.deviceName}
         >
           Revoke
         </Button>
@@ -100,7 +126,7 @@ const DeviceManagement: React.FC = () => {
               Modal.confirm({
                 title: 'Revoke Selected Devices',
                 content: 'Are you sure you want to log out from the selected devices?',
-                onOk: handleRevokeDevices,
+                onOk: () => handleRevokeDevices(selectedDevices),
               });
             }}
           >
@@ -112,11 +138,19 @@ const DeviceManagement: React.FC = () => {
       <Table
         columns={columns}
         dataSource={devices}
-        loading={loading}
+        loading={loading || userAgentLoading}
         rowKey="deviceName"
         rowSelection={{
           type: 'checkbox',
-          onChange: (selectedRowKeys) => setSelectedDevices(selectedRowKeys as string[]),
+          onChange: (selectedRowKeys, selectedRows) => {
+            setSelectedDevices(selectedRows.map(row => ({
+              deviceName: row.deviceName,
+              ip: row.deviceIpAddress
+            })));
+          },
+          getCheckboxProps: (record: Device) => ({
+            disabled: record.deviceName === userAgent?.deviceName,
+          }),
         }}
       />
     </div>

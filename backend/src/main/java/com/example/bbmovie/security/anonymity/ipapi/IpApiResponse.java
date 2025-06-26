@@ -1,21 +1,24 @@
 package com.example.bbmovie.security.anonymity.ipapi;
 
+import lombok.Data;
+
+@Data
 public class IpApiResponse {
-    public String ip;
-    public String rir;
-    public boolean is_bogon;
-    public boolean is_mobile;
-    public boolean is_satellite;
-    public boolean is_crawler;
-    public boolean is_datacenter;
-    public boolean is_tor;
-    public boolean is_proxy;
-    public boolean is_vpn;
-    public boolean is_abuser;
-    public Datacenter datacenter;
-    public Company company;
-    public Abuse abuse;
-    public Asn asn;
-    public Location location;
-    public double elapsed_ms;
+    private String ip;
+    private String rir;
+    private boolean is_bogon;
+    private boolean is_mobile;
+    private boolean is_satellite;
+    private boolean is_crawler;
+    private boolean is_datacenter;
+    private boolean is_tor;
+    private boolean is_proxy;
+    private boolean is_vpn;
+    private boolean is_abuser;
+    private Datacenter datacenter;
+    private Company company;
+    private Abuse abuse;
+    private Asn asn;
+    private Location location;
+    private double elapsed_ms;
 }

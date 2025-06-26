@@ -1,4 +1,4 @@
-package com.example.bbmovie.config;
+package com.example.bbmovie.security;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -30,7 +30,7 @@ public class CorsConfig {
         return source;
     }
 
-    private final static String[] ALLOWED_HEADERS = {
+    private static final String[] ALLOWED_HEADERS = {
             "Authorization",
             "Content-Type",
             "X-Requested-With",
@@ -42,6 +42,7 @@ public class CorsConfig {
             "X-DEVICE-OS",
             "X-DEVICE-IP-ADDRESS",
             "X-BROWSER",
-            "X-BROWSER-VERSION"
+            "X-BROWSER-VERSION",
+            "X-Frame-Options"
     };
 }

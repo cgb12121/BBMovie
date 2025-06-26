@@ -13,7 +13,7 @@ import java.util.Optional;
 @Service
 public class IpInfoLocationService implements LocationService {
 
-    @Value( "${ipinfo.token}")
+    @Value( "${ip.ipinfo.token}")
     private String ipInfoToken;
 
     @Override

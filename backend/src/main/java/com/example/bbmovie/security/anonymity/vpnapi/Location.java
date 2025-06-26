@@ -1,26 +1,20 @@
-package com.example.bbmovie.security.anonymity.ipapi;
+package com.example.bbmovie.security.anonymity.vpnapi;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Data;
 
+@Data
 public class Location {
-    public String city;
-    public String region;
-    public String country;
-    public String continent;
-    @JsonProperty("region_code")
-    public String regionCode;
-    @JsonProperty("country_code")
-    public String countryCode;
-    @JsonProperty("continent_code")
-    public String continentCode;
-    public String latitude;
-    public String longitude;
-    @JsonProperty("time_zone")
-    public String timeZone;
-    @JsonProperty("locale_code")
-    public String localeCode;
-    @JsonProperty("metro_code")
-    public String metroCode;
-    @JsonProperty("is_in_european_union")
-    public boolean isInEuropeanUnion;
+    private String city;
+    private String region;
+    private String country;
+    private String continent;
+    private String region_code;
+    private String country_code;
+    private String continent_code;
+    private String latitude;
+    private String longitude;
+    private String time_zone;
+    private String locale_code;
+    private String metro_code;
+    private boolean is_in_european_union;
 }

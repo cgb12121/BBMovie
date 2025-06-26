@@ -224,6 +224,12 @@ export const DiscordButton = styled(SocialButton)`
   }
 `;
 
+export const XButton = styled(SocialButton)`
+  background: #000000;
+  color: #ffffff;
+  border: 1px solid #000000;
+`;
+
 export const LinkText = styled.div`
   text-align: center;
   margin-top: 1.5rem;

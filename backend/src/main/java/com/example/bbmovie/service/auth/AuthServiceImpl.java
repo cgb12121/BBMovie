@@ -13,6 +13,7 @@ import com.example.bbmovie.exception.*;
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.TokenVerificationException;
 import com.example.bbmovie.repository.UserRepository;
+import com.example.bbmovie.security.jose.JoseProviderStrategy;
 import com.example.bbmovie.security.jose.JoseProviderStrategyContext;
 import com.example.bbmovie.service.auth.verify.otp.OtpService;
 import com.example.bbmovie.service.auth.verify.token.ChangePasswordTokenService;
@@ -53,7 +54,6 @@ import static com.example.bbmovie.constant.error.UserErrorMessages.USER_NOT_FOUN
 public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;
-    private final JoseProviderStrategyContext joseProviderStrategyContext;
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final EmailVerifyTokenService emailVerifyTokenService;
@@ -63,6 +63,7 @@ public class AuthServiceImpl implements AuthService {
     private final OtpService otpService;
     private final DeviceInfoUtils deviceInfoUtils;
     private final UserAgentAnalyzerUtils userAgentAnalyzer;
+    private final JoseProviderStrategy joseProviderStrategy;
 
     @Autowired
     public AuthServiceImpl(
@@ -79,7 +80,6 @@ public class AuthServiceImpl implements AuthService {
             UserAgentAnalyzerUtils userAgentAnalyzer
     ) {
         this.authenticationManager = authenticationManager;
-        this.joseProviderStrategyContext = joseProviderStrategyContext;
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.emailVerifyTokenService = emailVerifyTokenService;
@@ -89,8 +89,10 @@ public class AuthServiceImpl implements AuthService {
         this.otpService = otpService;
         this.deviceInfoUtils = deviceInfoUtils;
         this.userAgentAnalyzer = userAgentAnalyzer;
+        this.joseProviderStrategy = joseProviderStrategyContext.getActiveProvider();
     }
 
+    //TODO: send OTP (2FA) when logged into new devices
     @Override
     public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         User user = userRepository.findByEmail(loginRequest.getEmail())
@@ -116,8 +118,8 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginTime(LocalDateTime.now());
         userRepository.save(user);
 
-        String accessToken = joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication);
-        String refreshToken = joseProviderStrategyContext.getActiveProvider().generateRefreshToken(authentication);
+        String accessToken = joseProviderStrategy.generateAccessToken(authentication);
+        String refreshToken = joseProviderStrategy.generateRefreshToken(authentication);
 
         refreshTokenService.saveRefreshToken(
                 refreshToken, user.getEmail(),
@@ -128,7 +130,7 @@ public class AuthServiceImpl implements AuthService {
                 userAgentResponse.getBrowserVersion()
         );
 
-        joseProviderStrategyContext.getActiveProvider().removeBlacklistedAccessTokenOfEmailAndDevice(
+        joseProviderStrategy.removeBlacklistedAccessTokenOfEmailAndDevice(
                 user.getEmail(), userAgentResponse.getDeviceName()
         );
 
@@ -269,7 +271,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void sendOtp(User user) {
-        //TODO: implement send otp via twilio
+        //TODO: implement send otp via any sms services
     }
 
     @Transactional
@@ -341,21 +343,21 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private void revokeAccessTokenAndRefreshTokenFromCurrentDevice(String accessToken, String deviceName) {
-        String email = joseProviderStrategyContext.getActiveProvider().getUsernameFromToken(accessToken);
+        String email = joseProviderStrategy.getUsernameFromToken(accessToken);
         refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
-        joseProviderStrategyContext.getActiveProvider().invalidateAccessTokenByEmailAndDevice(email, deviceName);
+        joseProviderStrategy.invalidateAccessTokenByEmailAndDevice(email, deviceName);
     }
 
     private void revokeAccessTokenAndRefreshTokenFromOneDevice(String email, String deviceName) {
         refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
-        joseProviderStrategyContext.getActiveProvider().invalidateAccessTokenByEmailAndDevice(email, deviceName);
+        joseProviderStrategy.invalidateAccessTokenByEmailAndDevice(email, deviceName);
     }
 
     private void revokeAllTokensFromAllDevicesByEmail(String email) {
         List<String> allDevicesName = getAllLoggedInDevices(email);
         refreshTokenService.deleteAllRefreshTokenByEmail(email);
         for (String device : allDevicesName) {
-            joseProviderStrategyContext.getActiveProvider().invalidateAccessTokenByEmailAndDevice(email, device);
+            joseProviderStrategy.invalidateAccessTokenByEmailAndDevice(email, device);
         }
     }
 

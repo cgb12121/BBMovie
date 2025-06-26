@@ -13,6 +13,7 @@ const Navbar: React.FC = () => {
 
   const user = useSelector((state: RootState) => state.auth.user);
   const isAuthenticated = !!useSelector((state: RootState) => state.auth.auth?.accessToken);
+  const role = useSelector((state: RootState) => state.auth.auth?.role);
 
   const handleSearch = (query: string, limit: number = 10) => {
     if (!query.trim()) return;
@@ -37,7 +38,9 @@ const Navbar: React.FC = () => {
       <NavLinks>
         <NavLink to="/movies">Movies</NavLink>
         <NavLink to="/categories">Categories</NavLink>
-
+        {role === 'ROLE_ADMIN' || role === 'ROLE_SUPER_ADMIN' ? (
+          <NavLink to="/jose-debug">JOSE Debug</NavLink>
+        ) : null}
         {isAuthenticated ? (
           <UserMenu />
         ) : (

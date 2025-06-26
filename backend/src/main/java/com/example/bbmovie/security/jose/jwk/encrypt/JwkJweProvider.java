@@ -102,12 +102,37 @@ public class JwkJweProvider implements JoseProviderStrategy {
         }
     }
 
+    private Optional<EncryptedJWT> resolveAndDecrypt(String token) {
+        if(token == null || token.isBlank()) return Optional.empty();
+
+        if (token.split("\\.").length != 5) {
+            log.warn("Invalid JWE format (expected 5 parts): '{}'", token);
+            return Optional.empty();
+        }
+
+        try {
+            EncryptedJWT jwt = EncryptedJWT.parse(token);
+            RSADecrypter decrypter = new RSADecrypter(activePrivateKey.toRSAPrivateKey());
+            jwt.decrypt(decrypter);
+            return Optional.of(jwt);
+        } catch (Exception e) {
+            log.error("Failed to decrypt JWE token: {}", e.getMessage());
+            return Optional.empty();
+        }
+    }
+
     @Override
     public boolean validateToken(String token) {
         return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
-                        return jwt.getJWTClaimsSet().getExpirationTime().after(new Date());
+                        Date expirationTime = jwt.getJWTClaimsSet().getExpirationTime();
+                        boolean expired = expirationTime.before(new Date());
+                        if (expired) {
+                            log.warn("Expired JWT token: {}", token);
+                            return false;
+                        }
+                        return true;
                     } catch (ParseException e) {
                         log.error("Error parsing expiration: {}", e.getMessage());
                         return false;
@@ -115,7 +140,6 @@ public class JwkJweProvider implements JoseProviderStrategy {
                 })
                 .orElse(false);
     }
-
 
     @Override
     public String getUsernameFromToken(String token) {
@@ -176,26 +200,6 @@ public class JwkJweProvider implements JoseProviderStrategy {
         redisTemplate.delete(key);
     }
 
-    private Optional<EncryptedJWT> resolveAndDecrypt(String token) {
-        if(token == null || token.isBlank()) return Optional.empty();
-
-        if (token.split("\\.").length != 5) {
-            log.warn("Invalid JWE format (expected 5 parts): '{}'", token);
-            return Optional.empty();
-        }
-
-        try {
-            EncryptedJWT jwt = EncryptedJWT.parse(token);
-            RSADecrypter decrypter = new RSADecrypter(activePrivateKey.toRSAPrivateKey());
-            jwt.decrypt(decrypter);
-            return Optional.of(jwt);
-        } catch (Exception e) {
-            log.error("Failed to decrypt JWE token: {}", e.getMessage());
-            return Optional.empty();
-        }
-    }
-
-
     private String extractUsername(Authentication authentication) {
         Object principal = authentication.getPrincipal();
         if (principal instanceof UserDetails userDetails) return userDetails.getUsername();
@@ -210,7 +214,11 @@ public class JwkJweProvider implements JoseProviderStrategy {
         Object principal = authentication.getPrincipal();
         if (principal instanceof User user) return "ROLE_" + user.getRole().name();
         if (principal instanceof UserDetails userDetails)
-            return userDetails.getAuthorities().stream().findFirst().map(GrantedAuthority::getAuthority).orElse("ROLE_USER");
+            return userDetails.getAuthorities()
+                    .stream()
+                    .findFirst()
+                    .map(GrantedAuthority::getAuthority)
+                    .orElse("ROLE_USER");
         if (principal instanceof DefaultOAuth2User) return "ROLE_USER";
         throw new UnsupportedPrincipalType("Unsupported principal: " + principal.getClass().getName());
     }

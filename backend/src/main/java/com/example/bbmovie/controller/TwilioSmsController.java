@@ -11,12 +11,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/twilio")
-public class SmsController {
+public class TwilioSmsController {
 
     private final TwilioService twilioService;
 
     @Autowired
-    public SmsController(TwilioService twilioService) {
+    public TwilioSmsController(TwilioService twilioService) {
         this.twilioService = twilioService;
     }
 

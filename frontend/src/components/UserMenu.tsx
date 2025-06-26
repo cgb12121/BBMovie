@@ -43,7 +43,7 @@ const UserMenu: React.FC = () => {
           </Text>
         </Space>
       ),
-      disabled: true, // Make it non-clickable
+      disabled: true,
     },
     {
       type: 'divider',

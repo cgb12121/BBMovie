@@ -1,16 +1,17 @@
 package com.example.bbmovie.security;
 
+import com.example.bbmovie.security.anonymity.IpAnonymityFilter;
 import com.example.bbmovie.security.jose.JoseFilter;
 import com.example.bbmovie.security.oauth2.CustomAuthorizationRequestResolver;
 import com.example.bbmovie.security.oauth2.OAuth2LoginSuccessHandler;
 import com.example.bbmovie.service.auth.CustomUserDetailsService;
-import lombok.RequiredArgsConstructor;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -45,14 +46,27 @@ import jakarta.servlet.http.HttpServletResponse;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-@RequiredArgsConstructor
 public class SecurityConfig {
 
     private final JoseFilter joseFilter;
+    private final IpAnonymityFilter ipAnonymityFilter;
     private final CorsConfigurationSource corsConfigurationSource;
     private final CustomUserDetailsService userDetailsService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final CustomAuthorizationRequestResolver customAuthorizationRequestResolver;
+
+    @Autowired
+    public SecurityConfig(
+            JoseFilter joseFilter, IpAnonymityFilter ipAnonymityFilter, CorsConfigurationSource corsConfigurationSource, CustomUserDetailsService userDetailsService,
+            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler, CustomAuthorizationRequestResolver customAuthorizationRequestResolver
+    ) {
+        this.joseFilter = joseFilter;
+        this.ipAnonymityFilter = ipAnonymityFilter;
+        this.corsConfigurationSource = corsConfigurationSource;
+        this.userDetailsService = userDetailsService;
+        this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
+        this.customAuthorizationRequestResolver = customAuthorizationRequestResolver;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -80,6 +94,8 @@ public class SecurityConfig {
                 .cacheControl(HeadersConfigurer.CacheControlConfig::disable)
             )
             .csrf(csrf -> csrf
+                .ignoringRequestMatchers("/.well-known/jwks.json")
+                .ignoringRequestMatchers("/ws/**")
                 .ignoringRequestMatchers("/api/auth/csrf")
                 .ignoringRequestMatchers("/oauth2/authorization/**")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
@@ -95,8 +111,18 @@ public class SecurityConfig {
                 .requestMatchers(EndPointsConfig.SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers("/api/cloudinary/**").hasRole("ADMIN")
                 .requestMatchers("/api/search/**").permitAll()
+                .requestMatchers("/.well-known/jwks.json").permitAll()
+                // Allow websocket handshake, jwt will be processed later in interceptor
+                .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                 .anyRequest().authenticated()
+            )
+            .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) -> {
+                            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                            response.getWriter().write("Unauthorized request");
+                            response.sendRedirect("http://localhost:3000/unauthorized");
+                        })
             )
             .requestCache(RequestCacheConfigurer::disable)
             .authenticationProvider(authenticationProvider())
@@ -117,6 +143,7 @@ public class SecurityConfig {
                     )
             )
             .addFilterBefore(joseFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(ipAnonymityFilter, JoseFilter.class)
             .build();
     }
 
@@ -153,5 +180,5 @@ public class SecurityConfig {
             String headerValue = request.getHeader(csrfToken.getHeaderName());
             return (StringUtils.hasText(headerValue) ? this.plain : this.xor).resolveCsrfTokenValue(request, csrfToken);
         }
-    }
+    }   
 }
