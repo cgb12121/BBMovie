@@ -5,7 +5,7 @@
   "scripts": {
     "start": "concurrently \"npm run start:frontend\" \"npm run start:backend\"",
     "start:frontend": "cd frontend && npm start",
-    "start:backend": "cd backend && mvn spring-boot:run"
+    "start:backend": "cd backend/bbmovie-core && mvn spring-boot:run"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
