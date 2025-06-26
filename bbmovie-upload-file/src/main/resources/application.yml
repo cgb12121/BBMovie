@@ -1,0 +1,20 @@
+spring:
+  application:
+    name: bbmovie-upload-file
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+
+
+logging:
+  level:
+    org.springframework.security: DEBUG
+    org.springframework.web.reactive: DEBUG
+
+
+server:
+  port: 8081
+
