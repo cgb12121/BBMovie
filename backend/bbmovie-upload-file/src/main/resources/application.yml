@@ -2,17 +2,36 @@ spring:
   application:
     name: bbmovie-upload-file
 
+  upload-dir: ${UPLOAD_DIR}
+
   security:
     oauth2:
       resourceserver:
         jwt:
           jwk-set-uri: http://localhost:8080/.well-known/jwks.json
 
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+      batch-size: 16384
 
 logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.web.reactive: DEBUG
+
+#management:
+#  endpoints:
+#    web:
+#      exposure:
+#        include: health,info
+#  health:
+#    kafka:
+#      enabled: true
 
 
 server:

@@ -28,4 +28,4 @@ public abstract class BaseEntity {
 
     @Version
     private Long version;
-} 
+}

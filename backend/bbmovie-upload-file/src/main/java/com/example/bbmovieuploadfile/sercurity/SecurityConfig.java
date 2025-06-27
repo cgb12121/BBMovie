@@ -1,4 +1,4 @@
-package com.example.bbmovieuploadfile;
+package com.example.bbmovieuploadfile.sercurity;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

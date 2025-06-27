@@ -87,7 +87,14 @@ spring:
 #            private-key: ${SERVER_PRIVATE_KEY}
 #            private-key-password: ${SERVER_PRIVATE_KEY_PASSWORD}
 #          reload-on-update: ${SERVER_RELOAD_ON_UPDATE}
-
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: upload-core-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    properties:
+      spring.json.trusted.packages: "*"
   elasticsearch:
     uris: http://localhost:9200
     username: elastic
@@ -194,11 +201,6 @@ server:
     enabled: true
     mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
 
-
-management:
-  endpoint:
-    shutdown:
-      access: none
 
 ip:
   ipinfo:
