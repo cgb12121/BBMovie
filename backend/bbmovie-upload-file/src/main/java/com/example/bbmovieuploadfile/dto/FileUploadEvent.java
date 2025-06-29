@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class FileUploadEvent {
-    private Long movieId;
+    private String name;
     private String fileType;       // "POSTER", "VIDEO", "TRAILER"
     private String url;            // Cloudinary, storage URL
     private String publicId;       // Cloudinary public ID

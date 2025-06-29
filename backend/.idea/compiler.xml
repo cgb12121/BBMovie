@@ -10,8 +10,8 @@
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
         </processorPath>
-        <module name="bbmovie-stream" />
         <module name="bbmovie-search" />
+        <module name="bbmovie-stream" />
         <module name="bbmovie-core" />
       </profile>
       <profile name="Annotation profile for bbmovie-upload-file" enabled="true">
@@ -23,11 +23,18 @@
         </processorPath>
         <module name="bbmovie-upload-file" />
       </profile>
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="bbmovie-rag-recommendation" />
+      </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
       <module name="bbmovie-core" options="-parameters" />
+      <module name="bbmovie-rag-recommendation" options="-parameters" />
       <module name="bbmovie-search" options="-parameters" />
       <module name="bbmovie-stream" options="-parameters" />
       <module name="bbmovie-upload-file" options="-parameters" />

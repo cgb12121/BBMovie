@@ -24,14 +24,13 @@ logging:
     org.springframework.security: DEBUG
     org.springframework.web.reactive: DEBUG
 
-#management:
-#  endpoints:
-#    web:
-#      exposure:
-#        include: health,info
-#  health:
-#    kafka:
-#      enabled: true
+aws:
+  s3:
+    bucket: bucket-name
+    region: ap-southeast-1
+    access-key: access
+    secret-key: secret
+
 
 
 server:

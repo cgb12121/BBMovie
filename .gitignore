@@ -1,3 +1,5 @@
 .vscode
 .intellij
 node_modules
+.idea
+.env

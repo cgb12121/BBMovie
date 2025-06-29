@@ -37,3 +37,4 @@ build/
 
 src/main/resources/banner
 src/main/resources/banner.txt
+kafka.config.properties

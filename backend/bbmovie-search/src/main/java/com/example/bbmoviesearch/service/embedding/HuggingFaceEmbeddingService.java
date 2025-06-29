@@ -1,8 +1,8 @@
 package com.example.bbmoviesearch.service.embedding;
 
 import com.example.bbmoviesearch.exception.EmbeddingException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -14,7 +14,6 @@ import java.util.List;
 
 @Service
 @Log4j2
-@RequiredArgsConstructor
 public class HuggingFaceEmbeddingService implements EmbeddingService {
 
     @Value("${huggingface.api.key}")
@@ -25,6 +24,11 @@ public class HuggingFaceEmbeddingService implements EmbeddingService {
     private static final String MODEL_URL = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2";
     private static final int MAX_ATTEMPTS = 3;
     private static final long INITIAL_BACKOFF_MS = 5000;
+
+    @Autowired
+    public HuggingFaceEmbeddingService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
+    }
 
     @SuppressWarnings("all")
     public float[] generateEmbedding(String text) {

@@ -8,6 +8,7 @@
         <option value="$PROJECT_DIR$/bbmovie-upload-file/pom.xml" />
         <option value="$PROJECT_DIR$/bbmovie-stream/pom.xml" />
         <option value="$PROJECT_DIR$/bbmovie-search/pom.xml" />
+        <option value="$PROJECT_DIR$/bbmovie-rag-recommendation/pom.xml" />
       </list>
     </option>
   </component>

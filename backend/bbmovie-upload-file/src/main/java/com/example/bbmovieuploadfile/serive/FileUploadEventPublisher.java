@@ -16,7 +16,7 @@ public class FileUploadEventPublisher {
     }
 
     public void publish(FileUploadEvent event) {
-        kafkaTemplate.send("upload-events", String.valueOf(event.getMovieId()), event)
+        kafkaTemplate.send("upload-events", event.getFileType(), event)
                      .whenComplete((result, throwable) -> {
                                  if (throwable == null) {
                                      log.info("Published event: {}", result);
