@@ -12,7 +12,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@Log4j2
+@Log4j2(topic = "EmailVerifyTokenService")
 public class EmailVerifyTokenService {
 
     private final RedisTemplate<Object, Object> redisTemplate;

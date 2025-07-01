@@ -2,13 +2,13 @@ package com.example.bbmovie.service.kafka;
 
 import com.example.bbmovie.service.movie.MovieService;
 import com.example.common.dtos.kafka.FileUploadEvent;
-import lombok.extern.slf4j.Slf4j;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Service;
 
-@Slf4j
 @Service
+@Log4j2(topic = "FileUploadEventListener")
 public class FileUploadEventListener {
 
     private final MovieService movieService;

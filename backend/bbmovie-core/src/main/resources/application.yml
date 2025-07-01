@@ -196,9 +196,11 @@ ip:
 mailer-sender:
   token: ${MAIL_SENDER_TOKEN}
 
-huggingface:
-  api:
-    key: ${HUGGING_FACE_BBMOVIE_API_KEY}
+  smtp:
+    server: ${MAIL_SENDER_SMTP_SERVER}
+    port: ${MAIL_SENDER_SMTP_PORT}
+    username: ${MAIL_SENDER_SMTP_USERNAME}
+    password: ${MAIL_SENDER_SMTP_PASSWORD}
 
 sms:
   speed-sms:

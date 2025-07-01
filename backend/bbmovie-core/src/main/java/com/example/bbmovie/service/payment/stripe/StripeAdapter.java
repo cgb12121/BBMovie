@@ -27,8 +27,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
-@Log4j2
 @Service("stripeProvider")
+@Log4j2(topic = "StripeAdapter")
 public class StripeAdapter implements PaymentProviderAdapter {
 
     @Value("${payment.stripe.secret-key}")

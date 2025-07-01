@@ -17,8 +17,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.Map;
 
-@Log4j2
 @Service
+@Log4j2(topic = "CloudinaryService")
 public class CloudinaryServiceImpl implements CloudinaryService {
 
     private static final String RESOURCE_TYPE_KEY = "resource_type";

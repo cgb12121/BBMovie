@@ -50,7 +50,7 @@ import java.util.concurrent.CompletableFuture;
 import static com.example.bbmovie.constant.error.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
 
 @Service
-@Log4j2
+@Log4j2(topic = "AuthServiceImpl")
 public class AuthServiceImpl implements AuthService {
 
     private final AuthenticationManager authenticationManager;

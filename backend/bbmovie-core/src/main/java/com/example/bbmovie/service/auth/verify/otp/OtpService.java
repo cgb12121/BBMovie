@@ -11,8 +11,8 @@ import org.springframework.stereotype.Service;
 import java.security.SecureRandom;
 import java.util.concurrent.TimeUnit;
 
-@Log4j2
 @Service
+@Log4j2(topic = "OtpService")
 public class OtpService {
 
     private final RedisTemplate<Object, Object> redisTemplate;

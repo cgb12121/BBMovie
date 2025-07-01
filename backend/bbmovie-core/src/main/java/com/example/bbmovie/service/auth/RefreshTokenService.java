@@ -5,7 +5,8 @@ import com.example.bbmovie.exception.NoRefreshTokenException;
 import com.example.bbmovie.repository.RefreshTokenRepository;
 import com.example.bbmovie.security.jose.JoseProviderStrategyContext;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -19,11 +20,20 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
+@Log4j2(topic = "RefreshTokenService")
 public class RefreshTokenService {
 
     private final JoseProviderStrategyContext joseProviderStrategyContext;
     private final RefreshTokenRepository refreshTokenRepository;
+
+    @Autowired
+    public RefreshTokenService(
+            JoseProviderStrategyContext joseProviderStrategyContext,
+            RefreshTokenRepository refreshTokenRepository
+    ) {
+        this.joseProviderStrategyContext = joseProviderStrategyContext;
+        this.refreshTokenRepository = refreshTokenRepository;
+    }
 
     @Transactional
     public void deleteByEmailAndDeviceName(String email, String deviceName) {
@@ -51,6 +61,7 @@ public class RefreshTokenService {
 
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(username, "", authorities);
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
+        log.info("Refreshing access token for user {}", username);
         return joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication);
     }
 
@@ -73,17 +84,21 @@ public class RefreshTokenService {
             existing.setBrowser(browser);
             existing.setBrowserVersion(browserVersion);
             existing.setRevoked(false);
+            log.info("Updated refresh token for user {}", email);
             return existing;
-        }).orElseGet(() -> RefreshToken.builder()
-                        .token(refreshToken)
-                        .email(email)
-                        .expiryDate(expiryDate)
-                        .deviceIpAddress(deviceIpAddress)
-                        .deviceName(deviceName)
-                        .deviceOs(deviceOs)
-                        .browser(browser)
-                        .browserVersion(browserVersion)
-                        .build()
+        }).orElseGet(() -> {
+            log.info("Created new refresh token for user {}", email);
+            return RefreshToken.builder()
+                    .token(refreshToken)
+                    .email(email)
+                    .expiryDate(expiryDate)
+                    .deviceIpAddress(deviceIpAddress)
+                    .deviceName(deviceName)
+                    .deviceOs(deviceOs)
+                    .browser(browser)
+                    .browserVersion(browserVersion)
+                    .build();
+                }
         );
 
         refreshTokenRepository.save(token);

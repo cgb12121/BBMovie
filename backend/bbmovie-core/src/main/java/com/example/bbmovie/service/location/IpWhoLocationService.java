@@ -8,8 +8,8 @@ import java.util.Map;
 import java.util.Optional;
 import org.springframework.http.ResponseEntity;
 
-@Log4j2
 @Service
+@Log4j2(topic = "IpWhoLocationService")
 public class IpWhoLocationService implements LocationService{
 
     private final RestTemplate restTemplate = new RestTemplate();

@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
 
 import static com.example.bbmovie.service.payment.vnpay.VnPayQueryParams.*;
 
-@Log4j2
 @Service("vnpayProvider")
+@Log4j2(topic = "VNPayAdapter")
 public class VNPayAdapter implements PaymentProviderAdapter {
 
     @Value("${payment.vnpay.TmnCode}")

@@ -6,8 +6,8 @@ import com.mailersend.sdk.MailerSendResponse;
 import com.mailersend.sdk.Recipient;
 import com.mailersend.sdk.emails.Email;
 import com.mailersend.sdk.exceptions.MailerSendException;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
@@ -19,12 +19,11 @@ import static com.example.bbmovie.constant.Domain.DOMAIN_NAME;
 import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
 import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
 
-@Log4j2
 @Service("mailersendApi")
-@RequiredArgsConstructor
+@Log4j2(topic = "MailerSenderApiService")
 public class MailerSenderApiService implements EmailService {
 
-    @Value("${mail-sender.token}")
+    @Value("${mailer-sender.token}")
     private String mailSenderToken;
 
     @Value("${app.frontend.url}")
@@ -34,6 +33,11 @@ public class MailerSenderApiService implements EmailService {
     private String fromEmail;
 
     private final TemplateEngine templateEngine;
+
+    @Autowired
+    public MailerSenderApiService(TemplateEngine templateEngine) {
+        this.templateEngine = templateEngine;
+    }
 
     /**
      *    instead of using Thymeleaf engine to process the template, we

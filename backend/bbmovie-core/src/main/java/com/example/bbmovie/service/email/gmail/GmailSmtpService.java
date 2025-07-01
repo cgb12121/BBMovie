@@ -4,7 +4,8 @@ import com.example.bbmovie.exception.CustomEmailException;
 import com.example.bbmovie.service.email.EmailService;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -31,9 +32,8 @@ import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
  * It uses the @Async annotation to send emails asynchronously.
  * 🛡️ Bonus: Don’t throw exception from Async method
  */
-@Log4j2
 @Service("gmailSmtp")
-@RequiredArgsConstructor
+@Log4j2(topic = "GmailSmtpService")
 public class GmailSmtpService implements EmailService {
 
     private final JavaMailSender mailSender;
@@ -46,6 +46,15 @@ public class GmailSmtpService implements EmailService {
     private String frontendUrl;
 
     private static final String CHAR_ENCODING_UTF_8 = "UTF-8";
+
+    @Autowired
+    public GmailSmtpService(
+            @Qualifier("gmailSmtpSender") JavaMailSender mailSender,
+            TemplateEngine templateEngine
+    ) {
+        this.mailSender = mailSender;
+        this.templateEngine = templateEngine;
+    }
 
     @Override
     @Async("emailExecutor")

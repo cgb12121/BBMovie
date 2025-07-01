@@ -13,8 +13,8 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
 import jakarta.mail.internet.InternetAddress;
 import jakarta.mail.internet.MimeMessage;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
@@ -30,9 +30,8 @@ import org.apache.commons.codec.binary.Base64;
 import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
 import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
 
-@Log4j2
 @Service("gmailApi")
-@RequiredArgsConstructor
+@Log4j2(topic = "GmailApiService")
 public class GmailApiService implements EmailService {
 
     @Value("${app.frontend.url}")
@@ -42,6 +41,11 @@ public class GmailApiService implements EmailService {
     private String fromEmail;
 
     private final TemplateEngine templateEngine;
+
+    @Autowired
+    public GmailApiService(TemplateEngine templateEngine) {
+        this.templateEngine = templateEngine;
+    }
 
     @Override
     public void sendVerificationEmail(String to, String verificationToken) {

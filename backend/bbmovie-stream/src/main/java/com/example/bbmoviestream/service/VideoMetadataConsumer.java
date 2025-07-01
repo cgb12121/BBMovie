@@ -19,7 +19,7 @@ public class VideoMetadataConsumer {
     }
 
     @KafkaListener(topics = "movie.video.metadata.sync", groupId = "video-stream-service")
-    public void consume(com.example.bbmoviestream.dto.VideoMetadata dto) {
+    public void consume(com.example.common.dtos.kafka.VideoMetadata dto) {
         log.info("Received metadata for movieId={}", dto.getMovieId());
         repository.save(VideoMetadata.builder()
                 .movieId(dto.getMovieId())

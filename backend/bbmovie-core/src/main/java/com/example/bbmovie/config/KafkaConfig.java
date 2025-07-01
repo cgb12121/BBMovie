@@ -1,6 +1,6 @@
 package com.example.bbmovie.config;
 
-import com.example.bbmovie.dto.kafka.publisher.VideoMetadata;
+import com.example.common.dtos.kafka.VideoMetadata;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -19,7 +19,7 @@ import org.springframework.util.backoff.FixedBackOff;
 import java.util.HashMap;
 import java.util.Map;
 
-@EnableKafka // Essential for enabling @KafkaListener annotations
+@EnableKafka
 @Configuration
 public class KafkaConfig {
 

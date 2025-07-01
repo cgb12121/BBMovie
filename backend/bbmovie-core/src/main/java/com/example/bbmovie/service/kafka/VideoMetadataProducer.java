@@ -1,6 +1,6 @@
 package com.example.bbmovie.service.kafka;
 
-import com.example.bbmovie.dto.kafka.publisher.VideoMetadata;
+import com.example.common.dtos.kafka.VideoMetadata;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

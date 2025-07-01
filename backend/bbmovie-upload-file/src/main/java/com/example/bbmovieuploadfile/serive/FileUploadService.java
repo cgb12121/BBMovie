@@ -1,8 +1,10 @@
 package com.example.bbmovieuploadfile.serive;
 
+import com.example.bbmovieuploadfile.exception.FileUploadException;
 import com.example.common.dtos.kafka.FileUploadResult;
 import com.example.common.dtos.kafka.UploadMetadata;
 import com.example.common.dtos.kafka.FileUploadEvent;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
@@ -14,6 +16,7 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 
 @Service
+@Log4j2(topic = "FileUploadService")
 public class FileUploadService {
 
     private final FileUploadEventPublisher fileUploadEventPublisher;
@@ -39,9 +42,13 @@ public class FileUploadService {
                 .flatMap(result -> {
                     FileUploadEvent event = createEvent(safeName, username, metadata, result);
                     fileUploadEventPublisher.publish(event);
-                    return Mono.just(ResponseEntity.ok("Uploaded: " + result.getUrl()));
+                    log.info("Uploaded file {} to {}", safeName, result.getUrl());
+                    return Mono.just(ResponseEntity.ok("Uploaded file successfully"));
                 })
-                .onErrorResume(ex -> Mono.just(ResponseEntity.badRequest().body("Upload failed: " + ex.getMessage())));
+                .onErrorResume(ex -> {
+                    log.error("Upload failed: {}", ex.getMessage());
+                    return Mono.error(new FileUploadException("Unable to upload file to server."));
+                });
     }
 
     private String sanitizeFilename(String input) {
@@ -61,12 +68,15 @@ public class FileUploadService {
         return sanitizedFileName + fileExtension;
     }
 
-    private FileUploadEvent createEvent(@NonNull String fileName, @NonNull String uploader,
+    private FileUploadEvent createEvent(
+            @NonNull String fileName, @NonNull String uploader,
             @NonNull UploadMetadata metadata, @NonNull FileUploadResult result
     ) {
         return FileUploadEvent.builder()
                 .title(fileName)
-                .fileType(metadata.getFileType().name())
+                .fileType(metadata.getFileType())
+                .entityType(metadata.getEntityType())
+                .storage(metadata.getStorage())
                 .url(result.getUrl())
                 .publicId(result.getPublicId())
                 .quality(metadata.getQuality())

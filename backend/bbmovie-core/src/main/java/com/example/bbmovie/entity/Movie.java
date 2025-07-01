@@ -31,6 +31,9 @@ public class Movie extends BaseEntity {
     @Column(name = "duration_minutes")
     private Integer durationMinutes;
 
+    @Column(name = "storage", nullable = false)
+    private String storage;
+
     @Column(name = "poster_url")
     private String posterUrl;
     @Column(name = "poster_public_id")
