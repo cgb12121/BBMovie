@@ -55,4 +55,6 @@ public interface MovieRepository extends BaseRepository<Movie> {
     Optional<Movie> findByVideoPublicId(String publicId);
 
     Optional<Movie> findByTrailerPublicId(String publicId);
+
+    Optional<Movie> findByTitle(String name);
 }

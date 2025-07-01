@@ -1,4 +1,4 @@
-package com.example.bbmovie.dto.kafka.consumer;
+package com.example.common.dtos.kafka;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,10 +12,10 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 public class FileUploadEvent {
-    private Long movieId;
-    private String fileType;       // "POSTER", "VIDEO", "TRAILER"
-    private String url;            // Cloudinary, storage URL
-    private String publicId;       // Cloudinary public ID
+    private String title;
+    private String fileType;
+    private String url;
+    private String publicId;
     private String quality;
     private String uploadedBy;
     private LocalDateTime timestamp;

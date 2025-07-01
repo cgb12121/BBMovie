@@ -9,7 +9,15 @@
         <option value="$PROJECT_DIR$/bbmovie-stream/pom.xml" />
         <option value="$PROJECT_DIR$/bbmovie-search/pom.xml" />
         <option value="$PROJECT_DIR$/bbmovie-rag-recommendation/pom.xml" />
+        <option value="$PROJECT_DIR$/bbmovie-payment/pom.xml" />
+        <option value="$PROJECT_DIR$/bbmovie-common/pom.xml" />
+        <option value="$PROJECT_DIR$/common/pom.xml" />
       </list>
+    </option>
+    <option name="ignoredFiles">
+      <set>
+        <option value="$PROJECT_DIR$/common/pom.xml" />
+      </set>
     </option>
   </component>
   <component name="ProjectRootManager" version="2" languageLevel="JDK_23" default="true" project-jdk-name="openjdk-23" project-jdk-type="JavaSDK">

@@ -1,6 +1,6 @@
 package com.example.bbmovie.service.movie;
 
-import com.example.bbmovie.dto.kafka.consumer.FileUploadEvent;
+import com.example.common.dtos.kafka.FileUploadEvent;
 
 public interface MovieService {
 

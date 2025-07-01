@@ -17,6 +17,6 @@ public class FileStorageStrategyFactory {
     }
 
     public FileStorageStrategy getStrategy(String storageType) {
-        return strategies.getOrDefault(storageType.toUpperCase(), strategies.get("local"));
+        return strategies.getOrDefault(storageType.toUpperCase(), strategies.get("localStorage"));
     }
 }

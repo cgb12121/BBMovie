@@ -1,4 +1,4 @@
-package com.example.bbmovieuploadfile.dto;
+package com.example.common.dtos.kafka;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

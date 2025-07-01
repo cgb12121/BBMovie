@@ -1,7 +1,7 @@
 package com.example.bbmovie.service.kafka;
 
-import com.example.bbmovie.dto.kafka.consumer.FileUploadEvent;
 import com.example.bbmovie.service.movie.MovieService;
+import com.example.common.dtos.kafka.FileUploadEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;

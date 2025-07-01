@@ -95,13 +95,6 @@ spring:
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
     properties:
       spring.json.trusted.packages: "*"
-  elasticsearch:
-    uris: http://localhost:9200
-    username: elastic
-    password: changeme
-    connection-timeout: 10s
-    socket-timeout: 10s
-
 
   security:
     oauth2:
@@ -156,12 +149,6 @@ spring:
             #Spring can't getActiveProvider nested data from JSON such as data.username => must implement custom service
             user-name-attribute: data
 
-  ai:
-    vectorstore:
-      elasticsearch:
-        index-name: "movies"
-
-
 #Data encrypt/decrypt
 #database:
 #  secret-key-password: ${DATABASE_SECRET_KEY_PASSWORD}
@@ -187,11 +174,6 @@ logging:
         ai: DEBUG
     ai:
       djl: DEBUG
-
-cloudinary:
-  cloud-name: ${CLOUDINARY_CLOUD_NAME}
-  api-key: ${CLOUDINARY_API_KEY}
-  api-secret: ${CLOUDINARY_API_SECRET}
 
 server:
 #  ssl:

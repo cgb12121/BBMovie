@@ -1,10 +1,12 @@
 package com.example.bbmovieuploadfile.serive;
 
-import com.example.bbmovieuploadfile.dto.FileUploadEvent;
-import com.example.bbmovieuploadfile.dto.UploadMetadata;
+import com.example.common.dtos.kafka.FileUploadResult;
+import com.example.common.dtos.kafka.UploadMetadata;
+import com.example.common.dtos.kafka.FileUploadEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -28,21 +30,14 @@ public class FileUploadService {
 
     public Mono<ResponseEntity<String>> uploadFile(FilePart filePart, UploadMetadata metadata, Authentication auth) {
         String username = auth.getName();
-        String safeName = sanitizeFilename(filePart.filename());
+        String originalFilename = filePart.filename();
+        String safeName = sanitizeFilename(originalFilename);
 
         FileStorageStrategy strategy = storageStrategyFactory.getStrategy(metadata.getStorage().name());
 
         return strategy.store(filePart, safeName)
                 .flatMap(result -> {
-                    FileUploadEvent event = FileUploadEvent.builder()
-                            .name(safeName)
-                            .fileType(metadata.getFileType().name())
-                            .url(result.getUrl())
-                            .publicId(result.getPublicId())
-                            .quality(metadata.getQuality())
-                            .uploadedBy(username)
-                            .timestamp(LocalDateTime.now())
-                            .build();
+                    FileUploadEvent event = createEvent(safeName, username, metadata, result);
                     fileUploadEventPublisher.publish(event);
                     return Mono.just(ResponseEntity.ok("Uploaded: " + result.getUrl()));
                 })
@@ -50,6 +45,33 @@ public class FileUploadService {
     }
 
     private String sanitizeFilename(String input) {
-        return input.replaceAll("[^\\w\\-. ]", "_").replaceAll("[./\\\\]", "");
+        int lastDotIndex = input.lastIndexOf('.');
+        String fileNameWithoutExtension;
+        String fileExtension = "";
+
+        if (lastDotIndex > 0) {
+            fileNameWithoutExtension = input.substring(0, lastDotIndex);
+            fileExtension = input.substring(lastDotIndex);
+        } else {
+            fileNameWithoutExtension = input;
+        }
+
+        String sanitizedFileName = fileNameWithoutExtension.replaceAll("[^\\w\\- ]", "_");
+
+        return sanitizedFileName + fileExtension;
+    }
+
+    private FileUploadEvent createEvent(@NonNull String fileName, @NonNull String uploader,
+            @NonNull UploadMetadata metadata, @NonNull FileUploadResult result
+    ) {
+        return FileUploadEvent.builder()
+                .title(fileName)
+                .fileType(metadata.getFileType().name())
+                .url(result.getUrl())
+                .publicId(result.getPublicId())
+                .quality(metadata.getQuality())
+                .uploadedBy(uploader)
+                .timestamp(LocalDateTime.now())
+                .build();
     }
 }

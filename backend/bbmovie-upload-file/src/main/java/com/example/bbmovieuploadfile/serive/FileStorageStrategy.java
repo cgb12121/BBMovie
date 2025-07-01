@@ -1,6 +1,6 @@
 package com.example.bbmovieuploadfile.serive;
 
-import com.example.bbmovieuploadfile.dto.FileUploadResult;
+import com.example.common.dtos.kafka.FileUploadResult;
 import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Mono;
 

@@ -24,14 +24,10 @@ logging:
     org.springframework.security: DEBUG
     org.springframework.web.reactive: DEBUG
 
-aws:
-  s3:
-    bucket: bucket-name
-    region: ap-southeast-1
-    access-key: access
-    secret-key: secret
-
-
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME}
+  api-key: ${CLOUDINARY_API_KEY}
+  api-secret: ${CLOUDINARY_API_SECRET}
 
 server:
   port: 8081

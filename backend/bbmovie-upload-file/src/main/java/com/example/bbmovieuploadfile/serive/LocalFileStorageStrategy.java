@@ -1,6 +1,6 @@
 package com.example.bbmovieuploadfile.serive;
 
-import com.example.bbmovieuploadfile.dto.FileUploadResult;
+import com.example.common.dtos.kafka.FileUploadResult;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
@@ -9,7 +9,7 @@ import reactor.core.publisher.Mono;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
-@Component("local")
+@Component("localStorage")
 public class LocalFileStorageStrategy implements FileStorageStrategy {
 
     @Value("${spring.upload-dir}")
@@ -30,6 +30,6 @@ public class LocalFileStorageStrategy implements FileStorageStrategy {
 
     @Override
     public String getStorageType() {
-        return "local";
+        return "localStorage";
     }
 }

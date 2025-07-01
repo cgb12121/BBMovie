@@ -1,7 +1,9 @@
 package com.example.bbmovieuploadfile.controller;
 
-import com.example.bbmovieuploadfile.dto.UploadMetadata;
+import com.example.common.dtos.kafka.UploadMetadata;
 import com.example.bbmovieuploadfile.serive.FileUploadService;
+import jakarta.validation.Valid;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -13,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 
+@Log4j2
 @RestController
 @RequestMapping("/file")
 public class FileUploadController {
@@ -27,9 +30,10 @@ public class FileUploadController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<ResponseEntity<String>> handleUpload(
             @RequestPart("file") FilePart filePart,
-            @RequestPart("metadata") UploadMetadata metadata,
+            @Valid @RequestPart("metadata") UploadMetadata metadata,
             Authentication auth
     ) {
+        log.info("Uploading file {} with metadata {}", filePart.filename(), metadata);
         return fileUploadService.uploadFile(filePart, metadata, auth);
     }
 }

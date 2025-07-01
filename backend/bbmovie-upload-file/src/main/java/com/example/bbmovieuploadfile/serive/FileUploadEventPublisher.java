@@ -1,6 +1,6 @@
 package com.example.bbmovieuploadfile.serive;
 
-import com.example.bbmovieuploadfile.dto.FileUploadEvent;
+import com.example.common.dtos.kafka.FileUploadEvent;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;

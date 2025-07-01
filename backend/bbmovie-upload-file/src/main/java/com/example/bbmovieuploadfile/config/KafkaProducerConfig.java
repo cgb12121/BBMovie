@@ -1,6 +1,6 @@
 package com.example.bbmovieuploadfile.config;
 
-import com.example.bbmovieuploadfile.dto.FileUploadEvent;
+import com.example.common.dtos.kafka.FileUploadEvent;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringSerializer;

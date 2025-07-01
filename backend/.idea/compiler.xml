@@ -1,8 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CompilerConfiguration">
+    <excludeFromCompile>
+      <directory url="file://$PROJECT_DIR$/bbmovie-common/src/main/resources/archetype-resources" includeSubdirectories="true" />
+    </excludeFromCompile>
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="bbmovie-payment" />
+        <module name="bbmovie-rag-recommendation" />
+        <module name="bbmovie-common" />
+      </profile>
       <profile name="Annotation profile for bbmovie" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
@@ -10,8 +21,6 @@
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.36/lombok-1.18.36.jar" />
         </processorPath>
-        <module name="bbmovie-search" />
-        <module name="bbmovie-stream" />
         <module name="bbmovie-core" />
       </profile>
       <profile name="Annotation profile for bbmovie-upload-file" enabled="true">
@@ -22,18 +31,15 @@
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar" />
         </processorPath>
         <module name="bbmovie-upload-file" />
-      </profile>
-      <profile name="Maven default annotation processors profile" enabled="true">
-        <sourceOutputDir name="target/generated-sources/annotations" />
-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
-        <module name="bbmovie-rag-recommendation" />
+        <module name="bbmovie-stream" />
       </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
     <option name="ADDITIONAL_OPTIONS_OVERRIDE">
+      <module name="bbmovie-common" options="" />
       <module name="bbmovie-core" options="-parameters" />
+      <module name="bbmovie-payment" options="-parameters" />
       <module name="bbmovie-rag-recommendation" options="-parameters" />
       <module name="bbmovie-search" options="-parameters" />
       <module name="bbmovie-stream" options="-parameters" />

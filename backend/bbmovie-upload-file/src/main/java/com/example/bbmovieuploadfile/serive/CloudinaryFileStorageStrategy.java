@@ -1,7 +1,7 @@
 package com.example.bbmovieuploadfile.serive;
 
 import com.cloudinary.Cloudinary;
-import com.example.bbmovieuploadfile.dto.FileUploadResult;
+import com.example.common.dtos.kafka.FileUploadResult;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
@@ -11,7 +11,7 @@ import java.io.File;
 import java.nio.file.Paths;
 import java.util.Map;
 
-@Component("cloudinary")
+@Component("cloudinaryStorage")
 public class CloudinaryFileStorageStrategy implements FileStorageStrategy {
 
     private final Cloudinary cloudinary;
@@ -35,6 +35,6 @@ public class CloudinaryFileStorageStrategy implements FileStorageStrategy {
 
     @Override
     public String getStorageType() {
-        return "cloudinary";
+        return "cloudinaryStorage";
     }
 }
