@@ -6,7 +6,6 @@ import com.example.bbmovie.entity.enumerate.VideoQuality;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import lombok.ToString;
 
 import java.time.LocalDate;
 import java.util.HashSet;
@@ -16,7 +15,6 @@ import java.util.Set;
 @Table(name = "movies")
 @Getter
 @Setter
-@ToString
 public class Movie extends BaseEntity {
 
     @Column(nullable = false)
@@ -58,7 +56,6 @@ public class Movie extends BaseEntity {
             joinColumns = @JoinColumn(name = "movie_id"),
             inverseJoinColumns = @JoinColumn(name = "genre_id")
     )
-    @ToString.Exclude
     private Set<Genre> genres = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -67,7 +64,6 @@ public class Movie extends BaseEntity {
             joinColumns = @JoinColumn(name = "movie_id"),
             inverseJoinColumns = @JoinColumn(name = "actor_id")
     )
-    @ToString.Exclude
     private Set<Actor> actors = new HashSet<>();
 
     @ManyToMany(fetch = FetchType.LAZY)
@@ -76,11 +72,9 @@ public class Movie extends BaseEntity {
             joinColumns = @JoinColumn(name = "movie_id"),
             inverseJoinColumns = @JoinColumn(name = "director_id")
     )
-    @ToString.Exclude
     private Set<Director> directors = new HashSet<>();
 
     @OneToMany(mappedBy = "movie", cascade = CascadeType.ALL, orphanRemoval = true)
-    @ToString.Exclude
     private Set<Review> reviews = new HashSet<>();
 
     @Enumerated(EnumType.STRING)

@@ -12,7 +12,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Service
-@Log4j2(topic = "ChangePasswordTokenService")
+@Log4j2
 public class ChangePasswordTokenService {
 
     private final RedisTemplate<Object, Object> redisTemplate;

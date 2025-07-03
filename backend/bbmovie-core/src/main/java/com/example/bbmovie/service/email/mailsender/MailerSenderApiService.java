@@ -19,8 +19,8 @@ import static com.example.bbmovie.constant.Domain.DOMAIN_NAME;
 import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
 import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
 
+@Log4j2
 @Service("mailersendApi")
-@Log4j2(topic = "MailerSenderApiService")
 public class MailerSenderApiService implements EmailService {
 
     @Value("${mailer-sender.token}")

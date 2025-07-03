@@ -30,8 +30,8 @@ import org.apache.commons.codec.binary.Base64;
 import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
 import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
 
+@Log4j2
 @Service("gmailApi")
-@Log4j2(topic = "GmailApiService")
 public class GmailApiService implements EmailService {
 
     @Value("${app.frontend.url}")

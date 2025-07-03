@@ -6,12 +6,14 @@ import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 
 import org.springframework.scheduling.annotation.EnableScheduling;
@@ -21,6 +23,7 @@ import java.util.UUID;
 
 @Configuration
 @EnableScheduling
+@Log4j2(topic = "JwkRotation")
 public class JwkConfig {
 
     private final JwkKeyRepository keyRepo;
@@ -47,6 +50,7 @@ public class JwkConfig {
     @Bean
     public List<RSAKey> publicKeys() {
         return keyRepo.findAll().stream()
+                .sorted(Comparator.comparing(JwkKey::getCreatedAt))
                 .map(key -> {
                     try {
                         return RSAKey.parse(key.getPrivateJwk());
@@ -54,32 +58,23 @@ public class JwkConfig {
                         throw new IllegalStateException("Invalid key: " + key.getKid(), e);
                     }
                 })
-                .sorted(Comparator.comparing(key -> key.getIssueTime().toString()))
                 .toList();
     }
 
-    @Scheduled(cron = "0 0 0 * * ?")
+    @Scheduled(cron = "0 */10 * * * *")
     public synchronized void rotateKey() {
+        log.info("Begin to  rotate JWK key.");
         keyRepo.findAllByActiveTrue().forEach(key -> {
             key.setActive(false);
             keyRepo.save(key);
         });
 
         try {
-            RSAKey newRsaKey = new RSAKeyGenerator(2048)
-                    .keyID(UUID.randomUUID().toString())
-                    .algorithm(JWSAlgorithm.RS256)
-                    .generate();
-            JwkKey newKeyEntity = JwkKey.builder()
-                    .kid(newRsaKey.getKeyID())
-                    .privateJwk(newRsaKey.toJSONString())
-                    .publicJwk(newRsaKey.toPublicJWK().toJSONString())
-                    .active(true)
-                    .createdAt(Instant.now())
-                    .build();
+            RSAKey newRsaKey = generateRsaKey();
+            JwkKey newKeyEntity = generateNewKeyForRotation(newRsaKey);
             keyRepo.save(newKeyEntity);
+            log.info("Rotate JWK key successfully. {}", newKeyEntity.toString());
 
-            // Optional: Remove old keys (e.g., keep last 5)
             List<JwkKey> allKeys = keyRepo.findAll();
             if (allKeys.size() > 5) {
                 allKeys.stream()
@@ -91,5 +86,23 @@ public class JwkConfig {
         } catch (JOSEException e) {
             throw new IllegalStateException("Failed to generate new RSA key", e);
         }
+    }
+
+    private RSAKey generateRsaKey() throws JOSEException {
+        return new RSAKeyGenerator(2048)
+                .keyID(UUID.randomUUID().toString())
+                .issueTime(new Date())
+                .algorithm(JWSAlgorithm.RS256)
+                .generate();
+    }
+
+    private JwkKey generateNewKeyForRotation(RSAKey rsaKey) {
+        return JwkKey.builder()
+                .kid(rsaKey.getKeyID())
+                .privateJwk(rsaKey.toJSONString())
+                .publicJwk(rsaKey.toPublicJWK().toJSONString())
+                .isActive(true)
+                .createdAt(Instant.now())
+                .build();
     }
 }

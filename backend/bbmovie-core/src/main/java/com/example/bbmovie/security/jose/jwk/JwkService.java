@@ -7,14 +7,17 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import java.util.Collections;
 
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
+@Log4j2(topic = "JwkService")
 public class JwkService {
 
     private final JwkKeyRepository keyRepo;
@@ -39,6 +42,21 @@ public class JwkService {
                 .collect(Collectors.toList());
 
         return new JWKSet(jwks).toJSONObject();
+    }
+
+    public List<Map<String, Object>> getAllPublicJwks() {
+        return keyRepo.findAll().stream()
+                .sorted(Comparator.comparing(JwkKey::getCreatedAt).reversed())
+                .limit(5)
+                .map(jwk -> {
+                    try {
+                        log.info("JWK: {}", jwk);
+                        return RSAKey.parse(jwk.getPublicJwk()).toJSONObject();
+                    } catch (Exception e) {
+                        throw new IllegalStateException("Invalid JWK in database", e);
+                    }
+                })
+                .toList();
     }
 
     private List<RSAKey> getAllActivePublicKeys() {

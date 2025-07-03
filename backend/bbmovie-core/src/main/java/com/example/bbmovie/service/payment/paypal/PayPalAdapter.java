@@ -20,8 +20,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Log4j2
 @Service("paypalProvider")
-@Log4j2(topic = "PayPalAdapter")
 public class PayPalAdapter implements PaymentProviderAdapter {
 
     @Value("${payment.paypal.client-id}")

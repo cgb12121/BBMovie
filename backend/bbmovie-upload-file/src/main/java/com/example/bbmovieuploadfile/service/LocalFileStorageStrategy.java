@@ -1,4 +1,4 @@
-package com.example.bbmovieuploadfile.serive;
+package com.example.bbmovieuploadfile.service;
 
 import com.example.common.dtos.kafka.FileUploadResult;
 import org.springframework.beans.factory.annotation.Value;

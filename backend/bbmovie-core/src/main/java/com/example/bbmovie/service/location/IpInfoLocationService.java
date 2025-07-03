@@ -9,8 +9,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
+@Log4j2
 @Service
-@Log4j2(topic = "IpInfoLocationService")
 public class IpInfoLocationService implements LocationService {
 
     @Value( "${ip.ipinfo.token}")

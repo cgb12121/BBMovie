@@ -18,7 +18,7 @@ import java.io.IOException;
 import java.util.Map;
 
 @Service
-@Log4j2(topic = "CloudinaryService")
+@Log4j2
 public class CloudinaryServiceImpl implements CloudinaryService {
 
     private static final String RESOURCE_TYPE_KEY = "resource_type";

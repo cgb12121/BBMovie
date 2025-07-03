@@ -31,7 +31,7 @@ public class JoseStrategyController {
             return ResponseEntity.ok("Switched to: " + strategy);
         } catch (Exception e) {
             log.error(e.getMessage(), e);
-            return ResponseEntity.badRequest().body("Unable to Switched to: " + strategyParam.get("strategy"));
+            return ResponseEntity.badRequest().body("Unable to Switched strategy");
         }
     }
 

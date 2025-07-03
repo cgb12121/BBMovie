@@ -35,8 +35,8 @@ import java.util.stream.Collectors;
 
 import static com.example.bbmovie.service.payment.vnpay.VnPayQueryParams.*;
 
+@Log4j2
 @Service("vnpayProvider")
-@Log4j2(topic = "VNPayAdapter")
 public class VNPayAdapter implements PaymentProviderAdapter {
 
     @Value("${payment.vnpay.TmnCode}")
@@ -138,7 +138,7 @@ public class VNPayAdapter implements PaymentProviderAdapter {
         Map<String, String> params = new HashMap<>();
         params.put("vnp_RequestId", vnpRequestId);
         params.put("vnp_Version", VnPayConstraint.VERSION);
-        params.put("vnp_Command", "querydr");
+        params.put("vnp_Command", VnPayCommand.QUERY_DR.getCommand());
         params.put("vnp_TmnCode", tmnCode);
         params.put("vnp_TxnRef", paymentId);
         params.put("vnp_OrderInfo", "Query for transaction " + paymentId);
@@ -150,7 +150,7 @@ public class VNPayAdapter implements PaymentProviderAdapter {
         String rawData = String.join("|",
                 vnpRequestId,
                 VnPayConstraint.VERSION,
-                "querydr",
+                VnPayCommand.QUERY_DR.getCommand(),
                 tmnCode,
                 paymentId,
                 vnpTransactionDate,

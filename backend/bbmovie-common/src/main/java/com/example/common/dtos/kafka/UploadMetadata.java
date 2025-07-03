@@ -1,7 +1,6 @@
 package com.example.common.dtos.kafka;
 
 import com.example.common.enums.EntityType;
-import com.example.common.enums.FileType;
 import com.example.common.enums.Storage;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
@@ -12,8 +11,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UploadMetadata {
-    @NotNull(message = "fileType is required")
-    private FileType fileType;
     @NotNull(message = "entityType is required")
     private EntityType entityType;
     @NotNull(message = "storage is required")

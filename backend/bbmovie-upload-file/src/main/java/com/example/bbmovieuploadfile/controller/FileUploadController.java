@@ -1,7 +1,7 @@
 package com.example.bbmovieuploadfile.controller;
 
 import com.example.common.dtos.kafka.UploadMetadata;
-import com.example.bbmovieuploadfile.serive.FileUploadService;
+import com.example.bbmovieuploadfile.service.FileUploadService;
 import jakarta.validation.Valid;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;

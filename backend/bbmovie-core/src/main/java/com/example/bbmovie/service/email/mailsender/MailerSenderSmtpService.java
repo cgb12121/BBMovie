@@ -18,8 +18,8 @@ import java.time.ZonedDateTime;
 import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
 import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
 
+@Log4j2
 @Service("mailersendSmtp")
-@Log4j2(topic = "MailerSenderSmtpService")
 public class MailerSenderSmtpService implements EmailService {
 
     @Value("${app.frontend.url}")

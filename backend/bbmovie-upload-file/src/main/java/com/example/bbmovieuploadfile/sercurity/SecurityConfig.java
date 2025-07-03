@@ -11,12 +11,14 @@ import org.springframework.security.web.server.SecurityWebFilterChain;
 @Configuration
 public class SecurityConfig {
 
+    private static final String JWK_ENDPOINT_URI = "http://localhost:8080/.well-known/jwks.json";
+
     @Bean
     public SecurityWebFilterChain filterChain(ServerHttpSecurity http) {
         return http
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .authorizeExchange(auth -> auth
-                .pathMatchers("/upload").authenticated()
+                .pathMatchers("/file/upload").authenticated()
                 .anyExchange().permitAll()
             )
             .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
@@ -25,6 +27,6 @@ public class SecurityConfig {
 
     @Bean
     public ReactiveJwtDecoder jwtDecoder() {
-        return NimbusReactiveJwtDecoder.withJwkSetUri("http://localhost:8080/.well-known/jwks.json").build();
+        return NimbusReactiveJwtDecoder.withJwkSetUri(JWK_ENDPOINT_URI).build();
     }
 }

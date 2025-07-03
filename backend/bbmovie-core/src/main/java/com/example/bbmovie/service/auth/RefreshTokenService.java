@@ -20,7 +20,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
-@Log4j2(topic = "RefreshTokenService")
+@Log4j2
 public class RefreshTokenService {
 
     private final JoseProviderStrategyContext joseProviderStrategyContext;

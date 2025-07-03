@@ -1,7 +1,6 @@
 package com.example.common.dtos.kafka;
 
 import com.example.common.enums.EntityType;
-import com.example.common.enums.FileType;
 import com.example.common.enums.Storage;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -16,7 +15,6 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 public class FileUploadEvent {
     private String title;
-    private FileType fileType;
     private EntityType entityType;
     private Storage storage;
     private String url;

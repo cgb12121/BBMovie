@@ -32,8 +32,8 @@ import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
  * It uses the @Async annotation to send emails asynchronously.
  * 🛡️ Bonus: Don’t throw exception from Async method
  */
+@Log4j2
 @Service("gmailSmtp")
-@Log4j2(topic = "GmailSmtpService")
 public class GmailSmtpService implements EmailService {
 
     private final JavaMailSender mailSender;

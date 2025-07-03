@@ -26,7 +26,17 @@ public class JwkKey {
     @Column(length = 4096)
     private String privateJwk;
 
-    private boolean active;
+    private boolean isActive;
 
     private Instant createdAt;
+
+    @Override
+    public String toString() {
+        return "Jwk { \n"
+                + "kid: " + this.kid + ",\n"
+                + "public key: " + this.publicJwk + ",\n"
+                + "private key: [SECRET]"  + ", \n"
+                + "isActive: " + this.isActive + ", \n"
+                + "createdAt: " + this.createdAt + "}";
+    }
 }

@@ -1,4 +1,4 @@
-package com.example.bbmovieuploadfile.serive;
+package com.example.bbmovieuploadfile.service;
 
 import org.springframework.stereotype.Component;
 
