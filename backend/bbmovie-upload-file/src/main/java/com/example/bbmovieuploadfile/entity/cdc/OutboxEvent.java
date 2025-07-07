@@ -1,16 +1,14 @@
 package com.example.bbmovieuploadfile.entity.cdc;
 
 import com.example.bbmovieuploadfile.entity.OutboxStatus;
-import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
-@Entity
-@Table(name = "outbox_events")
+@Table("outbox_events")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,38 +17,34 @@ import java.util.UUID;
 public class OutboxEvent {
 
     @Id
-    @Column(name = "id", nullable = false, updatable = false)
-    private UUID id;
+    @Column("id")
+    private String id;
 
-    @Column(name = "aggregate_type", nullable = false)
+    @Column("aggregate_type")
     private String aggregateType;
 
-    @Column(name = "aggregate_id", nullable = false)
+    @Column("aggregate_id")
     private String aggregateId;
 
-    @Column(name = "event_type", nullable = false)
+    @Column("event_type")
     private String eventType;
 
-    @Lob
-    @Column(name = "payload", nullable = false, columnDefinition = "TEXT")
+    @Column("payload")
     private String payload;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false)
+    @Column("status")
     private OutboxStatus status;
 
-    @Column(name = "retry_count")
+    @Column("retry_count")
     private int retryCount = 0;
 
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column("created_at")
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(name = "last_attempt_at")
+    @Column("last_attempt_at")
     private LocalDateTime lastAttemptAt;
 
-    @Column(name = "sent_at")
+    @Column("sent_at")
     private LocalDateTime sentAt;
 }
 

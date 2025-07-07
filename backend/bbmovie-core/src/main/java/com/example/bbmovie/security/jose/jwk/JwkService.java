@@ -50,7 +50,6 @@ public class JwkService {
                 .limit(5)
                 .map(jwk -> {
                     try {
-                        log.info("JWK: {}", jwk);
                         return RSAKey.parse(jwk.getPublicJwk()).toJSONObject();
                     } catch (Exception e) {
                         throw new IllegalStateException("Invalid JWK in database", e);

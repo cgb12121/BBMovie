@@ -19,26 +19,36 @@ spring:
       retries: 3
       batch-size: 16384
 
-  datasource:
+  r2dbc:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
-  jpa:
-    hibernate:
-      ddl-auto: create
-    show-sql: false
-    properties:
-      hibernate:
-        format_sql: true
-        dialect: org.hibernate.dialect.MySQLDialect
-  sql:
-    init:
-      mode: always
 
 logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.web.reactive: DEBUG
+    org.springframework.data.r2dbc: DEBUG
+    io.r2dbc: DEBUG
+    io.r2dbc.spi: DEBUG
+    org.springframework.r2dbc.core: DEBUG
+    io:
+      asyncer:
+        r2dbc:
+          mysql: debug
+
+
+management:
+  server:
+    base-path: /actuator
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus, *
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}

@@ -26,7 +26,7 @@ public class JwkKey {
     @Column(length = 4096)
     private String privateJwk;
 
-    private boolean isActive;
+    private boolean isActive = true;
 
     private Instant createdAt;
 

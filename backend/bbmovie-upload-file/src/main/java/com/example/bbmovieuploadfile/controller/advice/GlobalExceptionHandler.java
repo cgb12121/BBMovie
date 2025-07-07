@@ -61,14 +61,14 @@ public class GlobalExceptionHandler {
         return Mono.just(ResponseEntity.badRequest().body("Invalid input: " + ex.getMessage()));
     }
 
-//    @ExceptionHandler(Throwable.class)
-//    public Mono<ResponseEntity<Map<String, Object>>> handleGeneric(Throwable ex) {
-//        Map<String, Object> errorBody = Map.of(
-//                ERROR_FIELD, "InternalServerError",
-//                MESSAGE_FIELD,"Server did not respond in time. Please try again later",
-//                TIMESTAMP_FIELD, LocalDateTime.now()
-//        );
-//        log.error("Unexpected error: {}", ex.getMessage());
-//        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody));
-//    }
+    @ExceptionHandler(Throwable.class)
+    public Mono<ResponseEntity<Map<String, Object>>> handleGeneric(Throwable ex) {
+        Map<String, Object> errorBody = Map.of(
+                ERROR_FIELD, "InternalServerError",
+                MESSAGE_FIELD,"Server did not respond in time. Please try again later",
+                TIMESTAMP_FIELD, LocalDateTime.now()
+        );
+        log.error("Unexpected error: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody));
+    }
 }

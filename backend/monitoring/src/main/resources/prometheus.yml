@@ -1,0 +1,13 @@
+# Put this file in the Prometheus root folder
+
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'spring-boot-services'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets:
+          - 'localhost:8080'   # movie-service
+          - 'localhost:8081'   # user-service
+          - 'localhost:8082'   # file-service

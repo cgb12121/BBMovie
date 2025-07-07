@@ -10,6 +10,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.function.Supplier;
 
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
@@ -25,6 +26,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -98,6 +100,7 @@ public class SecurityConfig {
                 .ignoringRequestMatchers("/ws/**")
                 .ignoringRequestMatchers("/api/auth/csrf")
                 .ignoringRequestMatchers("/oauth2/authorization/**")
+                .ignoringRequestMatchers("/actuator/**")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
             )
@@ -106,7 +109,7 @@ public class SecurityConfig {
             )
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(EndPointsConfig.AUTH_ENDPOINTS).permitAll()
-                .requestMatchers(EndPointsConfig.SPRING_ACTUAL_ENDPOINTS).hasRole("ADMIN")
+                .requestMatchers(EndPointsConfig.SPRING_ACTUAL_ENDPOINTS).permitAll() //TODO: need to secure actuator, expose for testing purpose only
                 .requestMatchers(EndPointsConfig.ERRORS_ENDPOINTS).permitAll()
                 .requestMatchers(EndPointsConfig.SWAGGER_ENDPOINTS).permitAll()
                 .requestMatchers("/api/cloudinary/**").hasRole("ADMIN")
@@ -121,7 +124,7 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.getWriter().write("Unauthorized request");
-                            response.sendRedirect("http://localhost:3000/unauthorized");
+//                            response.sendRedirect("http://localhost:3000/unauthorized");
                         })
             )
             .requestCache(RequestCacheConfigurer::disable)
@@ -158,6 +161,11 @@ public class SecurityConfig {
         daoAuthenticationProvider.setUserDetailsService(userDetailsService);
         daoAuthenticationProvider.setPasswordEncoder(passwordEncoder());
         return daoAuthenticationProvider;
+    }
+
+    @PostConstruct
+    public void init() {
+        SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
     }
 
     @Bean

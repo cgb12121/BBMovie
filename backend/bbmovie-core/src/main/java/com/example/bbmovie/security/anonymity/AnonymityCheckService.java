@@ -41,6 +41,10 @@ public class AnonymityCheckService {
             return false;
         }
 
+        if (ip.equals("127.0.0.1")) {
+            return false;
+        }
+
         String cacheKey = CACHE_KEY_PREFIX + ip;
         Boolean cachedResult = redisTemplate.opsForValue().get(cacheKey);
 
@@ -73,10 +77,8 @@ public class AnonymityCheckService {
             }
         }
 
-        // All providers failed after attempting each once
         log.error("All IP anonymity providers failed for IP: {}. No result could be obtained.", ip);
-        // Optionally cache a "failed to check" status, or return default, or throw.
-        // For simplicity, we'll return false and NOT cache, as it's an indeterminate state.
+
         return false;
     }
 }

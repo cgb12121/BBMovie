@@ -20,6 +20,14 @@ app:
   frontend:
     url: http://localhost:3000
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
 
 database:
   secret-key-password: ${DATABASE_SECRET_KEY_PASSWORD}
@@ -30,6 +38,8 @@ database:
 
 
 spring:
+  application:
+    name: bbmovie-core
   datasource:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}

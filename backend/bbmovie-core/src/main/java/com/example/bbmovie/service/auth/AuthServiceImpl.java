@@ -351,6 +351,7 @@ public class AuthServiceImpl implements AuthService {
     private void revokeAccessTokenAndRefreshTokenFromOneDevice(String email, String deviceName) {
         refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
         joseProviderStrategy.invalidateAccessTokenByEmailAndDevice(email, deviceName);
+        SecurityContextHolder.clearContext();
     }
 
     private void revokeAllTokensFromAllDevicesByEmail(String email) {
