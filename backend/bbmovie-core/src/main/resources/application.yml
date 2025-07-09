@@ -158,7 +158,9 @@ spring:
             user-info-uri: https://api.x.com/2/users/me
             #Spring can't getActiveProvider nested data from JSON such as data.username => must implement custom service
             user-name-attribute: data
-
+      authorizationserver:
+          endpoint:
+            jwk-set-uri: http://localhost:8080/.well-known/jwks.json
 #Data encrypt/decrypt
 #database:
 #  secret-key-password: ${DATABASE_SECRET_KEY_PASSWORD}

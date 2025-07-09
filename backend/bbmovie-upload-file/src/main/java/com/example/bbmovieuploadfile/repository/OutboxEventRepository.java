@@ -2,7 +2,9 @@ package com.example.bbmovieuploadfile.repository;
 
 import com.example.bbmovieuploadfile.entity.OutboxStatus;
 import com.example.bbmovieuploadfile.entity.cdc.OutboxEvent;
+import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;
@@ -16,26 +18,41 @@ public interface OutboxEventRepository extends ReactiveCrudRepository<OutboxEven
 
     Mono<Void> deleteAllByStatus(OutboxStatus status);
 
-    @SuppressWarnings("squid:S00107")
+    @SuppressWarnings({ "squid:S00107", "unused" })
     @Query("""
-        INSERT INTO outbox_events (
-            id, aggregate_type, aggregate_id, event_type, payload, status,
-            retry_count, created_at, last_attempt_at, sent_at
-        ) VALUES (
-            :id, :aggregateType, :aggregateId, :eventType, :payload, :status,
-            :retryCount, :createdAt, :lastAttemptAt, :sentAt
-        )
-        """)
+    INSERT INTO outbox_events (
+        id, aggregate_type, aggregate_id, event_type, payload, status,
+        retry_count, created_at, last_attempt_at, sent_at
+    ) VALUES (
+        :id, :aggregateType, :aggregateId, :eventType, :payload, :status,
+        :retryCount, :createdAt, :lastAttemptAt, :sentAt
+    )
+    """)
+    @Modifying
     Mono<Void> insertOutboxEvent(
-            String id,
-            String aggregateType,
-            String aggregateId,
-            String eventType,
-            String payload,
-            OutboxStatus status,
-            int retryCount,
-            LocalDateTime createdAt,
-            LocalDateTime lastAttemptAt,
-            LocalDateTime sentAt
+            @Param("id") String id,
+            @Param("aggregateType") String aggregateType,
+            @Param("aggregateId") String aggregateId,
+            @Param("eventType") String eventType,
+            @Param("payload") String payload,
+            @Param("status") OutboxStatus status,
+            @Param("retryCount") int retryCount,
+            @Param("createdAt") LocalDateTime createdAt,
+            @Param("lastAttemptAt") LocalDateTime lastAttemptAt,
+            @Param("sentAt") LocalDateTime sentAt
     );
+
+    @Query("""
+    INSERT INTO outbox_events (
+        id, aggregate_type, aggregate_id, event_type, payload, status,
+        retry_count, created_at, last_attempt_at, sent_at
+    ) VALUES (
+        :#{#event.id}, :#{#event.aggregateType}, :#{#event.aggregateId},
+        :#{#event.eventType}, :#{#event.payload}, :#{#event.status},
+        :#{#event.retryCount}, :#{#event.createdAt},
+        :#{#event.lastAttemptAt}, :#{#event.sentAt}
+    )
+    """)
+    @Modifying
+    Mono<Void> insertOutboxEvent(@Param("event") OutboxEvent event);
 }

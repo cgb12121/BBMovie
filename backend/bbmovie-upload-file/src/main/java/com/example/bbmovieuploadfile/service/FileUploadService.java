@@ -12,7 +12,6 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.lang.NonNull;
@@ -39,8 +38,7 @@ public class FileUploadService {
             ReactiveFileUploadEventPublisher fileUploadEventPublisher,
             FileStorageStrategyFactory storageStrategyFactory,
             OutboxEventRepository outboxEventRepository,
-            ObjectMapper objectMapper,
-            R2dbcEntityTemplate r2dbcEntityTemplate
+            ObjectMapper objectMapper
     ) {
         this.fileUploadEventPublisher = fileUploadEventPublisher;
         this.storageStrategyFactory = storageStrategyFactory;
@@ -129,18 +127,7 @@ public class FileUploadService {
                 log.error("Failed to serialize FileUploadEvent: {}", e.getMessage(), e);
                 return Mono.error(new FileUploadException("Failed to serialize event payload."));
             }
-            return outboxEventRepository.insertOutboxEvent(
-                            outboxEvent.getId(),
-                            outboxEvent.getAggregateType(),
-                            outboxEvent.getAggregateId(),
-                            outboxEvent.getEventType(),
-                            outboxEvent.getPayload(),
-                            outboxEvent.getStatus(),
-                            outboxEvent.getRetryCount(),
-                            outboxEvent.getCreatedAt(),
-                            outboxEvent.getLastAttemptAt(),
-                            outboxEvent.getSentAt()
-                    )
+            return outboxEventRepository.insertOutboxEvent(outboxEvent)
                     .doOnSuccess(v -> log.info("OutboxEvent with ID {} successfully inserted as PENDING.", outboxEvent.getId()))
                     .then(Mono.just(outboxEvent));
         });

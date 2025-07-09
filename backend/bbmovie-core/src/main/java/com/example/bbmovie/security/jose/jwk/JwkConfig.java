@@ -83,7 +83,7 @@ public class JwkConfig {
         }
     }
 
-    @Scheduled(cron = "0 */15 * * * *")
+    @Scheduled(cron = "0 0 */6 * * *")
     public synchronized void removeInactiveKeys() {
         log.info("Begin to remove inactive JWK keys.");
         List<JwkKey> allKeys = keyRepo.findAll();

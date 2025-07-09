@@ -17,7 +17,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
-@Log4j2(topic = "JwkService")
+@Log4j2
 public class JwkService {
 
     private final JwkKeyRepository keyRepo;
@@ -50,6 +50,7 @@ public class JwkService {
                 .limit(5)
                 .map(jwk -> {
                     try {
+                        log.info("JWK: {}", jwk.toString());
                         return RSAKey.parse(jwk.getPublicJwk()).toJSONObject();
                     } catch (Exception e) {
                         throw new IllegalStateException("Invalid JWK in database", e);

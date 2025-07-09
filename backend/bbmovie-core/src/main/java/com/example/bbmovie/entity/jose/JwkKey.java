@@ -32,11 +32,11 @@ public class JwkKey {
 
     @Override
     public String toString() {
-        return "Jwk { \n"
+        return "\n Jwk { \n"
                 + "kid: " + this.kid + ",\n"
                 + "public key: " + this.publicJwk + ",\n"
                 + "private key: [SECRET]"  + ", \n"
                 + "isActive: " + this.isActive + ", \n"
-                + "createdAt: " + this.createdAt + "}";
+                + "createdAt: " + this.createdAt + "\n }";
     }
 }
