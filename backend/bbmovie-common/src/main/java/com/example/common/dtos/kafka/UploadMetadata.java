@@ -2,10 +2,13 @@ package com.example.common.dtos.kafka;
 
 import com.example.common.enums.EntityType;
 import com.example.common.enums.Storage;
+import jakarta.annotation.Nullable;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -15,6 +18,6 @@ public class UploadMetadata {
     private EntityType entityType;
     @NotNull(message = "storage is required")
     private Storage storage;
-    @NotNull(message = "quality is required")
-    private String quality;
+    @Nullable
+    List<String> quality;
 }

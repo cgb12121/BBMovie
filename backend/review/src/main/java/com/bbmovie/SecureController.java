@@ -8,7 +8,6 @@ import io.micronaut.http.annotation.Produces;
 import io.micronaut.security.annotation.Secured;
 import io.micronaut.security.authentication.Authentication;
 import io.micronaut.security.rules.SecurityRule;
-import jakarta.annotation.Nullable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -34,11 +33,8 @@ public class SecureController {
 
     @Get("/admin")
     @Produces(MediaType.TEXT_PLAIN)
-    @Secured({SecurityRule.IS_AUTHENTICATED, SecurityRule.IS_ANONYMOUS, "ROLE_ADMIN", "ADMIN"})
-    public String admin(@Nullable @Context Authentication authentication) {
-        if (authentication == null) {
-            return "Anonymous access";
-        }
-        return "User:" + authentication.getName() + "Authenticated: " + authentication.getAttributes() + " with role: " + authentication.getRoles() + "or" + authentication.getAttributes().get("role");
+    @Secured({"ROLE_ADMIN", "ADMIN"})
+    public String admin(@Context Authentication authentication) {
+        return "User:" + authentication.getName() + " with role: " + authentication.getRoles();
     }
 }

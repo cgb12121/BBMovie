@@ -16,17 +16,18 @@ import java.time.LocalDateTime;
 public interface OutboxEventRepository extends ReactiveCrudRepository<OutboxEvent, String> {
     Flux<OutboxEvent> findByStatus(OutboxStatus status);
 
+    @Modifying
     Mono<Void> deleteAllByStatus(OutboxStatus status);
 
     @SuppressWarnings({ "squid:S00107", "unused" })
     @Query("""
-    INSERT INTO outbox_events (
-        id, aggregate_type, aggregate_id, event_type, payload, status,
-        retry_count, created_at, last_attempt_at, sent_at
-    ) VALUES (
-        :id, :aggregateType, :aggregateId, :eventType, :payload, :status,
-        :retryCount, :createdAt, :lastAttemptAt, :sentAt
-    )
+        INSERT INTO outbox_events (
+            id, aggregate_type, aggregate_id, event_type, payload, status,
+            retry_count, created_at, last_attempt_at, sent_at
+        ) VALUES (
+            :id, :aggregateType, :aggregateId, :eventType, :payload, :status,
+            :retryCount, :createdAt, :lastAttemptAt, :sentAt
+        )
     """)
     @Modifying
     Mono<Void> insertOutboxEvent(
@@ -43,16 +44,24 @@ public interface OutboxEventRepository extends ReactiveCrudRepository<OutboxEven
     );
 
     @Query("""
-    INSERT INTO outbox_events (
-        id, aggregate_type, aggregate_id, event_type, payload, status,
-        retry_count, created_at, last_attempt_at, sent_at
-    ) VALUES (
-        :#{#event.id}, :#{#event.aggregateType}, :#{#event.aggregateId},
-        :#{#event.eventType}, :#{#event.payload}, :#{#event.status},
-        :#{#event.retryCount}, :#{#event.createdAt},
-        :#{#event.lastAttemptAt}, :#{#event.sentAt}
-    )
+        INSERT INTO outbox_events (
+            id, aggregate_type, aggregate_id, event_type, payload,
+            status,retry_count, created_at, last_attempt_at, sent_at
+        ) VALUES (
+            :#{#event.id}, :#{#event.aggregateType}, :#{#event.aggregateId},:#{#event.eventType}, :#{#event.payload},
+            :#{#event.status},:#{#event.retryCount}, :#{#event.createdAt},:#{#event.lastAttemptAt}, :#{#event.sentAt}
+        )
     """)
     @Modifying
     Mono<Void> insertOutboxEvent(@Param("event") OutboxEvent event);
+
+    @Modifying
+    @Query("""
+        UPDATE outbox_events
+        SET status = :#{#event.status},
+            sent_at = :#{#event.sentAt},
+            last_attempt_at = :#{#event.lastAttemptAt}
+        WHERE id = :#{#event.id}
+    """)
+    Mono<Void> updateOutboxEvent(@Param("event") OutboxEvent event);
 }

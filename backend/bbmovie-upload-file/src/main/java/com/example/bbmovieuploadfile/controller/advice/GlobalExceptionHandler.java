@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
                 MESSAGE_FIELD,"Server did not respond in time. Please try again later",
                 TIMESTAMP_FIELD, LocalDateTime.now()
         );
-        log.error("Unexpected error: {}", ex.getMessage());
+        log.error("Unexpected error: {}, {}", ex, ex.getMessage());
         return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorBody));
     }
 }

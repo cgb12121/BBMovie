@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Builder
@@ -19,7 +20,7 @@ public class FileUploadEvent {
     private Storage storage;
     private String url;
     private String publicId;
-    private String quality;
+    private List<String> quality;
     private String uploadedBy;
     private LocalDateTime timestamp;
 }

@@ -28,11 +28,11 @@ logging:
   level:
     org.springframework.security: DEBUG
     org.springframework.web.reactive: DEBUG
-    org.springframework.r2dbc.core: DEBUG
-    io:
-      asyncer:
-        r2dbc:
-          mysql: debug
+#    org.springframework.r2dbc.core: DEBUG
+#    io:
+#      asyncer:
+#        r2dbc:
+#          mysql: debug
 
 
 management:
@@ -46,6 +46,10 @@ management:
     tags:
       application: ${spring.application.name}
 
+
+ffmpeg.path: ${FFMPEG_PATH}
+ffprobe.path: ${FFPROBE_PATH}
+app.upload.temp-dir: C:/upload-temp
 
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
