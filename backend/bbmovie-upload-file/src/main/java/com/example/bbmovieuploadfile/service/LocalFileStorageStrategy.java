@@ -18,7 +18,7 @@ import java.nio.file.StandardCopyOption;
 
 @Log4j2
 @Component("localStorage")
-public class LocalFileStorageStrategy implements FileCapableStorageStrategy {
+public class LocalFileStorageStrategy implements FileLocalStorageStrategy {
 
     @Value("${spring.upload-dir}")
     private String uploadDir;

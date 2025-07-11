@@ -91,29 +91,34 @@ public class FileUploadService {
                 .flatMap(videoMeta -> {
                     String originalResolution = getOriginalResolution(videoMeta);
                     List<String> availableTranscodeResolutions = getAvailableTranscodeResolutions(videoMeta);
-                    String fullOriginalName = tempSaveName + "_" + originalResolution + getExtension(originalFilename);
+                    String fullOriginalNameWithResolutionPostFix = tempSaveName + "_" + originalResolution + getExtension(originalFilename);
 
                     FileStorageStrategy strategy = storageStrategyFactory.getStrategy(metadata.getStorage().name());
 
-                    return strategy.store(filePart, fullOriginalName)
+                    return strategy.store(filePart, fullOriginalNameWithResolutionPostFix)
                             .flatMap(fileUploadResult -> {
-                                Path originalPath = Paths.get(uploadDir, fullOriginalName);
+                                Path originalPath = Paths.get(uploadDir, fullOriginalNameWithResolutionPostFix);
                                 metadata.setQuality(availableTranscodeResolutions);
 
-                                List<Mono<FileUploadEvent>> transcodingMonos = addResolutions(metadata, videoMeta, originalPath, strategy, tempSaveName, username);
-                                FileUploadEvent originalEvent = createEvent(fullOriginalName, username, metadata, fileUploadResult);
+                                List<Mono<FileUploadEvent>> transcodingMonos = addResolutions(
+                                        metadata, videoMeta, originalPath, strategy, tempSaveName, username
+                                );
+                                FileUploadEvent originalEvent = createEvent(
+                                        fullOriginalNameWithResolutionPostFix, username, metadata, fileUploadResult
+                                );
                                 Mono<FileUploadEvent> originalMono = publishEventAndOutbox(originalEvent);
 
                                 transcodingMonos.add(originalMono);
-                                return Flux.merge(transcodingMonos).then(Mono.just(ResponseEntity.ok("Video upload & processing started")));
+                                return Flux.merge(transcodingMonos)
+                                        .then(Mono.just(ResponseEntity.ok("Video upload & processing successful")));
                             });
                 })
                 .onErrorResume(ex -> {
                     log.error("File upload process failed for {}: {}", originalFilename, ex.getMessage(), ex);
                     if (ex instanceof FileUploadException) {
-                        return Mono.error(ex);
+                        return Mono.error(() -> new FileUploadException("Failed to upload file to server."));
                     }
-                    return Mono.error(new FileUploadException("Unable to upload file to server."));
+                    return Mono.error(new FileUploadException("Critical error occurred during file upload process."));
                 })
                 .publishOn(Schedulers.boundedElastic())
                 .doFinally(signal -> {
@@ -152,6 +157,9 @@ public class FileUploadService {
         return transcodingMonos;
     }
 
+    //TODO: fix bottleneck:  currently running FFmpeg once per resolution
+    //      Redundant disk I/O per run (re-read the file)
+    //      Slow total processing (each resolution x its processing time)
     @SuppressWarnings("squid:S00107")
     private Mono<FileUploadEvent> transcodeAndPublishToLocalStorage(
             Path input, FileStorageStrategy strategy, String baseNameWithExtension,
@@ -166,7 +174,7 @@ public class FileUploadService {
                         width, height
                 )
                 .flatMap(transcoded -> {
-                    if (strategy instanceof FileCapableStorageStrategy fileCapable) {
+                    if (strategy instanceof FileLocalStorageStrategy fileCapable) {
                         log.info("Saving transcoded file {} to local storage.", transcodedName);
                         return fileCapable.store(transcoded.toFile(), transcodedName);
                     } else {

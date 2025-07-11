@@ -5,6 +5,6 @@ import reactor.core.publisher.Mono;
 
 import java.io.File;
 
-public interface FileCapableStorageStrategy extends FileStorageStrategy {
+public interface FileLocalStorageStrategy extends FileStorageStrategy {
     Mono<FileUploadResult> store(File file, String safeName);
 }

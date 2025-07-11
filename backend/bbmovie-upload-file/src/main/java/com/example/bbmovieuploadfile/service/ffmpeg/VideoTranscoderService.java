@@ -11,6 +11,9 @@ import reactor.core.scheduler.Schedulers;
 
 import java.nio.file.Path;
 
+import static com.example.bbmovieuploadfile.service.ffmpeg.CodecOptions.libx264;
+import static com.example.bbmovieuploadfile.service.ffmpeg.PresetOptions.veryslow;
+
 @Log4j2
 @Service
 public class VideoTranscoderService {
@@ -25,13 +28,14 @@ public class VideoTranscoderService {
     public Mono<Path> transcode(Path input, Path output, int width, int height) {
         return Mono.fromCallable(() -> {
                 FFmpegBuilder builder = new FFmpegBuilder()
-                            .setInput(input.toString())
-                            .overrideOutputFiles(true)
-                            .addOutput(output.toString())
-                            .setVideoFilter("scale=" + width + ":" + height)
-                            .setVideoCodec("libx264")
-                            .setFormat("mp4")
-                            .done();
+                        .setInput(input.toString())
+                        .overrideOutputFiles(true)
+                        .addOutput(output.toString())
+                        .setVideoFilter("scale=" + width + ":" + height)
+                        .setVideoCodec(libx264)
+                        .setPreset(veryslow)
+                        .setFormat("mp4")
+                        .done();
 
                     new FFmpegExecutor(ffmpeg).createJob(builder).run();
                     return output;
