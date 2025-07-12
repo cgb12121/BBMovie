@@ -1,6 +1,5 @@
 package com.example.bbmovieuploadfile.entity.cdc;
 
-import com.example.bbmovieuploadfile.entity.OutboxStatus;
 import lombok.*;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;

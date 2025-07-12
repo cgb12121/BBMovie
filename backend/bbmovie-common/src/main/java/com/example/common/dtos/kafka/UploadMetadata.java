@@ -8,7 +8,6 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
 
 @Data
 @NoArgsConstructor
@@ -19,5 +18,5 @@ public class UploadMetadata {
     @NotNull(message = "storage is required")
     private Storage storage;
     @Nullable
-    List<String> quality;
+    String quality;
 }

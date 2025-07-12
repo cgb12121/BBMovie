@@ -1,7 +1,7 @@
 package com.example.bbmovieuploadfile.service.scheduled;
 
 import com.example.bbmovieuploadfile.service.kafka.ReactiveKafkaProducer;
-import com.example.bbmovieuploadfile.entity.OutboxStatus;
+import com.example.bbmovieuploadfile.entity.cdc.OutboxStatus;
 import com.example.bbmovieuploadfile.repository.OutboxEventRepository;
 import com.example.common.dtos.kafka.FileUploadEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -34,7 +34,7 @@ public class OutboxService {
     }
 
     @Transactional
-    @Scheduled(fixedDelay = 30_000)
+    @Scheduled(cron = "0 0/10 * * * *")
     public void publishPendingEvents() {
         log.info("Attempting to publish pending outbox events...");
 
@@ -57,12 +57,12 @@ public class OutboxService {
                                                 evt.setRetryCount(evt.getRetryCount() + 1);
                                                 return Mono.empty();
                                             })
-                                            .then(outboxEventRepository.save(evt));
+                                            .then(outboxEventRepository.updateOutboxEvent(evt));
                                 } catch (Exception e) {
                                     log.error("Failed to deserialize payload for outbox event with ID {}: {}", evt.getId(), e.getMessage());
                                     evt.setStatus(OutboxStatus.FAILED);
                                     evt.setRetryCount(evt.getRetryCount() + 1);
-                                    return outboxEventRepository.save(evt);
+                                    return outboxEventRepository.updateOutboxEvent(evt);
                                 }
                             });
                 })
@@ -72,7 +72,7 @@ public class OutboxService {
     }
 
     @Transactional
-    @Scheduled(fixedDelay = 30_000)
+    @Scheduled(cron = "0 0 0 * * *")
     public void cleanSentEvents() {
         log.info("Attempting to clean sent outbox events...");
         outboxEventRepository.deleteAllByStatus(OutboxStatus.SENT)

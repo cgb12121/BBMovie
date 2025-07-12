@@ -3,8 +3,13 @@ package com.example.bbmovieuploadfile.service.ffmpeg;
 @SuppressWarnings({
         "squid:S00115",
         "squid:S1118",
+        "squid:S1123",
         "unused"
-})public class PresetOptions {
+})
+/*
+  NOTE: some options are not compatible with h264_nvenc
+ */
+public class PresetOptions {
     /**
      * placebo - Slowest preset with the smallest file size and best encoding quality
      * <p>
@@ -89,7 +94,7 @@ package com.example.bbmovieuploadfile.service.ffmpeg;
      * superfast - Super fast preset with lower quality
      * <p>
      * Characteristics:
-     * - Speed: ⚡⚡ Super fast
+     * - Speed: ⚡⚡ Superfast
      * - File Size: 📈📈 Bigger
      * - Quality: Lower
      */

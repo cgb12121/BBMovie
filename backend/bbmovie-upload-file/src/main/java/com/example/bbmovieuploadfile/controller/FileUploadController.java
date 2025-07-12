@@ -33,7 +33,6 @@ public class FileUploadController {
             @Valid @RequestPart("metadata") UploadMetadata metadata,
             Authentication auth
     ) {
-        log.info("Uploading file {} with metadata {}", filePart.filename(), metadata);
         return fileUploadService.uploadFile(filePart, metadata, auth);
     }
 }

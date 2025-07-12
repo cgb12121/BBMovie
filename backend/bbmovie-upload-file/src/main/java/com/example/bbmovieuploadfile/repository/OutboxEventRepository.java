@@ -1,6 +1,6 @@
 package com.example.bbmovieuploadfile.repository;
 
-import com.example.bbmovieuploadfile.entity.OutboxStatus;
+import com.example.bbmovieuploadfile.entity.cdc.OutboxStatus;
 import com.example.bbmovieuploadfile.entity.cdc.OutboxEvent;
 import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;

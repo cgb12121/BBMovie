@@ -41,7 +41,7 @@ public class LocalFileStorageStrategy implements FileLocalStorageStrategy {
         return Mono.fromCallable(() -> {
             Path destination = Paths.get(uploadDir, filename);
             try {
-                Path path = Files.copy(file.toPath(), destination, StandardCopyOption.COPY_ATTRIBUTES);
+                Path path = Files.copy(file.toPath(), destination, StandardCopyOption.REPLACE_EXISTING);
                 String url = path.toFile().getAbsolutePath();
                 return new FileUploadResult(url, filename);
             } catch (IOException e) {

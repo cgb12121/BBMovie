@@ -4,6 +4,8 @@ import com.example.bbmovieuploadfile.exception.FileUploadException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.JwtValidationException;
+import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -21,6 +23,28 @@ public class GlobalExceptionHandler {
     private static final String ERROR_FIELD = "error";
     private static final String MESSAGE_FIELD = "message";
     private static final String TIMESTAMP_FIELD = "timestamp";
+
+    @ExceptionHandler(InvalidBearerTokenException.class)
+    public Mono<ResponseEntity<Map<String, Object>>> handleInvalidBearerTokenException(InvalidBearerTokenException ex) {
+        Map<String, Object> errorBody = Map.of(
+                ERROR_FIELD, "InvalidBearerTokenError",
+                MESSAGE_FIELD, "Invalid access token.",
+                TIMESTAMP_FIELD, LocalDateTime.now()
+        );
+        log.error("Invalid access token: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody));
+    }
+
+    @ExceptionHandler(JwtValidationException.class)
+    public Mono<ResponseEntity<Map<String, Object>>> handleJwtValidationException(JwtValidationException ex) {
+        Map<String, Object> errorBody = Map.of(
+                ERROR_FIELD, "InvalidJwtTokenError",
+                MESSAGE_FIELD, "Invalid JWT token.",
+                TIMESTAMP_FIELD, LocalDateTime.now()
+        );
+        log.error("Invalid JWT token: {}", ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(errorBody));
+    }
 
     @ExceptionHandler(FileUploadException.class)
     public Mono<ResponseEntity<Map<String, Object>>> handleFileUploadException(FileUploadException ex) {

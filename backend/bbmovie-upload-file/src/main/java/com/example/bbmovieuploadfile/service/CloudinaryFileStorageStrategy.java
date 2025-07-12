@@ -38,6 +38,11 @@ public class CloudinaryFileStorageStrategy implements FileStorageStrategy {
     }
 
     @Override
+    public Mono<FileUploadResult> store(File file, String filename) {
+        return Mono.error(new UnsupportedOperationException("Cloudinary does not support storing local File objects."));
+    }
+
+    @Override
     public String getStorageType() {
         return "cloudinaryStorage";
     }
