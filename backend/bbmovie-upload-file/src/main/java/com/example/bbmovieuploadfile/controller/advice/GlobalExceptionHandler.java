@@ -10,6 +10,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.support.WebExchangeBindException;
+import org.springframework.web.reactive.resource.NoResourceFoundException;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -80,6 +81,12 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(Map.of("errors", errors));
     }
 
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Mono<ResponseEntity<String>> handleNoResourceFoundException(NoResourceFoundException ex) {
+        return Mono.just(ResponseEntity.badRequest().body("Invalid path: " + ex.getMessage()));
+    }
+
+    //TODO: expose too much infomation of the server
     @ExceptionHandler(WebExchangeBindException.class)
     public Mono<ResponseEntity<String>> handleBindException(WebExchangeBindException ex) {
         return Mono.just(ResponseEntity.badRequest().body("Invalid input: " + ex.getMessage()));

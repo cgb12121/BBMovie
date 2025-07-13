@@ -1,7 +1,8 @@
-package com.example.bbmovieuploadfile.service;
+package com.example.bbmovieuploadfile.service.storage;
 
 import com.cloudinary.Cloudinary;
 import com.example.common.dtos.kafka.FileUploadResult;
+import com.example.common.enums.Storage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.multipart.FilePart;
@@ -13,7 +14,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 
 @Component("cloudinaryStorage")
-public class CloudinaryFileStorageStrategy implements FileStorageStrategy {
+public class CloudinaryStorageStrategy implements StorageStrategy {
 
     @Value("${app.upload.temp-dir}")
     private String tempUploadDir;
@@ -21,7 +22,7 @@ public class CloudinaryFileStorageStrategy implements FileStorageStrategy {
     private final Cloudinary cloudinary;
 
     @Autowired
-    public CloudinaryFileStorageStrategy(Cloudinary cloudinary) {
+    public CloudinaryStorageStrategy(Cloudinary cloudinary) {
         this.cloudinary = cloudinary;
     }
 
@@ -44,6 +45,6 @@ public class CloudinaryFileStorageStrategy implements FileStorageStrategy {
 
     @Override
     public String getStorageType() {
-        return "cloudinaryStorage";
+        return Storage.CLOUDINARY.name();
     }
 }

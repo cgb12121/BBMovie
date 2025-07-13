@@ -1,10 +1,10 @@
-package com.example.bbmovieuploadfile.service;
+package com.example.bbmovieuploadfile.service.storage;
 
 import com.example.common.dtos.kafka.FileUploadResult;
 import reactor.core.publisher.Mono;
 
 import java.io.File;
 
-public interface FileLocalStorageStrategy extends FileStorageStrategy {
+public interface LocalStorageStrategy extends StorageStrategy {
     Mono<FileUploadResult> store(File file, String safeName);
 }

@@ -1,4 +1,4 @@
-package com.example.bbmovieuploadfile.service;
+package com.example.bbmovieuploadfile.service.storage;
 
 import com.example.common.dtos.kafka.FileUploadResult;
 import org.springframework.http.codec.multipart.FilePart;
@@ -6,7 +6,7 @@ import reactor.core.publisher.Mono;
 
 import java.io.File;
 
-public interface FileStorageStrategy {
+public interface StorageStrategy {
     Mono<FileUploadResult> store(FilePart filePart, String safeName);
 
     Mono<FileUploadResult> store(File file, String filename);

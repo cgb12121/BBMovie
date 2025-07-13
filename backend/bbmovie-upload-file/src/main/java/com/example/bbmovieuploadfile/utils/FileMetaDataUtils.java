@@ -5,11 +5,28 @@ import com.example.bbmovieuploadfile.service.ffmpeg.FFmpegVideoMetadata;
 import static com.example.bbmovieuploadfile.constraints.ResolutionConstraints.*;
 
 public class FileMetaDataUtils {
+
     private FileMetaDataUtils() { }
 
     public static String getExtension(String filename) {
         int lastDotIndex = filename.lastIndexOf('.');
         return lastDotIndex != -1 ? filename.substring(lastDotIndex) : "";
+    }
+
+    public static String extractLabel(String filename) {
+        int firstUnderscoreIndex = filename.indexOf('_');
+
+        int lastDotIndex = filename.lastIndexOf('.');
+
+        if (firstUnderscoreIndex != -1 &&
+                lastDotIndex != -1 &&
+                firstUnderscoreIndex < lastDotIndex &&
+                firstUnderscoreIndex + 1 < lastDotIndex) {
+
+            return filename.substring(firstUnderscoreIndex + 1, lastDotIndex);
+        } else {
+            return "";
+        }
     }
 
     public static String getOriginalResolution(FFmpegVideoMetadata meta) {

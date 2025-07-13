@@ -1,11 +1,14 @@
 package com.example.bbmovieuploadfile.utils;
 
+import com.example.bbmovieuploadfile.entity.TempFileRecord;
 import com.example.common.dtos.kafka.FileUploadEvent;
 import com.example.common.dtos.kafka.FileUploadResult;
 import com.example.common.dtos.kafka.UploadMetadata;
 import org.springframework.lang.NonNull;
 
+import java.nio.file.Path;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 public class FileUploadEventUtils {
     private FileUploadEventUtils() { }
@@ -23,6 +26,22 @@ public class FileUploadEventUtils {
                 .quality(metadata.getQuality())
                 .uploadedBy(uploader)
                 .timestamp(LocalDateTime.now())
+                .build();
+    }
+
+    public static TempFileRecord createNewTempUploadEvent(
+            UploadMetadata metadata, String originalNameWithoutExtension,
+            String fileExtension, Path tempPath, String username
+    ) {
+        return TempFileRecord.builder()
+                .id(UUID.randomUUID().toString())
+                .fileName(originalNameWithoutExtension)
+                .extension(fileExtension)
+                .tempDir(tempPath.toString())
+                .tempStoreFor(metadata.getEntityType().name())
+                .uploadedBy(username)
+                .isRemoved(false)
+                .createdAt(LocalDateTime.now())
                 .build();
     }
 }

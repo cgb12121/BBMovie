@@ -1,7 +1,8 @@
-package com.example.bbmovieuploadfile.service;
+package com.example.bbmovieuploadfile.service.storage;
 
 import com.example.bbmovieuploadfile.exception.FileUploadException;
 import com.example.common.dtos.kafka.FileUploadResult;
+import com.example.common.enums.Storage;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.codec.multipart.FilePart;
@@ -18,7 +19,7 @@ import java.nio.file.StandardCopyOption;
 
 @Log4j2
 @Component("localStorage")
-public class LocalFileStorageStrategy implements FileLocalStorageStrategy {
+public class LocalStorageStrategyImpl implements LocalStorageStrategy {
 
     @Value("${spring.upload-dir}")
     private String uploadDir;
@@ -53,6 +54,6 @@ public class LocalFileStorageStrategy implements FileLocalStorageStrategy {
 
     @Override
     public String getStorageType() {
-        return "localStorage";
+        return Storage.LOCAL.name();
     }
 }
