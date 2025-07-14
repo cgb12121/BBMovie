@@ -1,15 +1,11 @@
-package com.example.bbmovie.security.jose.jwt.nimbus;
+package com.example.bbmovie.security.jose.jwt.io;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
 import com.example.bbmovie.security.jose.JoseProviderStrategy;
-import com.nimbusds.jose.*;
-import com.nimbusds.jose.crypto.MACSigner;
-import com.nimbusds.jose.crypto.MACVerifier;
-import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.SignedJWT;
-import jakarta.annotation.PostConstruct;
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,74 +17,57 @@ import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Log4j2
-@Component("hmacNimbus")
-public class JoseHmacNimbusProvider implements JoseProviderStrategy {
+@Component("hmac")
+public class JwtioSymmetric implements JoseProviderStrategy {
 
     private final int jwtAccessExpirationInMs;
     private final int jwtRefreshExpirationInMs;
-    private final String jwtSecret;
-    private SecretKey secretKey;
+    private final SecretKey secretKey;
     private final RedisTemplate<Object, Object> redisTemplate;
     private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
-    public JoseHmacNimbusProvider(
+    public JwtioSymmetric(
             @Value("${app.jose.key.secret}") String jwtSecret,
             @Value("${app.jose.expiration.access-token}") int jwtAccessExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshExpirationInMs,
             RedisTemplate<Object, Object> redisTemplate
     ) {
-        this.jwtSecret = jwtSecret;
         this.jwtAccessExpirationInMs = jwtAccessExpirationInMs;
         this.jwtRefreshExpirationInMs = jwtRefreshExpirationInMs;
+        this.secretKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         this.redisTemplate = redisTemplate;
     }
 
-    @PostConstruct
-    public void initKey() {
-        this.secretKey = new SecretKeySpec(jwtSecret.getBytes(), "HmacSHA256");
-    }
-
-    @Override
     public String generateAccessToken(Authentication authentication) {
-        return generateToken(authentication, jwtAccessExpirationInMs);
+       return generateToken(authentication, jwtAccessExpirationInMs);
     }
 
-    @Override
     public String generateRefreshToken(Authentication authentication) {
         return generateToken(authentication, jwtRefreshExpirationInMs);
     }
 
     public String generateToken(Authentication authentication, int expirationInMs) {
-        try {
-            String username = getUsernameFromAuthentication(authentication);
-            String role = getRoleFromAuthentication(authentication);
-            Date now = new Date();
-            Date expiryDate = new Date(now.getTime() + expirationInMs);
+        String username = getUsernameFromAuthentication(authentication);
+        String role = getRoleFromAuthentication(authentication);
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + expirationInMs);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("jti", UUID.randomUUID().toString());
+        claims.put("sid", UUID.randomUUID().toString());
 
-            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                    .issuer("bbmovie-core")
-                    .subject(username)
-                    .claim("role", role)
-                    .issueTime(now)
-                    .expirationTime(expiryDate)
-                    .jwtID(UUID.randomUUID().toString())
-                    .claim("sid",  UUID.randomUUID().toString())
-                    .build();
-
-            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.HS256).type(JOSEObjectType.JWT).build();
-            SignedJWT signedJWT = new SignedJWT(header, claimsSet);
-            signedJWT.sign(new MACSigner(secretKey.getEncoded()));
-
-            return signedJWT.serialize();
-        } catch (Exception e) {
-            log.error("Token generation failed: {}", e.getMessage());
-            throw new IllegalStateException("JWT generation failed", e);
-        }
+        return Jwts.builder()
+                .setHeaderParam("typ", "JWT")
+                .setSubject(username)
+                .claim("role", role)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .addClaims(claims)
+                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .compact();
     }
 
     @SuppressWarnings("unchecked")
@@ -114,7 +93,9 @@ public class JoseHmacNimbusProvider implements JoseProviderStrategy {
                 default -> throw new UnsupportedOAuth2Provider("Unsupported provider or missing email");
             };
         }
-        throw new UnsupportedPrincipalType("Unsupported principal type: " + principal.getClass().getName());
+        throw new UnsupportedPrincipalType(
+                "Unsupported principal type: " + principal.getClass().getName()
+        );
     }
 
     private String getRoleFromAuthentication(Authentication authentication) {
@@ -127,51 +108,56 @@ public class JoseHmacNimbusProvider implements JoseProviderStrategy {
         throw new IllegalStateException("Unsupported principal type: " + principal.getClass().getName());
     }
 
-    @Override
     public List<String> getRolesFromToken(String token) {
-        try {
-            SignedJWT signedJWT = SignedJWT.parse(token);
-            if (!signedJWT.verify(new MACVerifier(secretKey.getEncoded()))) {
-                throw new IllegalArgumentException("JWT verification failed");
-            }
-            String role = (String) signedJWT.getJWTClaimsSet().getClaim("role");
-            return List.of(role);
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid JWT token", e);
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        String role = claims.get("role", String.class);
+        if (role == null) {
+            throw new IllegalStateException("Role claim missing in token");
         }
+        return List.of(role);
     }
 
-    @Override
     public String getUsernameFromToken(String token) {
         try {
-            SignedJWT signedJWT = SignedJWT.parse(token);
-            return signedJWT.getJWTClaimsSet().getSubject();
-        } catch (Exception e) {
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(secretKey)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+            return claims.getSubject();
+        } catch (ExpiredJwtException e) {
+            Claims claims = e.getClaims();
+            return claims.getSubject();
+        } catch (JwtException e) {
             throw new IllegalArgumentException("Invalid JWT token", e);
         }
     }
 
-    @Override
     public Date getExpirationDateFromToken(String token) {
-        try {
-            SignedJWT signedJWT = SignedJWT.parse(token);
-            return signedJWT.getJWTClaimsSet().getExpirationTime();
-        } catch (Exception e) {
-            throw new IllegalArgumentException("Invalid JWT token", e);
-        }
+        Claims claims = Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
+        return claims.getExpiration();
     }
 
-    @Override
     public boolean validateToken(String token) {
         try {
-            SignedJWT signedJWT = SignedJWT.parse(token);
-            return signedJWT.verify(new MACVerifier(secretKey.getEncoded()));
+            Jwts.parserBuilder()
+                    .setSigningKey(secretKey)
+                    .build()
+                    .parseClaimsJws(token);
+            return true;
         } catch (Exception ex) {
-            log.error("JWT validation failed: {}", ex.getMessage());
             return false;
         }
     }
-
+    
     @Override
     public void invalidateAccessTokenByEmailAndDevice(String email, String deviceName) {
         String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);

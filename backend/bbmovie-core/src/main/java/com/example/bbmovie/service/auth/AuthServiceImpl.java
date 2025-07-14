@@ -342,18 +342,25 @@ public class AuthServiceImpl implements AuthService {
                 .toList();
     }
 
+
+    //TODO: refractor to use jti and sid
+    //TODO: send kafka event on logout successful
     private void revokeAccessTokenAndRefreshTokenFromCurrentDevice(String accessToken, String deviceName) {
         String email = joseProviderStrategy.getUsernameFromToken(accessToken);
         refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
         joseProviderStrategy.invalidateAccessTokenByEmailAndDevice(email, deviceName);
     }
 
+    //TODO: refractor to use jti and sid
+    //TODO: send kafka event on logout successful
     private void revokeAccessTokenAndRefreshTokenFromOneDevice(String email, String deviceName) {
         refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
         joseProviderStrategy.invalidateAccessTokenByEmailAndDevice(email, deviceName);
         SecurityContextHolder.clearContext();
     }
 
+    //TODO: refractor to use jti and sid
+    //TODO: send kafka event on logout successful
     private void revokeAllTokensFromAllDevicesByEmail(String email) {
         List<String> allDevicesName = getAllLoggedInDevices(email);
         refreshTokenService.deleteAllRefreshTokenByEmail(email);

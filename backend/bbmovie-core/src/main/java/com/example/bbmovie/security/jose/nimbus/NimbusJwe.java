@@ -1,4 +1,4 @@
-package com.example.bbmovie.security.jose.jwk.sign;
+package com.example.bbmovie.security.jose.nimbus;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
 
 @Log4j2
 @Component("jwkJwt")
-public class JwkJwtProvider implements JoseProviderStrategy {
+public class NimbusJwe implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
@@ -41,7 +41,7 @@ public class JwkJwtProvider implements JoseProviderStrategy {
     private final List<OAuth2UserInfoStrategy> strategies;
     private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
-    public JwkJwtProvider(
+    public NimbusJwe(
             @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
             @Qualifier("activePrivateKey") RSAKey activePrivateKey,

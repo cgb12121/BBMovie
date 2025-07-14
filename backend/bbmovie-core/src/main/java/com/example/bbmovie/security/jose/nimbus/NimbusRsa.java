@@ -1,4 +1,4 @@
-package com.example.bbmovie.security.jose.jwt.nimbus;
+package com.example.bbmovie.security.jose.nimbus;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
@@ -37,7 +37,7 @@ import java.util.Base64;
 
 @Log4j2
 @Component("rsaNimbus")
-public class JoseRsaNimbusProvider implements JoseProviderStrategy {
+public class NimbusRsa implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
@@ -49,7 +49,7 @@ public class JoseRsaNimbusProvider implements JoseProviderStrategy {
     private static final String ALGORITHM = "RSA";
     private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
-    public JoseRsaNimbusProvider(
+    public NimbusRsa(
             @Value("${app.jose.key.private}") String privateKeyStr,
             @Value("${app.jose.key.public}") String publicKeyStr,
             @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,

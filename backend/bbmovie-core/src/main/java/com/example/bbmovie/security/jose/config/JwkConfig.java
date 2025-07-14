@@ -1,4 +1,4 @@
-package com.example.bbmovie.security.jose.jwk;
+package com.example.bbmovie.security.jose.config;
 
 import com.example.bbmovie.entity.jose.JwkKey;
 import com.example.bbmovie.repository.JwkKeyRepository;

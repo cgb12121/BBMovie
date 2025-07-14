@@ -56,6 +56,14 @@ cloudinary:
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
 
+jose:
+  secret: ''
+  jwk:
+    endpoint: http://localhost:8080/.well-known/jwks.json
+  jws:
+    endpoint: http://localhost:8080/.well-known/jws
+
+
 server:
   port: 8081
 

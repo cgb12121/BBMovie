@@ -1,6 +1,13 @@
 app:
   jose:
-    strategy: jwkJwt
+    #jweRsaNimbus //debug endpoint not compatible, using wrong key from jwk JwkJweProvider
+    #jwkJwe
+    #jwkJwt
+    #hmac
+    #rsa //debug endpoint not compatible, using wrong key from jwk JwkJweProvider
+    #hmacNimbus
+    #rsaNimbus //debug endpoint not compatible, using wrong key from jwk JwkJweProvider
+    strategy: rsaNimbus
     key:
       secret: ${JOSE_SECRET}
       private: ${JOSE_PRIVATE_KEY}

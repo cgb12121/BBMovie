@@ -30,7 +30,7 @@ import java.util.Base64;
 
 @Log4j2
 @Component("rsa")
-public class JoseRsaProvider implements JoseProviderStrategy {
+public class JwtioAsymmetric implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
@@ -40,7 +40,7 @@ public class JoseRsaProvider implements JoseProviderStrategy {
     private final List<OAuth2UserInfoStrategy> strategies;
     private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
-    public JoseRsaProvider(
+    public JwtioAsymmetric(
             @Value("${app.jose.key.private}") String privateKeyStr,
             @Value("${app.jose.key.public}") String publicKeyStr,
             @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,

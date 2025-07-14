@@ -1,6 +1,6 @@
 package com.example.bbmovie.controller.publics;
 
-import com.example.bbmovie.security.jose.jwk.JwkService;
+import com.example.bbmovie.security.jose.config.JwkService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;

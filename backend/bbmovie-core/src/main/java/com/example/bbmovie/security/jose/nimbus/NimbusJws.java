@@ -1,4 +1,4 @@
-package com.example.bbmovie.security.jose.jwk.encrypt;
+package com.example.bbmovie.security.jose.nimbus;
 
 import com.example.bbmovie.entity.User;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
@@ -32,30 +32,26 @@ import java.util.concurrent.TimeUnit;
 
 @Log4j2
 @Component("jwkJwe")
-public class JwkJweProvider implements JoseProviderStrategy {
+public class NimbusJws implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
     private final RSAKey activePrivateKey;
-    @SuppressWarnings("all")
-    private final List<RSAKey> publicKeys;
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
 
     private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
-    public JwkJweProvider(
+    public NimbusJws(
             @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
             @Qualifier("activePrivateKey") RSAKey activePrivateKey,
-            List<RSAKey> publicKeys,
             RedisTemplate<Object, Object> redisTemplate,
             List<OAuth2UserInfoStrategy> strategies
     ) {
         this.jwtAccessTokenExpirationInMs = jwtAccessTokenExpirationInMs;
         this.jwtRefreshTokenExpirationInMs = jwtRefreshTokenExpirationInMs;
         this.activePrivateKey = activePrivateKey;
-        this.publicKeys = publicKeys;
         this.redisTemplate = redisTemplate;
         this.strategies = strategies;
     }
@@ -118,6 +114,7 @@ public class JwkJweProvider implements JoseProviderStrategy {
             EncryptedJWT jwt = EncryptedJWT.parse(token);
             RSADecrypter decrypter = new RSADecrypter(activePrivateKey.toRSAPrivateKey());
             jwt.decrypt(decrypter);
+            log.debug("Decrypted JWT: {}", jwt.serialize());
             return Optional.of(jwt);
         } catch (Exception e) {
             log.error("Failed to decrypt JWE token: {}", e.getMessage());
