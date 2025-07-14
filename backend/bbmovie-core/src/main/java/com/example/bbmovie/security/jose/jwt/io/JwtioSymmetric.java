@@ -21,7 +21,8 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Log4j2
-@Component("hmac")
+@SuppressWarnings("squid:S6830")
+@Component("jwt.io.hmac")
 public class JwtioSymmetric implements JoseProviderStrategy {
 
     private final int jwtAccessExpirationInMs;

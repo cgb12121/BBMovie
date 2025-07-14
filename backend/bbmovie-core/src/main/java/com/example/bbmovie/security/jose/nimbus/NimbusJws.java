@@ -5,12 +5,14 @@ import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
 import com.example.bbmovie.security.jose.JoseProviderStrategy;
 import com.example.bbmovie.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
-import com.nimbusds.jose.*;
-import com.nimbusds.jose.crypto.RSADecrypter;
-import com.nimbusds.jose.crypto.RSAEncrypter;
+import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.JWSAlgorithm;
+import com.nimbusds.jose.JWSHeader;
+import com.nimbusds.jose.crypto.RSASSASigner;
+import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jwt.EncryptedJWT;
 import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.SignedJWT;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -24,34 +26,33 @@ import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Component;
 
 import java.text.ParseException;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Log4j2
-@Component("jwkJwe")
+@Component("nimbusJws")
 public class NimbusJws implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
     private final RSAKey activePrivateKey;
+    private final List<RSAKey> publicKeys;
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
-
     private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
     public NimbusJws(
             @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
             @Qualifier("activePrivateKey") RSAKey activePrivateKey,
+            List<RSAKey> publicKeys,
             RedisTemplate<Object, Object> redisTemplate,
             List<OAuth2UserInfoStrategy> strategies
     ) {
         this.jwtAccessTokenExpirationInMs = jwtAccessTokenExpirationInMs;
         this.jwtRefreshTokenExpirationInMs = jwtRefreshTokenExpirationInMs;
         this.activePrivateKey = activePrivateKey;
+        this.publicKeys = publicKeys;
         this.redisTemplate = redisTemplate;
         this.strategies = strategies;
     }
@@ -68,8 +69,8 @@ public class NimbusJws implements JoseProviderStrategy {
 
     private String generateToken(Authentication authentication, int expirationInMs) {
         try {
-            String username = extractUsername(authentication);
-            String role = extractRole(authentication);
+            String username = getUsernameFromAuthentication(authentication);
+            String role = getRoleFromAuthentication(authentication);
             Date now = new Date();
             Date expiryDate = new Date(now.getTime() + expirationInMs);
 
@@ -83,103 +84,114 @@ public class NimbusJws implements JoseProviderStrategy {
                     .claim("sid", UUID.randomUUID().toString())
                     .build();
 
-            JWEHeader header = new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A256GCM)
-                    .contentType("JWT")
+            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
+                    .type(JOSEObjectType.JWT)
                     .keyID(activePrivateKey.getKeyID())
                     .build();
 
-            EncryptedJWT encryptedJWT = new EncryptedJWT(header, claimsSet);
-
-            RSAKey publicKey = activePrivateKey.toPublicJWK();
-            JWEEncrypter encrypter = new RSAEncrypter(publicKey);
-
-            encryptedJWT.encrypt(encrypter);
-
-            return encryptedJWT.serialize();
+            SignedJWT signedJWT = new SignedJWT(header, claimsSet);
+            signedJWT.sign(new RSASSASigner(activePrivateKey.toRSAPrivateKey()));
+            return signedJWT.serialize();
         } catch (Exception e) {
-            log.error("Token encryption error: {}", e.getMessage());
-            throw new IllegalStateException("Failed to generate JWE token", e);
+            log.error("Token generation error: {}", e.getMessage());
+            throw new IllegalStateException("Failed to generate JWT", e);
         }
     }
 
-    private Optional<EncryptedJWT> resolveAndDecrypt(String token) {
-        if(token == null || token.isBlank()) return Optional.empty();
+    private String getUsernameFromAuthentication(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
 
-        if (token.split("\\.").length != 5) {
-            log.warn("Invalid JWE format (expected 5 parts): '{}'", token);
-            return Optional.empty();
-        }
+        if (principal instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        } else if (principal instanceof DefaultOAuth2User oauth2User) {
+            OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
+            String provider = token.getAuthorizedClientRegistrationId();
+            Map<String, Object> attributes = oauth2User.getAttributes();
 
-        try {
-            EncryptedJWT jwt = EncryptedJWT.parse(token);
-            RSADecrypter decrypter = new RSADecrypter(activePrivateKey.toRSAPrivateKey());
-            jwt.decrypt(decrypter);
-            log.debug("Decrypted JWT: {}", jwt.serialize());
-            return Optional.of(jwt);
-        } catch (Exception e) {
-            log.error("Failed to decrypt JWE token: {}", e.getMessage());
-            return Optional.empty();
+            OAuth2UserInfoStrategy strategy = getStrategyForProvider(provider);
+            return strategy.getUsername(attributes);
         }
+        throw new UnsupportedPrincipalType(
+                "Unsupported principal type: " + principal.getClass().getName()
+        );
+    }
+
+    private OAuth2UserInfoStrategy getStrategyForProvider(String provider) {
+        return strategies.stream()
+                .filter(s -> s.getAuthProvider().name().equalsIgnoreCase(provider))
+                .findFirst()
+                .orElseThrow(() -> new UnsupportedOAuth2Provider("Unsupported provider: " + provider));
+    }
+
+    private String getRoleFromAuthentication(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof User user) {
+            return "ROLE_" + user.getRole().name();
+        } else if (principal instanceof UserDetails userDetails) {
+            return userDetails.getAuthorities().stream()
+                    .findFirst()
+                    .map(GrantedAuthority::getAuthority)
+                    .orElse("ROLE_USER");
+        } else if (principal instanceof DefaultOAuth2User) {
+            return "ROLE_USER";
+        }
+        throw new UnsupportedPrincipalType(
+                "Unsupported principal type: " + principal.getClass().getName()
+        );
     }
 
     @Override
     public boolean validateToken(String token) {
-        return resolveAndDecrypt(token)
-                .map(jwt -> {
-                    try {
-                        Date expirationTime = jwt.getJWTClaimsSet().getExpirationTime();
-                        boolean expired = expirationTime.before(new Date());
-                        if (expired) {
-                            log.warn("Expired JWT token: {}", token);
-                            return false;
-                        }
-                        return true;
-                    } catch (ParseException e) {
-                        log.error("Error parsing expiration: {}", e.getMessage());
-                        return false;
-                    }
-                })
-                .orElse(false);
+        Optional<SignedJWT> verifiedJwt = resolveAndVerify(token);
+        if (verifiedJwt.isEmpty()) {
+            return false;
+        }
+        try {
+            return verifiedJwt.get().getJWTClaimsSet().getExpirationTime().after(new Date());
+        } catch (ParseException e) {
+            log.error("Failed to parse token expiration: {}", e.getMessage());
+            return false;
+        }
     }
 
     @Override
     public String getUsernameFromToken(String token) {
-        return resolveAndDecrypt(token)
+        return resolveAndVerify(token)
                 .map(jwt -> {
                     try {
                         return jwt.getJWTClaimsSet().getSubject();
-                    } catch (ParseException e) {
-                        throw new IllegalArgumentException("Invalid JWT subject", e);
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("Invalid JWK username", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Failed to resolve username from token"));
+                .orElseThrow(() -> new IllegalArgumentException("Failed to parse username from JWK token"));
     }
 
     @Override
     public List<String> getRolesFromToken(String token) {
-        return resolveAndDecrypt(token)
+        return resolveAndVerify(token)
                 .map(jwt -> {
                     try {
                         String role = (String) jwt.getJWTClaimsSet().getClaim("role");
                         return List.of(role);
-                    } catch (ParseException e) {
-                        throw new IllegalArgumentException("Invalid JWT role", e);
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("Invalid JWK", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Failed to resolve username from token"));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid JWK"));
     }
 
     @Override
     public Date getExpirationDateFromToken(String token) {
-        return resolveAndDecrypt(token)
+        return resolveAndVerify(token)
                 .map(jwt -> {
                     try {
                         return jwt.getJWTClaimsSet().getExpirationTime();
-                    } catch (ParseException e) {
-                        throw new IllegalArgumentException("Invalid JWT expiration", e);
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("Invalid JWK", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Token invalid or unverified"));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid JWK"));
     }
 
     @Override
@@ -190,7 +202,9 @@ public class NimbusJws implements JoseProviderStrategy {
 
     @Override
     public boolean isAccessTokenBlacklistedForEmailAndDevice(String email, String deviceName) {
-        if (email == null || deviceName == null) return false;
+        if (email == null || deviceName == null) {
+            return false;
+        }
         String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
         return redisTemplate != null && redisTemplate.hasKey(key);
     }
@@ -201,33 +215,36 @@ public class NimbusJws implements JoseProviderStrategy {
         redisTemplate.delete(key);
     }
 
-    private String extractUsername(Authentication authentication) {
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof UserDetails userDetails) return userDetails.getUsername();
-        if (principal instanceof DefaultOAuth2User oauthUser) {
-            String provider = ((OAuth2AuthenticationToken) authentication).getAuthorizedClientRegistrationId();
-            return getStrategyForProvider(provider).getUsername(oauthUser.getAttributes());
+    private Optional<SignedJWT> resolveAndVerify(String token) {
+        if (token == null || token.isBlank()) {
+            log.warn("Invalid token format (null, blank, or missing 3 JWT parts): '{}'", token);
+            return Optional.empty();
         }
-        throw new UnsupportedPrincipalType("Unsupported principal: " + principal.getClass().getName());
-    }
 
-    private String extractRole(Authentication authentication) {
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof User user) return "ROLE_" + user.getRole().name();
-        if (principal instanceof UserDetails userDetails)
-            return userDetails.getAuthorities()
-                    .stream()
-                    .findFirst()
-                    .map(GrantedAuthority::getAuthority)
-                    .orElse("ROLE_USER");
-        if (principal instanceof DefaultOAuth2User) return "ROLE_USER";
-        throw new UnsupportedPrincipalType("Unsupported principal: " + principal.getClass().getName());
-    }
+        try {
+            SignedJWT jwt = SignedJWT.parse(token);
+            String kid = jwt.getHeader().getKeyID();
+            if (kid == null) {
+                log.error("Token missing key ID (kid)");
+                return Optional.empty();
+            }
 
-    private OAuth2UserInfoStrategy getStrategyForProvider(String provider) {
-        return strategies.stream()
-                .filter(s -> s.getAuthProvider().name().equalsIgnoreCase(provider))
-                .findFirst()
-                .orElseThrow(() -> new UnsupportedOAuth2Provider("Unsupported provider: " + provider));
+            for (RSAKey key : publicKeys) {
+                if (key.getKeyID().equals(kid)) {
+                    if (jwt.verify(new RSASSAVerifier(key.toRSAPublicKey()))) {
+                        log.info("Token verified with kid: {}", kid);
+                        return Optional.of(jwt);
+                    } else {
+                        log.error("Token verification failed for kid: {}", kid);
+                        return Optional.empty();
+                    }
+                }
+            }
+            log.error("No matching key found for kid: {}", kid);
+            return Optional.empty();
+        } catch (Exception e) {
+            log.error("Failed to verify token: {}", e.getMessage());
+            return Optional.empty();
+        }
     }
 }

@@ -22,9 +22,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 import java.util.UUID;
 
+@Log4j2
 @Configuration
 @EnableScheduling
-@Log4j2(topic = "JwkRotation")
 public class JwkConfig {
 
     private final JwkKeyRepository keyRepo;
@@ -40,6 +40,7 @@ public class JwkConfig {
         if (activeKeys.isEmpty()) {
             rotateKey();
             activeKeys = keyRepo.findAll().stream().filter(JwkKey::isActive).toList();
+            log.info("Size  of active keys is {}", activeKeys.size());
         }
         try {
             return RSAKey.parse(activeKeys.get(0).getPrivateJwk());

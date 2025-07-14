@@ -29,7 +29,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.Base64;
 
 @Log4j2
-@Component("rsa")
+@SuppressWarnings("squid:S6830")
+@Component("jwt.io.rsa")
 public class JwtioAsymmetric implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;

@@ -26,7 +26,7 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Log4j2
-@Component("hmacNimbus")
+@Component("nimbusHmac")
 public class NimbusHmac implements JoseProviderStrategy {
 
     private final int jwtAccessExpirationInMs;

@@ -36,7 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.Base64;
 
 @Log4j2
-@Component("rsaNimbus")
+@Component("nimbusRSA")
 public class NimbusRsa implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
