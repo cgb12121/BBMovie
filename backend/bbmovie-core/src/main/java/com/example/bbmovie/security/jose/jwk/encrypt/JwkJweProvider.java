@@ -27,6 +27,7 @@ import java.text.ParseException;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 @Log4j2
@@ -77,10 +78,13 @@ public class JwkJweProvider implements JoseProviderStrategy {
             Date expiryDate = new Date(now.getTime() + expirationInMs);
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                    .issuer("bbmovie-core")
                     .subject(username)
                     .claim("role", role)
                     .issueTime(now)
                     .expirationTime(expiryDate)
+                    .jwtID(UUID.randomUUID().toString())
+                    .claim("sid", UUID.randomUUID().toString())
                     .build();
 
             JWEHeader header = new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A256GCM)

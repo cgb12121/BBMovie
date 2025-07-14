@@ -55,6 +55,9 @@ public class JoseHmacProvider implements JoseProviderStrategy {
         String role = getRoleFromAuthentication(authentication);
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationInMs);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("jti", UUID.randomUUID().toString());
+        claims.put("sid", UUID.randomUUID().toString());
 
         return Jwts.builder()
                 .setHeaderParam("typ", "JWT")
@@ -62,6 +65,7 @@ public class JoseHmacProvider implements JoseProviderStrategy {
                 .claim("role", role)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
+                .addClaims(claims)
                 .signWith(secretKey, SignatureAlgorithm.HS256)
                 .compact();
     }

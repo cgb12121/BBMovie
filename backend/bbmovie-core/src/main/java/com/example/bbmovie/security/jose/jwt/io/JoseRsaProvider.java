@@ -85,13 +85,18 @@ public class JoseRsaProvider implements JoseProviderStrategy {
         String role = getRoleFromAuthentication(authentication);
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationInMs);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("jti", UUID.randomUUID().toString());
+        claims.put("sid", UUID.randomUUID().toString());
 
         return Jwts.builder()
+                .setIssuer("bbmovie-core")
                 .setHeaderParam("typ", "JWT")
                 .setSubject(username)
                 .claim("role", role)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
+                .addClaims(claims)
                 .signWith(privateKey, SignatureAlgorithm.RS256)
                 .compact();
     }

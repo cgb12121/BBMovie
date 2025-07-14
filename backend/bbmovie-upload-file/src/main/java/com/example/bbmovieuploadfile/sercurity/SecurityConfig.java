@@ -4,9 +4,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
+import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import reactor.core.publisher.Mono;
 
 @Configuration
 public class SecurityConfig {
@@ -28,7 +30,22 @@ public class SecurityConfig {
     }
 
     @Bean
-    public ReactiveJwtDecoder jwtDecoder() {
-        return NimbusReactiveJwtDecoder.withJwkSetUri(JWK_ENDPOINT_URI).build();
+    public ReactiveJwtDecoder jwtDecoder(TokenBlacklistService tokenBlacklistService) {
+        NimbusReactiveJwtDecoder delegate = NimbusReactiveJwtDecoder.withJwkSetUri(JWK_ENDPOINT_URI).build();
+
+        return token -> delegate.decode(token)
+                .flatMap(jwt -> {
+                    String jti = jwt.getId();
+                    if (jti == null) return Mono.error(new JwtException("Missing jti claim"));
+
+                    return tokenBlacklistService.isBlacklisted(jti)
+                            .flatMap(blacklisted -> {
+                                if (blacklisted) {
+                                    return Mono.error(new JwtException("Token is blacklisted"));
+                                }
+                                return Mono.just(jwt);
+                            });
+                });
     }
+
 }

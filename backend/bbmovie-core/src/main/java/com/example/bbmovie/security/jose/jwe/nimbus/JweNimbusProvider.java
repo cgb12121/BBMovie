@@ -106,10 +106,13 @@ public class JweNimbusProvider implements JoseProviderStrategy {
             Date expiryDate = new Date(now.getTime() + expirationInMs);
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                    .issuer("bbmovie-core")
                     .subject(username)
                     .claim("role", role)
                     .issueTime(now)
                     .expirationTime(expiryDate)
+                    .jwtID(UUID.randomUUID().toString())
+                    .claim("sid", UUID.randomUUID().toString())
                     .build();
 
             JWEHeader header = new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A128GCM).build();
