@@ -1,6 +1,7 @@
 package com.example.bbmovie.security.jose.jwt.io;
 
 import com.example.bbmovie.entity.User;
+import com.example.bbmovie.entity.enumerate.Role;
 import com.example.bbmovie.exception.UnsupportedOAuth2Provider;
 import com.example.bbmovie.exception.UnsupportedPrincipalType;
 import com.example.bbmovie.security.jose.JoseProviderStrategy;
@@ -129,15 +130,16 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
 
     private String getRoleFromAuthentication(Authentication authentication) {
         Object principal = authentication.getPrincipal();
+        String rolePrefix = "ROLE_";
         if (principal instanceof User user) {
-            return "ROLE_" + user.getRole().name();
+            return rolePrefix + user.getRole().name();
         } else if (principal instanceof UserDetails userDetails) {
             return userDetails.getAuthorities().stream()
                     .findFirst()
                     .map(GrantedAuthority::getAuthority)
-                    .orElse("ROLE_USER");
+                    .orElse(rolePrefix + Role.USER.name());
         } else if (principal instanceof DefaultOAuth2User) {
-            return "ROLE_USER";
+            return rolePrefix + Role.USER.name();
         }
         throw new UnsupportedPrincipalType(
                 "Unsupported principal type: " + principal.getClass().getName()

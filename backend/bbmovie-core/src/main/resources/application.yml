@@ -6,7 +6,6 @@ app:
     # jwt.io.hmac
     # jwt.io.rsa //debug endpoint not compatible, using wrong key from jwk
     # nimbusHmac
-    # nimbusRSA //debug endpoint not compatible, using wrong key from jwk
     strategy: nimbusJws
     key:
       secret: ${JOSE_SECRET}
@@ -42,7 +41,6 @@ database:
   secret-factory.algorithm: ${DATABASE_SECRET_FACTORY_ALGORITHM}
   salt: ${DATABASE_SALT}
   iterations: ${DATABASE_ITERATIONS}
-
 
 spring:
   application:
@@ -168,14 +166,6 @@ spring:
       authorizationserver:
           endpoint:
             jwk-set-uri: http://localhost:8080/.well-known/jwks.json
-#Data encrypt/decrypt
-#database:
-#  secret-key-password: ${DATABASE_SECRET_KEY_PASSWORD}
-#  database.algorithm: ${DATABASE_ALGORITHM}
-#  database.secret-factory.algorithm: ${DATABASE_SECRET_FACTORY_ALGORITHM}
-#  database.salt: ${DATABASE_SALT}
-#  database.iterations: ${DATABASE_ITERATIONS}
-
 
 logging:
   level:
