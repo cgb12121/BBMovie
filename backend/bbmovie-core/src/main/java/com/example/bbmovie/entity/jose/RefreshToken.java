@@ -1,6 +1,7 @@
 package com.example.bbmovie.entity.jose;
 
 import java.util.Date;
+import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -47,6 +48,12 @@ public class RefreshToken {
 
     @Column(length = 1000, nullable = false)
     private String token;
+
+    @Column(name = "jti", nullable = false)
+    private String jti;
+
+    @Column(name = "sid", nullable = false)
+    private UUID sid;
 
     @Column(nullable = false)
     private Date expiryDate;
