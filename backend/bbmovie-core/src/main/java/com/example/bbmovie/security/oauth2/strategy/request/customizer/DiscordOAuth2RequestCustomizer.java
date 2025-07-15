@@ -13,6 +13,6 @@ public class DiscordOAuth2RequestCustomizer implements OAuth2RequestCustomizer {
 
     @Override
     public void customize(Map<String, Object> parameters) {
-        // Discord does not support customizing parameters to control logi behavior
+        // Discord does not support customizing parameters to control login behavior
     }
 }

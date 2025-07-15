@@ -26,7 +26,7 @@ public class FileValidationService {
                 .flatMap(fileExtension ->
                         clamAVService.scanFile(filePath)
                                 .handle((scanResult, sink) -> {
-                                    if (scanResult) {
+                                    if (Boolean.TRUE.equals(scanResult)) {
                                         sink.next(fileExtension);
                                     } else {
                                         sink.error(new MalwareFileException("Malware file(s) detected: " + fileExtension));

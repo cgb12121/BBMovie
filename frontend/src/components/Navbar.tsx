@@ -6,6 +6,7 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import UserMenu from './UserMenu';
 import AuthLinks from './AuthLinks';
+import { CloudUpload, Folder } from '@mui/icons-material';
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
@@ -45,6 +46,16 @@ const Navbar: React.FC = () => {
           <UserMenu />
         ) : (
           <AuthLinks />
+        )}
+        {isAuthenticated && (
+          <>
+            <NavLink to="/upload" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <CloudUpload /> File Upload
+            </NavLink>
+            <NavLink to="/files" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Folder /> File Management
+            </NavLink>
+          </>
         )}
       </NavLinks>
     </Nav>

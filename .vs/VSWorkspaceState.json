@@ -1,0 +1,16 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\backend",
+    "\\backend\\bbmovie-core",
+    "\\backend\\bbmovie-core\\src",
+    "\\backend\\bbmovie-core\\src\\main",
+    "\\backend\\bbmovie-core\\src\\main\\java",
+    "\\backend\\bbmovie-core\\src\\main\\java\\com",
+    "\\backend\\bbmovie-core\\src\\main\\java\\com\\example",
+    "\\backend\\bbmovie-core\\src\\main\\java\\com\\example\\bbmovie",
+    "\\backend\\bbmovie-core\\src\\main\\java\\com\\example\\bbmovie\\common"
+  ],
+  "SelectedNode": "\\backend\\bbmovie-core\\src\\main\\java\\com\\example\\bbmovie\\common\\ValidationHandler.java",
+  "PreviewInSolutionExplorer": false
+}
