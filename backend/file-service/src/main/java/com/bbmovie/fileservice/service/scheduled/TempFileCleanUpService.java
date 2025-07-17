@@ -6,6 +6,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.time.LocalDateTime;
 
 @Log4j2
 @Service
@@ -18,11 +25,40 @@ public class TempFileCleanUpService {
         this.tempFileRecordRepository = tempFileRecordRepository;
     }
 
-    @Scheduled(cron = "0 0 0 * * *")
-    public Mono<Void> removeAllTempFilesFromSystem() {
-        // return type: Mono<Iterable<TempFileRecord>>
-        return tempFileRecordRepository.findAllTempFiles()
-                .flatMapIterable(e -> e)
-                .then();
+    public Mono<Void> cleanupTempFile(Path tempPath) {
+        String fileName = tempPath.getFileName().toString();
+        return Mono.fromCallable(() -> {
+                    try {
+                        Files.deleteIfExists(tempPath);
+                        log.info("Temp file {} deleted.", tempPath);
+                        return true;
+                    } catch (IOException e) {
+                        log.warn("Failed to delete temp file {}: {}", tempPath, e.getMessage());
+                        return false;
+                    }
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(success -> {
+                    if (Boolean.TRUE.equals(success)) {
+                        return tempFileRecordRepository.findByFileName(fileName)
+                                .flatMap(tempFileRecord -> {
+                                    tempFileRecord.setRemoved(true);
+                                    tempFileRecord.setRemovedAt(LocalDateTime.now());
+                                    return tempFileRecordRepository.save(tempFileRecord).then();
+                                })
+                                .onErrorResume(err -> {
+                                    log.warn("Failed to update TempFileRecord for {}: {}", fileName, err.getMessage());
+                                    return Mono.empty();
+                                });
+                    }
+                    return Mono.empty();
+                });
+    }
+
+    @Scheduled(cron = "0 0 3 * * *")
+    public void cleanupOldTempFiles() {
+        tempFileRecordRepository.findAllByIsRemovedFalse()
+                .flatMap(tempFileRecord -> cleanupTempFile(Paths.get(tempFileRecord.getTempDir())))
+                .subscribe();
     }
 }

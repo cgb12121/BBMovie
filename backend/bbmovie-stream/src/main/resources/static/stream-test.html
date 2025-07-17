@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBMovie Stream Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        video {
+            width: 100%;
+            max-width: 800px;
+            height: auto;
+            background: #000;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+            border-left: 4px solid #007bff;
+        }
+        .movie-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .movie-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border: 1px solid #ddd;
+        }
+        .movie-card h4 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .movie-card p {
+            margin: 5px 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .status {
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.ready { background: #d4edda; color: #155724; }
+        .status.processing { background: #fff3cd; color: #856404; }
+        .status.pending { background: #f8d7da; color: #721c24; }
+        .status.error { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>BBMovie Stream Service Test</h1>
+        
+        <div class="controls">
+            <button onclick="loadMovies()">Load Movies</button>
+            <button onclick="listFiles()">List Video Files</button>
+            <button onclick="testStream()">Test Stream</button>
+            <button onclick="checkHealth()">Health Check</button>
+        </div>
+        
+        <video id="videoPlayer" controls>
+            <source id="videoSource" src="" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+    </div>
+
+    <div class="container">
+        <div id="info" class="info">
+            <h3>BBMovie Stream Service</h3>
+            <p>This service provides video streaming with HTTP range request support.</p>
+            <ul>
+                <li>Supports seeking and progressive download</li>
+                <li>Database-backed movie management</li>
+                <li>HLS playlist generation</li>
+                <li>Multiple video formats</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="container">
+        <h3>Available Movies</h3>
+        <div id="movieList" class="movie-list">
+            <!-- Movies will be loaded here -->
+        </div>
+    </div>
+
+    <script>
+        const videoPlayer = document.getElementById('videoPlayer');
+        const videoSource = document.getElementById('videoSource');
+        const infoDiv = document.getElementById('info');
+        const movieListDiv = document.getElementById('movieList');
+
+        async function checkHealth() {
+            try {
+                const response = await fetch('/test/health');
+                const message = await response.text();
+                updateInfo(`<h3>Health Check</h3><p style="color: green;">${message}</p>`);
+            } catch (error) {
+                updateInfo(`<h3>Health Check</h3><p style="color: red;">Service unavailable: ${error.message}</p>`);
+            }
+        }
+
+        async function loadMovies() {
+            try {
+                const response = await fetch('/movies');
+                const movies = await response.json();
+                
+                if (movies.length === 0) {
+                    movieListDiv.innerHTML = '<p>No movies found in database. Upload some movies first.</p>';
+                } else {
+                    displayMovies(movies);
+                }
+                
+                updateInfo(`<h3>Movies Loaded</h3><p>Found ${movies.length} movies in database.</p>`);
+            } catch (error) {
+                updateInfo(`<h3>Error</h3><p style="color: red;">Failed to load movies: ${error.message}</p>`);
+            }
+        }
+
+        async function listFiles() {
+            try {
+                const response = await fetch('/test/files');
+                const files = await response.json();
+                
+                if (files.length === 0) {
+                    updateInfo('<h3>Video Files</h3><p>No video files found. Add files to the videos/ directory.</p>');
+                } else {
+                    const fileList = files.map(f => `<li>${f}</li>`).join('');
+                    updateInfo(`<h3>Video Files</h3><ul>${fileList}</ul>`);
+                }
+            } catch (error) {
+                updateInfo(`<h3>Error</h3><p style="color: red;">Failed to list files: ${error.message}</p>`);
+            }
+        }
+
+        async function testStream() {
+            const filename = prompt('Enter video filename to test:');
+            if (filename) {
+                try {
+                    // Test metadata first
+                    const metadataResponse = await fetch(`/stream/metadata/${filename}`);
+                    if (metadataResponse.ok) {
+                        const metadata = await metadataResponse.json();
+                        
+                        // Load video
+                        videoSource.src = `/stream/${filename}`;
+                        videoPlayer.load();
+                        
+                        updateInfo(`
+                            <h3>Streaming: ${filename}</h3>
+                            <p><strong>Size:</strong> ${(metadata.fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                            <p><strong>Type:</strong> ${metadata.contentType}</p>
+                            <p><strong>Streamable:</strong> ${metadata.streamable ? 'Yes' : 'No'}</p>
+                            <p><strong>HLS:</strong> ${metadata.hlsEnabled ? 'Enabled' : 'Disabled'}</p>
+                        `);
+                    } else {
+                        updateInfo(`<h3>Error</h3><p style="color: red;">Movie not found: ${filename}</p>`);
+                    }
+                } catch (error) {
+                    updateInfo(`<h3>Error</h3><p style="color: red;">Failed to load video: ${error.message}</p>`);
+                }
+            }
+        }
+
+        function displayMovies(movies) {
+            movieListDiv.innerHTML = movies.map(movie => `
+                <div class="movie-card">
+                    <h4>${movie.title}</h4>
+                    <p><strong>Filename:</strong> ${movie.filename}</p>
+                    <p><strong>Size:</strong> ${(movie.fileSize / 1024 / 1024).toFixed(2)} MB</p>
+                    <p><strong>Duration:</strong> ${movie.duration ? formatDuration(movie.duration) : 'Unknown'}</p>
+                    <p><strong>Resolution:</strong> ${movie.resolution || 'Unknown'}</p>
+                    <p><strong>Status:</strong> <span class="status ${movie.status.toLowerCase()}">${movie.status}</span></p>
+                    <button onclick="playMovie('${movie.filename}')" ${movie.status !== 'READY' ? 'disabled' : ''}>
+                        Play Movie
+                    </button>
+                    ${movie.hlsEnabled ? `<button onclick="playHls('${movie.filename}')">Play HLS</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function playMovie(filename) {
+            videoSource.src = `/stream/${filename}`;
+            videoPlayer.load();
+            updateInfo(`<h3>Now Playing</h3><p>${filename}</p>`);
+        }
+
+        function playHls(filename) {
+            // For HLS, you'd typically use a library like hls.js
+            updateInfo(`<h3>HLS Playlist</h3><p>HLS streaming for ${filename} - would require hls.js library for full support</p>`);
+        }
+
+        function formatDuration(seconds) {
+            const hours = Math.floor(seconds / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${secs.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function updateInfo(content) {
+            infoDiv.innerHTML = content;
+        }
+
+        // Initialize page
+        checkHealth();
+        loadMovies();
+    </script>
+</body>
+</html>

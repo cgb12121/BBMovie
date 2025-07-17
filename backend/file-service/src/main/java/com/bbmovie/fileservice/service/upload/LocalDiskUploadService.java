@@ -4,16 +4,19 @@ import com.bbmovie.fileservice.entity.TempFileRecord;
 import com.bbmovie.fileservice.entity.cdc.OutboxEvent;
 import com.bbmovie.fileservice.entity.cdc.OutboxStatus;
 import com.bbmovie.fileservice.exception.FileUploadException;
+import com.bbmovie.fileservice.exception.UnsupportedExtension;
 import com.bbmovie.fileservice.repository.OutboxEventRepository;
 import com.bbmovie.fileservice.repository.TempFileRecordRepository;
 import com.bbmovie.fileservice.service.ffmpeg.FFmpegVideoMetadata;
 import com.bbmovie.fileservice.service.ffmpeg.VideoMetadataService;
 import com.bbmovie.fileservice.service.ffmpeg.VideoTranscoderService;
 import com.bbmovie.fileservice.service.kafka.ReactiveFileUploadEventPublisher;
+import com.bbmovie.fileservice.service.scheduled.TempFileCleanUpService;
 import com.bbmovie.fileservice.service.storage.FileStorageStrategyFactory;
 import com.bbmovie.fileservice.service.storage.LocalStorageStrategy;
 import com.bbmovie.fileservice.service.storage.LocalStorageStrategyImpl;
 import com.bbmovie.fileservice.service.storage.StorageStrategy;
+import com.bbmovie.fileservice.service.validation.FileValidationService;
 import com.example.common.dtos.kafka.FileUploadEvent;
 import com.example.common.dtos.kafka.UploadMetadata;
 import com.example.common.enums.Storage;
@@ -65,6 +68,8 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
     private final VideoMetadataService metadataService;
     private final VideoTranscoderService transcoderService;
     private final TempFileRecordRepository tempFileRecordRepository;
+    private final FileValidationService fileValidationService;
+    private final TempFileCleanUpService tempFileCleanUpService;
 
     @Autowired
     public LocalDiskUploadService(
@@ -74,7 +79,9 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
             ObjectMapper objectMapper,
             VideoMetadataService metadataService,
             VideoTranscoderService transcoderService,
-            TempFileRecordRepository tempFileRecordRepository
+            TempFileRecordRepository tempFileRecordRepository,
+            FileValidationService fileValidationService,
+            TempFileCleanUpService tempFileCleanUpService
     ) {
         this.fileUploadEventPublisher = fileUploadEventPublisher;
         this.storageStrategyFactory = storageStrategyFactory;
@@ -83,73 +90,75 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
         this.metadataService = metadataService;
         this.transcoderService = transcoderService;
         this.tempFileRecordRepository = tempFileRecordRepository;
+        this.fileValidationService = fileValidationService;
+        this.tempFileCleanUpService = tempFileCleanUpService;
     }
 
     @Transactional
     public Mono<ResponseEntity<String>> uploadFile(FilePart filePart, UploadMetadata metadata, Authentication auth) {
         // Temporarily enforce the storage strategy to be LOCAL directly
-        if (metadata.getStorage() == null || !Storage.LOCAL.name().equalsIgnoreCase(metadata.getStorage().name())) {
-            return Mono.error(new FileUploadException("Storage strategy not supported."));
-        }
         StorageStrategy strategy = storageStrategyFactory.getStrategy(Storage.LOCAL.name());
 
         String username = auth.getName();
         String originalFilename = filePart.filename();
         String fileExtension = getExtension(originalFilename);
         String originalNameWithoutExtension = FilenameUtils.removeExtension(originalFilename);
-        String tempSaveName = sanitizeFilenameWithoutExtension(originalNameWithoutExtension) + fileExtension; // the originalFilename with extension has no postfix yet
+        String tempSaveName = sanitizeFilenameWithoutExtension(originalNameWithoutExtension) + "." + fileExtension; // the originalFilename with extension has no postfix yet
 
         Path tempPath = Paths.get(tempDir, tempSaveName);
         log.info("Uploading file {} to temp directory {}", originalFilename, tempPath);
 
-        return filePart.transferTo(tempPath)
-                .then(Mono.defer(() ->{
+        return filePart.transferTo(tempPath) // store on temp folder
+                .then(fileValidationService.validateFile(tempPath))
+                .then(Mono.defer(() -> {
                     TempFileRecord tempFileRecord = createNewTempUploadEvent(metadata, originalNameWithoutExtension, fileExtension, tempPath, username);
                     return tempFileRecordRepository.saveTempFile(tempFileRecord);
                 }))
                 .then(metadataService.getMetadata(tempPath)) // probe before storing => get precise metadata
                 .flatMap(videoMeta -> {
                     log.info("Metadata: {}", videoMeta);
-                    String originalResolution = getOriginalResolution(videoMeta);
-                    String fullOriginalNameWithResolutionPostFix = tempSaveName +
-                            "_" +
-                            originalResolution +
-                            getExtension(originalFilename);
+                    log.info("Uploading file {} to original directory {}", originalFilename, tempPath);
+                    List<VideoTranscoderService.VideoResolution> videoResolutionList =
+                            getResolutionsToTranscode(videoMeta, originalNameWithoutExtension, getExtension(originalFilename));
+                    log.info("Resolutions to transcode: {}", videoResolutionList.stream().toList().toString());
 
-                    return strategy.store(filePart, fullOriginalNameWithResolutionPostFix)
-                            .flatMap(fileUploadResult -> {
-                                log.info("Stored file {} as {}", fullOriginalNameWithResolutionPostFix, fileUploadResult.getUrl());
-                                Path originalPath = Paths.get(uploadDir, fullOriginalNameWithResolutionPostFix);
-                                List<VideoTranscoderService.VideoResolution> videoResolutionList =
-                                        getResolutionsToTranscode(videoMeta, originalNameWithoutExtension, getExtension(originalFilename));
-                                log.info("Resolutions to transcode: {}", videoResolutionList.stream().toList().toString());
+                    return transcoderService.transcode(tempPath, videoResolutionList, uploadDir)
+                            .flatMap(paths -> {
+                                log.info("Transcoded paths: {}", paths.stream().map(Path::toString).toList());
+                                List<Mono<FileUploadEvent>> monos = new ArrayList<>();
 
-                                return transcoderService.transcode(originalPath, videoResolutionList, uploadDir)
-                                        .flatMap(paths -> {
-                                            log.info("Transcoded paths: {}", paths.stream().map(Path::toString).toList());
-                                            List<Mono<FileUploadEvent>> monos = new ArrayList<>();
+                                for (int i = 0; i < paths.size(); i++) {
+                                    Path transcoded = paths.get(i);
+                                    log.info("Transcoded path: {}", transcoded);
+                                    VideoTranscoderService.VideoResolution videoResolution = videoResolutionList.get(i);
+                                    String resLabel;
+                                    String[] parts = videoResolution.filename().split("_");
+                                    if (parts.length < 2) {
+                                        log.warn("Unexpected filename format: {}", videoResolution.filename());
+                                        resLabel = "unknown";
+                                    } else {
+                                        resLabel = parts[1].replace(".mp4", "");
+                                    }
+                                    log.info("Transcoded path: {}, quality: {}", transcoded, resLabel);
 
-                                            for (int i = 0; i < paths.size(); i++) {
-                                                Path transcoded = paths.get(i);
-                                                log.info("Transcoded path: {}", transcoded);
-                                                VideoTranscoderService.VideoResolution videoResolution = videoResolutionList.get(i);
-                                                String resLabel = videoResolution.filename().split("_")[1].replace(".mp4", "");
-                                                log.info("Transcoded path: {}, quality: {}", transcoded, resLabel);
 
-                                                if (strategy instanceof LocalStorageStrategy fileCapable) {
-                                                    Mono<FileUploadEvent> mono = fileCapable.store(transcoded.toFile(), videoResolution.filename())
-                                                            .flatMap(result -> {
-                                                                log.info("Stored transcoded file {} as {}", videoResolution.filename(), result.getUrl());
-                                                                FileUploadEvent event = createEvent(videoResolution.filename(), username, metadata, result);
-                                                                event.setQuality(resLabel);
-                                                                return publishEventAndOutbox(event);
-                                                            });
-                                                    monos.add(mono);
-                                                    log.info("Executing Mono: {}", monos);
-                                                }
-                                            }
-                                            return Mono.just(ResponseEntity.ok("Video uploaded and processed."));
-                                        });
+                                    Mono<FileUploadEvent> mono = strategy.store(transcoded.toFile(), videoResolution.filename())
+                                            .flatMap(result -> {
+                                                log.info("Stored transcoded file {} as {}", videoResolution.filename(), result.getUrl());
+                                                FileUploadEvent event = createEvent(videoResolution.filename(), username, metadata, result);
+                                                event.setQuality(resLabel);
+                                                return publishEventAndOutbox(event);
+                                            });
+                                    monos.add(mono);
+                                    log.info("Executing Mono: {}", monos);
+                                }
+
+                                return Mono.just(ResponseEntity.ok("Video uploaded and processed."))
+                                        .publishOn(Schedulers.boundedElastic())
+                                        .doOnNext(response ->
+                                                tempFileCleanUpService.cleanupTempFile(tempPath)
+                                                .subscribe()
+                                        );
                             });
                 })
                 .onErrorResume(ex -> {
@@ -165,23 +174,32 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
     @SuppressWarnings("squid:S3776")
     public Flux<String> uploadWithProgress(FilePart filePart, UploadMetadata metadata, Authentication auth) {
         // Temporarily enforce the storage strategy to be LOCAL directly
-        if (metadata.getStorage() == null || !Storage.LOCAL.name().equalsIgnoreCase(metadata.getStorage().name())) {
-            return Flux.error(new FileUploadException("Storage strategy not supported."));
-        }
         StorageStrategy strategy = storageStrategyFactory.getStrategy(Storage.LOCAL.name());
 
         String username = auth.getName();
         String originalFilename = filePart.filename();
+        log.info("Uploading file to original directory {}", originalFilename);
         String fileExtension = getExtension(originalFilename);
+        log.info("File extension: {}", fileExtension);
         String originalNameWithoutExtension = sanitizeFilenameWithoutExtension(originalFilename);
-        String tempSaveName = originalNameWithoutExtension + fileExtension;
+        log.info("Original name without extension: {}", originalNameWithoutExtension);
+        String tempSaveName = originalNameWithoutExtension + "." + fileExtension;
+        log.info("Temp save name with extension: {}", tempSaveName);
 
         Path tempPath = Paths.get(tempDir, tempSaveName);
 
         return Flux.create(sink -> {
             sink.next("⏳ Starting upload: " + originalFilename);
 
-            filePart.transferTo(tempPath)
+            filePart.transferTo(tempPath) // save original file to temp folder
+                    .then(fileValidationService.validateFile(tempPath))
+                    .doOnNext(isValid -> {
+                        if (Boolean.TRUE.equals(isValid)) {
+                            sink.next("✅ Original video stored.");
+                        } else {
+                            sink.error(new UnsupportedExtension("Unsupported extension: " + fileExtension));
+                        }
+                    })
                     .then(Mono.defer(() -> {
                         TempFileRecord newRecord = createNewTempUploadEvent(metadata, originalNameWithoutExtension, fileExtension, tempPath, username);
                         return tempFileRecordRepository.saveTempFile(newRecord);
@@ -189,51 +207,47 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
                     .then(metadataService.getMetadata(tempPath))
                     .flatMapMany(videoMeta -> {
                         sink.next("📦 Metadata probed: " + videoMeta.width() + "x" + videoMeta.height());
+                        sink.next("Begin to transcode video into multiple resolutions.");
 
-                        String originalResolution = getOriginalResolution(videoMeta);
-                        String fullNameWithRes = tempSaveName + "_" + originalResolution + getExtension(originalFilename);
-                        Path originalPath = Paths.get(uploadDir, fullNameWithRes);
+                        List<VideoTranscoderService.VideoResolution> videoResolutions =
+                                getResolutionsToTranscode(videoMeta, originalNameWithoutExtension, getExtension(originalFilename));
+                        log.info("Resolutions to transcode v2: {}", videoResolutions.stream().toList().toString());
+                        return transcoderService.transcode(tempPath, videoResolutions, uploadDir)
+                                .doOnNext(paths -> sink.next("🎞️ Transcoding complete for " + paths.size() + " resolutions"))
+                                .flatMapMany(paths -> {
+                                    List<Mono<FileUploadEvent>> events = new ArrayList<>();
+                                    for (int i = 0; i < paths.size(); i++) {
+                                        Path transcoded = paths.get(i);
+                                        VideoTranscoderService.VideoResolution videoResolution = videoResolutions.get(i);
+                                        String label = extractLabel(videoResolution.filename());
+                                        log.info("{} | {}", videoResolution.filename(), label);
 
-                        return strategy.store(tempPath.toFile(), fullNameWithRes)
-                                .doOnNext(temp -> sink.next("✅ Original video stored."))
-                                .flatMapMany(temp -> {
-                                    List<VideoTranscoderService.VideoResolution> videoResolutions = getResolutionsToTranscode(videoMeta, tempSaveName, getExtension(originalFilename));
-                                    return transcoderService.transcode(originalPath, videoResolutions, uploadDir)
-                                            .doOnNext(paths -> sink.next("🎞️ Transcoding complete for " + paths.size() + " resolutions"))
-                                            .flatMapMany(paths -> {
-                                                List<Mono<FileUploadEvent>> events = new ArrayList<>();
-                                                for (int i = 0; i < paths.size(); i++) {
-                                                    Path transcoded = paths.get(i);
-                                                    VideoTranscoderService.VideoResolution videoResolution = videoResolutions.get(i);
-                                                    String label = extractLabel(videoResolution.filename());
-                                                    log.info("{} | {}", videoResolution.filename(), label);
+                                        events.add(strategy.store(transcoded.toFile(), videoResolution.filename())
+                                                .doOnNext(r -> sink.next("📤 Uploaded " + label + " version."))
+                                                .flatMap(result -> {
+                                                    FileUploadEvent event = createEvent(videoResolution.filename(), username, metadata, result);
+                                                    event.setQuality(label);
+                                                    log.info("Event {}: {}", label, event);
+                                                    return publishEventAndOutbox(event);
+                                                })
+                                                .doOnError(ex -> sink.next("⚠️ Failed to process " + label + " version: " + ex.getMessage()))
+                                                .onErrorResume(ex -> Mono.empty()) // Continue on error
+                                                .timeout(Duration.ofSeconds(300), Mono.empty())); // Prevent hangs
+                                    }
 
-                                                    if (strategy instanceof LocalStorageStrategyImpl fileCapable) {
-                                                        events.add(fileCapable.store(transcoded.toFile(), videoResolution.filename())
-                                                                .doOnNext(r -> sink.next("📤 Uploaded " + label + " version."))
-                                                                .flatMap(result -> {
-                                                                    FileUploadEvent event = createEvent(videoResolution.filename(), username, metadata, result);
-                                                                    event.setQuality(label);
-                                                                    log.info("Event {}: {}", label, event);
-                                                                    return publishEventAndOutbox(event);
-                                                                })
-                                                                .doOnError(ex -> sink.next("⚠️ Failed to process " + label + " version: " + ex.getMessage()))
-                                                                .onErrorResume(ex -> Mono.empty()) // Continue on error
-                                                                .timeout(Duration.ofSeconds(300), Mono.empty())); // Prevent hangs
-                                                    } else {
-                                                        sink.next("⚠️ Skipped " + label + " version: storage strategy not supported.");
-                                                    }
-                                                }
+                                    if (events.isEmpty()) {
+                                        sink.next("⚠️ No transcoded files were processed for storage.");
+                                        return Flux.just("🎉 Upload complete (no transcoding performed).");
+                                    }
 
-                                                if (events.isEmpty()) {
-                                                    sink.next("⚠️ No transcoded files were processed for storage.");
-                                                    return Flux.just("🎉 Upload complete (no transcoding performed).");
-                                                }
-
-                                                return Flux.merge(events)
-                                                        .map(event -> "📥 Published event for " + event.getTitle())
-                                                        .concatWith(Flux.just("🎉 Upload & processing complete."));
-                                            });
+                                    return Flux.merge(events)
+                                            .map(event -> "📥 Published event for " + event.getTitle())
+                                            .concatWith(Flux.just("🎉 Upload & processing complete."))
+                                            .publishOn(Schedulers.boundedElastic())
+                                            .doOnNext(response ->
+                                                    tempFileCleanUpService.cleanupTempFile(tempPath)
+                                                            .subscribe()
+                                            );
                                 });
                     })
                     .doOnError(ex -> {
@@ -255,17 +269,17 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
     ) {
         List<VideoTranscoderService.VideoResolution> videoResolutions = new ArrayList<>();
         if (meta.width() >= 1920)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(1920, 1080, baseNameWithoutExtension + _1080P + extension));
+            videoResolutions.add(new VideoTranscoderService.VideoResolution(1920, 1080, baseNameWithoutExtension + "_" + _1080P + "." + extension));
         if (meta.width() >= 1280)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(1280, 720, baseNameWithoutExtension + _720P + extension));
+            videoResolutions.add(new VideoTranscoderService.VideoResolution(1280, 720, baseNameWithoutExtension + "_" + _720P + "." + extension));
         if (meta.width() >= 854)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(854, 480, baseNameWithoutExtension + _480P + extension));
+            videoResolutions.add(new VideoTranscoderService.VideoResolution(854, 480, baseNameWithoutExtension + "_"  + _480P + "." + extension));
         if (meta.width() >= 640)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(640, 360, baseNameWithoutExtension + _360P + extension));
+            videoResolutions.add(new VideoTranscoderService.VideoResolution(640, 360, baseNameWithoutExtension + "_"  + _360P + "." + extension));
         if (meta.width() >= 320)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(320, 240, baseNameWithoutExtension + _240P + extension));
+            videoResolutions.add(new VideoTranscoderService.VideoResolution(320, 240, baseNameWithoutExtension + "_"  + _240P + "." + extension));
         if (meta.width() >= 160)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(160, 144, baseNameWithoutExtension + _144P + extension));
+            videoResolutions.add(new VideoTranscoderService.VideoResolution(160, 144, baseNameWithoutExtension + "_"  + _144P + "." + extension));
         return videoResolutions;
     }
 

@@ -21,15 +21,15 @@ public class FileValidationService {
         this.clamAVService = clamAVService;
     }
 
-    public Mono<String> validateAndGetFileExtension(Path filePath) {
-        return tikaService.getAndValidateContentType(filePath)
-                .flatMap(fileExtension ->
+    public Mono<Boolean> validateFile(Path filePath) {
+        return tikaService.isValidContentType(filePath)
+                .flatMap(tikaResult ->
                         clamAVService.scanFile(filePath)
                                 .handle((scanResult, sink) -> {
                                     if (Boolean.TRUE.equals(scanResult)) {
-                                        sink.next(fileExtension);
+                                        sink.next(tikaResult);
                                     } else {
-                                        sink.error(new MalwareFileException("Malware file(s) detected: " + fileExtension));
+                                        sink.error(new MalwareFileException("Malware file(s) detected!"));
                                     }
                                 })
                 );

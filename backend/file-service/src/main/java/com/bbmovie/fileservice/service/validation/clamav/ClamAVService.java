@@ -27,8 +27,10 @@ public class ClamAVService {
 
     public Mono<Boolean> scanFile(Path filePath) {
         return Mono.fromCallable(() -> {
+            log.info("Scan file: {}", filePath);
                 try (InputStream is = Files.newInputStream(filePath)) {
                     ScanResult scanResult = clamAVClient.scan(is);
+                    log.info("Scan result: {}", scanResult.toString());
                     if (scanResult instanceof ScanResult.OK) {
                         return true;
                     }

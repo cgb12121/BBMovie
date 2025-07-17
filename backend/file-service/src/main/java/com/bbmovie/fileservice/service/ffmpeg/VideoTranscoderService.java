@@ -32,8 +32,8 @@ public class VideoTranscoderService {
     public Mono<List<Path>> transcode(Path input, List<VideoResolution> videoResolutions, String outputDir) {
         return Mono.fromCallable(() -> {
                     FFmpegBuilder builder = new FFmpegBuilder()
-                            .addProgress(new URI("pipe:1"))
-                            .setVerbosity(FFmpegBuilder.Verbosity.INFO)
+//                            .addProgress(new URI("pipe:1"))
+//                            .setVerbosity(FFmpegBuilder.Verbosity.INFO)
                             .setInput(input.toString())
                             .overrideOutputFiles(true);
 

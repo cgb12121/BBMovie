@@ -42,7 +42,10 @@ public class FileMetaDataUtils {
 
     public static String sanitizeFilenameWithoutExtension(String input) {
         int lastDotIndex = input.lastIndexOf('.');
-        String fileNameWithoutExtension = input.substring(0, lastDotIndex);
+        String fileNameWithoutExtension = input;
+        if (lastDotIndex != -1) {
+            fileNameWithoutExtension = input.substring(0, lastDotIndex);
+        }
 
         return fileNameWithoutExtension
                 .replaceAll("[^\\w\\- ]", "_") // Keep only letters, numbers, underscores, hyphens, and spaces

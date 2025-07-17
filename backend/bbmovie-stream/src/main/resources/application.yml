@@ -32,3 +32,22 @@ spring:
       mode: always
 server:
   port: 8082
+
+video:
+  streaming:
+    storage-path: ${VIDEO_STORAGE_PATH:videos/}
+    chunk-size: 1048576  # 1MB
+    enable-hls: true
+    enable-dash: false
+    max-concurrent-streams: 100
+    require-authentication: true
+    max-file-size: 5368709120  # 5GB
+    allowed-formats:
+      - mp4
+      - webm
+      - ogg
+      - avi
+      - mov
+      - mkv
+    hls-segment-duration: "10"
+    hls-playlist-type: "vod"

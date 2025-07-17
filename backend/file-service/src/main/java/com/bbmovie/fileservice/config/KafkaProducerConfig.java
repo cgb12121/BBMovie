@@ -6,7 +6,6 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
@@ -31,13 +30,6 @@ public class KafkaProducerConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, FileUploadEvent> kafkaListenerContainerFactory() {
-        ConcurrentKafkaListenerContainerFactory<String, FileUploadEvent> factory = new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setCommonErrorHandler(errorHandler());
-        return factory;
-    }
-
-    @Bean
     public DefaultErrorHandler errorHandler() {
         BackOff backOff = new FixedBackOff(1000L, 3);
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
@@ -53,5 +45,4 @@ public class KafkaProducerConfig {
     public KafkaTemplate<String, FileUploadEvent> kafkaTemplate() {
         return new KafkaTemplate<>(producerFactory());
     }
-
 }

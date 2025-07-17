@@ -6,9 +6,8 @@ import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-
-import java.time.LocalDateTime;
 
 @Repository
 public interface TempFileRecordRepository extends ReactiveCrudRepository<TempFileRecord, String> {
@@ -25,26 +24,17 @@ public interface TempFileRecordRepository extends ReactiveCrudRepository<TempFil
     """)
     Mono<Void> saveTempFile(@Param("newRecord") TempFileRecord newRecord);
 
-    @Modifying
-    @Query("UPDATE temp_file SET is_removed = :isRemoved WHERE id = :id")
-    Mono<Void> updateTempFile(String id, boolean isRemoved);
-
     @Query("SELECT * FROM temp_file WHERE is_removed = false")
-    Mono<Iterable<TempFileRecord>> findAllTempFiles();
+    Flux<TempFileRecord> findAllByIsRemovedFalse();
 
-    @Query("SELECT * FROM temp_file WHERE uploaded_by = :uploadedBy AND is_removed = false")
-    Mono<TempFileRecord> findTempFileByUploadedBy(String uploadedBy);
+    @Query("SELECT * FROM temp_file WHERE file_name = :fileName")
+    Mono<TempFileRecord> findByFileName(String fileName);
 
-    @Query("SELECT * FROM temp_file WHERE temp_store_for = :tempStoreFor AND is_removed = false")
-    Mono<TempFileRecord> findTempFileByTempStoreFor(String tempStoreFor);
-
-    @Query("SELECT * FROM temp_file WHERE id = :id")
-    Mono<TempFileRecord> findTempFileById(String id);
-
-    @Modifying
-    @Query("UPDATE temp_file SET is_removed = true WHERE id = :id")
-    Mono<Void> removeTempFile(String id);
-
-    @Query("UPDATE temp_file SET is_removed = true, removed_at = :removedAt WHERE id = :id")
-    Mono<Void> markAsRemoved(String id, LocalDateTime removedAt);
+    @Query("""
+        UPDATE temp_file
+        SET is_removed = true,
+            removed_at = CURRENT_TIMESTAMP
+        WHERE file_name = :fileName
+    """)
+    Mono<Integer> markAsRemovedByFileName(String fileName);
 }

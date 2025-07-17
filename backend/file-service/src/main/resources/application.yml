@@ -24,6 +24,13 @@ spring:
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
 
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 1
+
 logging:
   level:
     org.springframework.security: DEBUG
@@ -66,4 +73,3 @@ jose:
 
 server:
   port: 8081
-

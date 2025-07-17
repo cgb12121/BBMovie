@@ -3,11 +3,11 @@ package com.bbmovie.fileservice.sercurity;
 import com.bbmovie.fileservice.sercurity.jose.TokenBlacklistService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.jwt.JwtException;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
@@ -34,6 +34,13 @@ public class SecurityConfig {
     @Value("${jose.jws.endpoint}")
     private String jwsEndpoint;
 
+    private final TokenBlacklistService tokenBlacklistService;
+
+    @Autowired
+    public SecurityConfig(TokenBlacklistService tokenBlacklistService) {
+        this.tokenBlacklistService = tokenBlacklistService;
+    }
+
     @Bean
     public SecurityWebFilterChain filterChain(ServerHttpSecurity http) {
         return http
@@ -44,7 +51,14 @@ public class SecurityConfig {
                 .pathMatchers("/actuator/**").permitAll()
                 .anyExchange().permitAll()
             )
-            .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()))
+            .oauth2ResourceServer(oauth2 -> oauth2.jwt(
+                    jwt -> jwt.jwtDecoder(joseDecoder(
+                            tokenBlacklistService,
+                            jwkDecoder(),
+                            jwsDecoder(),
+                            hmacDecoder()
+                    )))
+            )
             .build();
     }
 
@@ -91,7 +105,7 @@ public class SecurityConfig {
 
                         return tokenBlacklistService.isBlacklisted(jti)
                                 .flatMap(blacklisted -> {
-                                    if (blacklisted) {
+                                    if (Boolean.TRUE.equals(blacklisted)) {
                                         return Mono.error(new JwtException("Unauthorize access."));
                                     }
                                     return Mono.just(jwt);

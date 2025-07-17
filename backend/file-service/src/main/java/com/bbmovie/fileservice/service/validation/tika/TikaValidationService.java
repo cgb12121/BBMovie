@@ -23,29 +23,31 @@ public class TikaValidationService {
         this.tika = tika;
     }
 
-    public Mono<String> getAndValidateContentType(Path path) {
+    public Mono<Boolean> isValidContentType(Path path) {
         return Mono.fromCallable(() -> {
-            String extension = tika.detect(path.toFile());
-            log.info("Detected content type: {}", extension);
-            if (extension.startsWith("image/")) {
+            String contentType = tika.detect(path.toFile());
+            String extension = contentType.substring(contentType.lastIndexOf("/") + 1).toLowerCase();
+            log.info("Detected content type: {}, {}", contentType, extension);
+            if (contentType.startsWith("image/")) {
                 List<String> allowedImageExtensions = ImageExtension.getAllowedExtensions()
                         .stream()
-                        .map(Enum::toString)
+                        .map(ImageExtension::getExtension)
                         .toList();
                 if (allowedImageExtensions.contains(extension)) {
-                    return extension;
+                    return true;
                 }
             }
-            if (extension.startsWith("video/")) {
-                List<String> allowedVideoExtension = VideoExtension.getAllowedVideoExtensions()
+            if (contentType.startsWith("video/")) {
+                List<String> allowedVideoExtensions = VideoExtension.getAllowedVideoExtensions()
                         .stream()
-                        .map(Enum::toString)
+                        .map(VideoExtension::getExtension)
                         .toList();
-                if (allowedVideoExtension.contains(extension)) {
-                    return extension;
+                if (allowedVideoExtensions.contains(extension)) {
+                    return true;
                 }
             }
-            throw new UnsupportedExtension("Unsupported file type: " + extension);
+            log.error("Unsupported file type: {}", contentType);
+            return false;
         });
     }
 }
