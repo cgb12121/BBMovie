@@ -1,10 +1,10 @@
-package com.bbmovie.apigateway;
+package com.bbmovie.gateway;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class ApiGatewayApplicationTests {
+class GatewayApplicationTests {
 
     @Test
     void contextLoads() {
