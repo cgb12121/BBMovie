@@ -16,6 +16,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.bbmovie.fileservice.constraints.ResolutionConstraints.*;
+
 @Log4j2
 @Service
 public class VideoTranscoderService {
@@ -29,11 +31,22 @@ public class VideoTranscoderService {
 
     public record VideoResolution(int width, int height, String filename) { }
 
+    public record ResolutionDefinition(int minWidth, int targetWidth, int targetHeight, String suffix) { }
+
+    public static final List<ResolutionDefinition> PREDEFINED_RESOLUTIONS = List.of(
+            new ResolutionDefinition(1920, 1920, 1080, _1080P),
+            new ResolutionDefinition(1280, 1280, 720, _720P),
+            new ResolutionDefinition(854, 854, 480, _480P),
+            new ResolutionDefinition(640, 640, 360, _360P),
+            new ResolutionDefinition(320, 320, 240, _240P),
+            new ResolutionDefinition(160, 160, 144, _144P)
+    );
+
     public Mono<List<Path>> transcode(Path input, List<VideoResolution> videoResolutions, String outputDir) {
         return Mono.fromCallable(() -> {
                     FFmpegBuilder builder = new FFmpegBuilder()
-//                            .addProgress(new URI("pipe:1"))
-//                            .setVerbosity(FFmpegBuilder.Verbosity.INFO)
+                            .addProgress(new URI("pipe:1"))
+                            .setVerbosity(FFmpegBuilder.Verbosity.ERROR) // only log error
                             .setInput(input.toString())
                             .overrideOutputFiles(true);
 
@@ -159,7 +172,7 @@ public class VideoTranscoderService {
                             .addOutput(outputPath.toString())
                             .setVideoCodec("libx264")
                             .setPreset("ultrafast")
-                            .addExtraArgs("-vf", "subtitles=" + subtitleFile.toString())
+                            .addExtraArgs("-vf", "subtitles=" + subtitleFile)
                             .setFormat("mp4")
                             .done();
 
@@ -172,7 +185,9 @@ public class VideoTranscoderService {
                 .subscribeOn(Schedulers.boundedElastic());
     }
 
-    public Mono<Path> addCommentaryWithLoweredAudio(Path inputVideo, Path inputAudio, String outputDir, String outputFilename, double volumeReduction) {
+    public Mono<Path> addCommentaryWithLoweredAudio(
+            Path inputVideo, Path inputAudio, String outputDir, String outputFilename, double volumeReduction
+    ) {
         return Mono.fromCallable(() -> {
                     String sanitizedOutputFilename = FilenameUtils.getName(outputFilename);
                     Path outputPath = Paths.get(outputDir, sanitizedOutputFilename);
@@ -187,7 +202,7 @@ public class VideoTranscoderService {
                             .overrideOutputFiles(true)
                             .setComplexFilter(
                                     "[0:a]volume=" + volumeReduction + "[lowered];" +
-                                            "[lowered][1:a]amix=inputs=2:duration=shortest"
+                                    "[lowered][1:a]amix=inputs=2:duration=shortest"
                             )
                             .addOutput(outputPath.toString())
                             .setVideoCodec("copy")
@@ -201,7 +216,10 @@ public class VideoTranscoderService {
                     return outputPath;
                 })
                 .doOnError(throwable ->
-                        log.error("Failed to add commentary to {} with audio {}: {}", inputVideo, inputAudio, throwable.getMessage(), throwable)
+                        log.error(
+                                "Failed to add commentary to {} with audio {}: {}",
+                                inputVideo, inputAudio, throwable.getMessage(), throwable
+                        )
                 )
                 .subscribeOn(Schedulers.boundedElastic());
     }

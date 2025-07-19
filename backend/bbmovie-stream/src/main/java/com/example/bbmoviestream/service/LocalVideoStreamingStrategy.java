@@ -7,6 +7,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,25 +44,17 @@ public class LocalVideoStreamingStrategy implements VideoStreamingStrategy {
     @Override
     public Mono<Resource> loadPartialResource(Movie movie, long start, long length) {
         return loadVideoResource(movie).flatMap(resource -> Mono.fromCallable(() -> {
-            InputStream is = resource.getInputStream();
-            if (is.skip(start) != start) {
-                throw new IOException("Unable to skip to start");
-            }
-            return new InputStreamResource(new LimitedInputStream(is, length));
-        }));
+                InputStream is = resource.getInputStream();
+                if (is.skip(start) != start) {
+                    throw new IOException("Unable to skip to start");
+                }
+                return new InputStreamResource(new LimitedInputStream(is, length));
+            }).publishOn(Schedulers.boundedElastic())
+        );
     }
 
     @Override
     public Mono<String> generateHlsPlaylist(Movie movie) {
-        return Mono.fromCallable(() -> {
-            if (movie.getHlsPlaylistPath() == null) {
-                throw new IllegalStateException("No HLS path set");
-            }
-            Path playlistPath = Paths.get(movie.getHlsPlaylistPath());
-            if (Files.exists(playlistPath)) {
-                return Files.readString(playlistPath);
-            }
-            throw new FileNotFoundException("HLS playlist not found");
-        });
+        return Mono.error(new IOException("This operation is not supported yet."));
     }
 }

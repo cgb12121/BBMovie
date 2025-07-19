@@ -28,6 +28,7 @@ public class TempFileCleanUpService {
     public Mono<Void> cleanupTempFile(Path tempPath) {
         String fileName = tempPath.getFileName().toString();
         return Mono.fromCallable(() -> {
+            log.info("Attempt to deleting temp file: {}", fileName);
                     try {
                         Files.deleteIfExists(tempPath);
                         log.info("Temp file {} deleted.", tempPath);
@@ -52,7 +53,7 @@ public class TempFileCleanUpService {
                                 });
                     }
                     return Mono.empty();
-                });
+                }).then();
     }
 
     @Scheduled(cron = "0 0 3 * * *")

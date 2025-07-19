@@ -8,7 +8,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 public interface FileUploadStrategyService {
-    Mono<ResponseEntity<String>> uploadFile(FilePart filePart, UploadMetadata metadata, Authentication auth);
+    Mono<ResponseEntity<String>> uploadFileAndTranscodeV1(FilePart filePart, UploadMetadata metadata, Authentication auth);
 
-    Flux<String> uploadWithProgress(FilePart filePart, UploadMetadata metadata, Authentication auth);
+    Flux<String> uploadFileAndTranscodeWithProgressV2(FilePart filePart, UploadMetadata metadata, Authentication auth);
 }

@@ -59,8 +59,10 @@ public class SecurityConfig {
 
     @Autowired
     public SecurityConfig(
-            JoseFilter joseFilter, IpAnonymityFilter ipAnonymityFilter, CorsConfigurationSource corsConfigurationSource, CustomUserDetailsService userDetailsService,
-            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler, CustomAuthorizationRequestResolver customAuthorizationRequestResolver
+            JoseFilter joseFilter, IpAnonymityFilter ipAnonymityFilter,
+            CorsConfigurationSource corsConfigurationSource, CustomUserDetailsService userDetailsService,
+            OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
+            CustomAuthorizationRequestResolver customAuthorizationRequestResolver
     ) {
         this.joseFilter = joseFilter;
         this.ipAnonymityFilter = ipAnonymityFilter;

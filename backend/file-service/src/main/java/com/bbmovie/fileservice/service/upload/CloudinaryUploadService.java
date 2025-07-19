@@ -47,7 +47,9 @@ public class CloudinaryUploadService implements FileUploadStrategyService {
     }
 
     @Override
-    public Mono<ResponseEntity<String>> uploadFile(FilePart filePart, UploadMetadata metadata, Authentication auth) {
+    public Mono<ResponseEntity<String>> uploadFileAndTranscodeV1(
+            FilePart filePart, UploadMetadata metadata, Authentication auth
+    ) {
         String username = auth.getName();
         String originalFilename = filePart.filename();
         String extension = FilenameUtils.getExtension(originalFilename);
@@ -59,7 +61,8 @@ public class CloudinaryUploadService implements FileUploadStrategyService {
 
         return filePart.transferTo(tempPath)//Save temp file 1st time?
             .then(Mono.defer(() -> {
-                TempFileRecord tempFileRecord = createNewTempUploadEvent(metadata, nameWithoutExt, extension, tempPath, username);
+                TempFileRecord tempFileRecord =
+                        createNewTempUploadEvent(metadata, nameWithoutExt, extension, tempPath, username);
                 return tempFileRecordRepository.saveTempFile(tempFileRecord);
             }))
             .then(strategy.store(tempPath.toFile(), safeName))// Save file to temp 2nd time?
@@ -71,7 +74,9 @@ public class CloudinaryUploadService implements FileUploadStrategyService {
     }
 
     @Override
-    public Flux<String> uploadWithProgress(FilePart filePart, UploadMetadata metadata, Authentication auth) {
+    public Flux<String> uploadFileAndTranscodeWithProgressV2(
+            FilePart filePart, UploadMetadata metadata, Authentication auth
+    ) {
         return Flux.error(new UnsupportedOperationException("Cloud upload does not support progress tracking yet."));
     }
 }

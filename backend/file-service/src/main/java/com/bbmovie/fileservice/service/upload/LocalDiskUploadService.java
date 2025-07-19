@@ -13,8 +13,6 @@ import com.bbmovie.fileservice.service.ffmpeg.VideoTranscoderService;
 import com.bbmovie.fileservice.service.kafka.ReactiveFileUploadEventPublisher;
 import com.bbmovie.fileservice.service.scheduled.TempFileCleanUpService;
 import com.bbmovie.fileservice.service.storage.FileStorageStrategyFactory;
-import com.bbmovie.fileservice.service.storage.LocalStorageStrategy;
-import com.bbmovie.fileservice.service.storage.LocalStorageStrategyImpl;
 import com.bbmovie.fileservice.service.storage.StorageStrategy;
 import com.bbmovie.fileservice.service.validation.FileValidationService;
 import com.example.common.dtos.kafka.FileUploadEvent;
@@ -43,13 +41,13 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
-import static com.bbmovie.fileservice.constraints.ResolutionConstraints.*;
+import static com.bbmovie.fileservice.service.ffmpeg.VideoTranscoderService.PREDEFINED_RESOLUTIONS;
 import static com.bbmovie.fileservice.utils.FileMetaDataUtils.*;
 import static com.bbmovie.fileservice.utils.FileUploadEventUtils.createEvent;
 import static com.bbmovie.fileservice.utils.FileUploadEventUtils.createNewTempUploadEvent;
 import static org.apache.commons.io.FilenameUtils.getExtension;
-
 
 @Log4j2
 @Service("localUploadService")
@@ -94,8 +92,9 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
         this.tempFileCleanUpService = tempFileCleanUpService;
     }
 
+    @Override
     @Transactional
-    public Mono<ResponseEntity<String>> uploadFile(FilePart filePart, UploadMetadata metadata, Authentication auth) {
+    public Mono<ResponseEntity<String>> uploadFileAndTranscodeV1(FilePart filePart, UploadMetadata metadata, Authentication auth) {
         // Temporarily enforce the storage strategy to be LOCAL directly
         StorageStrategy strategy = storageStrategyFactory.getStrategy(Storage.LOCAL.name());
 
@@ -153,6 +152,10 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
                                     log.info("Executing Mono: {}", monos);
                                 }
 
+                                Flux.merge(monos)
+                                        .subscribeOn(Schedulers.boundedElastic())
+                                        .subscribe();
+
                                 return Mono.just(ResponseEntity.ok("Video uploaded and processed."))
                                         .publishOn(Schedulers.boundedElastic())
                                         .doOnNext(response ->
@@ -172,7 +175,7 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
 
     @Transactional
     @SuppressWarnings("squid:S3776")
-    public Flux<String> uploadWithProgress(FilePart filePart, UploadMetadata metadata, Authentication auth) {
+    public Flux<String> uploadFileAndTranscodeWithProgressV2(FilePart filePart, UploadMetadata metadata, Authentication auth) {
         // Temporarily enforce the storage strategy to be LOCAL directly
         StorageStrategy strategy = storageStrategyFactory.getStrategy(Storage.LOCAL.name());
 
@@ -198,6 +201,7 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
                             sink.next("✅ Original video stored.");
                         } else {
                             sink.error(new UnsupportedExtension("Unsupported extension: " + fileExtension));
+                            sink.complete();
                         }
                     })
                     .then(Mono.defer(() -> {
@@ -267,20 +271,13 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
     private List<VideoTranscoderService.VideoResolution> getResolutionsToTranscode(
             FFmpegVideoMetadata meta, String baseNameWithoutExtension, String extension
     ) {
-        List<VideoTranscoderService.VideoResolution> videoResolutions = new ArrayList<>();
-        if (meta.width() >= 1920)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(1920, 1080, baseNameWithoutExtension + "_" + _1080P + "." + extension));
-        if (meta.width() >= 1280)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(1280, 720, baseNameWithoutExtension + "_" + _720P + "." + extension));
-        if (meta.width() >= 854)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(854, 480, baseNameWithoutExtension + "_"  + _480P + "." + extension));
-        if (meta.width() >= 640)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(640, 360, baseNameWithoutExtension + "_"  + _360P + "." + extension));
-        if (meta.width() >= 320)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(320, 240, baseNameWithoutExtension + "_"  + _240P + "." + extension));
-        if (meta.width() >= 160)
-            videoResolutions.add(new VideoTranscoderService.VideoResolution(160, 144, baseNameWithoutExtension + "_"  + _144P + "." + extension));
-        return videoResolutions;
+        return PREDEFINED_RESOLUTIONS.stream()
+                .filter(def -> meta.width() >= def.minWidth())
+                .map(def -> {
+                    String filename = String.format("%s_%s.%s", baseNameWithoutExtension, def.suffix(), extension);
+                    return new VideoTranscoderService.VideoResolution(def.targetWidth(), def.targetHeight(), filename);
+                })
+                .collect(Collectors.toList());
     }
 
     private Mono<FileUploadEvent> publishEventAndOutbox(FileUploadEvent event) {

@@ -45,7 +45,7 @@ public class FileUploadController {
             @Valid @RequestPart("metadata") UploadMetadata metadata,
             Authentication auth
     ) {
-        return localDiskUploadService.uploadFile(filePart, metadata, auth);
+        return localDiskUploadService.uploadFileAndTranscodeV1(filePart, metadata, auth);
     }
 
     @PostMapping(
@@ -58,7 +58,7 @@ public class FileUploadController {
             @Valid @RequestPart("metadata") UploadMetadata metadata,
             Authentication auth
     ) {
-        return localDiskUploadService.uploadWithProgress(filePart, metadata, auth)
+        return localDiskUploadService.uploadFileAndTranscodeWithProgressV2(filePart, metadata, auth)
                 .map(message -> ServerSentEvent.builder(message).build());
     }
 
@@ -72,6 +72,6 @@ public class FileUploadController {
             Authentication auth
     ) {
         FileUploadStrategyService strategyService = uploadStrategyServiceFactory.getService(metadata.getStorage());
-        return strategyService.uploadFile(filePart, metadata, auth);
+        return strategyService.uploadFileAndTranscodeV1(filePart, metadata, auth);
     }
 }
