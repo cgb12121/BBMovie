@@ -104,6 +104,10 @@
             <artifactId>jansi</artifactId>
             <version>2.4.0</version>
         </dependency>
+        <dependency>
+            <groupId>io.micronaut.discovery</groupId>
+            <artifactId>micronaut-discovery-client</artifactId>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/org.flywaydb/flyway-core -->
         <dependency>
             <groupId>org.flywaydb</groupId>
