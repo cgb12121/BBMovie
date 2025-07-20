@@ -113,6 +113,10 @@
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-smallrye-jwt</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-health</artifactId>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/com.github.fmcejudo/quarkus-eureka -->
         <dependency>
             <groupId>com.github.fmcejudo</groupId>

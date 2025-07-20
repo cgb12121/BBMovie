@@ -11,7 +11,8 @@ spring:
               predicates:
                 - Path=/api/**,/ws/**,/.well-known/**
               filters:
-                - StripPrefix=1
+                - StripPrefix=0
+
 
 eureka:
   client:
@@ -25,6 +26,8 @@ logging:
   level:
     org.springframework.cloud.gateway: DEBUG
     com.netflix.discovery: DEBUG
+    reactor.netty.http.client: DEBUG
+
 
 server:
   port: 8765
