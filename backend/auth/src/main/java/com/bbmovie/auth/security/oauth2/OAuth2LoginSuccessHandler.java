@@ -1,5 +1,6 @@
 package com.bbmovie.auth.security.oauth2;
 
+import com.bbmovie.auth.dto.response.UserAgentResponse;
 import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.entity.enumerate.Role;
 import com.bbmovie.auth.entity.jose.RefreshToken;
@@ -7,6 +8,7 @@ import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategyFactory;
 import com.bbmovie.auth.service.UserService;
+import com.bbmovie.auth.service.auth.RefreshTokenService;
 import com.bbmovie.auth.utils.DeviceInfoUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
