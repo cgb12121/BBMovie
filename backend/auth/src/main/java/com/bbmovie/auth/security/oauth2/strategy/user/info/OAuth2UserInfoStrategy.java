@@ -1,0 +1,22 @@
+package com.bbmovie.auth.security.oauth2.strategy.user.info;
+
+import com.bbmovie.auth.entity.enumerate.AuthProvider;
+
+import java.util.Map;
+
+@SuppressWarnings("unused")
+public interface OAuth2UserInfoStrategy {
+    String getEmailAttributeKey(Map<String, Object> attributes);
+    String getEmail(Map<String, Object> attributes);
+
+    String getNameAttributeKey(Map<String, Object> attributes);
+    String getName(Map<String, Object> attributes);
+
+    String getUsernameAttributeKey(Map<String, Object> attributes);
+    String getUsername(Map<String, Object> attributes);
+
+    String getAvatarUrlAttributeKey(Map<String, Object> attributes);
+    String getAvatarUrl(Map<String, Object> attributes);
+
+    AuthProvider getAuthProvider();
+}
