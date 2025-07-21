@@ -31,7 +31,7 @@ public class JwkService {
         if (rsaKeys.isEmpty()) {
             return Collections.emptyMap();
         }
-        return rsaKeys.get(0).toPublicJWK().toJSONObject();
+        return rsaKeys.getFirst().toPublicJWK().toJSONObject();
     }
 
     public Map<String, Object> getAllActiveJwks() {
@@ -45,7 +45,7 @@ public class JwkService {
 
     public List<Map<String, Object>> getAllPublicJwks() {
         return keyRepo.findAll().stream()
-                .sorted(Comparator.comparing(JwkKey::getCreatedAt).reversed())
+                .sorted(Comparator.comparing(JwkKey::getCreatedDate).reversed())
                 .limit(5)
                 .map(jwk -> {
                     try {

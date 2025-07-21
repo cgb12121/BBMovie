@@ -104,6 +104,7 @@ public class SecurityConfig {
                 .configurationSource(corsConfigurationSource)
             )
             .authorizeHttpRequests(auth -> auth
+                .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/.well-known/jwks.json").permitAll()
                 // Allow websocket handshake, jwt will be processed later in interceptor
                 .requestMatchers("/ws/**").permitAll()
@@ -114,7 +115,6 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.getWriter().write("Unauthorized request");
-                            response.sendRedirect("http://localhost:3000/unauthorized");
                         })
             )
             .requestCache(RequestCacheConfigurer::disable)

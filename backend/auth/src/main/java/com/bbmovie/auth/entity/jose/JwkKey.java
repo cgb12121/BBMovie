@@ -6,8 +6,6 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.*;
 
-import java.time.Instant;
-
 @Entity
 @Builder
 @Getter
@@ -26,8 +24,6 @@ public class JwkKey extends BaseEntity {
 
     private boolean isActive = true;
 
-    private Instant createdAt;
-
     @Override
     public String toString() {
         return "\n Jwk { \n"
@@ -35,7 +31,7 @@ public class JwkKey extends BaseEntity {
                 + "          public key: " + this.publicJwk + ",\n"
                 + "          private key: [SECRET]"  + ", \n"
                 + "          isActive: " + this.isActive + ", \n"
-                + "          createdAt: " + this.createdAt +
+                + "          createdAt: " + this.getCreatedDate() +
                 "\n }";
     }
 }

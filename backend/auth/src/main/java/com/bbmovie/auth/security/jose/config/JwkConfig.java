@@ -15,6 +15,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.chrono.ChronoLocalDateTime;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -41,7 +42,7 @@ public class JwkConfig {
             log.info("Size  of active keys is {}", activeKeys.size());
         }
         try {
-            return RSAKey.parse(activeKeys.get(0).getPrivateJwk());
+            return RSAKey.parse(activeKeys.getFirst().getPrivateJwk());
         } catch (Exception e) {
             throw new IllegalStateException("Invalid active key", e);
         }
@@ -50,7 +51,7 @@ public class JwkConfig {
     @Bean
     public List<RSAKey> publicKeys() {
         return keyRepo.findAll().stream()
-                .sorted(Comparator.comparing(JwkKey::getCreatedAt))
+                .sorted(Comparator.comparing(JwkKey::getCreatedDate))
                 .map(key -> {
                     try {
                         return RSAKey.parse(key.getPrivateJwk());
@@ -103,7 +104,6 @@ public class JwkConfig {
                 .privateJwk(rsaKey.toJSONString())
                 .publicJwk(rsaKey.toPublicJWK().toJSONString())
                 .isActive(true)
-                .createdAt(Instant.now())
                 .build();
     }
 
@@ -112,8 +112,8 @@ public class JwkConfig {
         Instant cutoff = Instant.now().minus(tokenLifetime);
         if (keys.size() > 5) {
             keys.stream()
-                    .filter(key -> !key.isActive() && !key.getCreatedAt().isBefore(cutoff))
-                    .sorted(Comparator.comparing(JwkKey::getCreatedAt))
+                    .filter(key -> !key.isActive() && !key.getCreatedDate().isBefore(ChronoLocalDateTime.from(cutoff)))
+                    .sorted(Comparator.comparing(JwkKey::getCreatedDate))
                     .limit(keys.size() - 5L)
                     .forEach(keyRepo::delete);
         }

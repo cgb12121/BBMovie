@@ -45,7 +45,7 @@ spring:
     password: ${DATABASE_PASSWORD}
   jpa:
     hibernate:
-      ddl-auto: create
+      ddl-auto: create-drop
     show-sql: false
     properties:
       hibernate:
@@ -82,20 +82,6 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD}
       database: 0
-  servlet:
-    multipart:
-      enabled: true
-      max-file-size: 2024MB
-      max-request-size: 2024MB
-  #  ssl:
-#    bundle:
-#      pem:
-#        server:
-#          keystore:
-#            certificate: ${SERVER_CERTIFICATE}
-#            private-key: ${SERVER_PRIVATE_KEY}
-#            private-key-password: ${SERVER_PRIVATE_KEY_PASSWORD}
-#          reload-on-update: ${SERVER_RELOAD_ON_UPDATE}
   kafka:
     bootstrap-servers: localhost:9092
     consumer:
@@ -112,28 +98,28 @@ spring:
           github:
             client-id: ${GITHUB_CLIENT_ID}
             client-secret: ${GITHUB_CLIENT_SECRET}
-            redirect-uri: "http://localhost:8080/login/oauth2/code/github"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             scope: read:user,user:email
           google:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
-            redirect-uri: "http://localhost:8080/login/oauth2/code/google"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             scope: profile,email
           facebook:
             client-id: ${FACEBOOK_CLIENT_ID}
             client-secret: ${FACEBOOK_CLIENT_SECRET}
-            redirect-uri: "http://localhost:8080/login/oauth2/code/facebook"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             scope: public_profile,email
           discord:
             client-id: ${DISCORD_CLIENT_ID}
             client-secret: ${DISCORD_CLIENT_SECRET}
-            redirect-uri: "http://localhost:8080/login/oauth2/code/discord"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             authorization-grant-type: authorization_code
             scope: identify,email
           x:
             client-id: ${X_CLIENT_ID}
             client-secret: ${X_CLIENT_SECRET}
-            redirect-uri: "http://localhost:8080/login/oauth2/code/x"
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
             authorization-grant-type: authorization_code
             client-authentication-method: client_secret_basic
             scope:
@@ -164,6 +150,7 @@ spring:
 logging:
   level:
     org:
+      org.springframework.web.filter.CommonsRequestLoggingFilter: DEBUG
       org.springframework.security: TRACE
       org.springframework.security.oauth2: TRACE
       org.springframework.web.client: DEBUG
@@ -177,14 +164,6 @@ logging:
         ai: DEBUG
     ai:
       djl: DEBUG
-
-server:
-#  ssl:
-#    bundle: ${SERVER_SSL_BUNDLE}
-  port: 8080
-  compression:
-    enabled: true
-    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
 
 
 ip:
@@ -212,5 +191,7 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
-  instance:
-    hostname: localhost
+
+
+server:
+  port: 8080

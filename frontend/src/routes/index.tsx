@@ -52,4 +52,71 @@ const AppRoutes: React.FC = () => {
   );
 };
 
+export const routes: AppRoute[] = [
+  {
+      path: '/',
+      element: <Home />,
+      name: 'Home'
+  },
+  {
+      path: '/login',
+      element: <Login />,
+      name: 'Login'
+  },
+  {
+      path: '/register',
+      element: <Registration />,
+      name: 'Register'
+  },
+  {
+      path: '/verify-email',
+      element: <EmailVerification />,
+      name: 'Email Verification'
+  },
+  {
+      path: '/movies',
+      element: <Movies />,
+      name: 'Movies'
+  },
+  {
+      path: '/movies/:id',
+      element: <MovieDetail />,
+      name: 'Movie Detail'
+  },
+  {
+      path: '/categories',
+      element: <Categories />,
+      name: 'Categories'
+  },
+  {
+      path: '/categories/:id',
+      element: <CategoryDetail />,
+      name: 'Category Detail'
+  },
+  {
+      path: '/search',
+      element: <SearchResults />
+  },
+  {
+      path: '/not-found',
+      element: <NotFound />,
+      name: 'Not Found'
+  },
+  {
+      path: '/forbidden',
+      element: <Forbidden/>,
+      name: 'Forbidden'
+  },
+  {
+      path: '/profile',
+      element: <Profile/>,
+      name: 'Profile'
+  },
+  {
+      path: '/jose-debug',
+      element: <JoseDebug />,
+      name: 'JOSE Debug'
+  }
+]; 
+
 export default AppRoutes; 
