@@ -1,9 +1,14 @@
 package com.bbmovie.auth.service.auth;
 
-import com.bbmovie.auth.dto.UserAgentResponse;
+import com.bbmovie.auth.dto.request.ChangePasswordRequest;
+import com.bbmovie.auth.dto.request.LoginRequest;
+import com.bbmovie.auth.dto.request.RegisterRequest;
+import com.bbmovie.auth.dto.request.ResetPasswordRequest;
+import com.bbmovie.auth.dto.response.*;
 import com.bbmovie.auth.entity.User;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.validation.Valid;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.transaction.annotation.Transactional;
 

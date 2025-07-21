@@ -1,7 +1,15 @@
 package com.bbmovie.auth.service.auth;
 
-import com.bbmovie.auth.dto.UserAgentResponse;
+import com.bbmovie.auth.dto.DeviceInfo;
+import com.bbmovie.auth.dto.request.ChangePasswordRequest;
+import com.bbmovie.auth.dto.request.LoginRequest;
+import com.bbmovie.auth.dto.request.RegisterRequest;
+import com.bbmovie.auth.dto.request.ResetPasswordRequest;
+import com.bbmovie.auth.dto.response.*;
 import com.bbmovie.auth.entity.User;
+import com.bbmovie.auth.entity.enumerate.AuthProvider;
+import com.bbmovie.auth.entity.enumerate.Role;
+import com.bbmovie.auth.entity.jose.RefreshToken;
 import com.bbmovie.auth.repository.UserRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
@@ -9,6 +17,7 @@ import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.auth.verify.token.ChangePasswordTokenService;
 import com.bbmovie.auth.service.auth.verify.token.EmailVerifyTokenService;
 import com.bbmovie.auth.utils.DeviceInfoUtils;
+import com.bbmovie.auth.utils.IpAddressUtils;
 import com.bbmovie.auth.utils.UserAgentAnalyzerUtils;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -33,8 +42,6 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-
-import static com.example.bbmovie.constant.error.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
 
 @Service
 @Log4j2

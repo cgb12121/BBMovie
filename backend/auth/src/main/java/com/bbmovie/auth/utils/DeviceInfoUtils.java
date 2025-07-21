@@ -1,6 +1,6 @@
 package com.bbmovie.auth.utils;
 
-import com.bbmovie.auth.dto.UserAgentResponse;
+import com.bbmovie.auth.dto.response.UserAgentResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import nl.basjes.parse.useragent.UserAgent;
 import org.springframework.stereotype.Component;

@@ -1,4 +1,4 @@
-package com.bbmovie.auth.dto;
+package com.bbmovie.auth.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
