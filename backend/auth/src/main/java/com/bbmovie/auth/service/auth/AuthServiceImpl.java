@@ -10,12 +10,15 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.entity.enumerate.AuthProvider;
 import com.bbmovie.auth.entity.enumerate.Role;
 import com.bbmovie.auth.entity.jose.RefreshToken;
+import com.bbmovie.auth.exception.*;
 import com.bbmovie.auth.repository.UserRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.auth.verify.token.ChangePasswordTokenService;
 import com.bbmovie.auth.service.auth.verify.token.EmailVerifyTokenService;
+import com.bbmovie.auth.service.email.EmailService;
+import com.bbmovie.auth.service.email.EmailServiceFactory;
 import com.bbmovie.auth.utils.DeviceInfoUtils;
 import com.bbmovie.auth.utils.IpAddressUtils;
 import com.bbmovie.auth.utils.UserAgentAnalyzerUtils;
@@ -42,6 +45,8 @@ import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+
+import static com.bbmovie.auth.constant.error.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
 
 @Service
 @Log4j2
@@ -106,7 +111,7 @@ public class AuthServiceImpl implements AuthService {
 
         boolean correctPassword = passwordEncoder.matches(loginRequest.getPassword(), user.getPassword());
         if (!correctPassword) {
-            throw new InvalidCredentialsException("Invalid username/email or password");
+            throw new AuthenticationException("Invalid username/email or password");
         }
 
         user.setLastLoginTime(LocalDateTime.now());

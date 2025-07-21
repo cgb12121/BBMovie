@@ -1,6 +1,6 @@
-package com.example.bbmovie.service.email.gmail;
+package com.bbmovie.auth.service.email.gmail;
 
-import com.example.bbmovie.service.email.EmailService;
+import com.bbmovie.auth.service.email.EmailService;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpRequestInitializer;
 import com.google.api.client.json.gson.GsonFactory;
@@ -27,8 +27,9 @@ import java.time.ZonedDateTime;
 import java.util.Properties;
 import org.apache.commons.codec.binary.Base64;
 
-import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
-import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
+import static com.bbmovie.auth.utils.EmailUtils.createResetPasswordEmailUrl;
+import static com.bbmovie.auth.utils.EmailUtils.createVerificationEmailUrl;
+
 
 @Log4j2
 @Service("gmailApi")

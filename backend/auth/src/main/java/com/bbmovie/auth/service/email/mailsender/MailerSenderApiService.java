@@ -1,6 +1,6 @@
-package com.example.bbmovie.service.email.mailsender;
+package com.bbmovie.auth.service.email.mailsender;
 
-import com.example.bbmovie.service.email.EmailService;
+import com.bbmovie.auth.service.email.EmailService;
 import com.mailersend.sdk.MailerSend;
 import com.mailersend.sdk.MailerSendResponse;
 import com.mailersend.sdk.Recipient;
@@ -15,9 +15,9 @@ import org.thymeleaf.context.Context;
 
 import java.time.ZonedDateTime;
 
-import static com.example.bbmovie.constant.Domain.DOMAIN_NAME;
-import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
-import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
+import static com.bbmovie.auth.constant.Domain.DOMAIN_NAME;
+import static com.bbmovie.auth.utils.EmailUtils.createResetPasswordEmailUrl;
+import static com.bbmovie.auth.utils.EmailUtils.createVerificationEmailUrl;
 
 @Log4j2
 @Service("mailersendApi")

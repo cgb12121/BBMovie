@@ -1,7 +1,7 @@
-package com.example.bbmovie.service.email.mailsender;
+package com.bbmovie.auth.service.email.mailsender;
 
-import com.example.bbmovie.exception.EmailSendingException;
-import com.example.bbmovie.service.email.EmailService;
+import com.bbmovie.auth.exception.CustomEmailException;
+import com.bbmovie.auth.service.email.EmailService;
 import jakarta.mail.internet.MimeMessage;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,8 +15,8 @@ import org.thymeleaf.context.Context;
 
 import java.time.ZonedDateTime;
 
-import static com.example.bbmovie.utils.EmailUtils.createResetPasswordEmailUrl;
-import static com.example.bbmovie.utils.EmailUtils.createVerificationEmailUrl;
+import static com.bbmovie.auth.utils.EmailUtils.createResetPasswordEmailUrl;
+import static com.bbmovie.auth.utils.EmailUtils.createVerificationEmailUrl;
 
 @Log4j2
 @Service("mailersendSmtp")
@@ -83,7 +83,7 @@ public class MailerSenderSmtpService implements EmailService {
             log.info("Email sent to {}", to);
         } catch (Exception e) {
             log.error("Failed to send email to {}: {}", to, e.getMessage(), e);
-            throw new EmailSendingException("Failed to send email", e);
+            throw new CustomEmailException("Failed to send email");
         }
     }
 }

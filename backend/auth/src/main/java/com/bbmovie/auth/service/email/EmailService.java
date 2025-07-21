@@ -1,4 +1,4 @@
-package com.example.bbmovie.service.email;
+package com.bbmovie.auth.service.email;
 
 import java.time.ZonedDateTime;
 

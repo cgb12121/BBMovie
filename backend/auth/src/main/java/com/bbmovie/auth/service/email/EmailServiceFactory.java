@@ -1,4 +1,4 @@
-package com.example.bbmovie.service.email;
+package com.bbmovie.auth.service.email;
 
 import lombok.Getter;
 import org.springframework.beans.factory.annotation.Autowired;
