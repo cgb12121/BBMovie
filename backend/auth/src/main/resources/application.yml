@@ -1,0 +1,216 @@
+app:
+  jose:
+    #jweRsaNimbus //debug endpoint not compatible, using wrong key from jwk
+    # nimbusJwe
+    # nimbusJws
+    # jwt.io.hmac
+    # jwt.io.rsa //debug endpoint not compatible, using wrong key from jwk
+    # nimbusHmac
+    strategy: nimbusJws
+    key:
+      secret: ${JOSE_SECRET}
+      private: ${JOSE_PRIVATE_KEY}
+      public: ${JOSE_PUBLIC_KEY}
+    expiration:
+      access-token: ${JOSE_EXPIRATION}
+      refresh-token: ${JOSE_REFRESH_EXPIRATION}
+
+  change-password-token-expiration-minutes: 15
+  verification-token-expiration-minutes: 15
+
+  otp-expiration-minutes: 1
+
+  mail:
+    default: gmailSmtp
+
+  frontend:
+    url: http://localhost:3000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+
+spring:
+  application:
+    name: auth
+  datasource:
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
+  jpa:
+    hibernate:
+      ddl-auto: create
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.MySQLDialect
+  sql:
+    init:
+      mode: always
+  cache:
+    type: caffeine
+    caffeine:
+      spec: maximumSize=500,expireAfterWrite=600s
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: ${EMAIL_USERNAME}
+    password: ${EMAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+    default-encoding: UTF-8
+  thymeleaf:
+    cache: false
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASSWORD}
+      database: 0
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 2024MB
+      max-request-size: 2024MB
+  #  ssl:
+#    bundle:
+#      pem:
+#        server:
+#          keystore:
+#            certificate: ${SERVER_CERTIFICATE}
+#            private-key: ${SERVER_PRIVATE_KEY}
+#            private-key-password: ${SERVER_PRIVATE_KEY_PASSWORD}
+#          reload-on-update: ${SERVER_RELOAD_ON_UPDATE}
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: upload-core-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+    properties:
+      spring.json.trusted.packages: "*"
+
+  security:
+    oauth2:
+      client:
+        registration:
+          github:
+            client-id: ${GITHUB_CLIENT_ID}
+            client-secret: ${GITHUB_CLIENT_SECRET}
+            redirect-uri: "http://localhost:8080/login/oauth2/code/github"
+            scope: read:user,user:email
+          google:
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            redirect-uri: "http://localhost:8080/login/oauth2/code/google"
+            scope: profile,email
+          facebook:
+            client-id: ${FACEBOOK_CLIENT_ID}
+            client-secret: ${FACEBOOK_CLIENT_SECRET}
+            redirect-uri: "http://localhost:8080/login/oauth2/code/facebook"
+            scope: public_profile,email
+          discord:
+            client-id: ${DISCORD_CLIENT_ID}
+            client-secret: ${DISCORD_CLIENT_SECRET}
+            redirect-uri: "http://localhost:8080/login/oauth2/code/discord"
+            authorization-grant-type: authorization_code
+            scope: identify,email
+          x:
+            client-id: ${X_CLIENT_ID}
+            client-secret: ${X_CLIENT_SECRET}
+            redirect-uri: "http://localhost:8080/login/oauth2/code/x"
+            authorization-grant-type: authorization_code
+            client-authentication-method: client_secret_basic
+            scope:
+              - users.read
+              - tweet.read
+        provider:
+          github:
+            user-info-uri: https://api.github.com/user
+          google:
+            user-info-uri: https://www.googleapis.com/oauth2/v3/userinfo
+          facebook:
+            user-info-uri: https://graph.facebook.com/me?fields=id,name,email
+          discord:
+            authorization-uri: https://discord.com/oauth2/authorize
+            token-uri: https://discord.com/api/oauth2/token
+            user-info-uri: https://discord.com/api/users/@me
+            user-name-attribute: id
+          x:
+            authorization-uri: https://x.com/i/oauth2/authorize
+            token-uri: https://api.x.com/2/oauth2/token
+            user-info-uri: https://api.x.com/2/users/me
+            #Spring can't getActiveProvider nested data from JSON such as data.username => must implement custom service
+            user-name-attribute: data
+      authorizationserver:
+          endpoint:
+            jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+
+logging:
+  level:
+    org:
+      org.springframework.security: TRACE
+      org.springframework.security.oauth2: TRACE
+      org.springframework.web.client: DEBUG
+      org.springframework.web.socket: DEBUG
+      org.springframework.messaging: DEBUG
+      elasticsearch: DEBUG
+      springframework:
+        security: DEBUG
+        data:
+          elasticsearch: DEBUG
+        ai: DEBUG
+    ai:
+      djl: DEBUG
+
+server:
+#  ssl:
+#    bundle: ${SERVER_SSL_BUNDLE}
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain,application/javascript,text/css
+
+
+ip:
+  ipinfo:
+    token: ${IP_INFO_TOKEN}
+  vpnapi:
+    api-key: ${VNP_API_API_KEY}
+  ipapi:
+    api-key: ${IP_API_KEY}
+
+
+mailer-sender:
+  token: ${MAIL_SENDER_TOKEN}
+
+  smtp:
+    server: ${MAIL_SENDER_SMTP_SERVER}
+    port: ${MAIL_SENDER_SMTP_PORT}
+    username: ${MAIL_SENDER_SMTP_USERNAME}
+    password: ${MAIL_SENDER_SMTP_PASSWORD}
+
+
+eureka:
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    hostname: localhost
