@@ -8,14 +8,16 @@ import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.chrono.ChronoLocalDateTime;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
@@ -27,39 +29,25 @@ import java.util.UUID;
 public class JwkConfig {
 
     private final JwkKeyRepository keyRepo;
+    private final ApplicationEventPublisher eventPublisher;
+    private final JwkKeyCache keyCache;
 
     @Autowired
-    public JwkConfig(JwkKeyRepository keyRepo) {
+    public JwkConfig(JwkKeyRepository keyRepo, ApplicationEventPublisher eventPublisher, JwkKeyCache keyCache) {
         this.keyRepo = keyRepo;
+        this.eventPublisher = eventPublisher;
+        this.keyCache = keyCache;
     }
 
     @Bean
     public RSAKey activePrivateKey() {
-        List<JwkKey> activeKeys = keyRepo.findAll().stream().filter(JwkKey::isActive).toList();
-        if (activeKeys.isEmpty()) {
-            rotateKey();
-            activeKeys = keyRepo.findAll().stream().filter(JwkKey::isActive).toList();
-            log.info("Size  of active keys is {}", activeKeys.size());
-        }
-        try {
-            return RSAKey.parse(activeKeys.getFirst().getPrivateJwk());
-        } catch (Exception e) {
-            throw new IllegalStateException("Invalid active key", e);
-        }
+        return keyCache.getActivePrivateKey();
     }
 
     @Bean
+    @Scope("prototype")
     public List<RSAKey> publicKeys() {
-        return keyRepo.findAll().stream()
-                .sorted(Comparator.comparing(JwkKey::getCreatedDate))
-                .map(key -> {
-                    try {
-                        return RSAKey.parse(key.getPrivateJwk());
-                    } catch (Exception e) {
-                        throw new IllegalStateException("Invalid key: " + key.getKid(), e);
-                    }
-                })
-                .toList();
+        return keyCache.getPublicKeys();
     }
 
     @Scheduled(cron = "0 0 0 */7 * *")
@@ -78,6 +66,7 @@ public class JwkConfig {
 
             List<JwkKey> allKeys = keyRepo.findAll();
             removedInactiveKeys(allKeys);
+            eventPublisher.publishEvent(new JwkKeyRotatedEvent());
         } catch (JOSEException e) {
             throw new IllegalStateException("Failed to generate new RSA key", e);
         }
@@ -88,6 +77,7 @@ public class JwkConfig {
         log.info("Begin to remove inactive JWK keys.");
         List<JwkKey> allKeys = keyRepo.findAll();
         removedInactiveKeys(allKeys);
+        eventPublisher.publishEvent(new JwkKeyRotatedEvent());
     }
 
     private RSAKey generateRsaKey() throws JOSEException {
@@ -110,9 +100,13 @@ public class JwkConfig {
     private void removedInactiveKeys(List<JwkKey> keys) {
         Duration tokenLifetime = Duration.ofMinutes(15);
         Instant cutoff = Instant.now().minus(tokenLifetime);
+
         if (keys.size() > 5) {
             keys.stream()
-                    .filter(key -> !key.isActive() && !key.getCreatedDate().isBefore(ChronoLocalDateTime.from(cutoff)))
+                    .filter(key -> {
+                        Instant keyCreationInstant = key.getCreatedDate().atZone(ZoneId.systemDefault()).toInstant();
+                        return !key.isActive() && !keyCreationInstant.isBefore(cutoff);
+                    })
                     .sorted(Comparator.comparing(JwkKey::getCreatedDate))
                     .limit(keys.size() - 5L)
                     .forEach(keyRepo::delete);

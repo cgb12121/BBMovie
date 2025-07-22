@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/device")
+@RequestMapping("/device")
 public class DeviceSessionController {
 
     private final AuthService authService;
@@ -27,7 +27,7 @@ public class DeviceSessionController {
         this.authService = authService;
     }
 
-    @GetMapping("/sessions/devices")
+    @GetMapping("/sessions/all")
     public ResponseEntity<ApiResponse<List<LoggedInDeviceResponse>>> getAllDeviceLoggedIntoAccount(
             @AuthenticationPrincipal UserDetails userDetails, HttpServletRequest request
     ) {
@@ -38,7 +38,7 @@ public class DeviceSessionController {
                 : ResponseEntity.ok(ApiResponse.success(devices));
     }
 
-    @PostMapping("/sessions/devices/revoke")
+    @PostMapping("/sessions/revoke")
     public ResponseEntity<ApiResponse<String>> revokeDeviceLoggedIntoAccount(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody RevokeDeviceRequest request
