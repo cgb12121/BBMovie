@@ -15,11 +15,10 @@ import java.util.List;
 @Getter
 @Slf4j
 @Component
+@SuppressWarnings("squid:S3077")
 public class JwkKeyCache {
 
-    @SuppressWarnings("squid:S3077")
     private volatile RSAKey activePrivateKey;
-    @SuppressWarnings("squid:S3077")
     private volatile List<RSAKey> publicKeys;
 
     private final JwkKeyRepository keyRepo;

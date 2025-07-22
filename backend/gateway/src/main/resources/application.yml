@@ -18,9 +18,10 @@ spring:
               enabled: true
               lower-case-service-id: true
               predicates:
-                - Path=/api/{serviceId}/**
+                - Path="/api/{serviceId}/**"
               filters:
-                - RewritePath=/api/(?<serviceId>[^/]+)(?<remaining>/.*), ${remaining}
+                - RewritePath="/api/(?<serviceId>[^/]+)(?<remaining>/.*)", "/${serviceId}${remaining}"
+
 
 eureka:
   client:

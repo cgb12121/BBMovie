@@ -32,10 +32,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Random;
+import java.util.*;
 
 @Log4j2
 @Component
@@ -122,8 +119,9 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     private String generateAccessTokenAndSaveRefreshTokenForOAuth2(
             Authentication authentication, String email, UserAgentResponse userAgentInfo
     ) {
-        String accessToken = joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication);
-        String refreshToken = joseProviderStrategyContext.getActiveProvider().generateRefreshToken(authentication);
+        String sid = UUID.randomUUID().toString();
+        String accessToken = joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sid);
+        String refreshToken = joseProviderStrategyContext.getActiveProvider().generateRefreshToken(authentication, sid);
         Date expirationDate = joseProviderStrategyContext.getActiveProvider().getExpirationDateFromToken(refreshToken);
 
         RefreshToken refreshTokenToDb = RefreshToken.builder()

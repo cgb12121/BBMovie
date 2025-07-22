@@ -6,9 +6,9 @@ import java.util.Date;
 import java.util.List;
 
 public interface JoseProviderStrategy {
-    String generateAccessToken(Authentication authentication);
+    String generateAccessToken(Authentication authentication, String sid);
 
-    String generateRefreshToken(Authentication authentication);
+    String generateRefreshToken(Authentication authentication, String sid);
 
     boolean validateToken(String token);
 

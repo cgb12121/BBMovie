@@ -72,23 +72,23 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
     }
 
     @Override
-    public String generateAccessToken(Authentication authentication) {
-        return generateToken(authentication, jwtAccessTokenExpirationInMs);
+    public String generateAccessToken(Authentication authentication, String sid) {
+        return generateToken(authentication, jwtAccessTokenExpirationInMs, sid);
     }
 
     @Override
-    public String generateRefreshToken(Authentication authentication) {
-        return generateToken(authentication, jwtRefreshTokenExpirationInMs);
+    public String generateRefreshToken(Authentication authentication, String sid) {
+        return generateToken(authentication, jwtRefreshTokenExpirationInMs, sid);
     }
 
-    private String generateToken(Authentication authentication, int expirationInMs) {
+    private String generateToken(Authentication authentication, int expirationInMs, String sid) {
         String username = getUsernameFromAuthentication(authentication);
         String role = getRoleFromAuthentication(authentication);
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationInMs);
         Map<String, Object> claims = new HashMap<>();
         claims.put("jti", UUID.randomUUID().toString());
-        claims.put("sid", UUID.randomUUID().toString());
+        claims.put("sid", sid); // Access & refresh tokens have the same sid
 
         return Jwts.builder()
                 .setIssuer("bbmovie-core")

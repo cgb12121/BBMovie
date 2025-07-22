@@ -44,6 +44,7 @@ import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 import static com.bbmovie.auth.constant.error.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
@@ -95,7 +96,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         User user = userRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
+                .orElseThrow(() -> {
+                    log.error("Wrong password");
+                    return new UserNotFoundException("Invalid username/email or password");
+                });
 
         UserAgentResponse userAgentResponse = getUserDeviceInformation(request);
 
@@ -117,8 +121,9 @@ public class AuthServiceImpl implements AuthService {
         user.setLastLoginTime(LocalDateTime.now());
         userRepository.save(user);
 
-        String accessToken = joseProviderStrategy.generateAccessToken(authentication);
-        String refreshToken = joseProviderStrategy.generateRefreshToken(authentication);
+        String sid = UUID.randomUUID().toString();
+        String accessToken = joseProviderStrategy.generateAccessToken(authentication, sid);
+        String refreshToken = joseProviderStrategy.generateRefreshToken(authentication, sid);
 
         refreshTokenService.saveRefreshToken(
                 refreshToken, user.getEmail(),

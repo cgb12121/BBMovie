@@ -104,7 +104,7 @@ public class SecurityConfig {
                 .configurationSource(corsConfigurationSource)
             )
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/.well-known/jwks.json").permitAll()
                 // Allow websocket handshake, jwt will be processed later in interceptor
                 .requestMatchers("/ws/**").permitAll()

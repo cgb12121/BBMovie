@@ -62,7 +62,8 @@ public class RefreshTokenService {
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(username, "", authorities);
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
         log.info("Refreshing access token for user {}", username);
-        return joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication);
+        String sameSidWithRefreshToken = String.valueOf(userRefreshToken.getSid());
+        return joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sameSidWithRefreshToken);
     }
 
     @Transactional

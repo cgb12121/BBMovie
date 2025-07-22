@@ -5,7 +5,6 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.util.Date;
-import java.util.UUID;
 
 @Entity
 @Getter
@@ -40,8 +39,8 @@ public class RefreshToken extends BaseEntity {
     @Column(name = "jti", nullable = false)
     private String jti;
 
-    @Column(name = "sid", nullable = false)
-    private UUID sid;
+    @Column(name = "sid", nullable = false, unique = true)
+    private String sid;
 
     @Column(nullable = false)
     private Date expiryDate;

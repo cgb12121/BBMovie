@@ -60,16 +60,16 @@ public class NimbusJwe implements JoseProviderStrategy {
     }
 
     @Override
-    public String generateAccessToken(Authentication authentication) {
-        return generateToken(authentication, jwtAccessTokenExpirationInMs);
+    public String generateAccessToken(Authentication authentication, String sid) {
+        return generateToken(authentication, jwtAccessTokenExpirationInMs, sid);
     }
 
     @Override
-    public String generateRefreshToken(Authentication authentication) {
-        return generateToken(authentication, jwtRefreshTokenExpirationInMs);
+    public String generateRefreshToken(Authentication authentication, String sid) {
+        return generateToken(authentication, jwtRefreshTokenExpirationInMs, sid);
     }
 
-    private String generateToken(Authentication authentication, int expirationInMs) {
+    private String generateToken(Authentication authentication, int expirationInMs, String sid) {
         try {
             String username = extractUsername(authentication);
             String role = extractRole(authentication);
@@ -83,7 +83,7 @@ public class NimbusJwe implements JoseProviderStrategy {
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(UUID.randomUUID().toString())
-                    .claim("sid", UUID.randomUUID().toString())
+                    .claim("sid", sid)
                     .build();
 
             JWEHeader header = new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A256GCM)
