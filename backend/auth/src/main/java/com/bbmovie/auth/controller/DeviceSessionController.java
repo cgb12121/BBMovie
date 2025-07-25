@@ -27,7 +27,8 @@ public class DeviceSessionController {
         this.authService = authService;
     }
 
-    @GetMapping("/sessions/all")
+    //TODO: do not use AuthenticationPrincipal, pass jwt instead
+    @GetMapping("/v1/sessions/all")
     public ResponseEntity<ApiResponse<List<LoggedInDeviceResponse>>> getAllDeviceLoggedIntoAccount(
             @AuthenticationPrincipal UserDetails userDetails, HttpServletRequest request
     ) {
@@ -38,7 +39,8 @@ public class DeviceSessionController {
                 : ResponseEntity.ok(ApiResponse.success(devices));
     }
 
-    @PostMapping("/sessions/revoke")
+    //TODO: do not use AuthenticationPrincipal, pass jwt instead
+    @PostMapping("/v1/sessions/revoke")
     public ResponseEntity<ApiResponse<String>> revokeDeviceLoggedIntoAccount(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody RevokeDeviceRequest request

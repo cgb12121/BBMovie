@@ -42,6 +42,6 @@ public class IpApiService implements IpAnonymityProvider {
     }
 
     private boolean checkAnonymity(IpApiResponse response) {
-        return response.is_abuser() || response.is_vpn() || response.is_proxy() || response.is_tor() || response.is_crawler();
+        return response.isAbuser() || response.isVpn() || response.isProxy() || response.isTor() || response.isCrawler();
     }
 }

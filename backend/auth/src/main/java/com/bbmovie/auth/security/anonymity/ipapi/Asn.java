@@ -1,11 +1,14 @@
 package com.bbmovie.auth.security.anonymity.ipapi;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 @Data
+@SuppressWarnings("squid:S1700")
 public class Asn {
     private int asn;
-    private String abuser_score;
+    @JsonProperty("abuser_score")
+    private String abuserScore;
     private String route;
     private String descr;
     private String country;

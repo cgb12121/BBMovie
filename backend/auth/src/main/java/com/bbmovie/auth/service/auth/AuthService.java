@@ -50,7 +50,7 @@ public interface AuthService {
 
     void resetPassword(String token, ResetPasswordRequest request);
 
-    void revokeCookies(HttpServletResponse response);
+    void revokeAuthCookies(HttpServletResponse response);
 
     void logoutFromOneDevice(String username, String deviceName);
 }

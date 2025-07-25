@@ -4,6 +4,7 @@ import com.bbmovie.auth.entity.enumerate.AuthProvider;
 import com.bbmovie.auth.entity.enumerate.Role;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.SQLRestriction;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,23 +13,28 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
+@SQLRestriction("is_enabled is null or is_enabled = false")
 @Builder
 @Entity
 @Table(name = "users")
 @Getter
 @Setter
 @ToString
+@With
 @NoArgsConstructor
 @AllArgsConstructor
 public class User extends BaseEntity implements UserDetails {
-    @Column(nullable = false, unique = true)
+    @Column(name = "displayed_username", nullable = false)
     private String displayedUsername;
 
-    @Column(nullable = false)
+    @Column(name = "password", nullable = false)
     private String password;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "email", nullable = false, unique = true)
     private String email;
+
+    @Column(name = "phone_number", unique = true)
+    private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider")

@@ -9,7 +9,6 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 public class IpRedisConfig {
-
     @Bean("ipRedis")
     public RedisTemplate<String, Boolean> redisTemplate(RedisConnectionFactory connectionFactory) {
         RedisTemplate<String, Boolean> template = new RedisTemplate<>();

@@ -12,8 +12,6 @@ import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
-import org.thymeleaf.exceptions.TemplateInputException;
-import org.thymeleaf.exceptions.TemplateProcessingException;
 
 @Log4j2
 @ControllerAdvice
@@ -104,18 +102,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildErrorResponse(ex, HttpStatus.BAD_REQUEST, ex.getMessage());
     }
 
-    @ExceptionHandler(TemplateInputException.class)
-    public ResponseEntity<ApiResponse<Void>> handleTemplateInputException(TemplateInputException ex) {
-        return buildErrorResponse(ex, HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
-    }
-
     @ExceptionHandler(SpelEvaluationException.class)
     public ResponseEntity<ApiResponse<Void>> handleSpelEvaluationException(SpelEvaluationException ex) {
-        return buildErrorResponse(ex, HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
-    }
-
-    @ExceptionHandler(TemplateProcessingException.class)
-    public ResponseEntity<ApiResponse<Void>> handleTemplateProcessingException(TemplateProcessingException ex) {
         return buildErrorResponse(ex, HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage());
     }
 

@@ -1,7 +1,7 @@
 package com.bbmovie.auth.security;
 
 import com.bbmovie.auth.security.anonymity.IpAnonymityFilter;
-import com.bbmovie.auth.security.jose.JoseFilter;
+import com.bbmovie.auth.security.jose.JoseAuthenticationFilter;
 import com.bbmovie.auth.security.oauth2.CustomAuthorizationRequestResolver;
 import com.bbmovie.auth.security.oauth2.OAuth2LoginSuccessHandler;
 import com.bbmovie.auth.service.auth.CustomUserDetailsService;
@@ -28,6 +28,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.csrf.*;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
@@ -44,26 +45,26 @@ import java.util.function.Supplier;
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JoseFilter joseFilter;
+    private final CustomUserDetailsService userDetailsService;
+    private final JoseAuthenticationFilter joseAuthenticationFilter;
+    private final CustomAuthorizationRequestResolver customAuthorizationRequestResolver;
     private final IpAnonymityFilter ipAnonymityFilter;
     private final CorsConfigurationSource corsConfigurationSource;
-    private final CustomUserDetailsService userDetailsService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
-    private final CustomAuthorizationRequestResolver customAuthorizationRequestResolver;
 
     @Autowired
     public SecurityConfig(
-            JoseFilter joseFilter, IpAnonymityFilter ipAnonymityFilter,
+            JoseAuthenticationFilter joseAuthenticationFilter, IpAnonymityFilter ipAnonymityFilter,
             CorsConfigurationSource corsConfigurationSource, CustomUserDetailsService userDetailsService,
             OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
             CustomAuthorizationRequestResolver customAuthorizationRequestResolver
     ) {
-        this.joseFilter = joseFilter;
+        this.userDetailsService = userDetailsService;
+        this.joseAuthenticationFilter = joseAuthenticationFilter;
+        this.customAuthorizationRequestResolver = customAuthorizationRequestResolver;
         this.ipAnonymityFilter = ipAnonymityFilter;
         this.corsConfigurationSource = corsConfigurationSource;
-        this.userDetailsService = userDetailsService;
         this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
-        this.customAuthorizationRequestResolver = customAuthorizationRequestResolver;
     }
 
     @Bean
@@ -93,10 +94,8 @@ public class SecurityConfig {
             )
             .csrf(csrf -> csrf
                 .ignoringRequestMatchers("/.well-known/jwks.json")
-                .ignoringRequestMatchers("/ws/**")
-                .ignoringRequestMatchers("/api/auth/csrf")
+                .ignoringRequestMatchers("/auth/csrf")
                 .ignoringRequestMatchers("/oauth2/authorization/**")
-                .ignoringRequestMatchers("/actuator/**")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
             )
@@ -107,7 +106,6 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/.well-known/jwks.json").permitAll()
                 // Allow websocket handshake, jwt will be processed later in interceptor
-                .requestMatchers("/ws/**").permitAll()
                 .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
                 .anyRequest().authenticated()
             )
@@ -135,8 +133,14 @@ public class SecurityConfig {
                             .authorizationRequestResolver(customAuthorizationRequestResolver)
                     )
             )
-            .addFilterBefore(joseFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(ipAnonymityFilter, JoseFilter.class)
+            .addFilterBefore(joseAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(ipAnonymityFilter, JoseAuthenticationFilter.class)
+            .addFilterAfter((request, response, chain) -> {
+                    log.info("Cleaning SecurityContext after each request to prevent memory leaks");
+                    log.info("SecurityContext after request: {}", SecurityContextHolder.getContext().getAuthentication());
+                    chain.doFilter(request, response);
+                }, SecurityContextHolderFilter.class
+            )
             .build();
     }
 

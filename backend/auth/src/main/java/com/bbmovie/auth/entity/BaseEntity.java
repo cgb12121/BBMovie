@@ -18,19 +18,21 @@ public abstract class BaseEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
     @JsonProperty("id")
+    @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
     @CreatedDate
     @JsonProperty("created_date")
-    @Column(nullable = false, updatable = false)
+    @Column(name = "created_date", nullable = false, updatable = false)
     private LocalDateTime createdDate;
 
     @LastModifiedDate
     @JsonProperty("last_modified_date")
-    @Column(nullable = false)
+    @Column(name = "last_modified_date", nullable = false)
     private LocalDateTime lastModifiedDate;
 
     @Version
     @JsonProperty("version")
+    @Column(name = "version", nullable = false)
     private Long version;
 }

@@ -46,6 +46,7 @@ public class IpAddressUtils {
             "https://icanhazip.com",
     };
 
+    @SuppressWarnings("unused")
     public static String getPublicServerIp() {
         synchronized (IpAddressUtils.class) {
             for (String serviceUrl : PUBLIC_IP_SERVICES) {

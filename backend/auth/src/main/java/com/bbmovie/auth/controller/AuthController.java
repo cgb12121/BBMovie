@@ -18,6 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
@@ -71,7 +72,7 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping("/access-token")
+    @PostMapping("/v1/access-token")
     public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessToken(
             @RequestHeader(value = "X-DEVICE-NAME") String deviceName,
             @RequestHeader(value = "Authorization") String oldAccessTokenHeader
@@ -85,7 +86,7 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(accessTokenResponse));
     }
 
-    @PostMapping("/logout")
+    @PostMapping("/v1/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestHeader(value = "Authorization") String tokenHeader,
             @RequestHeader(value = "X-DEVICE-NAME") String deviceName,
@@ -95,10 +96,28 @@ public class AuthController {
         if (isValidAuthorizationHeader) {
             String accessToken = tokenHeader.substring(7);
             authService.logoutFromCurrentDevice(accessToken, deviceName);
-            authService.revokeCookies(response);
+            authService.revokeAuthCookies(response);
+            SecurityContextHolder.clearContext();
             return ResponseEntity.ok(ApiResponse.success("Logout successful"));
         }
         return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
+    }
+
+    //TODO: implement
+    @PostMapping("/v2/access-token")
+    public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessToken(
+            @RequestHeader(value = "Authorization") String oldAccessTokenHeader
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(""));
+    }
+
+    //TODO: implement
+    @PostMapping("/v2/logout")
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @RequestHeader(value = "Authorization") String tokenHeader,
+            HttpServletResponse response
+    ) {
+        return ResponseEntity.badRequest().body(ApiResponse.error(""));
     }
 
     @GetMapping("/verify-email")
