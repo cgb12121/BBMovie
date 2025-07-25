@@ -15,13 +15,14 @@ import java.util.Map;
 @Log4j2
 @Service
 public class KafkaEmailEventProducer {
+
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
     @Autowired
     public KafkaEmailEventProducer(KafkaTemplate<String, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
-    
+
     public void sendOtp(String phoneNumber, String otp) {
         try {
             Map<String, String> event = Map.of("phoneNumber", phoneNumber, "otp", otp);
@@ -48,17 +49,17 @@ public class KafkaEmailEventProducer {
         try {
             Map<String, String> event = Map.of("email", email, "token", tokenToCreateLink);
             kafkaTemplate.send(KafkaTopicConfig.FORGOT_PASSWORD_TOPIC, email, event);
-            log.info("Sent magic link for user: {}", email);
+            log.info("Sent magic link for user on forgot password: {}", email);
         } catch (Exception e) {
-            log.error("Failed to send magic link: {}", e.getMessage());
+            log.error("Failed to send magic link on forgot password: {}", e.getMessage());
             throw new MagicLinkEventException("Magic link send failed, please try again.");
         }
     }
-    
+
     public void sendNotificationOnChangingPassword(String email, ZonedDateTime timeChangedPassword) {
         try {
             Map<String, String> event = Map.of("email", email, "timeChangedPassword", timeChangedPassword.toString());
-            kafkaTemplate.send(KafkaTopicConfig.REGISTER_EMAIL_TOPIC, email, event);
+            kafkaTemplate.send(KafkaTopicConfig.CHANGE_PASSWORD_EMAIL_TOPIC, email, event);
             log.info("Sent notification for user: {}", email);
         } catch (Exception e) {
             log.error("Failed to send notification for user: {}", e.getMessage());

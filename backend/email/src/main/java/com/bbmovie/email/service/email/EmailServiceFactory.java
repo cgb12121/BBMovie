@@ -5,38 +5,43 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 public class EmailServiceFactory {
-
     private final Map<String, EmailService> strategies;
-    private final List<String> strategyNamesInOrder;
     @Getter
     private final EmailService defaultStrategy;
-    private int currentRotationIndex = 0;
+    private final List<String> rotationOrder;
 
     @Autowired
     public EmailServiceFactory(
             Map<String, EmailService> strategyMap,
-            @Value("${app.mail.default}") String defaultStrategyName
+            @Value("${app.mail.default}") String defaultStrategyName,
+            @Value("${app.mail.rotation-order}") String rotationOrder
     ) {
         this.strategies = strategyMap;
-        this.strategyNamesInOrder = new ArrayList<>(strategyMap.keySet());
-        this.defaultStrategy = strategyMap.get(defaultStrategyName);
+        this.defaultStrategy = strategyMap.getOrDefault(defaultStrategyName,
+                strategyMap.values().stream().findFirst().orElseThrow(() ->
+                        new IllegalArgumentException("No default email strategy found")));
+        this.rotationOrder = Arrays.asList(rotationOrder.split(","));
+        validateStrategies();
     }
 
-    public EmailService getStrategy(String strategyName) {
-        return strategies.get(strategyName);
+    private void validateStrategies() {
+        for (String strategyName : rotationOrder) {
+            if (!strategies.containsKey(strategyName)) {
+                throw new IllegalArgumentException("Invalid strategy in rotation order: " + strategyName);
+            }
+        }
     }
 
-    public EmailService rotateStrategy() {
-        if (strategyNamesInOrder.isEmpty()) return null;
-
-        String name = strategyNamesInOrder.get(currentRotationIndex);
-        currentRotationIndex = (currentRotationIndex + 1) % strategyNamesInOrder.size();
-        return strategies.get(name);
+    public List<EmailService> getRotationStrategies() {
+        return rotationOrder.stream()
+                .map(strategies::get)
+                .collect(Collectors.toList());
     }
 }
