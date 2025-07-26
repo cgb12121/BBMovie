@@ -73,7 +73,6 @@ public class RefreshTokenService {
             String browser, String browserVersion
     ) {
         Date expiryDate = joseProviderStrategyContext.getActiveProvider().getExpirationDateFromToken(refreshToken);
-
         Optional<RefreshToken> existingToken = refreshTokenRepository.findByEmailAndDeviceName(email, deviceName);
 
         RefreshToken token = existingToken.map(existing -> {
@@ -98,6 +97,7 @@ public class RefreshTokenService {
                     .deviceOs(deviceOs)
                     .browser(browser)
                     .browserVersion(browserVersion)
+                    .revoked(false)
                     .build();
                 }
         );

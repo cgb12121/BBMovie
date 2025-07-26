@@ -20,9 +20,6 @@ app:
 
   otp-expiration-minutes: 1
 
-  mail:
-    default: gmailSmtp
-
   frontend:
     url: http://localhost:3000
 
@@ -58,24 +55,6 @@ spring:
     type: caffeine
     caffeine:
       spec: maximumSize=500,expireAfterWrite=600s
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${EMAIL_USERNAME}
-    password: ${EMAIL_PASSWORD}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-    default-encoding: UTF-8
-  thymeleaf:
-    cache: false
-    prefix: classpath:/templates/
-    suffix: .html
-    mode: HTML
-    encoding: UTF-8
   data:
     redis:
       host: localhost
@@ -173,16 +152,6 @@ ip:
     api-key: ${VNP_API_API_KEY}
   ipapi:
     api-key: ${IP_API_KEY}
-
-
-mailer-sender:
-  token: ${MAIL_SENDER_TOKEN}
-
-  smtp:
-    server: ${MAIL_SENDER_SMTP_SERVER}
-    port: ${MAIL_SENDER_SMTP_PORT}
-    username: ${MAIL_SENDER_SMTP_USERNAME}
-    password: ${MAIL_SENDER_SMTP_PASSWORD}
 
 
 eureka:

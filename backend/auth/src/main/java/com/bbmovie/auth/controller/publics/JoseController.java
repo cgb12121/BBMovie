@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @RestController
-@RequestMapping("/.well-known/jwks.json")
+@RequestMapping("/.well-known")
 public class JoseController {
 
     private final JwkService jwkService;
@@ -24,7 +24,7 @@ public class JoseController {
         this.jwkService = jwkService;
     }
 
-    @GetMapping
+    @GetMapping("/jwks.json")
     public ResponseEntity<Map<String, Object>> getJwk() {
         List<Map<String, Object>> jwks = jwkService.getAllPublicJwks();
         return ResponseEntity.ok()

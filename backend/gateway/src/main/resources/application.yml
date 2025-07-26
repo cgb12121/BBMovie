@@ -10,18 +10,26 @@ spring:
 #            - id: auth
 #              uri: http://localhost:8080
 #              predicates:
-#                - Path=/api/auth/**,/devices/**,/.well-known/**
+#                - Path=/auth/**,/devices/**,/.well-known/**
 #              filters:
 #                -  StripPrefix=0
           discovery:
             locator:
               enabled: true
               lower-case-service-id: true
+#              predicates:
+#                - Path="/{serviceId}/**"
+          routes:
+            - id: auth_route
+              uri: lb://auth
               predicates:
-                - Path="/api/{serviceId}/**"
+                - Path=/api/auth/**,/api/device/**,/.well-known/jwks.json
               filters:
-                - RewritePath="/api/(?<serviceId>[^/]+)(?<remaining>/.*)", "/${serviceId}${remaining}"
-
+                - name: RewritePath
+                  args:
+                    regexp: /api/(auth|device)(?<remaining>/.*)
+                    replacement: /$1${remaining}
+                - RewritePath=/.well-known/jwks.json, /.well-known/jwks.json
 
 eureka:
   client:
@@ -29,8 +37,6 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
-  instance:
-    hostname: localhost
 
 
 server:

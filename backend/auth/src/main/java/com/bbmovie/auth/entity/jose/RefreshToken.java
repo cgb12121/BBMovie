@@ -6,6 +6,7 @@ import lombok.*;
 
 import java.util.Date;
 
+@With
 @Entity
 @Getter
 @Setter

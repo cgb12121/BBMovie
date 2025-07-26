@@ -26,7 +26,6 @@ public class OtpService {
         this.redisTemplate = redisTemplate;
     }
 
-
     public String generateOtpToken(User user) {
         SecureRandom secureRandom = new SecureRandom();
         String otp = String.format("%06d", secureRandom.nextInt(999999));
