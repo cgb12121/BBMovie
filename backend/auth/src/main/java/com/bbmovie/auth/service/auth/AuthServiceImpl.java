@@ -95,34 +95,30 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         User user = userRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> {
-                    log.error("Wrong password");
-                    return new UserNotFoundException("Invalid username/email or password");
-                });
-
-        UserAgentResponse userAgentResponse = getUserDeviceInformation(request);
-
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
-        );
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        boolean isUserEnabled = user.isEnabled();
-        if (!isUserEnabled) {
-            throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
-        }
+                .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
 
         boolean correctPassword = passwordEncoder.matches(loginRequest.getPassword(), user.getPassword());
         if (!correctPassword) {
             throw new AuthenticationException("Invalid username/email or password");
         }
 
+        boolean isUserEnabled = user.isEnabled();
+        if (!isUserEnabled) {
+            throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
+        }
+
+        UserAgentResponse userAgentResponse = getUserDeviceInformation(request);
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
         user.setLastLoginTime(LocalDateTime.now());
         userRepository.save(user);
 
         String sid = UUID.randomUUID().toString();
-        String accessToken = joseProviderStrategy.generateAccessToken(authentication, sid);
-        String refreshToken = joseProviderStrategy.generateRefreshToken(authentication, sid);
+        String accessToken = joseProviderStrategy.generateAccessToken(authentication, sid, user);
+        String refreshToken = joseProviderStrategy.generateRefreshToken(authentication, sid, user);
 
         refreshTokenService.saveRefreshToken(
                 refreshToken, user.getEmail(),

@@ -24,16 +24,19 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -90,6 +93,10 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
         this.tempFileRecordRepository = tempFileRecordRepository;
         this.fileValidationService = fileValidationService;
         this.tempFileCleanUpService = tempFileCleanUpService;
+    }
+
+    public Mono<ResponseEntity<String>> uploadRawFile(FilePart filePart, UploadMetadata uploadMetadata, Authentication authentication) {
+        return Mono.just(ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body("Not implemented"));
     }
 
     @Override

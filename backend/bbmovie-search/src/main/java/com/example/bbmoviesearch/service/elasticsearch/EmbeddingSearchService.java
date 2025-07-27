@@ -38,7 +38,11 @@ public class EmbeddingSearchService {
             SearchResponse<Object> response = elasticsearchClient.search(searchRequest -> searchRequest
                             .index(indexName)
                             .query(q -> q.matchAll(m -> m))
-                            .source(src -> src.filter(f -> f.excludes(QueryEmbeddingField.EMBEDDING_FIELD)))
+                            .source(src -> src
+                                    .filter(f -> f
+                                            .excludes(QueryEmbeddingField.EMBEDDING_FIELD)
+                                    )
+                            )
                             .size(1000),
                     Object.class);
 
@@ -60,7 +64,11 @@ public class EmbeddingSearchService {
                                     .queryVector(queryVector)
                                     .k(limit)
                                     .numCandidates(limit * 2))
-                            .source(src -> src.filter(f -> f.excludes(QueryEmbeddingField.EMBEDDING_FIELD))),
+                            .source(src -> src
+                                    .filter(f -> f
+                                            .excludes(QueryEmbeddingField.EMBEDDING_FIELD)
+                                    )
+                            ),
                     Object.class);
 
             return response.hits().hits().stream()

@@ -72,7 +72,7 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
         UserAgentResponse userAgentInfo = deviceInfoUtils.extractUserAgentInfo(request);
 
         String accessToken = generateAccessTokenAndSaveRefreshTokenForOAuth2(
-                authentication, user.getEmail(), userAgentInfo
+                authentication, user.getEmail(), userAgentInfo, user
         );
 
         addAccessTokenToCookie(response, accessToken);
@@ -117,11 +117,11 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     }
 
     private String generateAccessTokenAndSaveRefreshTokenForOAuth2(
-            Authentication authentication, String email, UserAgentResponse userAgentInfo
+            Authentication authentication, String email, UserAgentResponse userAgentInfo, User oauth2User
     ) {
         String sid = UUID.randomUUID().toString();
-        String accessToken = joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sid);
-        String refreshToken = joseProviderStrategyContext.getActiveProvider().generateRefreshToken(authentication, sid);
+        String accessToken = joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sid, oauth2User);
+        String refreshToken = joseProviderStrategyContext.getActiveProvider().generateRefreshToken(authentication, sid, oauth2User);
         Date expirationDate = joseProviderStrategyContext.getActiveProvider().getExpirationDateFromToken(refreshToken);
 
         RefreshToken refreshTokenToDb = RefreshToken.builder()

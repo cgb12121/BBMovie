@@ -59,16 +59,16 @@ public class NimbusHmac implements JoseProviderStrategy {
     }
 
     @Override
-    public String generateAccessToken(Authentication authentication, String sid) {
-        return generateToken(authentication, jwtAccessExpirationInMs, sid);
+    public String generateAccessToken(Authentication authentication, String sid, User loggedInUser) {
+        return generateToken(authentication, jwtAccessExpirationInMs, sid, loggedInUser);
     }
 
     @Override
-    public String generateRefreshToken(Authentication authentication, String sid) {
-        return generateToken(authentication, jwtRefreshExpirationInMs, sid);
+    public String generateRefreshToken(Authentication authentication, String sid, User loggedInUser) {
+        return generateToken(authentication, jwtRefreshExpirationInMs, sid, loggedInUser);
     }
 
-    public String generateToken(Authentication authentication, int expirationInMs, String sid) {
+    public String generateToken(Authentication authentication, int expirationInMs, String sid, User loggedInUser) {
         try {
             String username = getUsernameFromAuthentication(authentication);
             String role = getRoleFromAuthentication(authentication);
@@ -76,9 +76,12 @@ public class NimbusHmac implements JoseProviderStrategy {
             Date expiryDate = new Date(now.getTime() + expirationInMs);
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                    .issuer("bbmovie-core")
                     .subject(username)
                     .claim("role", role)
+                    .claim("subscriptionTier", loggedInUser.getSubscriptionTier().name())
+                    .claim("age", loggedInUser.getAge())
+                    .claim("region", loggedInUser.getRegion().name())
+                    .claim("parentalControlsEnabled", loggedInUser.isParentalControlsEnabled())
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(UUID.randomUUID().toString())

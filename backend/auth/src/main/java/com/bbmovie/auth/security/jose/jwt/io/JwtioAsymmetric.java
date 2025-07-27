@@ -72,16 +72,16 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
     }
 
     @Override
-    public String generateAccessToken(Authentication authentication, String sid) {
-        return generateToken(authentication, jwtAccessTokenExpirationInMs, sid);
+    public String generateAccessToken(Authentication authentication, String sid, User loggedInUser) {
+        return generateToken(authentication, jwtAccessTokenExpirationInMs, sid, loggedInUser);
     }
 
     @Override
-    public String generateRefreshToken(Authentication authentication, String sid) {
-        return generateToken(authentication, jwtRefreshTokenExpirationInMs, sid);
+    public String generateRefreshToken(Authentication authentication, String sid, User loggedInUser) {
+        return generateToken(authentication, jwtRefreshTokenExpirationInMs, sid, loggedInUser);
     }
 
-    private String generateToken(Authentication authentication, int expirationInMs, String sid) {
+    private String generateToken(Authentication authentication, int expirationInMs, String sid, User loggedInUser) {
         String username = getUsernameFromAuthentication(authentication);
         String role = getRoleFromAuthentication(authentication);
         Date now = new Date();
@@ -91,10 +91,12 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
         claims.put("sid", sid); // Access & refresh tokens have the same sid
 
         return Jwts.builder()
-                .setIssuer("bbmovie-core")
-                .setHeaderParam("typ", "JWT")
                 .setSubject(username)
                 .claim("role", role)
+                .claim("subscriptionTier", loggedInUser.getSubscriptionTier().name())
+                .claim("age", loggedInUser.getAge())
+                .claim("region", loggedInUser.getRegion().name())
+                .claim("parentalControlsEnabled", loggedInUser.isParentalControlsEnabled())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .addClaims(claims)

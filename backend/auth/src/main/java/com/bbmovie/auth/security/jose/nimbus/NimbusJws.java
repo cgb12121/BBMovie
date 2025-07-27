@@ -58,16 +58,16 @@ public class NimbusJws implements JoseProviderStrategy {
     }
 
     @Override
-    public String generateAccessToken(Authentication authentication, String sid) {
-        return generateToken(authentication, jwtAccessTokenExpirationInMs, sid);
+    public String generateAccessToken(Authentication authentication, String sid, User loggedInUser) {
+        return generateToken(authentication, jwtAccessTokenExpirationInMs, sid, loggedInUser);
     }
 
     @Override
-    public String generateRefreshToken(Authentication authentication, String sid) {
-        return generateToken(authentication, jwtRefreshTokenExpirationInMs, sid);
+    public String generateRefreshToken(Authentication authentication, String sid, User loggedInUser) {
+        return generateToken(authentication, jwtRefreshTokenExpirationInMs, sid, loggedInUser);
     }
 
-    private String generateToken(Authentication authentication, int expirationInMs, String sid) {
+    private String generateToken(Authentication authentication, int expirationInMs, String sid, User loggedInUser) {
         try {
             String username = getUsernameFromAuthentication(authentication);
             String role = getRoleFromAuthentication(authentication);
@@ -75,9 +75,12 @@ public class NimbusJws implements JoseProviderStrategy {
             Date expiryDate = new Date(now.getTime() + expirationInMs);
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                    .issuer("bbmovie-core")
                     .subject(username)
                     .claim("role", role)
+                    .claim("subscriptionTier", loggedInUser.getSubscriptionTier().name())
+                    .claim("age", loggedInUser.getAge())
+                    .claim("region", loggedInUser.getRegion().name())
+                    .claim("parentalControlsEnabled", loggedInUser.isParentalControlsEnabled())
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(UUID.randomUUID().toString())

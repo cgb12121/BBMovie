@@ -61,9 +61,12 @@ public class JwtioSymmetric implements JoseProviderStrategy {
         claims.put("sid", sid);
 
         return Jwts.builder()
-                .setHeaderParam("typ", "JWT")
                 .setSubject(username)
                 .claim("role", role)
+                .claim("subscriptionTier", loggedInUser.getSubscriptionTier().name())
+                .claim("age", loggedInUser.getAge())
+                .claim("region", loggedInUser.getRegion().name())
+                .claim("parentalControlsEnabled", loggedInUser.isParentalControlsEnabled())
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .addClaims(claims)

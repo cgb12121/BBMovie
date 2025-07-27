@@ -125,6 +125,8 @@ spring:
       authorizationserver:
           endpoint:
             jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+  flyway:
+    baseline-on-migrate: true
 
 logging:
   level:

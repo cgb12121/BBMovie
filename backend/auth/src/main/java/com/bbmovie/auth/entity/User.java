@@ -1,7 +1,9 @@
 package com.bbmovie.auth.entity;
 
 import com.bbmovie.auth.entity.enumerate.AuthProvider;
+import com.bbmovie.auth.entity.enumerate.Region;
 import com.bbmovie.auth.entity.enumerate.Role;
+import com.bbmovie.auth.entity.enumerate.SubscriptionTier;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
@@ -24,14 +26,20 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class User extends BaseEntity implements UserDetails {
-    @Column(name = "displayed_username", nullable = false)
-    private String displayedUsername;
+    @Column(name = "email", nullable = false, unique = true)
+    private String email;
 
     @Column(name = "password", nullable = false)
     private String password;
 
-    @Column(name = "email", nullable = false, unique = true)
-    private String email;
+    @Column(name = "displayed_username", nullable = false)
+    private String displayedUsername;
+
+    @Column(name = "first_name")
+    private String firstName;
+
+    @Column(name = "last_name")
+    private String lastName;
 
     @Column(name = "phone_number", unique = true)
     private String phoneNumber;
@@ -40,14 +48,22 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "auth_provider")
     private AuthProvider authProvider = AuthProvider.LOCAL;
 
-    @Column(name = "first_name")
-    private String firstName;
-
-    @Column(name = "last_name")
-    private String lastName;
-
     @Column(name = "profile_picture_url")
     private String profilePictureUrl;
+
+    @Column(name = "age")
+    private Integer age;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "region")
+    private Region region;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "subscription_tier")
+    private SubscriptionTier subscriptionTier;
+
+    @Column(name = "parental_controls_enabled")
+    private boolean parentalControlsEnabled = false;
 
     @Column(name = "is_enabled")
     private Boolean isEnabled = false;

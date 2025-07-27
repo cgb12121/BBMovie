@@ -1,14 +1,15 @@
 package com.bbmovie.auth.security.jose;
 
+import com.bbmovie.auth.entity.User;
 import org.springframework.security.core.Authentication;
 
 import java.util.Date;
 import java.util.List;
 
 public interface JoseProviderStrategy {
-    String generateAccessToken(Authentication authentication, String sid);
+    String generateAccessToken(Authentication authentication, String sid, User loggedInUser);
 
-    String generateRefreshToken(Authentication authentication, String sid);
+    String generateRefreshToken(Authentication authentication, String sid, User loggedInUser);
 
     boolean validateToken(String token);
 
