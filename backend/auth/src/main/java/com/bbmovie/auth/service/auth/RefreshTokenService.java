@@ -1,9 +1,12 @@
 package com.bbmovie.auth.service.auth;
 
+import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.entity.jose.RefreshToken;
 import com.bbmovie.auth.exception.NoRefreshTokenException;
+import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.RefreshTokenRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
+import com.bbmovie.auth.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,14 +28,17 @@ public class RefreshTokenService {
 
     private final JoseProviderStrategyContext joseProviderStrategyContext;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final UserService userService;
 
     @Autowired
     public RefreshTokenService(
             JoseProviderStrategyContext joseProviderStrategyContext,
-            RefreshTokenRepository refreshTokenRepository
+            RefreshTokenRepository refreshTokenRepository,
+            UserService userService
     ) {
         this.joseProviderStrategyContext = joseProviderStrategyContext;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.userService = userService;
     }
 
     @Transactional
@@ -59,11 +65,14 @@ public class RefreshTokenService {
             throw new NoRefreshTokenException("Refresh token is expired or revoked");
         }
 
+        User user = userService.findByEmail(username).orElseThrow(() -> new UserNotFoundException("Unable to find user"));
+
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(username, "", authorities);
         Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
         log.info("Refreshing access token for user {}", username);
         String sameSidWithRefreshToken = String.valueOf(userRefreshToken.getSid());
-        return joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sameSidWithRefreshToken);
+        //TODO: improve by overloading this method by accept claims/payload to prevent fetching from db
+        return joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sameSidWithRefreshToken, user);
     }
 
     @Transactional

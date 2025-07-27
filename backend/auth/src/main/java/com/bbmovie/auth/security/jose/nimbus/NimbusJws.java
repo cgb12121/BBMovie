@@ -4,6 +4,7 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
+import com.bbmovie.auth.security.jose.config.JoseConstraint;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -76,15 +77,15 @@ public class NimbusJws implements JoseProviderStrategy {
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(username)
-                    .claim("role", role)
-                    .claim("subscriptionTier", loggedInUser.getSubscriptionTier().name())
-                    .claim("age", loggedInUser.getAge())
-                    .claim("region", loggedInUser.getRegion().name())
-                    .claim("parentalControlsEnabled", loggedInUser.isParentalControlsEnabled())
+                    .claim(JoseConstraint.JosePayload.ROLE, role)
+                    .claim(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
+                    .claim(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge())
+                    .claim(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name())
+                    .claim(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(UUID.randomUUID().toString())
-                    .claim("sid", sid)
+                    .claim(JoseConstraint.JosePayload.SID, sid)
                     .build();
 
             JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
@@ -175,13 +176,13 @@ public class NimbusJws implements JoseProviderStrategy {
         return resolveAndVerify(token)
                 .map(jwt -> {
                     try {
-                        String role = (String) jwt.getJWTClaimsSet().getClaim("role");
+                        String role = (String) jwt.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.ROLE);
                         return List.of(role);
                     } catch (Exception e) {
-                        throw new IllegalArgumentException("Invalid JWK", e);
+                        throw new IllegalArgumentException("Invalid roles from JWK", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Invalid JWK"));
+                .orElseThrow(() -> new IllegalArgumentException("Unable to get roles from JWK token"));
     }
 
     @Override
@@ -191,10 +192,72 @@ public class NimbusJws implements JoseProviderStrategy {
                     try {
                         return jwt.getJWTClaimsSet().getExpirationTime();
                     } catch (Exception e) {
-                        throw new IllegalArgumentException("Invalid JWK", e);
+                        throw new IllegalArgumentException("Invalid exp from JWK", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Invalid JWK"));
+                .orElseThrow(() -> new IllegalArgumentException("Unable to get expiration date from JWK token"));
+    }
+
+    @Override
+    public String getJtiFromToken(String token) {
+        return resolveAndVerify(token)
+                .map(jwt -> {
+                    try {
+                        return (String) jwt.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.JTI);
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("Invalid jwt from JWK", e);
+                    }
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Unable to get jti from JWK token"));
+    }
+
+    @Override
+    public String getSidFromToken(String token) {
+        return resolveAndVerify(token)
+                .map(jwt -> {
+                    try {
+                        return (String) jwt.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.SID);
+                    } catch (Exception e) {
+                        throw new IllegalArgumentException("Invalid sid from JWK", e);
+                    }
+                })
+                .orElseThrow(() -> new IllegalArgumentException("Unable to get sid from JWK token"));
+    }
+
+    @Override
+    public Map<String, Object> getClaimsFromToken(String token) {
+        return resolveAndVerify(token).map(jwt ->{
+            try {
+                return jwt.getJWTClaimsSet().getClaims();
+            } catch (Exception e) {
+                log.error("Failed to parse claims: {}", e.getMessage());
+                throw new IllegalArgumentException("Invalid claims from JWK", e);
+            }
+        }).orElseThrow(() -> new IllegalArgumentException("Unable to get claims from JWK token"));
+    }
+
+    @Override
+    public Map<String, Object> getOnlyABACClaimsFromToken(String token) {
+        return resolveAndVerify(token).map(jwt ->{
+            try {
+                return getOnlyABACFromClaims(jwt.getJWTClaimsSet().getClaims());
+            } catch (Exception e) {
+                log.error("Failed to parse abac claims from JWK token: {}", e.getMessage());
+                throw new IllegalArgumentException("Invalid abac from JWK", e);
+            }
+        }).orElseThrow(() -> new IllegalArgumentException("Unable to get abac claims from JWK token"));
+    }
+
+    @Override
+    public Map<String, Object> getOnlyABACFromClaims(Map<String, Object> claims) {
+        claims.remove(JoseConstraint.JosePayload.JTI);
+        claims.remove(JoseConstraint.JosePayload.SID);
+        claims.remove(JoseConstraint.JosePayload.ROLE);
+        claims.remove(JoseConstraint.JosePayload.SUB);
+        claims.remove(JoseConstraint.JosePayload.EXP);
+        claims.remove(JoseConstraint.JosePayload.IAT);
+        claims.remove(JoseConstraint.JosePayload.ISS);
+        return claims;
     }
 
     @Override

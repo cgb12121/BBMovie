@@ -32,6 +32,7 @@ public class JwkKey extends BaseEntity {
     private String privateJwk;
 
     @JsonProperty("is_active")
+    @Builder.Default
     private boolean isActive = true;
 
     @Override

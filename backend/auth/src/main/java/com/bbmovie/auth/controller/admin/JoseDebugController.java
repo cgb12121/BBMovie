@@ -113,7 +113,7 @@ public class JoseDebugController {
             log.info("JWE Algorithm: {}", alg);
 
             // Decrypt using the appropriate decrypter
-            if (alg.equals(JWEAlgorithm.RSA_OAEP) || alg.equals(JWEAlgorithm.RSA_OAEP_256)) {
+            if (alg.equals(JWEAlgorithm.RSA_OAEP_256)) {
                 // Use RSA decryption
                 encryptedJWT.decrypt(new RSADecrypter(rsaPrivateKey.toRSAPrivateKey()));
             } else if (alg.equals(JWEAlgorithm.DIR)) {

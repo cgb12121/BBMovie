@@ -4,6 +4,7 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
+import com.bbmovie.auth.security.jose.config.JoseConstraint;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -77,18 +78,20 @@ public class NimbusHmac implements JoseProviderStrategy {
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(username)
-                    .claim("role", role)
-                    .claim("subscriptionTier", loggedInUser.getSubscriptionTier().name())
-                    .claim("age", loggedInUser.getAge())
-                    .claim("region", loggedInUser.getRegion().name())
-                    .claim("parentalControlsEnabled", loggedInUser.isParentalControlsEnabled())
+                    .claim(JoseConstraint.JosePayload.ROLE, role)
+                    .claim(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
+                    .claim(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge())
+                    .claim(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name())
+                    .claim(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(UUID.randomUUID().toString())
-                    .claim("sid", sid)
+                    .claim(JoseConstraint.JosePayload.SID, sid)
                     .build();
 
-            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.HS256).type(JOSEObjectType.JWT).build();
+            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.HS256)
+                    .type(JOSEObjectType.JWT)
+                    .build();
             SignedJWT signedJWT = new SignedJWT(header, claimsSet);
             signedJWT.sign(new MACSigner(secretKey.getEncoded()));
 
@@ -142,7 +145,7 @@ public class NimbusHmac implements JoseProviderStrategy {
             if (!signedJWT.verify(new MACVerifier(secretKey.getEncoded()))) {
                 throw new IllegalArgumentException("JWT verification failed");
             }
-            String role = (String) signedJWT.getJWTClaimsSet().getClaim("role");
+            String role = (String) signedJWT.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.ROLE);
             return List.of(role);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid JWT token", e);
@@ -167,6 +170,58 @@ public class NimbusHmac implements JoseProviderStrategy {
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid JWT token", e);
         }
+    }
+
+    @Override
+    public String getJtiFromToken(String token) {
+        try {
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            return signedJWT.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.JTI).toString();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
+    }
+
+    @Override
+    public String getSidFromToken(String token) {
+        try {
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            return signedJWT.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.SID).toString();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getClaimsFromToken(String token) {
+        try {
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            return signedJWT.getJWTClaimsSet().getClaims();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getOnlyABACClaimsFromToken(String token) {
+        try {
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            return getOnlyABACFromClaims(signedJWT.getJWTClaimsSet().getClaims());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getOnlyABACFromClaims(Map<String, Object> claims) {
+        claims.remove(JoseConstraint.JosePayload.JTI);
+        claims.remove(JoseConstraint.JosePayload.SID);
+        claims.remove(JoseConstraint.JosePayload.ROLE);
+        claims.remove(JoseConstraint.JosePayload.SUB);
+        claims.remove(JoseConstraint.JosePayload.EXP);
+        claims.remove(JoseConstraint.JosePayload.IAT);
+        claims.remove(JoseConstraint.JosePayload.ISS);
+        return claims;
     }
 
     @Override

@@ -26,14 +26,14 @@ import java.util.UUID;
 @Log4j2
 @Configuration
 @EnableScheduling
-public class JwkConfig {
+public class JwkRotation {
 
     private final JwkKeyRepository keyRepo;
     private final ApplicationEventPublisher eventPublisher;
     private final JwkKeyCache keyCache;
 
     @Autowired
-    public JwkConfig(JwkKeyRepository keyRepo, ApplicationEventPublisher eventPublisher, JwkKeyCache keyCache) {
+    public JwkRotation(JwkKeyRepository keyRepo, ApplicationEventPublisher eventPublisher, JwkKeyCache keyCache) {
         this.keyRepo = keyRepo;
         this.eventPublisher = eventPublisher;
         this.keyCache = keyCache;

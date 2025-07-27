@@ -4,6 +4,7 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
+import com.bbmovie.auth.security.jose.config.JoseConstraint;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import lombok.extern.log4j.Log4j2;
@@ -43,33 +44,33 @@ public class JwtioSymmetric implements JoseProviderStrategy {
         this.redisTemplate = redisTemplate;
     }
 
-    public String generateAccessToken(Authentication authentication, String sid) {
-       return generateToken(authentication, jwtAccessExpirationInMs, sid);
+    public String generateAccessToken(Authentication authentication, String sid, User loggedInUser) {
+       return generateToken(authentication, jwtAccessExpirationInMs, sid, loggedInUser);
     }
 
-    public String generateRefreshToken(Authentication authentication, String sid) {
-        return generateToken(authentication, jwtRefreshExpirationInMs, sid);
+    public String generateRefreshToken(Authentication authentication, String sid,  User loggedInUser) {
+        return generateToken(authentication, jwtRefreshExpirationInMs, sid, loggedInUser);
     }
 
-    public String generateToken(Authentication authentication, int expirationInMs, String sid) {
+    public String generateToken(Authentication authentication, int expirationInMs, String sid, User loggedInUser) {
         String username = getUsernameFromAuthentication(authentication);
         String role = getRoleFromAuthentication(authentication);
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationInMs);
         Map<String, Object> claims = new HashMap<>();
-        claims.put("jti", UUID.randomUUID().toString());
-        claims.put("sid", sid);
+        claims.put(JoseConstraint.JosePayload.JTI, UUID.randomUUID().toString());
+        claims.put(JoseConstraint.JosePayload.SID, sid);
+        claims.put(JoseConstraint.JosePayload.ROLE, role);
+        claims.put(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name());
+        claims.put(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge());
+        claims.put(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name());
+        claims.put(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled());
 
         return Jwts.builder()
                 .setSubject(username)
-                .claim("role", role)
-                .claim("subscriptionTier", loggedInUser.getSubscriptionTier().name())
-                .claim("age", loggedInUser.getAge())
-                .claim("region", loggedInUser.getRegion().name())
-                .claim("parentalControlsEnabled", loggedInUser.isParentalControlsEnabled())
+                .addClaims(claims)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .addClaims(claims)
                 .signWith(secretKey, SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -113,25 +114,22 @@ public class JwtioSymmetric implements JoseProviderStrategy {
     }
 
     public List<String> getRolesFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(secretKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        String role = claims.get("role", String.class);
-        if (role == null) {
-            throw new IllegalStateException("Role claim missing in token");
+        try {
+            Claims claims = extractClaims(token);
+            String role = claims.get(JoseConstraint.JosePayload.ROLE, String.class);
+            return List.of(role);
+        } catch (ExpiredJwtException e) {
+            Claims claims = e.getClaims();
+            String role = claims.get(JoseConstraint.JosePayload.ROLE, String.class);
+            return List.of(role);
+        } catch (JwtException e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
         }
-        return List.of(role);
     }
 
     public String getUsernameFromToken(String token) {
         try {
-            Claims claims = Jwts.parserBuilder()
-                    .setSigningKey(secretKey)
-                    .build()
-                    .parseClaimsJws(token)
-                    .getBody();
+            Claims claims = extractClaims(token);
             return claims.getSubject();
         } catch (ExpiredJwtException e) {
             Claims claims = e.getClaims();
@@ -142,14 +140,80 @@ public class JwtioSymmetric implements JoseProviderStrategy {
     }
 
     public Date getExpirationDateFromToken(String token) {
-        Claims claims = Jwts.parserBuilder()
-                .setSigningKey(secretKey)
-                .build()
-                .parseClaimsJws(token)
-                .getBody();
-        return claims.getExpiration();
+        try {
+            Claims claims = extractClaims(token);
+            return claims.getExpiration();
+        } catch (ExpiredJwtException e) {
+            Claims claims = e.getClaims();
+            return claims.getExpiration();
+        } catch (JwtException e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
     }
 
+    @Override
+    public String getJtiFromToken(String token) {
+        try {
+            Claims claims = extractClaims(token);
+            return claims.get(JoseConstraint.JosePayload.JTI, String.class);
+        } catch (ExpiredJwtException e) {
+            Claims claims = e.getClaims();
+            return claims.get(JoseConstraint.JosePayload.JTI, String.class);
+        } catch (JwtException e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
+    }
+
+    @Override
+    public String getSidFromToken(String token) {
+        try {
+            Claims claims = extractClaims(token);
+            return claims.get(JoseConstraint.JosePayload.SID, String.class);
+        } catch (ExpiredJwtException e) {
+            Claims claims = e.getClaims();
+            return claims.get(JoseConstraint.JosePayload.SID, String.class);
+        } catch (JwtException e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getClaimsFromToken(String token) {
+        try {
+            return extractClaims(token);
+        } catch (ExpiredJwtException e) {
+            return e.getClaims();
+        } catch (JwtException e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getOnlyABACClaimsFromToken(String token) {
+        try {
+            Map<String, Object> claims = getClaimsFromToken(token);
+            return getOnlyABACFromClaims(claims);
+        } catch (ExpiredJwtException e) {
+            Map<String, Object> claims = e.getClaims();
+            return getOnlyABACFromClaims(claims);
+        } catch (JwtException e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
+    }
+
+    @Override
+    public Map<String, Object> getOnlyABACFromClaims(Map<String, Object> claims) {
+        claims.remove(JoseConstraint.JosePayload.JTI);
+        claims.remove(JoseConstraint.JosePayload.SID);
+        claims.remove(JoseConstraint.JosePayload.ROLE);
+        claims.remove(JoseConstraint.JosePayload.SUB);
+        claims.remove(JoseConstraint.JosePayload.EXP);
+        claims.remove(JoseConstraint.JosePayload.IAT);
+        claims.remove(JoseConstraint.JosePayload.ISS);
+        return claims;
+    }
+
+    @Override
     public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder()
@@ -160,6 +224,14 @@ public class JwtioSymmetric implements JoseProviderStrategy {
         } catch (Exception ex) {
             return false;
         }
+    }
+
+    private Claims extractClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(secretKey)
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
     
     @Override

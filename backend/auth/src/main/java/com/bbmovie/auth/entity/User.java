@@ -44,6 +44,7 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "phone_number", unique = true)
     private String phoneNumber;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider")
     private AuthProvider authProvider = AuthProvider.LOCAL;
@@ -65,12 +66,15 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "parental_controls_enabled")
     private boolean parentalControlsEnabled = false;
 
+    @Builder.Default
     @Column(name = "is_enabled")
     private Boolean isEnabled = false;
 
+    @Builder.Default
     @Column(name = "is_account_non_expired")
     private Boolean isAccountNonExpired = true;
 
+    @Builder.Default
     @Column(name = "is_account_non_locked")
     private Boolean isAccountNonLocked = true;
 
