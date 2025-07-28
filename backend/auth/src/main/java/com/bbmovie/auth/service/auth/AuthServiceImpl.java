@@ -34,6 +34,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -332,11 +334,34 @@ public class AuthServiceImpl implements AuthService {
                 .toList();
     }
 
-    public void revokeTokensOnAbacUpdate(String email, Map<String, Object> updatedAbac) {
-        List<String> sids = refreshTokenService.getAllSessionsByEmail(email);
-        // Notify gateway to blacklist this token and make gateway get new tokens for user and give them via http response header
-        for (String sid : sids) {
-            abacEventProducer.send(JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid);
+    //need check again
+    @Transactional
+    @Override
+    public void updateUserTokensOnAbacChange(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("User not found: " + email));
+
+        List<RefreshToken> refreshTokens = refreshTokenService.findAllValidByEmail(email);
+
+        for (RefreshToken refreshToken : refreshTokens) {
+            String oldSid = refreshToken.getSid();
+            joseProviderStrategy.addTokenToABACBlacklist(oldSid);
+            abacEventProducer.send(JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + oldSid);
+
+            List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+            UserDetails userDetails = new org.springframework.security.core.userdetails.User(email, "", authorities);
+            Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
+
+            String newSid = UUID.randomUUID().toString();
+            //need to pass time to make sure new issued token expired same with old token
+            String newRefreshToken = joseProviderStrategy.generateRefreshToken(authentication, newSid, user);
+
+            refreshToken.setToken(newRefreshToken);
+            refreshToken.setSid(newSid);
+            refreshToken.setJti(UUID.randomUUID().toString());
+            refreshToken.setExpiryDate(new Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000));
+            refreshToken.setRevoked(false);
+            refreshTokenService.saveRefreshToken(newSid, newRefreshToken);
         }
     }
 
@@ -363,8 +388,12 @@ public class AuthServiceImpl implements AuthService {
         logoutEventProducer.send(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + targetSid);
     }
 
-    private void revokeAllTokensFromAllDevices(String accessToken) {
-        String email = joseProviderStrategy.getUsernameFromToken(accessToken);
+    /**
+     * Potential for incorrect session revocation or security risks (e.g., revoking another user’s session).
+     *
+     * @param email account's email to revoke access & refresh tokens
+     */
+    private void revokeAllTokensFromAllDevices(String email) {
         List<String> allSessions = refreshTokenService.getAllSessionsByEmail(email);
         refreshTokenService.deleteAllRefreshTokenByEmail(email);
         for (String sid : allSessions) {

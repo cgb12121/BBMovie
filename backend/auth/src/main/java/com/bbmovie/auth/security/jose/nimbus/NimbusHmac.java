@@ -81,6 +81,7 @@ public class NimbusHmac implements JoseProviderStrategy {
                     .claim(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge())
                     .claim(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name())
                     .claim(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
+                    .claim(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(UUID.randomUUID().toString())

@@ -63,6 +63,7 @@ public class JwtioSymmetric implements JoseProviderStrategy {
         claims.put(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge());
         claims.put(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name());
         claims.put(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled());
+        claims.put(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled());
 
         return Jwts.builder()
                 .setSubject(username)

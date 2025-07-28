@@ -44,6 +44,10 @@ public interface AuthService {
 
     List<LoggedInDeviceResponse> getAllLoggedInDevices(String email, HttpServletRequest request);
 
+    //need check again
+    @Transactional
+    void updateUserTokensOnAbacChange(String email);
+
     UserResponse loadAuthenticatedUserInformation(String email);
 
     @Transactional(noRollbackFor = CustomEmailException.class)

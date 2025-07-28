@@ -26,6 +26,7 @@ public class JoseConstraint {
             public static final String AGE = "age";
             public static final String REGION = "region";
             public static final String PARENTAL_CONTROLS_ENABLED = "parentalControlsEnabled";
+            public static final String IS_ACCOUNTING_ENABLED = "isEnabled";
         }
     }
 }

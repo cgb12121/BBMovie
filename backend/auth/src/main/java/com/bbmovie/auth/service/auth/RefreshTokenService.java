@@ -52,6 +52,7 @@ public class RefreshTokenService {
         refreshTokenRepository.deleteAllByEmail(email);
     }
 
+    //TODO: need quick fixes asap, avoid inconsistence after update abac by getting info from db
     public String refreshAccessToken(String oldAccessToken, String deviceName) {
         String username = joseProviderStrategyContext.getActiveProvider().getUsernameFromToken(oldAccessToken);
         List<String> roles = joseProviderStrategyContext.getActiveProvider().getRolesFromToken(oldAccessToken);
@@ -77,14 +78,20 @@ public class RefreshTokenService {
         return joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sameSidWithRefreshToken, user);
     }
 
+    /**
+     * saveRefreshToken assumes an existing RefreshToken for the sid, which may fail if the sid is new or deleted
+     * => Token updates may fail silently, leading to inconsistent session state
+     *
+     * @param sid
+     * @param refreshTokenString
+     */
     @Transactional
     public void saveRefreshToken(String sid, String refreshTokenString) {
         RefreshToken refreshToken = refreshTokenRepository.findBySid(sid);
         if (refreshToken == null) {
-            return;
+            ;
         }
-        Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider()
-                                            .getClaimsFromToken(refreshTokenString);
+        Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider().getClaimsFromToken(refreshTokenString);
         Date newExp = (Date) claims.get(JoseConstraint.JosePayload.EXP);
         Date newIat = (Date) claims.get(JoseConstraint.JosePayload.IAT);
         String jti = claims.get(JoseConstraint.JosePayload.JTI).toString();

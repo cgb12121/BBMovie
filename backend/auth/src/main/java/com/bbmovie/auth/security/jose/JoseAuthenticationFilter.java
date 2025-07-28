@@ -3,6 +3,7 @@ package com.bbmovie.auth.security.jose;
 import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.BlacklistedJwtTokenException;
 import com.bbmovie.auth.exception.UserNotFoundException;
+import com.bbmovie.auth.security.jose.config.JoseConstraint;
 import com.bbmovie.auth.service.UserService;
 import com.bbmovie.auth.service.auth.RefreshTokenService;
 import jakarta.annotation.Nullable;
@@ -26,6 +27,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -62,8 +64,15 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
             JoseProviderStrategy provider = validated.provider();
             log.info("[Strategy: {}] Validated JoseToken: {}", provider.getClass().getName(), validated);
 
-            String sid = provider.getSidFromToken(token);
+            String sid = validated.sid();
             String username = validated.username();
+            boolean isAccountEnabled = validated.isEnabled();
+
+            if (!isAccountEnabled) {
+                log.warn("[Strategy: {}] Account is Disabled", provider.getClass().getName());
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
 
             if (provider.isTokenInLogoutBlacklist(sid)) {
                 throw new BlacklistedJwtTokenException("Access token has been blocked for this email and device");
@@ -141,19 +150,24 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
         log.debug("Active provider: {}", active);
 
         if (active.validateToken(token)) {
-            return new JoseValidatedToken(
-                    active,
-                    active.getUsernameFromToken(token),
-                    active.getRolesFromToken(token)
-            );
+            Map<String, Object> claims = active.getClaimsFromToken(token);
+            String username = claims.get(JoseConstraint.JosePayload.SUB).toString();
+            List<String> role = List.of(claims.get(JoseConstraint.JosePayload.ROLE).toString());
+            String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
+            boolean isEnabled = claims.get(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED)
+                    .toString().equalsIgnoreCase("true");
+
+            return new JoseValidatedToken(active, sid, username, role, isEnabled);
         }
         JoseProviderStrategy previous = joseContext.getPreviousProvider();
         if (previous != null && previous.validateToken(token)) {
-            return new JoseValidatedToken(
-                    previous,
-                    previous.getUsernameFromToken(token),
-                    previous.getRolesFromToken(token)
-            );
+            Map<String, Object> claims = active.getClaimsFromToken(token);
+            String username = claims.get(JoseConstraint.JosePayload.SUB).toString();
+            List<String> role = List.of(claims.get(JoseConstraint.JosePayload.ROLE).toString());
+            String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
+            boolean isEnabled = claims.get(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED)
+                    .toString().equalsIgnoreCase("true");
+            return new JoseValidatedToken(previous, sid, username, role, isEnabled);
         }
         return null;
     }

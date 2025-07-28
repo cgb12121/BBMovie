@@ -19,7 +19,7 @@ public class LogoutEventProducer {
 
     public void send(String key) {
         try {
-            kafkaTemplate.send(KafkaTopicConfig.FORGOT_PASSWORD_TOPIC, key);
+            kafkaTemplate.send(KafkaTopicConfig.LOGOUT_TOPIC, key);
             log.info("Sent logout event to gateway with key for cache: {}", key);
         } catch (Exception e) {
             log.error("Failed to send logout event to gateway with key for cache: {}", key, e);
