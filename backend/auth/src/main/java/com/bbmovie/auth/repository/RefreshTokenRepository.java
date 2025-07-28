@@ -12,12 +12,16 @@ import java.util.UUID;
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID> {
     void deleteAllByEmail(String email);
 
-    void deleteByEmailAndDeviceName(String email, String deviceName);
-
     Optional<RefreshToken> findByEmailAndDeviceName(String email, String deviceName);
 
-    Optional<RefreshToken> findAllByEmail(String email);
+    List<RefreshToken> findAllByEmail(String email);
 
     @Query("SELECT r FROM RefreshToken r WHERE r.email = :email AND r.revoked = false AND r.expiryDate > CURRENT_TIMESTAMP")
     List<RefreshToken> findAllValidByEmail(@Param("email") String email);
+
+    RefreshToken findBySid(String sid);
+
+    void deleteBySid(String sid);
+
+    void deleteByEmailAndSid(String email, String sid);
 }

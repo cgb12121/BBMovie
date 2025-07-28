@@ -41,7 +41,7 @@ public class JwkKeyCache {
         List<JwkKey> activeKeys = keyRepo.findAll().stream().filter(JwkKey::isActive).toList();
         if (activeKeys.isEmpty()) {
             // Note: Avoid calling rotateKey() here to prevent recursive event publishing
-            throw new IllegalStateException("No active keys found");
+            log.info("No active JwkKeys found");
         }
         try {
             activePrivateKey = RSAKey.parse(activeKeys.getFirst().getPrivateJwk());

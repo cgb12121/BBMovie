@@ -14,7 +14,6 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.log4j.Log4j2;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
@@ -40,7 +39,6 @@ public class NimbusHmac implements JoseProviderStrategy {
     private final String jwtSecret;
     private SecretKey secretKey;
     private final RedisTemplate<Object, Object> redisTemplate;
-    private static final String JWT_BLACKLIST_PREFIX = "jose-blacklist:";
 
     public NimbusHmac(
             @Value("${app.jose.key.secret}") String jwtSecret,
@@ -163,6 +161,16 @@ public class NimbusHmac implements JoseProviderStrategy {
     }
 
     @Override
+    public Date getIssuedAtFromToken(String token) {
+        try {
+            SignedJWT signedJWT = SignedJWT.parse(token);
+            return signedJWT.getJWTClaimsSet().getIssueTime();
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Invalid JWT token", e);
+        }
+    }
+
+    @Override
     public Date getExpirationDateFromToken(String token) {
         try {
             SignedJWT signedJWT = SignedJWT.parse(token);
@@ -236,20 +244,37 @@ public class NimbusHmac implements JoseProviderStrategy {
     }
 
     @Override
-    public void invalidateAccessTokenByEmailAndDevice(String email, String deviceName) {
-        String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
-        redisTemplate.opsForValue().set(key, "true", 15, TimeUnit.MINUTES);
+    public boolean isTokenInLogoutBlacklist(String sid) {
+        return redisTemplate.hasKey(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid);
     }
 
     @Override
-    public boolean isAccessTokenBlacklistedForEmailAndDevice(String email, String deviceName) {
-        String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
-        return redisTemplate != null && redisTemplate.hasKey(key);
+    public void addTokenToLogoutBlacklist(String sid) {
+        String key = JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid;
+        redisTemplate.opsForValue().set(key, "", 15, TimeUnit.MINUTES);
     }
 
     @Override
-    public void removeBlacklistedAccessTokenOfEmailAndDevice(String email, String deviceName) {
-        String key = JWT_BLACKLIST_PREFIX + email + ":" + StringUtils.deleteWhitespace(deviceName);
+    public void removeFromLogoutBlacklist(String sid) {
+        String key = JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid;
+        redisTemplate.delete(key);
+    }
+
+    @Override
+    public boolean isTokenInABACBlacklist(String sid) {
+        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
+        return redisTemplate.hasKey(key);
+    }
+
+    @Override
+    public void addTokenToABACBlacklist(String sid) {
+        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
+        redisTemplate.opsForValue().set(key, "", 15, TimeUnit.MINUTES);
+    }
+
+    @Override
+    public void removeTokenFromABACBlacklist(String sid) {
+        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
     }
 }

@@ -1,6 +1,10 @@
 package com.bbmovie.auth.security.jose;
 
+import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.BlacklistedJwtTokenException;
+import com.bbmovie.auth.exception.UserNotFoundException;
+import com.bbmovie.auth.service.UserService;
+import com.bbmovie.auth.service.auth.RefreshTokenService;
 import jakarta.annotation.Nullable;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -30,6 +34,8 @@ import java.util.stream.Collectors;
 public class JoseAuthenticationFilter extends OncePerRequestFilter {
 
     private final JoseProviderStrategyContext joseContext;
+    private final UserService userService;
+    private final RefreshTokenService  refreshTokenService;
 
     @Override
     protected void doFilterInternal(
@@ -39,48 +45,93 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         try {
             String token = getJwtFromRequest(request);
-            String deviceName = getDeviceIdFromRequest(request);
 
-            if (token != null) {
-                JoseValidatedToken validated = resolveAndValidateToken(token);
-                if (validated != null) {
-                    JoseProviderStrategy provider = validated.provider();
-                    log.info("[Strategy: {}] Validated JoseToken: {}", provider.getClass().getName(), validated);
+            if (token == null) {
+                log.warn("Token is null,  can't get access token");
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
 
-                    if (provider.isAccessTokenBlacklistedForEmailAndDevice(validated.username(), deviceName)) {
-                        throw new BlacklistedJwtTokenException("Access token has been blocked for this email and device");
-                    }
+            JoseValidatedToken validated = resolveAndValidateToken(token);
+            if (validated == null) {
+                log.warn("Failed to validate token");
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
 
-                    List<GrantedAuthority> authorities = validated.roles().stream()
-                            .map(SimpleGrantedAuthority::new)
-                            .collect(Collectors.toList());
+            JoseProviderStrategy provider = validated.provider();
+            log.info("[Strategy: {}] Validated JoseToken: {}", provider.getClass().getName(), validated);
 
-                    UserDetails userDetails = new org.springframework.security.core.userdetails.User(
-                            validated.username(), "", authorities
-                    );
+            String sid = provider.getSidFromToken(token);
+            String username = validated.username();
 
-                    UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                            userDetails, null, authorities
-                    );
-                    authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-                }
+            if (provider.isTokenInLogoutBlacklist(sid)) {
+                throw new BlacklistedJwtTokenException("Access token has been blocked for this email and device");
+            }
+            // we will check blacklist the sid since sid (on refresh token) are stored on database
+            // easier to track than jti from access token
+            boolean isAbacStale = provider.isTokenInABACBlacklist(sid);
+            if (isAbacStale) {
+                User userAfterAbacUpdate = userService.findByEmail(username)
+                        .orElseThrow(() -> new UserNotFoundException("Unexpected username, cannot find user"));
+
+                List<GrantedAuthority> authorities = userAfterAbacUpdate.getAuthorities()
+                        .stream()
+                        .map(GrantedAuthority.class::cast)
+                        .toList();
+
+                UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                        username, "", authorities
+                );
+
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, authorities
+                );
+
+                String newAccessToken = provider.generateAccessToken(authentication, sid, userAfterAbacUpdate);
+                String newRefreshTokenString = provider.generateRefreshToken(authentication, sid, userAfterAbacUpdate);
+                refreshTokenService.saveRefreshToken(sid, newRefreshTokenString);
+
+                provider.removeTokenFromABACBlacklist(sid);
+
+                response.setHeader("X-New-Access-Token", newAccessToken);
+
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } else {
+                // Normal flow where there is no abac changes
+                List<GrantedAuthority> authorities = validated.roles()
+                        .stream()
+                        .map(SimpleGrantedAuthority::new)
+                        .collect(Collectors.toList());
+
+                UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                        username, "", authorities
+                );
+
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, authorities
+                );
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (BlacklistedJwtTokenException ex) {
             log.warn("Blacklisted token detected: {}", ex.getMessage());
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, ex.getMessage());
+            SecurityContextHolder.clearContext();
             return;
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token.");
-            return;
-        } finally {
             SecurityContextHolder.clearContext();
+            return;
         }
 
+        SecurityContextHolder.clearContext();
         filterChain.doFilter(request, response);
     }
 
+    // Only hold basic role based access control, not hold abac
     private JoseValidatedToken resolveAndValidateToken(@Nullable String token) {
         if (StringUtils.isEmpty(token)) {
             return null;
@@ -118,23 +169,6 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
             for (Cookie cookie : cookies) {
                 if ("accessToken".equals(cookie.getName())) {
                     return cookie.getValue();
-                }
-            }
-        }
-        return null;
-    }
-
-    private String getDeviceIdFromRequest(HttpServletRequest request) {
-        String deviceName = request.getHeader("X-DEVICE-NAME");
-        if (deviceName != null && !deviceName.isBlank()) {
-            return StringUtils.deleteWhitespace(deviceName);
-        }
-
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("deviceName".equals(cookie.getName())) {
-                    return StringUtils.deleteWhitespace(cookie.getValue());
                 }
             }
         }

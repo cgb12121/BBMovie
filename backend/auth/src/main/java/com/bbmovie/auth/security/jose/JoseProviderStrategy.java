@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 
 public interface JoseProviderStrategy {
+
     String generateAccessToken(Authentication authentication, String sid, User logInUser);
 
     String generateRefreshToken(Authentication authentication, String sid, User logInUser);
@@ -16,15 +17,9 @@ public interface JoseProviderStrategy {
 
     String getUsernameFromToken(String token);
 
-    boolean isAccessTokenBlacklistedForEmailAndDevice(String username, String deviceName);
-
     List<String> getRolesFromToken(String token);
 
     Date getExpirationDateFromToken(String token);
-
-    void removeBlacklistedAccessTokenOfEmailAndDevice(String email, String deviceName);
-
-    void invalidateAccessTokenByEmailAndDevice(String email, String deviceName);
 
     String getJtiFromToken(String token);
 
@@ -35,4 +30,18 @@ public interface JoseProviderStrategy {
     Map<String,Object> getOnlyABACClaimsFromToken(String token);
 
     Map<String, Object> getOnlyABACFromClaims(Map<String, Object> tokenClaims);
+
+    Date getIssuedAtFromToken(String token);
+
+    boolean isTokenInLogoutBlacklist(String sid);
+
+    void addTokenToLogoutBlacklist(String sid);
+
+    void removeFromLogoutBlacklist(String sid);
+
+    boolean isTokenInABACBlacklist(String sid);
+
+    void addTokenToABACBlacklist(String sid);
+
+    void removeTokenFromABACBlacklist(String sid);
 }

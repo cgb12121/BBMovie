@@ -16,12 +16,10 @@ public class CorsConfig {
     @Value("${app.frontend.url}")
     private String frontendUrl;
 
-    private static final String gatewayUrl = "http:/localhost:8765";
-
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of(frontendUrl, gatewayUrl));
+        configuration.setAllowedOrigins(List.of(frontendUrl));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList(ALLOWED_HEADERS));
         configuration.setAllowCredentials(true);

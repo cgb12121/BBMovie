@@ -14,18 +14,24 @@ import java.util.Map;
 
 @Log4j2
 @Service
-public class KafkaEmailEventProducer {
+public class EmailEventProducer {
 
     private final KafkaTemplate<String, Object> kafkaTemplate;
 
+    private static final String EMAIL_KEY = "email";
+    private static final String PHONE_NUMBER_KEY = "password";
+    private static final String OTP_KEY = "otp";
+    private static final String TOKEN_FOR_MAGIC_LINK_KEY = "token";
+    private static final String TIME_CHANGE_PASSWORD_KEY = "timeChangedPassword";
+
     @Autowired
-    public KafkaEmailEventProducer(KafkaTemplate<String, Object> kafkaTemplate) {
+    public EmailEventProducer(KafkaTemplate<String, Object> kafkaTemplate) {
         this.kafkaTemplate = kafkaTemplate;
     }
 
     public void sendOtp(String phoneNumber, String otp) {
         try {
-            Map<String, String> event = Map.of("phoneNumber", phoneNumber, "otp", otp);
+            Map<String, String> event = Map.of(PHONE_NUMBER_KEY, phoneNumber, OTP_KEY, otp);
             kafkaTemplate.send(KafkaTopicConfig.OTP_SMS_TOPIC, phoneNumber, event);
             log.info("Sent OTP for user: {}", phoneNumber);
         } catch (Exception e) {
@@ -36,7 +42,7 @@ public class KafkaEmailEventProducer {
 
     public void sendMagicLinkOnRegistration(String email, String tokenToCreateLink) {
         try {
-            Map<String, String> event = Map.of("email", email, "token", tokenToCreateLink);
+            Map<String, String> event = Map.of(EMAIL_KEY, email, TOKEN_FOR_MAGIC_LINK_KEY, tokenToCreateLink);
             kafkaTemplate.send(KafkaTopicConfig.REGISTER_EMAIL_TOPIC, email, event);
             log.info("Sent magic link for user: {}", email);
         } catch (Exception e) {
@@ -47,7 +53,7 @@ public class KafkaEmailEventProducer {
 
     public void sendMagicLinkOnForgotPassword(String email, String tokenToCreateLink) {
         try {
-            Map<String, String> event = Map.of("email", email, "token", tokenToCreateLink);
+            Map<String, String> event = Map.of(EMAIL_KEY, email, TOKEN_FOR_MAGIC_LINK_KEY, tokenToCreateLink);
             kafkaTemplate.send(KafkaTopicConfig.FORGOT_PASSWORD_TOPIC, email, event);
             log.info("Sent magic link for user on forgot password: {}", email);
         } catch (Exception e) {
@@ -58,7 +64,7 @@ public class KafkaEmailEventProducer {
 
     public void sendNotificationOnChangingPassword(String email, ZonedDateTime timeChangedPassword) {
         try {
-            Map<String, String> event = Map.of("email", email, "timeChangedPassword", timeChangedPassword.toString());
+            Map<String, String> event = Map.of(EMAIL_KEY, email, TIME_CHANGE_PASSWORD_KEY, timeChangedPassword.toString());
             kafkaTemplate.send(KafkaTopicConfig.CHANGE_PASSWORD_EMAIL_TOPIC, email, event);
             log.info("Sent notification for user: {}", email);
         } catch (Exception e) {

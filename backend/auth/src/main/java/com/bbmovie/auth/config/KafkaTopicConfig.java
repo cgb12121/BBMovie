@@ -13,6 +13,19 @@ public class KafkaTopicConfig {
     public static final String OTP_SMS_TOPIC = "otp-sms-topic";
     public static final String FORGOT_PASSWORD_TOPIC = "forgot-password-topic";
 
+    public static final String LOGOUT_TOPIC = "logout-topic";
+    public static final String ABAC_TOPIC = "abac-topic";
+
+    @Bean("logoutTopic")
+    public NewTopic logoutTopic() {
+        return TopicBuilder.name(LOGOUT_TOPIC).build();
+    }
+
+    @Bean("abacTopic")
+    public NewTopic abacTopic() {
+        return TopicBuilder.name(ABAC_TOPIC).build();
+    }
+
     @Bean("registerEmailTopic")
     public NewTopic registerEmailTopic() {
         return buildShortLivedTopic(REGISTER_EMAIL_TOPIC);

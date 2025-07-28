@@ -14,10 +14,13 @@ import com.bbmovie.auth.exception.*;
 import com.bbmovie.auth.repository.UserRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
+import com.bbmovie.auth.security.jose.config.JoseConstraint;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.auth.verify.magiclink.ChangePasswordTokenService;
 import com.bbmovie.auth.service.auth.verify.magiclink.EmailVerifyTokenService;
-import com.bbmovie.auth.service.kafka.KafkaEmailEventProducer;
+import com.bbmovie.auth.service.kafka.ABACEventProducer;
+import com.bbmovie.auth.service.kafka.EmailEventProducer;
+import com.bbmovie.auth.service.kafka.LogoutEventProducer;
 import com.bbmovie.auth.utils.DeviceInfoUtils;
 import com.bbmovie.auth.utils.IpAddressUtils;
 import com.bbmovie.auth.utils.UserAgentAnalyzerUtils;
@@ -41,9 +44,7 @@ import org.springframework.web.util.WebUtils;
 
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 import static com.bbmovie.auth.constant.error.AuthErrorMessages.EMAIL_ALREADY_EXISTS;
 import static com.bbmovie.auth.constant.error.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
@@ -56,7 +57,9 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final EmailVerifyTokenService emailVerifyTokenService;
-    private final KafkaEmailEventProducer kafkaEmailEventProducer;
+    private final EmailEventProducer emailEventProducer;
+    private final LogoutEventProducer logoutEventProducer;
+    private final ABACEventProducer abacEventProducer;
     private final RefreshTokenService refreshTokenService;
     private final ChangePasswordTokenService changePasswordTokenService;
     private final OtpService otpService;
@@ -71,7 +74,9 @@ public class AuthServiceImpl implements AuthService {
             PasswordEncoder passwordEncoder,
             UserRepository userRepository,
             EmailVerifyTokenService emailVerifyTokenService,
-            KafkaEmailEventProducer kafkaEmailEventProducer,
+            EmailEventProducer emailEventProducer,
+            LogoutEventProducer logoutEventProducer,
+            ABACEventProducer abacEventProducer,
             RefreshTokenService refreshTokenService,
             ChangePasswordTokenService changePasswordTokenService,
             OtpService otpService,
@@ -82,7 +87,9 @@ public class AuthServiceImpl implements AuthService {
         this.passwordEncoder = passwordEncoder;
         this.userRepository = userRepository;
         this.emailVerifyTokenService = emailVerifyTokenService;
-        this.kafkaEmailEventProducer = kafkaEmailEventProducer;
+        this.emailEventProducer = emailEventProducer;
+        this.logoutEventProducer = logoutEventProducer;
+        this.abacEventProducer = abacEventProducer;
         this.refreshTokenService = refreshTokenService;
         this.changePasswordTokenService = changePasswordTokenService;
         this.otpService = otpService;
@@ -91,7 +98,6 @@ public class AuthServiceImpl implements AuthService {
         this.joseProviderStrategy = joseProviderStrategyContext.getActiveProvider();
     }
 
-    //TODO: send OTP (2FA) when logged into new devices
     @Override
     public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         User user = userRepository.findByEmail(loginRequest.getEmail())
@@ -120,6 +126,18 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = joseProviderStrategy.generateAccessToken(authentication, sid, user);
         String refreshToken = joseProviderStrategy.generateRefreshToken(authentication, sid, user);
 
+        boolean isNewSession = refreshTokenService.findAllValidByEmail(user.getEmail()).isEmpty();
+        boolean is2faEnabled = user.isTwoFactorAuthentication();
+        if (isNewSession && is2faEnabled) {
+            log.info("Detected login from different device.");
+            //TODO: perform 2FA: prevent login until have valid otp (via email)
+        }
+
+        if (isNewSession && !is2faEnabled) {
+            log.info("Notify user about unknown device login.");
+            //TODO: notify new login via email with userAgentResponse, time (server time)
+        }
+
         refreshTokenService.saveRefreshToken(
                 refreshToken, user.getEmail(),
                 userAgentResponse.getDeviceIpAddress(),
@@ -127,10 +145,6 @@ public class AuthServiceImpl implements AuthService {
                 userAgentResponse.getDeviceOs(),
                 userAgentResponse.getBrowser(),
                 userAgentResponse.getBrowserVersion()
-        );
-
-        joseProviderStrategy.removeBlacklistedAccessTokenOfEmailAndDevice(
-                user.getEmail(), userAgentResponse.getDeviceName()
         );
 
         AuthResponse authResponse = AuthResponse.builder()
@@ -147,9 +161,7 @@ public class AuthServiceImpl implements AuthService {
                 .profilePictureUrl(user.getProfilePictureUrl())
                 .build();
 
-        return LoginResponse.fromUserAndAuthAndUserAgentResponse(
-                userResponse, authResponse, userAgentResponse
-        );
+        return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
     }
 
     @Override
@@ -180,8 +192,8 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
-    @Override
     @Transactional
+    @Override
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistsException(EMAIL_ALREADY_EXISTS);
@@ -191,7 +203,7 @@ public class AuthServiceImpl implements AuthService {
         User savedUser = userRepository.save(user);
 
         String verificationToken = emailVerifyTokenService.generateVerificationToken(savedUser);
-        kafkaEmailEventProducer.sendMagicLinkOnRegistration(savedUser.getEmail(), verificationToken);
+        emailEventProducer.sendMagicLinkOnRegistration(savedUser.getEmail(), verificationToken);
 
         return AuthResponse.builder()
                 .email(user.getEmail())
@@ -239,7 +251,7 @@ public class AuthServiceImpl implements AuthService {
         }
         try {
             String token = emailVerifyTokenService.generateVerificationToken(user);
-            kafkaEmailEventProducer.sendMagicLinkOnRegistration(email, token);
+            emailEventProducer.sendMagicLinkOnRegistration(email, token);
         } catch (Exception e) {
             throw new TokenVerificationException("Failed to send verification email: " + e.getMessage());
         }
@@ -251,7 +263,7 @@ public class AuthServiceImpl implements AuthService {
             throw new IllegalArgumentException("Phone number cannot be null or empty");
         }
         String otp = otpService.generateOtpToken(user);
-        kafkaEmailEventProducer.sendOtp(user.getPhoneNumber(), otp);
+        emailEventProducer.sendOtp(user.getPhoneNumber(), otp);
     }
 
     @Transactional
@@ -278,25 +290,20 @@ public class AuthServiceImpl implements AuthService {
         otpService.deleteOtpToken(otp);
     }
 
-    @Deprecated
-    @Override
-    @Transactional
-    public void logoutFromAllDevices(String email) {
-        revokeAllTokensFromAllDevicesByEmail(email);
+    private void logoutFromAllDevices(String email) {
+        revokeAllTokensFromAllDevices(email);
     }
 
-    @Deprecated
-    @Override
     @Transactional
-    public void logoutFromCurrentDevice(String accessToken, String deviceName) {
-        revokeAccessTokenAndRefreshTokenFromCurrentDevice(accessToken, deviceName);
+    @Override
+    public void logoutFromCurrentDevice(String accessToken) {
+        revokeTokensFromCurrentDevice(accessToken);
     }
 
-    @Deprecated
-    @Override
     @Transactional
-    public void logoutFromOneDevice(String username, String deviceName) {
-        revokeAccessTokenAndRefreshTokenFromOneDevice(username, deviceName);
+    @Override
+    public void logoutFromOneDevice(String accessToken, String targetSid) {
+        revokeTokensFromSpecificDevice(accessToken, targetSid);
     }
 
     @Override
@@ -317,7 +324,7 @@ public class AuthServiceImpl implements AuthService {
         return result;
     }
 
-    public List<DeviceInfo> getAllLoggedInDevicesRaw(String email) {
+    private List<DeviceInfo> getAllLoggedInDevicesRaw(String email) {
         List<RefreshToken> tokens = refreshTokenService.findAllValidByEmail(email);
         return tokens.stream()
                 .map(token -> new DeviceInfo(token.getDeviceName(), token.getDeviceIpAddress()))
@@ -325,41 +332,45 @@ public class AuthServiceImpl implements AuthService {
                 .toList();
     }
 
-    //TODO: refractor to use jti and sid
-    //TODO: send kafka event on logout successful
-    @Deprecated
-    private void revokeAccessTokenAndRefreshTokenFromCurrentDevice(String accessToken, String deviceName) {
-        String email = joseProviderStrategy.getUsernameFromToken(accessToken);
-        refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
-        joseProviderStrategy.invalidateAccessTokenByEmailAndDevice(email, deviceName);
-        SecurityContextHolder.clearContext();
-    }
-
-    //TODO: refractor to use jti and sid
-    //TODO: send kafka event on logout successful
-    @Deprecated
-    private void revokeAccessTokenAndRefreshTokenFromOneDevice(String email, String deviceName) {
-        refreshTokenService.deleteByEmailAndDeviceName(email, deviceName);
-        joseProviderStrategy.invalidateAccessTokenByEmailAndDevice(email, deviceName);
-        SecurityContextHolder.clearContext();
-    }
-
-    //TODO: refractor to use jti and sid
-    //TODO: send kafka event on logout successful
-    @Deprecated
-    private void revokeAllTokensFromAllDevicesByEmail(String email) {
-        List<String> allDevicesName = getAllLoggedInDevices(email);
-        refreshTokenService.deleteAllRefreshTokenByEmail(email);
-        for (String device : allDevicesName) {
-            joseProviderStrategy.invalidateAccessTokenByEmailAndDevice(email, device);
-            SecurityContextHolder.clearContext();
+    public void revokeTokensOnAbacUpdate(String email, Map<String, Object> updatedAbac) {
+        List<String> sids = refreshTokenService.getAllSessionsByEmail(email);
+        // Notify gateway to blacklist this token and make gateway get new tokens for user and give them via http response header
+        for (String sid : sids) {
+            abacEventProducer.send(JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid);
         }
     }
 
-    //TODO: pass jwt as parameter then get email, then get all devices
-    @Deprecated
-    private List<String> getAllLoggedInDevices(String email) {
-        return refreshTokenService.getAllDeviceNameByEmail(email);
+    private void revokeTokensFromCurrentDevice(String accessToken) {
+        Map<String, Object> claims = joseProviderStrategy.getClaimsFromToken(accessToken);
+        String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
+        refreshTokenService.deleteRefreshToken(sid);
+        joseProviderStrategy.addTokenToLogoutBlacklist(sid);
+
+        logoutEventProducer.send(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid);
+    }
+
+    private void revokeTokensFromSpecificDevice(String accessToken, String targetSid) {
+        Map<String, Object> claims = joseProviderStrategy.getClaimsFromToken(accessToken);
+        String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
+        String email = claims.get(JoseConstraint.JosePayload.SUB).toString();
+
+        if (Objects.equals(targetSid, sid)) {
+            throw new IllegalArgumentException("Target SID cannot be the same with your current session.");
+        }
+
+        refreshTokenService.deleteByEmailAndSid(email, targetSid);
+        joseProviderStrategy.addTokenToLogoutBlacklist(targetSid);
+        logoutEventProducer.send(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + targetSid);
+    }
+
+    private void revokeAllTokensFromAllDevices(String accessToken) {
+        String email = joseProviderStrategy.getUsernameFromToken(accessToken);
+        List<String> allSessions = refreshTokenService.getAllSessionsByEmail(email);
+        refreshTokenService.deleteAllRefreshTokenByEmail(email);
+        for (String sid : allSessions) {
+            joseProviderStrategy.addTokenToLogoutBlacklist(sid);
+            logoutEventProducer.send(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid);
+        }
     }
 
     @Override
@@ -375,8 +386,8 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
-    @Override
     @Transactional(noRollbackFor = CustomEmailException.class)
+    @Override
     public void changePassword(String requestEmail, ChangePasswordRequest request) {
         User user = userRepository.findByDisplayedUsername(requestEmail)
                 .orElseThrow(() -> new UserNotFoundException("User not found for username: " + requestEmail));
@@ -398,10 +409,9 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        kafkaEmailEventProducer.sendNotificationOnChangingPassword(user.getEmail(), ZonedDateTime.now());
+        emailEventProducer.sendNotificationOnChangingPassword(user.getEmail(), ZonedDateTime.now());
 
-        revokeAllTokensFromAllDevicesByEmail(user.getEmail());
-        SecurityContextHolder.clearContext();
+        logoutFromAllDevices(user.getEmail());
     }
 
     @Override
@@ -409,7 +419,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
         String token = changePasswordTokenService.generateChangePasswordToken(user);
-        kafkaEmailEventProducer.sendMagicLinkOnForgotPassword(email, token);
+        emailEventProducer.sendMagicLinkOnForgotPassword(email, token);
     }
 
     @Override
@@ -429,11 +439,10 @@ public class AuthServiceImpl implements AuthService {
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         changePasswordTokenService.deleteToken(token);
-        kafkaEmailEventProducer.sendNotificationOnChangingPassword(user.getEmail(), ZonedDateTime.now());
+        emailEventProducer.sendNotificationOnChangingPassword(user.getEmail(), ZonedDateTime.now());
         log.info("Password reset for user {} successful", email);
 
-        revokeAllTokensFromAllDevicesByEmail(email);
-        SecurityContextHolder.clearContext();
+        logoutFromAllDevices(email);
     }
 
     private User createUserFromRegisterRequest(RegisterRequest request) {

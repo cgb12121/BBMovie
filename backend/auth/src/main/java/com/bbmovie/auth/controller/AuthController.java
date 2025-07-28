@@ -81,6 +81,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
         }
         String oldAccessToken = oldAccessTokenHeader.substring(7);
+        //TODO: double check this, should use jti/sid instead
         String newAccessToken = refreshTokenService.refreshAccessToken(oldAccessToken, deviceName);
         AccessTokenResponse accessTokenResponse = new AccessTokenResponse(newAccessToken);
         return ResponseEntity.ok(ApiResponse.success(accessTokenResponse));
@@ -95,7 +96,7 @@ public class AuthController {
         boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bearer ");
         if (isValidAuthorizationHeader) {
             String accessToken = tokenHeader.substring(7);
-            authService.logoutFromCurrentDevice(accessToken, deviceName);
+            authService.logoutFromCurrentDevice(accessToken);
             authService.revokeAuthCookies(response);
             SecurityContextHolder.clearContext();
             return ResponseEntity.ok(ApiResponse.success("Logout successful"));

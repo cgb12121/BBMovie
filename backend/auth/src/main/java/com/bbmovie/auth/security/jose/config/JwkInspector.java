@@ -11,6 +11,7 @@ import java.util.function.Supplier;
 
 @Slf4j
 @Component
+@SuppressWarnings("all")
 public class JwkInspector {
 
     private final ApplicationContext applicationContext;

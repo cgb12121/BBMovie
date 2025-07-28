@@ -6,6 +6,7 @@ import com.bbmovie.auth.exception.NoRefreshTokenException;
 import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.RefreshTokenRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
+import com.bbmovie.auth.security.jose.config.JoseConstraint;
 import com.bbmovie.auth.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.extern.log4j.Log4j2;
@@ -17,9 +18,9 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,8 +43,8 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public void deleteByEmailAndDeviceName(String email, String deviceName) {
-        refreshTokenRepository.deleteByEmailAndDeviceName(email, deviceName);
+    public void deleteByEmailAndSid(String email, String sid) {
+        refreshTokenRepository.deleteByEmailAndSid(email, sid);
     }
 
     @Transactional
@@ -72,7 +73,27 @@ public class RefreshTokenService {
         log.info("Refreshing access token for user {}", username);
         String sameSidWithRefreshToken = String.valueOf(userRefreshToken.getSid());
         //TODO: improve by overloading this method by accept claims/payload to prevent fetching from db
+        //this approach allow to fetch new updated information immediately else will need to check blacklist token in cache
         return joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sameSidWithRefreshToken, user);
+    }
+
+    @Transactional
+    public void saveRefreshToken(String sid, String refreshTokenString) {
+        RefreshToken refreshToken = refreshTokenRepository.findBySid(sid);
+        if (refreshToken == null) {
+            return;
+        }
+        Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider()
+                                            .getClaimsFromToken(refreshTokenString);
+        Date newExp = (Date) claims.get(JoseConstraint.JosePayload.EXP);
+        Date newIat = (Date) claims.get(JoseConstraint.JosePayload.IAT);
+        String jti = claims.get(JoseConstraint.JosePayload.JTI).toString();
+        refreshToken.setExpiryDate(newExp);
+        refreshToken.setCreatedDate(LocalDateTime.ofInstant(newIat.toInstant(), ZoneId.systemDefault()));
+        refreshToken.setSid(sid);
+        refreshToken.setJti(jti);
+        refreshToken.setToken(refreshTokenString);
+        refreshTokenRepository.save(refreshToken);
     }
 
     @Transactional
@@ -114,13 +135,18 @@ public class RefreshTokenService {
         refreshTokenRepository.save(token);
     }
 
-    public List<String> getAllDeviceNameByEmail(String email) {
-        return refreshTokenRepository.findAllByEmail(email).stream()
-               .map(RefreshToken::getDeviceName)
-               .toList();
-    }
-
     public List<RefreshToken> findAllValidByEmail(String email) {
         return refreshTokenRepository.findAllValidByEmail(email);
+    }
+
+    public void deleteRefreshToken(String sid) {
+        refreshTokenRepository.deleteBySid(sid);
+    }
+
+    public List<String> getAllSessionsByEmail(String email) {
+        return refreshTokenRepository.findAllByEmail(email) // Get all refresh token logged in by email
+                .stream()
+                .map(RefreshToken::getSid)
+                .toList();
     }
 }

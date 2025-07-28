@@ -2,9 +2,14 @@ package com.bbmovie.auth.security.jose.config;
 
 @SuppressWarnings({"squid:S1118", "unused"})
 public class JoseConstraint {
+    public static final String JWT_LOGOUT_BLACKLIST_PREFIX = "logout-blacklist:";
+    public static final String JWT_ABAC_BLACKLIST_PREFIX = "abac-blacklist:";
+
     public static class JoseHeader {
         public static final String TYPE = "type";
         public static final String ALGO = "alg";
+        public static final String KID = "kid";
+        public static final String KUR = "jku";
     }
 
     public static class JosePayload {
