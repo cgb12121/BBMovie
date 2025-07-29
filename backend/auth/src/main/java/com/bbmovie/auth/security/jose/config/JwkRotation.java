@@ -64,8 +64,6 @@ public class JwkRotation {
             keyRepo.save(newKeyEntity);
             log.info("Rotate JWK key successfully. {}", newKeyEntity.toString());
 
-            List<JwkKey> allKeys = keyRepo.findAll();
-            removedInactiveKeys(allKeys);
             eventPublisher.publishEvent(new JwkKeyRotatedEvent());
         } catch (JOSEException e) {
             throw new IllegalStateException("Failed to generate new RSA key", e);

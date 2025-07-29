@@ -1,4 +1,4 @@
-package com.bbmovie.gateway;
+package com.bbmovie.gateway.security;
 
 import lombok.Getter;
 import lombok.Setter;
