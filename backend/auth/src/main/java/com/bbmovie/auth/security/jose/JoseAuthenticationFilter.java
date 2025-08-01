@@ -3,9 +3,9 @@ package com.bbmovie.auth.security.jose;
 import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.BlacklistedJwtTokenException;
 import com.bbmovie.auth.exception.UserNotFoundException;
-import com.bbmovie.auth.security.jose.config.JoseConstraint;
 import com.bbmovie.auth.service.UserService;
 import com.bbmovie.auth.service.auth.RefreshTokenService;
+import com.example.common.entity.JoseConstraint;
 import jakarta.annotation.Nullable;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -99,7 +99,7 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
 
                 String newAccessToken = provider.generateAccessToken(authentication, sid, userAfterAbacUpdate);
                 String newRefreshTokenString = provider.generateRefreshToken(authentication, sid, userAfterAbacUpdate);
-                refreshTokenService.saveRefreshToken(sid, newRefreshTokenString);
+                refreshTokenService.overwriteRefreshToken(sid, newRefreshTokenString);
 
                 provider.removeTokenFromABACBlacklist(sid);
 

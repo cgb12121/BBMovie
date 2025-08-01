@@ -20,6 +20,12 @@ spring:
                     regexp: /api/(auth|device)(?<remaining>/.*)
                     replacement: /$1${remaining}
                 - RewritePath=/.well-known/jwks.json, /.well-known/jwks.json
+                - name: RequestRateLimiter
+                  args:
+                    redis-rate-limiter.replenishRate: 5 # (5 requests per second)
+                    redis-rate-limiter.burstCapacity: 10 # (allows temporary bursts up to 10 requests)
+                    redis-rate-limiter.requestedTokens: 2
+                    key-resolver: "#{@sidKeyResolver}"
   data:
     redis:
       host: localhost
@@ -34,6 +40,13 @@ eureka:
       defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
+
+
+internal:
+  url:
+    auth:
+      base-url: lb://auth
+      abac-endpoint: /auth/abac/new-access-token
 
 
 server:

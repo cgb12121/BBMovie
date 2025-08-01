@@ -4,11 +4,11 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
-import com.bbmovie.auth.security.jose.config.JoseConstraint;
+import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
-import com.nimbusds.jose.JOSEObjectType;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSHeader;
+import com.example.common.annotation.Experimental;
+import com.example.common.entity.JoseConstraint;
+import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.crypto.RSASSAVerifier;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -56,6 +56,16 @@ public class NimbusJws implements JoseProviderStrategy {
         this.strategies = strategies;
     }
 
+    @Experimental
+    @Override
+    public TokenPair generateTokenPair(Authentication authentication, User loggedInUser) {
+        String refreshJti = UUID.randomUUID().toString();
+        String sid = UUID.randomUUID().toString();
+        String refreshToken = generateToken(authentication, jwtRefreshTokenExpirationInMs, sid, loggedInUser, refreshJti, null);
+        String accessToken = generateToken(authentication, jwtAccessTokenExpirationInMs, sid, loggedInUser, UUID.randomUUID().toString(), refreshJti);
+        return new TokenPair(accessToken, refreshToken);
+    }
+
     @Override
     public String generateAccessToken(Authentication authentication, String sid, User loggedInUser) {
         return generateToken(authentication, jwtAccessTokenExpirationInMs, sid, loggedInUser);
@@ -98,6 +108,46 @@ public class NimbusJws implements JoseProviderStrategy {
         } catch (Exception e) {
             log.error("Token generation error: {}", e.getMessage());
             throw new IllegalStateException("Failed to generate JWT", e);
+        }
+    }
+
+    @Experimental
+    private String generateToken(
+            Authentication authentication, long expirationInMs, String sid, User loggedInUser,
+            String jti, String issuer
+    ) {
+        try {
+            String username = getUsernameFromAuthentication(authentication);
+            String role = getRoleFromAuthentication(authentication);
+            Date now = new Date();
+            Date expiryDate = new Date(now.getTime() + expirationInMs);
+
+            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                    .issuer(issuer)
+                    .subject(username)
+                    .claim(JoseConstraint.JosePayload.ROLE, role)
+                    .claim(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
+                    .claim(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge())
+                    .claim(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name())
+                    .claim(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
+                    .claim(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
+                    .issueTime(now)
+                    .expirationTime(expiryDate)
+                    .jwtID(jti)
+                    .claim(JoseConstraint.JosePayload.SID, sid)
+                    .build();
+
+            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
+                    .type(JOSEObjectType.JWT)
+                    .keyID(activePrivateKey.getKeyID())
+                    .build();
+
+            SignedJWT signedJWT = new SignedJWT(header, claimsSet);
+            signedJWT.sign(new RSASSASigner(activePrivateKey.toRSAPrivateKey()));
+            return signedJWT.serialize();
+        } catch (Exception e) {
+            log.error("[Experimental] Token generation failed: {}", e.getMessage());
+            throw new IllegalStateException("JWT generation failed", e);
         }
     }
 

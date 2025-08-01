@@ -23,6 +23,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -72,17 +74,23 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-    @PostMapping("/v1/access-token")
-    public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessToken(
-            @RequestHeader(value = "X-DEVICE-NAME") String deviceName,
+
+    @GetMapping("/auth/abac/new-access-token")
+    public ResponseEntity<String> getNewAccessTokenForLatestAbac(@RequestBody Map<String, String> request) {
+        String oldAccessToken = request.get("oldAccessToken");
+        if (oldAccessToken == null) return ResponseEntity.badRequest().build();
+        return ResponseEntity.ok(refreshTokenService.refreshAccessToken(oldAccessToken));
+    }
+
+    @PostMapping("/v2/access-token")
+    public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessTokenV1(
             @RequestHeader(value = "Authorization") String oldAccessTokenHeader
     ) {
         if (!oldAccessTokenHeader.startsWith("Bearer ")) {
             return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
         }
         String oldAccessToken = oldAccessTokenHeader.substring(7);
-        //TODO: double check this, should use jti/sid instead
-        String newAccessToken = refreshTokenService.refreshAccessToken(oldAccessToken, deviceName);
+        String newAccessToken = refreshTokenService.refreshAccessToken(oldAccessToken);
         AccessTokenResponse accessTokenResponse = new AccessTokenResponse(newAccessToken);
         return ResponseEntity.ok(ApiResponse.success(accessTokenResponse));
     }
@@ -102,23 +110,6 @@ public class AuthController {
             return ResponseEntity.ok(ApiResponse.success("Logout successful"));
         }
         return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
-    }
-
-    //TODO: implement
-    @PostMapping("/v2/access-token")
-    public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessToken(
-            @RequestHeader(value = "Authorization") String oldAccessTokenHeader
-    ) {
-        return ResponseEntity.ok(ApiResponse.success(""));
-    }
-
-    //TODO: implement
-    @PostMapping("/v2/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(
-            @RequestHeader(value = "Authorization") String tokenHeader,
-            HttpServletResponse response
-    ) {
-        return ResponseEntity.badRequest().body(ApiResponse.error(""));
     }
 
     @GetMapping("/verify-email")

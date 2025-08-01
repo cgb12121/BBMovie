@@ -4,12 +4,11 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
-import com.bbmovie.auth.security.jose.config.JoseConstraint;
+import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
-import com.nimbusds.jose.EncryptionMethod;
-import com.nimbusds.jose.JWEAlgorithm;
-import com.nimbusds.jose.JWEEncrypter;
-import com.nimbusds.jose.JWEHeader;
+import com.example.common.annotation.Experimental;
+import com.example.common.entity.JoseConstraint;
+import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSADecrypter;
 import com.nimbusds.jose.crypto.RSAEncrypter;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -52,6 +51,16 @@ public class NimbusJwe implements JoseProviderStrategy {
         this.activePrivateKey = activePrivateKey;
         this.redisTemplate = redisTemplate;
         this.strategies = strategies;
+    }
+
+    @Experimental
+    @Override
+    public TokenPair generateTokenPair(Authentication authentication, User loggedInUser) {
+        String refreshJti = UUID.randomUUID().toString();
+        String sid = UUID.randomUUID().toString();
+        String refreshToken = generateToken(authentication, jwtRefreshTokenExpirationInMs, sid, loggedInUser, refreshJti, null);
+        String accessToken = generateToken(authentication, jwtAccessTokenExpirationInMs, sid, loggedInUser, UUID.randomUUID().toString(), refreshJti);
+        return new TokenPair(accessToken, refreshToken);
     }
 
     @Override
@@ -101,6 +110,51 @@ public class NimbusJwe implements JoseProviderStrategy {
         } catch (Exception e) {
             log.error("Token encryption error: {}", e.getMessage());
             throw new IllegalStateException("Failed to generate JWE token", e);
+        }
+    }
+
+    @Experimental
+    private String generateToken(
+            Authentication authentication, long expirationInMs, String sid, User loggedInUser,
+            String jti, String issuer
+    ) {
+        try {
+            String username = extractUsername(authentication);
+            String role = extractRole(authentication);
+            Date now = new Date();
+            Date expiryDate = new Date(now.getTime() + expirationInMs);
+
+            JWEHeader header = new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A256GCM)
+                    .contentType("JWT")
+                    .keyID(activePrivateKey.getKeyID())
+                    .build();
+
+            JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                    .issuer(issuer)
+                    .subject(username)
+                    .claim(JoseConstraint.JosePayload.ROLE, role)
+                    .claim(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
+                    .claim(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge())
+                    .claim(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name())
+                    .claim(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
+                    .claim(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
+                    .issueTime(now)
+                    .expirationTime(expiryDate)
+                    .jwtID(jti)
+                    .claim(JoseConstraint.JosePayload.SID, sid)
+                    .build();
+
+            EncryptedJWT encryptedJWT = new EncryptedJWT(header, claimsSet);
+
+            RSAKey publicKey = activePrivateKey.toPublicJWK();
+            JWEEncrypter encrypter = new RSAEncrypter(publicKey);
+
+            encryptedJWT.encrypt(encrypter);
+
+            return encryptedJWT.serialize();
+        } catch (Exception e) {
+            log.error("[Experimental] Token generation failed: {}", e.getMessage());
+            throw new IllegalStateException("JWT generation failed", e);
         }
     }
 

@@ -5,9 +5,10 @@ import com.bbmovie.auth.entity.jose.RefreshToken;
 import com.bbmovie.auth.exception.NoRefreshTokenException;
 import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.RefreshTokenRepository;
+import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
-import com.bbmovie.auth.security.jose.config.JoseConstraint;
 import com.bbmovie.auth.service.UserService;
+import com.example.common.entity.JoseConstraint;
 import jakarta.transaction.Transactional;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,59 +53,76 @@ public class RefreshTokenService {
         refreshTokenRepository.deleteAllByEmail(email);
     }
 
-    //TODO: need quick fixes asap, avoid inconsistence after update abac by getting info from db
-    public String refreshAccessToken(String oldAccessToken, String deviceName) {
-        String username = joseProviderStrategyContext.getActiveProvider().getUsernameFromToken(oldAccessToken);
-        List<String> roles = joseProviderStrategyContext.getActiveProvider().getRolesFromToken(oldAccessToken);
+    //TODO: "One-Time Use" Refresh Token: Should also create a new refresh token to handle replay attack (optional)
+    //The current approach is "Multi-Use" Refresh Token
+    public String refreshAccessToken(String oldAccessToken) {
+        if (oldAccessToken == null || oldAccessToken.trim().isEmpty()) {
+            throw new IllegalArgumentException("Access token cannot be null or empty");
+        }
+        if (oldAccessToken.startsWith("Bearer ")) {
+            oldAccessToken = oldAccessToken.substring(7);
+        }
+
+        JoseProviderStrategy joseProviderStrategy = joseProviderStrategyContext.getActiveProvider();
+        Map<String, Object> claims = joseProviderStrategy.getClaimsFromToken(oldAccessToken);
+        String username = claims.get(JoseConstraint.JosePayload.SUB).toString();
+        String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
+        String roleListString = claims.get(JoseConstraint.JosePayload.ROLE).toString();
+        List<String> roles;
+        if (roleListString != null) {
+            roles = Arrays.asList(roleListString.split(","));
+        } else {
+            roles = List.of();
+        }
+
         List<GrantedAuthority> authorities = roles.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
 
-        RefreshToken userRefreshToken = refreshTokenRepository.findByEmailAndDeviceName(username, deviceName)
+        RefreshToken userRefreshToken = refreshTokenRepository.findByEmailAndSid(username, sid)
                 .orElseThrow(() -> new NoRefreshTokenException("Refresh token not found"));
 
         if (userRefreshToken.isRevoked() || userRefreshToken.getExpiryDate().before(new Date())) {
             throw new NoRefreshTokenException("Refresh token is expired or revoked");
         }
 
-        User user = userService.findByEmail(username).orElseThrow(() -> new UserNotFoundException("Unable to find user"));
+        User user = userService.findByEmail(username)
+                .orElseThrow(() -> new UserNotFoundException("Unable to find user"));
 
-        UserDetails userDetails = new org.springframework.security.core.userdetails.User(username, "", authorities);
-        Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
+        UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                username, "", authorities
+        );
+        Authentication authentication = new UsernamePasswordAuthenticationToken(
+                userDetails, null, authorities
+        );
         log.info("Refreshing access token for user {}", username);
         String sameSidWithRefreshToken = String.valueOf(userRefreshToken.getSid());
-        //TODO: improve by overloading this method by accept claims/payload to prevent fetching from db
-        //this approach allow to fetch new updated information immediately else will need to check blacklist token in cache
-        return joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sameSidWithRefreshToken, user);
+        return joseProviderStrategy.generateAccessToken(authentication, sameSidWithRefreshToken, user);
     }
 
     /**
-     * saveRefreshToken assumes an existing RefreshToken for the sid, which may fail if the sid is new or deleted
-     * => Token updates may fail silently, leading to inconsistent session state
-     *
-     * @param sid
-     * @param refreshTokenString
+     * overwriteRefreshToken assumes an existing RefreshToken for the sid, which may fail if the sid is new or deleted
+     * => Token updates may fail silently, leading to an inconsistent session state
      */
     @Transactional
-    public void saveRefreshToken(String sid, String refreshTokenString) {
+    public void overwriteRefreshToken(String sid, String refreshTokenString) {
         RefreshToken refreshToken = refreshTokenRepository.findBySid(sid);
-        if (refreshToken == null) {
-            ;
+        if (refreshToken != null) {
+            Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider().getClaimsFromToken(refreshTokenString);
+            Date newExp = (Date) claims.get(JoseConstraint.JosePayload.EXP);
+            Date newIat = (Date) claims.get(JoseConstraint.JosePayload.IAT);
+            String jti = claims.get(JoseConstraint.JosePayload.JTI).toString();
+            refreshToken.setExpiryDate(newExp);
+            refreshToken.setCreatedDate(LocalDateTime.ofInstant(newIat.toInstant(), ZoneId.systemDefault()));
+            refreshToken.setSid(sid);
+            refreshToken.setJti(jti);
+            refreshToken.setToken(refreshTokenString);
+            refreshTokenRepository.save(refreshToken);
         }
-        Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider().getClaimsFromToken(refreshTokenString);
-        Date newExp = (Date) claims.get(JoseConstraint.JosePayload.EXP);
-        Date newIat = (Date) claims.get(JoseConstraint.JosePayload.IAT);
-        String jti = claims.get(JoseConstraint.JosePayload.JTI).toString();
-        refreshToken.setExpiryDate(newExp);
-        refreshToken.setCreatedDate(LocalDateTime.ofInstant(newIat.toInstant(), ZoneId.systemDefault()));
-        refreshToken.setSid(sid);
-        refreshToken.setJti(jti);
-        refreshToken.setToken(refreshTokenString);
-        refreshTokenRepository.save(refreshToken);
     }
 
     @Transactional
-    public void saveRefreshToken(
+    public void overwriteRefreshToken(
             String refreshToken, String email,
             String deviceIpAddress, String deviceName, String deviceOs,
             String browser, String browserVersion

@@ -24,4 +24,6 @@ public interface RefreshTokenRepository extends JpaRepository<RefreshToken, UUID
     void deleteBySid(String sid);
 
     void deleteByEmailAndSid(String email, String sid);
+
+    Optional<RefreshToken> findByEmailAndSid(String email, String sid);
 }

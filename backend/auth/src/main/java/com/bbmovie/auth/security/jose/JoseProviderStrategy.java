@@ -1,6 +1,8 @@
 package com.bbmovie.auth.security.jose;
 
 import com.bbmovie.auth.entity.User;
+import com.bbmovie.auth.security.jose.config.TokenPair;
+import com.example.common.annotation.Experimental;
 import org.springframework.security.core.Authentication;
 
 import java.util.Date;
@@ -8,6 +10,9 @@ import java.util.List;
 import java.util.Map;
 
 public interface JoseProviderStrategy {
+
+    @Experimental
+    TokenPair generateTokenPair(Authentication authentication, User loggedInUser);
 
     String generateAccessToken(Authentication authentication, String sid, User logInUser);
 

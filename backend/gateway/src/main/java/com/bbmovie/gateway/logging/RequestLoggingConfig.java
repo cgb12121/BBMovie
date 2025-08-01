@@ -1,5 +1,6 @@
 package com.bbmovie.gateway.logging;
 
+import com.bbmovie.gateway.config.FilterOrderConfig;
 import lombok.extern.slf4j.Slf4j;
 import org.reactivestreams.Publisher;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
@@ -94,6 +95,6 @@ public class RequestLoggingConfig implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE;
+        return FilterOrderConfig.FIRST;
     }
 }

@@ -14,7 +14,6 @@ import com.bbmovie.auth.exception.*;
 import com.bbmovie.auth.repository.UserRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
-import com.bbmovie.auth.security.jose.config.JoseConstraint;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.auth.verify.magiclink.ChangePasswordTokenService;
 import com.bbmovie.auth.service.auth.verify.magiclink.EmailVerifyTokenService;
@@ -24,6 +23,7 @@ import com.bbmovie.auth.service.kafka.LogoutEventProducer;
 import com.bbmovie.auth.utils.DeviceInfoUtils;
 import com.bbmovie.auth.utils.IpAddressUtils;
 import com.bbmovie.auth.utils.UserAgentAnalyzerUtils;
+import com.example.common.entity.JoseConstraint;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -140,7 +140,7 @@ public class AuthServiceImpl implements AuthService {
             //TODO: notify new login via email with userAgentResponse, time (server time)
         }
 
-        refreshTokenService.saveRefreshToken(
+        refreshTokenService.overwriteRefreshToken(
                 refreshToken, user.getEmail(),
                 userAgentResponse.getDeviceIpAddress(),
                 userAgentResponse.getDeviceName(),
@@ -353,7 +353,7 @@ public class AuthServiceImpl implements AuthService {
             Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
 
             String newSid = UUID.randomUUID().toString();
-            //need to pass time to make sure new issued token expired same with old token
+            //need to pass time to make sure new-issued token expired same with old token
             String newRefreshToken = joseProviderStrategy.generateRefreshToken(authentication, newSid, user);
 
             refreshToken.setToken(newRefreshToken);
@@ -361,7 +361,7 @@ public class AuthServiceImpl implements AuthService {
             refreshToken.setJti(UUID.randomUUID().toString());
             refreshToken.setExpiryDate(new Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000));
             refreshToken.setRevoked(false);
-            refreshTokenService.saveRefreshToken(newSid, newRefreshToken);
+            refreshTokenService.overwriteRefreshToken(newSid, newRefreshToken);
         }
     }
 

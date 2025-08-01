@@ -1,5 +1,6 @@
 package com.bbmovie.gateway.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -12,20 +13,16 @@ import java.time.Duration;
 @Configuration
 public class WebClientConfig {
 
-    private static final String AUTH_SERVICE_URL =  "http://localhost:8080";
+    @Value("${internal.url.auth.base-url}")
+    private String authServiceUrl;
 
-    @Bean
     @LoadBalanced
+    @Bean("authWebClient")
     public WebClient authWebClient(WebClient.Builder webClientBuilder) {
         return webClientBuilder
-                .baseUrl(AUTH_SERVICE_URL)
+                .baseUrl(authServiceUrl)
                 .defaultHeader("Accept", "application/json")
-                .clientConnector(
-                        new ReactorClientHttpConnector(
-                                HttpClient.create()
-                                        .responseTimeout(Duration.ofSeconds(5))
-                        )
-                )
+                .clientConnector(new ReactorClientHttpConnector(HttpClient.create().responseTimeout(Duration.ofSeconds(5))))
                 .build();
     }
 }

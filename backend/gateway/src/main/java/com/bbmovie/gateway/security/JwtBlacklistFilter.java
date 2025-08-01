@@ -1,9 +1,13 @@
 package com.bbmovie.gateway.security;
 
+import com.bbmovie.gateway.config.FilterOrderConfig;
+import com.example.common.entity.JoseConstraint;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
@@ -11,12 +15,14 @@ import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 
@@ -28,10 +34,13 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
     private final WebClient authWebClient;
     private final ObjectMapper objectMapper;
 
+    @Value("${internal.url.auth.abac-endpoint}")
+    private String abacEndpoint;
+
     @Autowired
     public JwtBlacklistFilter(
             ReactiveRedisTemplate<String, Boolean> redisTemplate,
-            @LoadBalanced WebClient authWebClient,
+            @Qualifier("authWebClient") @LoadBalanced WebClient authWebClient,
             ObjectMapper objectMapper
     ) {
         this.redisTemplate = redisTemplate;
@@ -49,11 +58,11 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
 
         return parseJwtPayload(token)
                 .flatMap(payloadJson -> {
-                    String sid = payloadJson.get("sid").asText();
-                    String username = payloadJson.get("sub").asText();
+                    String sid = payloadJson.get(JoseConstraint.JosePayload.SID).asText();
+                    String username = payloadJson.get(JoseConstraint.JosePayload.SUB).asText();
 
-                    String logoutKey = "logout-blacklist:" + sid;
-                    String abacKey = "abac-blacklist:" + sid;
+                    String logoutKey = JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid;
+                    String abacKey = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
 
                     return redisTemplate.opsForValue().get(logoutKey)
                             .flatMap(isLogoutBlacklisted -> {
@@ -65,7 +74,7 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
                                         .flatMap(isAbacBlacklisted -> {
                                             if (Boolean.TRUE.equals(isAbacBlacklisted)) {
                                                 log.info("Token with sid {} is ABAC-blacklisted, fetching new tokens for user: {}", sid, username);
-                                                return fetchNewToken(username)
+                                                return fetchNewToken(token)
                                                         .flatMap(newToken -> {
                                                             exchange.getResponse().getHeaders().add("Authorization", newToken);
                                                             return redisTemplate.delete(abacKey)
@@ -95,12 +104,16 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
         });
     }
 
-    private Mono<String> fetchNewToken(String username) {
+    private Mono<String> fetchNewToken(String oldAccessToken) {
+        Map<String, String> requestBody = Map.of("oldAccessToken", oldAccessToken);
+        log.info("Fetching access token with new abac from auth service");
         return authWebClient
                 .post()
-                .uri("/auth/abac/new-access-token/{username}", username)
+                .uri(abacEndpoint)
+                .body(BodyInserters.fromValue(requestBody))
                 .retrieve()
-                .bodyToMono(String.class);
+                .bodyToMono(String.class)
+                .doOnError(err -> log.error("WebClient error fetching new token: {}", err.getMessage()));
     }
 
     private String extractJwtFromRequest(ServerWebExchange exchange) {
@@ -121,6 +134,6 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return Ordered.HIGHEST_PRECEDENCE + 1;
+        return FilterOrderConfig.SECOND;
     }
 }

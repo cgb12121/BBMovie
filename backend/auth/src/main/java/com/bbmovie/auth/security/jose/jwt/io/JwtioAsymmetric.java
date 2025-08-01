@@ -5,8 +5,10 @@ import com.bbmovie.auth.entity.enumerate.Role;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
-import com.bbmovie.auth.security.jose.config.JoseConstraint;
+import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
+import com.example.common.annotation.Experimental;
+import com.example.common.entity.JoseConstraint;
 import io.jsonwebtoken.*;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -70,6 +72,16 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
         return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(bytes));
     }
 
+    @Experimental
+    @Override
+    public TokenPair generateTokenPair(Authentication authentication, User loggedInUser) {
+        String refreshJti = UUID.randomUUID().toString();
+        String sid = UUID.randomUUID().toString();
+        String refreshToken = generateToken(authentication, jwtRefreshTokenExpirationInMs, sid, loggedInUser, refreshJti, null);
+        String accessToken = generateToken(authentication, jwtAccessTokenExpirationInMs, sid, loggedInUser, UUID.randomUUID().toString(), refreshJti);
+        return new TokenPair(accessToken, refreshToken);
+    }
+
     @Override
     public String generateAccessToken(Authentication authentication, String sid, User loggedInUser) {
         return generateToken(authentication, jwtAccessTokenExpirationInMs, sid, loggedInUser);
@@ -80,7 +92,9 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
         return generateToken(authentication, jwtRefreshTokenExpirationInMs, sid, loggedInUser);
     }
 
-    private String generateToken(Authentication authentication, int expirationInMs, String sid, User loggedInUser) {
+    private String generateToken(
+            Authentication authentication, int expirationInMs, String sid, User loggedInUser
+    ) {
         String username = getUsernameFromAuthentication(authentication);
         String role = getRoleFromAuthentication(authentication);
         Date now = new Date();
@@ -99,6 +113,35 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
                 .setSubject(username)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
+                .addClaims(claims)
+                .signWith(privateKey, SignatureAlgorithm.RS256)
+                .compact();
+    }
+
+    @Experimental
+    private String generateToken(
+            Authentication authentication, long expirationInMs, String sid, User loggedInUser,
+            String jti, String issuer
+    ) {
+        String username = getUsernameFromAuthentication(authentication);
+        String role = getRoleFromAuthentication(authentication);
+        Date now = new Date();
+        Date expiryDate = new Date(now.getTime() + expirationInMs);
+        Map<String, Object> claims = new HashMap<>();
+        claims.put(JoseConstraint.JosePayload.JTI, jti);
+        claims.put(JoseConstraint.JosePayload.SID, sid);
+        claims.put(JoseConstraint.JosePayload.ROLE, role);
+        claims.put(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name());
+        claims.put(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge());
+        claims.put(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name());
+        claims.put(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled());
+        claims.put(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled());
+
+        return Jwts.builder()
+                .setSubject(username)
+                .setIssuedAt(now)
+                .setExpiration(expiryDate)
+                .setIssuer(issuer) // Set issuer (refresh token's jti), null for refresh token
                 .addClaims(claims)
                 .signWith(privateKey, SignatureAlgorithm.RS256)
                 .compact();

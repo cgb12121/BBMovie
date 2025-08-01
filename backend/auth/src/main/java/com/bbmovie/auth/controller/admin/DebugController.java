@@ -15,7 +15,7 @@ public class DebugController {
         this.jwkInspector = jwkInspector;
     }
 
-    @GetMapping("/debug/beans")
+    @GetMapping("/api/debug/beans")
     public String inspectBeans() {
         jwkInspector.inspectBeans();
         return "Bean values logged. Check application logs.";

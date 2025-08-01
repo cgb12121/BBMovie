@@ -29,6 +29,7 @@ public class KeyBeansEndpoint {
     }
 
     @ReadOperation
+    @SuppressWarnings("all")
     public Map<String, Object> getKeyBeans() {
         Map<String, Object> result = new HashMap<>();
 

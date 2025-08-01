@@ -26,6 +26,7 @@ public class KeyInspectorController {
         this.publicKeysBean = publicKeys;
     }
 
+    @SuppressWarnings("all")
     @GetMapping("/inspect-keys")
     public String inspectKeys() {
         // Handle activePrivateKey
