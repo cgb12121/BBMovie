@@ -14,8 +14,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-
 public interface AuthService {
+
+    LoginResponse loginExperimental(LoginRequest loginRequest, HttpServletRequest request);
 
     LoginResponse login(LoginRequest loginRequest, HttpServletRequest request);
 
@@ -24,7 +25,7 @@ public interface AuthService {
     LoginResponse getLoginResponseFromOAuth2Login(UserDetails userDetails, HttpServletRequest request);
 
     @Transactional
-    AuthResponse register(RegisterRequest request);
+    void register(RegisterRequest request);
 
     @Transactional
     String verifyAccountByEmail(String token);
@@ -44,7 +45,7 @@ public interface AuthService {
 
     List<LoggedInDeviceResponse> getAllLoggedInDevices(String email, HttpServletRequest request);
 
-    //need check again
+    //need to check again
     @Transactional
     void updateUserTokensOnAbacChange(String email);
 

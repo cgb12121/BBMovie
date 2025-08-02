@@ -1,4 +1,4 @@
-package com.bbmovie.auth.controller.publics;
+package com.bbmovie.auth.controller;
 
 import com.bbmovie.auth.security.jose.config.JwkService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,12 +15,12 @@ import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping("/.well-known")
-public class JoseController {
+public class JwkController {
 
     private final JwkService jwkService;
 
     @Autowired
-    public JoseController(JwkService jwkService) {
+    public JwkController(JwkService jwkService) {
         this.jwkService = jwkService;
     }
 

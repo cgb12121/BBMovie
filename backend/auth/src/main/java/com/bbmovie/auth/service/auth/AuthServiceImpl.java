@@ -14,6 +14,7 @@ import com.bbmovie.auth.exception.*;
 import com.bbmovie.auth.repository.UserRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
+import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.auth.verify.magiclink.ChangePasswordTokenService;
 import com.bbmovie.auth.service.auth.verify.magiclink.EmailVerifyTokenService;
@@ -23,6 +24,7 @@ import com.bbmovie.auth.service.kafka.LogoutEventProducer;
 import com.bbmovie.auth.utils.DeviceInfoUtils;
 import com.bbmovie.auth.utils.IpAddressUtils;
 import com.bbmovie.auth.utils.UserAgentAnalyzerUtils;
+import com.example.common.annotation.Experimental;
 import com.example.common.entity.JoseConstraint;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -101,6 +103,59 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Experimental
+    public LoginResponse loginExperimental(LoginRequest loginRequest, HttpServletRequest request) {
+        User user = userRepository.findByEmail(loginRequest.getEmail())
+                .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
+
+        boolean correctPassword = passwordEncoder.matches(loginRequest.getPassword(), user.getPassword());
+        if (!correctPassword) {
+            throw new AuthenticationException("Invalid username/email or password");
+        }
+
+        boolean isUserEnabled = user.isEnabled();
+        if (!isUserEnabled) {
+            throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
+        }
+
+        UserAgentResponse userAgentResponse = getUserDeviceInformation(request);
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
+        );
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        user.setLastLoginTime(LocalDateTime.now());
+        userRepository.save(user);
+
+        TokenPair tokenPair = joseProviderStrategy.generateTokenPair(authentication, user);
+
+        refreshTokenService.overwriteRefreshToken(
+                tokenPair.refreshToken(), user.getEmail(),
+                userAgentResponse.getDeviceIpAddress(),
+                userAgentResponse.getDeviceName(),
+                userAgentResponse.getDeviceOs(),
+                userAgentResponse.getBrowser(),
+                userAgentResponse.getBrowserVersion()
+        );
+
+        AuthResponse authResponse = AuthResponse.builder()
+                .accessToken(tokenPair.accessToken())
+                .refreshToken(tokenPair.refreshToken())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .build();
+        UserResponse userResponse = UserResponse.builder()
+                .username(user.getDisplayedUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .profilePictureUrl(user.getProfilePictureUrl())
+                .build();
+
+        return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
+    }
+
+    @Override
     public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
@@ -128,14 +183,20 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = joseProviderStrategy.generateAccessToken(authentication, sid, user);
         String refreshToken = joseProviderStrategy.generateRefreshToken(authentication, sid, user);
 
-        boolean isNewSession = refreshTokenService.findAllValidByEmail(user.getEmail()).isEmpty();
-        boolean is2faEnabled = user.isTwoFactorAuthentication();
-        if (isNewSession && is2faEnabled) {
+        boolean isNewSession = refreshTokenService.findAllValidByEmail(user.getEmail()).stream()
+                .noneMatch(token -> token.getSid().equals(sid));
+        if (isNewSession) {
+            log.info("New login detected for user {}", user.getEmail());
+        } else {
+            log.info("Existing login detected for user {}", user.getEmail());
+        }
+        boolean isMfaEnabled = user.isMfaEnabled();
+        if (isNewSession && isMfaEnabled) {
             log.info("Detected login from different device.");
             //TODO: perform 2FA: prevent login until have valid otp (via email)
         }
 
-        if (isNewSession && !is2faEnabled) {
+        if (isNewSession && !isMfaEnabled) {
             log.info("Notify user about unknown device login.");
             //TODO: notify new login via email with userAgentResponse, time (server time)
         }
@@ -196,7 +257,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Transactional
     @Override
-    public AuthResponse register(RegisterRequest request) {
+    public void register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new EmailAlreadyExistsException(EMAIL_ALREADY_EXISTS);
         }
@@ -206,10 +267,6 @@ public class AuthServiceImpl implements AuthService {
 
         String verificationToken = emailVerifyTokenService.generateVerificationToken(savedUser);
         emailEventProducer.sendMagicLinkOnRegistration(savedUser.getEmail(), verificationToken);
-
-        return AuthResponse.builder()
-                .email(user.getEmail())
-                .build();
     }
 
     @Transactional
@@ -334,7 +391,7 @@ public class AuthServiceImpl implements AuthService {
                 .toList();
     }
 
-    //need check again
+    //need to check again
     @Transactional
     @Override
     public void updateUserTokensOnAbacChange(String email) {
@@ -350,7 +407,7 @@ public class AuthServiceImpl implements AuthService {
 
             List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
             UserDetails userDetails = new org.springframework.security.core.userdetails.User(email, "", authorities);
-            Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, null, authorities);
+            Authentication authentication = new UsernamePasswordAuthenticationToken(userDetails, "", authorities);
 
             String newSid = UUID.randomUUID().toString();
             //need to pass time to make sure new-issued token expired same with old token
@@ -391,7 +448,7 @@ public class AuthServiceImpl implements AuthService {
     /**
      * Potential for incorrect session revocation or security risks (e.g., revoking another user’s session).
      *
-     * @param email account's email to revoke access & refresh tokens
+     * @param email account's email to revoke access and refresh tokens
      */
     private void revokeAllTokensFromAllDevices(String email) {
         List<String> allSessions = refreshTokenService.getAllSessionsByEmail(email);

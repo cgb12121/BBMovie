@@ -3,6 +3,8 @@ package com.bbmovie.email.service.kafka;
 import com.bbmovie.email.config.KafkaTopicConfig;
 import com.bbmovie.email.service.email.EmailService;
 import com.bbmovie.email.service.email.EmailServiceFactory;
+import com.example.common.dtos.kafka.NotificationEvent;
+import com.example.common.enums.NotificationType;
 import lombok.extern.log4j.Log4j2;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,6 +64,15 @@ public class AuthServiceEventListener {
             String timeChangedPassword = event.get("timeChangedPassword");
             strategy.notifyChangedPassword(email, ZonedDateTime.parse(timeChangedPassword));
         });
+        acknowledgment.acknowledge();
+    }
+
+    @KafkaListener(topics = "notification-topic", groupId = "notification-group")
+    public void handleNotification(NotificationEvent event, Acknowledgment acknowledgment) {
+        if (event.getType().equals(NotificationType.EMAIL)) {
+            log.info("Sending email for user {}: {}", event.getUserId(), event.getMessage());
+            // do nothing now
+        }
         acknowledgment.acknowledge();
     }
 

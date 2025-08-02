@@ -67,8 +67,11 @@ public class User extends BaseEntity implements UserDetails {
     private boolean parentalControlsEnabled = false;
 
     @Builder.Default
-    @Column(name = "two_factor_authentication")
-    private boolean twoFactorAuthentication = false;
+    @Column(name = "is_mfa_enabled")
+    private boolean isMfaEnabled = false;
+
+    @Column(name = "totp_secret")
+    private String totpSecret;
 
     @Builder.Default
     @Column(name = "is_enabled")

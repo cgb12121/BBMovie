@@ -18,12 +18,12 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/device")
-public class DeviceSessionController {
+public class SessionController {
 
     private final AuthService authService;
 
     @Autowired
-    public DeviceSessionController(AuthService authService) {
+    public SessionController(AuthService authService) {
         this.authService = authService;
     }
 

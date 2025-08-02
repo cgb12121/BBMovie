@@ -13,10 +13,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -33,19 +32,14 @@ public class AuthController {
     private final RefreshTokenService refreshTokenService;
 
     @Autowired
-    public AuthController(
-            AuthService authService,
-            RefreshTokenService refreshTokenService
-    ) {
+    public AuthController(AuthService authService, RefreshTokenService refreshTokenService) {
         this.authService = authService;
         this.refreshTokenService = refreshTokenService;
     }
 
     @GetMapping("/test")
     public ResponseEntity<String> test() {
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.TEXT_PLAIN);
-        return new ResponseEntity<>("Hello World", headers, HttpStatus.OK);
+        return new ResponseEntity<>("Hello World", HttpStatus.OK);
     }
 
     @PostMapping("/register")
@@ -55,11 +49,8 @@ public class AuthController {
     ) {
         ResponseEntity<ApiResponse<AuthResponse>> errorResponse = ValidationHandler.handleBindingErrors(bindingResult);
         if (errorResponse != null) return errorResponse;
-
-        AuthResponse response = authService.register(request);
-        return ResponseEntity.ok(ApiResponse.success(
-                response, "Registration successful. Please check your email for verification."
-        ));
+        authService.register(request);
+        return ResponseEntity.ok(ApiResponse.success("Registration successful. Please check your email for verification."));
     }
 
     @PostMapping("/login")
@@ -95,10 +86,10 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success(accessTokenResponse));
     }
 
-    @PostMapping("/v1/logout")
+    @PostMapping("/v2/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestHeader(value = "Authorization") String tokenHeader,
-            @RequestHeader(value = "X-DEVICE-NAME") String deviceName,
+            @AuthenticationPrincipal Authentication authentication,
             HttpServletResponse response
     ) {
         boolean isValidAuthorizationHeader = tokenHeader.startsWith("Bearer ");
@@ -107,6 +98,7 @@ public class AuthController {
             authService.logoutFromCurrentDevice(accessToken);
             authService.revokeAuthCookies(response);
             SecurityContextHolder.clearContext();
+            authentication.setAuthenticated(false);
             return ResponseEntity.ok(ApiResponse.success("Logout successful"));
         }
         return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
@@ -168,9 +160,6 @@ public class AuthController {
             @AuthenticationPrincipal UserDetails userDetails,
             HttpServletRequest request
     ) {
-        if (userDetails == null) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.error("User not authenticated"));
-        }
         LoginResponse loginResponse = authService.getLoginResponseFromOAuth2Login(userDetails, request);
         return ResponseEntity.ok(ApiResponse.success(loginResponse));
     }
