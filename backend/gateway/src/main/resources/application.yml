@@ -25,7 +25,7 @@ spring:
                     redis-rate-limiter.replenishRate: 5 # (5 requests per second)
                     redis-rate-limiter.burstCapacity: 10 # (allows temporary bursts up to 10 requests)
                     redis-rate-limiter.requestedTokens: 2
-                    key-resolver: "#{@sidKeyResolver}"
+#                    key-resolver: "#{@sidKeyResolver}"  # Removed
   data:
     redis:
       host: localhost

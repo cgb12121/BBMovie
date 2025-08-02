@@ -3,8 +3,10 @@ package com.bbmovie.auth.entity.jose;
 import com.bbmovie.auth.entity.BaseEntity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,13 +43,18 @@ public class JwkKey extends BaseEntity {
         mapper.enable(SerializationFeature.INDENT_OUTPUT);
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
         try {
-            return mapper.writeValueAsString(this);
+            ObjectNode jwkNode = mapper.valueToTree(this);
+            JsonNode publicJwkNode = mapper.readTree(this.publicJwk);
+            jwkNode.set("publicJwk", publicJwkNode);
+            jwkNode.put("privateJwk", "[SECRET]");
+            return mapper.writeValueAsString(jwkNode);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            return "\n Jwk { \n"
+            return "\nJwk { \n"
                     + "          kid: " + this.kid + ",\n"
                     + "          public key: " + this.publicJwk + ",\n"
-                    + "          private key: [SECRET]"  + ", \n"
+                    + "          private key: [SECRET]" + ", \n"
                     + "          isActive: " + this.isActive + ", \n"
                     + "          createdAt: " + this.getCreatedDate() +
                     "\n }";

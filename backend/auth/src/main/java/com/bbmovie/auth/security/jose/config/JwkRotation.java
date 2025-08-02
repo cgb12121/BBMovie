@@ -3,9 +3,7 @@ package com.bbmovie.auth.security.jose.config;
 import com.bbmovie.auth.entity.jose.JwkKey;
 import com.bbmovie.auth.repository.JwkKeyRepository;
 import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.RSAKey;
-import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -19,9 +17,10 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Comparator;
-import java.util.Date;
 import java.util.List;
-import java.util.UUID;
+
+import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateNewKeyForRotation;
+import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateRsaKey;
 
 @Log4j2
 @Configuration
@@ -76,23 +75,6 @@ public class JwkRotation {
         List<JwkKey> allKeys = keyRepo.findAll();
         removedInactiveKeys(allKeys);
         eventPublisher.publishEvent(new JwkKeyRotatedEvent());
-    }
-
-    private RSAKey generateRsaKey() throws JOSEException {
-        return new RSAKeyGenerator(2048)
-                .keyID(UUID.randomUUID().toString())
-                .issueTime(new Date())
-                .algorithm(JWSAlgorithm.RS256)
-                .generate();
-    }
-
-    private JwkKey generateNewKeyForRotation(RSAKey rsaKey) {
-        return JwkKey.builder()
-                .kid(rsaKey.getKeyID())
-                .privateJwk(rsaKey.toJSONString())
-                .publicJwk(rsaKey.toPublicJWK().toJSONString())
-                .isActive(true)
-                .build();
     }
 
     private void removedInactiveKeys(List<JwkKey> keys) {

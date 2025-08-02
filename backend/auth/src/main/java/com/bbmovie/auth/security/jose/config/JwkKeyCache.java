@@ -2,6 +2,7 @@ package com.bbmovie.auth.security.jose.config;
 
 import com.bbmovie.auth.entity.jose.JwkKey;
 import com.bbmovie.auth.repository.JwkKeyRepository;
+import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.RSAKey;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +12,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.Comparator;
 import java.util.List;
+
+import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateNewKeyForRotation;
+import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateRsaKey;
 
 @Getter
 @Slf4j
@@ -40,13 +44,22 @@ public class JwkKeyCache {
     private synchronized void refreshActivePrivateKey() {
         List<JwkKey> activeKeys = keyRepo.findAll().stream().filter(JwkKey::isActive).toList();
         if (activeKeys.isEmpty()) {
-            // Note: Avoid calling rotateKey() here to prevent recursive event publishing
+            try {
+                RSAKey newRsaKey = generateRsaKey();
+                JwkKey newKeyEntity = generateNewKeyForRotation(newRsaKey);
+                keyRepo.save(newKeyEntity);
+                activeKeys = List.of(newKeyEntity);
+                log.info("No key found, create a new key. {}", newKeyEntity);
+
+            } catch (JOSEException e) {
+                throw new IllegalStateException("Failed to generate new RSA key", e);
+            }
             log.info("No active JwkKeys found");
         }
         try {
             activePrivateKey = RSAKey.parse(activeKeys.getFirst().getPrivateJwk());
         } catch (Exception e) {
-            throw new IllegalStateException("Invalid active key", e);
+            throw new IllegalStateException("Invalid active key: " + e.getMessage(), e);
         }
     }
 
