@@ -25,4 +25,14 @@ public class WebClientConfig {
                 .clientConnector(new ReactorClientHttpConnector(HttpClient.create().responseTimeout(Duration.ofSeconds(5))))
                 .build();
     }
+
+    @LoadBalanced
+    @Bean("apiKeyWebClient")
+    public WebClient apiKeyWebClient(WebClient.Builder webClientBuilder) {
+        return webClientBuilder
+                .baseUrl(authServiceUrl)
+                .defaultHeader("Accept", "application/json")
+                .clientConnector(new ReactorClientHttpConnector(HttpClient.create().responseTimeout(Duration.ofSeconds(10))))
+                .build();
+    }
 }

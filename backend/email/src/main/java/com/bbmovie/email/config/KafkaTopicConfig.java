@@ -18,18 +18,18 @@ public class KafkaTopicConfig {
         return TopicBuilder.name(REGISTER_EMAIL_TOPIC)
                 .partitions(1)
                 .replicas(1)
-                .config("retention.ms", "1000")
-                .config("delete.retention.ms", "1000")
+                .config("retention.ms", "3600000")
+                .config("delete.retention.ms", "3600000")
                 .build();
     }
 
     @Bean("changePasswordEmailTopic")
     public NewTopic changePasswordEmailTopic() {
-        return TopicBuilder.name(OTP_SMS_TOPIC)
+        return TopicBuilder.name(CHANGE_PASSWORD_EMAIL_TOPIC)
                 .partitions(1)
                 .replicas(1)
-                .config("retention.ms", "1000")
-                .config("delete.retention.ms", "1000")
+                .config("retention.ms", "3600000")
+                .config("delete.retention.ms", "3600000")
                 .build();
     }
 
@@ -38,8 +38,8 @@ public class KafkaTopicConfig {
         return TopicBuilder.name(OTP_SMS_TOPIC)
                 .partitions(1)
                 .replicas(1)
-                .config("retention.ms", "1000")
-                .config("delete.retention.ms", "1000")
+                .config("retention.ms", "3600000")
+                .config("delete.retention.ms", "3600000")
                 .build();
     }
 
@@ -48,8 +48,8 @@ public class KafkaTopicConfig {
         return TopicBuilder.name(FORGOT_PASSWORD_TOPIC)
                 .partitions(1)
                 .replicas(1)
-                .config("retention.ms", "1000")
-                .config("delete.retention.ms", "1000")
+                .config("retention.ms", "3600000")
+                .config("delete.retention.ms", "3600000")
                 .build();
     }
 }

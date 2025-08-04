@@ -8,7 +8,6 @@ import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.example.common.annotation.Experimental;
-import com.example.common.entity.JoseConstraint;
 import io.jsonwebtoken.*;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -29,6 +28,11 @@ import java.security.spec.PKCS8EncodedKeySpec;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
+import static com.example.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX;
+import static com.example.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
+import static com.example.common.entity.JoseConstraint.JosePayload.*;
+import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
 
 @Log4j2
 @SuppressWarnings("squid:S6830")
@@ -100,14 +104,14 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationInMs);
         Map<String, Object> claims = new HashMap<>();
-        claims.put(JoseConstraint.JosePayload.JTI, UUID.randomUUID().toString());
-        claims.put(JoseConstraint.JosePayload.SID, sid);
-        claims.put(JoseConstraint.JosePayload.ROLE, role);
-        claims.put(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name());
-        claims.put(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge());
-        claims.put(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name());
-        claims.put(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled());
-        claims.put(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled());
+        claims.put(JTI, UUID.randomUUID().toString());
+        claims.put(SID, sid);
+        claims.put(ROLE, role);
+        claims.put(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name());
+        claims.put(AGE, loggedInUser.getAge());
+        claims.put(REGION, loggedInUser.getRegion().name());
+        claims.put(PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled());
+        claims.put(IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled());
 
         return Jwts.builder()
                 .setSubject(username)
@@ -128,14 +132,14 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
         Date now = new Date();
         Date expiryDate = new Date(now.getTime() + expirationInMs);
         Map<String, Object> claims = new HashMap<>();
-        claims.put(JoseConstraint.JosePayload.JTI, jti);
-        claims.put(JoseConstraint.JosePayload.SID, sid);
-        claims.put(JoseConstraint.JosePayload.ROLE, role);
-        claims.put(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name());
-        claims.put(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge());
-        claims.put(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name());
-        claims.put(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled());
-        claims.put(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled());
+        claims.put(JTI, jti);
+        claims.put(SID, sid);
+        claims.put(ROLE, role);
+        claims.put(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name());
+        claims.put(AGE, loggedInUser.getAge());
+        claims.put(REGION, loggedInUser.getRegion().name());
+        claims.put(PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled());
+        claims.put(IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled());
 
         return Jwts.builder()
                 .setSubject(username)
@@ -194,10 +198,10 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
     public List<String> getRolesFromToken(String token) {
         try {
             Claims claims = extractClaims(token);
-            String role = claims.get(JoseConstraint.JosePayload.ROLE, String.class);
+            String role = claims.get(ROLE, String.class);
             return Collections.singletonList(role);
         } catch (ExpiredJwtException e) {
-            String role = e.getClaims().get(JoseConstraint.JosePayload.ROLE, String.class);
+            String role = e.getClaims().get(ROLE, String.class);
             return Collections.singletonList(role);
         } catch (JwtException e) {
             log.error("Invalid JWT token when get roles: {}", e.getMessage());
@@ -221,9 +225,9 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
     public String getJtiFromToken(String token) {
         try {
             Claims claims = extractClaims(token);
-            return claims.get(JoseConstraint.JosePayload.JTI, String.class);
+            return claims.get(JTI, String.class);
         } catch (ExpiredJwtException e) {
-            return (e.getClaims().get(JoseConstraint.JosePayload.JTI, String.class));
+            return (e.getClaims().get(JTI, String.class));
         } catch (JwtException e) {
             log.error("Invalid JWT token when get jti: {}", e.getMessage());
             throw new IllegalArgumentException("Invalid JWT token", e);
@@ -233,9 +237,9 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
     @Override
     public String getSidFromToken(String token) {
         try {
-            return extractClaims(token).get(JoseConstraint.JosePayload.SID, String.class);
+            return extractClaims(token).get(SID, String.class);
         } catch (ExpiredJwtException e) {
-            return e.getClaims().get(JoseConstraint.JosePayload.SID, String.class);
+            return e.getClaims().get(SID, String.class);
         } catch (JwtException e) {
             log.error("Invalid JWT token when get sid: {}", e.getMessage());
             throw new IllegalArgumentException("Invalid JWT token", e);
@@ -269,13 +273,13 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
 
     @Override
     public Map<String, Object> getOnlyABACFromClaims(Map<String, Object> claims) {
-        claims.remove(JoseConstraint.JosePayload.JTI);
-        claims.remove(JoseConstraint.JosePayload.SID);
-        claims.remove(JoseConstraint.JosePayload.ROLE);
-        claims.remove(JoseConstraint.JosePayload.SUB);
-        claims.remove(JoseConstraint.JosePayload.EXP);
-        claims.remove(JoseConstraint.JosePayload.IAT);
-        claims.remove(JoseConstraint.JosePayload.ISS);
+        claims.remove(JTI);
+        claims.remove(SID);
+        claims.remove(ROLE);
+        claims.remove(SUB);
+        claims.remove(EXP);
+        claims.remove(IAT);
+        claims.remove(ISS);
         return claims;
     }
 
@@ -292,36 +296,36 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
 
     @Override
     public boolean isTokenInLogoutBlacklist(String sid) {
-        return redisTemplate.hasKey(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid);
+        return redisTemplate != null && redisTemplate.hasKey(JWT_LOGOUT_BLACKLIST_PREFIX + sid);
     }
 
     @Override
     public void addTokenToLogoutBlacklist(String sid) {
-        String key = JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid;
+        String key = JWT_LOGOUT_BLACKLIST_PREFIX + sid;
         redisTemplate.opsForValue().set(key, "", 15, TimeUnit.MINUTES);
     }
 
     @Override
     public void removeFromLogoutBlacklist(String sid) {
-        String key = JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid;
+        String key = JWT_LOGOUT_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
     }
 
     @Override
     public boolean isTokenInABACBlacklist(String sid) {
-        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
-        return redisTemplate.hasKey(key);
+        String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
+        return redisTemplate != null && redisTemplate.hasKey(key);
     }
 
     @Override
     public void addTokenToABACBlacklist(String sid) {
-        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
+        String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.opsForValue().set(key, "", 15, TimeUnit.MINUTES);
     }
 
     @Override
     public void removeTokenFromABACBlacklist(String sid) {
-        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
+        String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
     }
 

@@ -15,9 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 
 public interface AuthService {
-
-    LoginResponse loginExperimental(LoginRequest loginRequest, HttpServletRequest request);
-
     LoginResponse login(LoginRequest loginRequest, HttpServletRequest request);
 
     UserAgentResponse getUserDeviceInformation(HttpServletRequest request);

@@ -93,19 +93,20 @@ public class RefreshTokenService {
                 username, "", authorities
         );
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                userDetails, null, authorities
+                userDetails, "", authorities
         );
+
         log.info("Refreshing access token for user {}", username);
         String sameSidWithRefreshToken = String.valueOf(userRefreshToken.getSid());
         return joseProviderStrategy.generateAccessToken(authentication, sameSidWithRefreshToken, user);
     }
 
     /**
-     * overwriteRefreshToken assumes an existing RefreshToken for the sid, which may fail if the sid is new or deleted
+     * saveRefreshToken assumes an existing RefreshToken for the sid, which may fail if the sid is new or deleted
      * => Token updates may fail silently, leading to an inconsistent session state
      */
     @Transactional
-    public void overwriteRefreshToken(String sid, String refreshTokenString) {
+    public void saveRefreshToken(String sid, String refreshTokenString) {
         RefreshToken refreshToken = refreshTokenRepository.findBySid(sid);
         if (refreshToken != null) {
             Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider().getClaimsFromToken(refreshTokenString);
@@ -122,7 +123,7 @@ public class RefreshTokenService {
     }
 
     @Transactional
-    public void overwriteRefreshToken(
+    public void saveRefreshToken(
             String refreshToken, String email,
             String deviceIpAddress, String deviceName, String deviceOs,
             String browser, String browserVersion

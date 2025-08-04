@@ -5,7 +5,6 @@ import com.bbmovie.auth.exception.BlacklistedJwtTokenException;
 import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.service.UserService;
 import com.bbmovie.auth.service.auth.RefreshTokenService;
-import com.example.common.entity.JoseConstraint;
 import jakarta.annotation.Nullable;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -29,6 +28,9 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import static com.example.common.entity.JoseConstraint.JosePayload.*;
+import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED;
 
 @Log4j2
 @Component
@@ -77,8 +79,7 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
             if (provider.isTokenInLogoutBlacklist(sid)) {
                 throw new BlacklistedJwtTokenException("Access token has been blocked for this email and device");
             }
-            // we will check blacklist the sid since sid (on refresh token) are stored on database
-            // easier to track than jti from access token
+
             boolean isAbacStale = provider.isTokenInABACBlacklist(sid);
             if (isAbacStale) {
                 User userAfterAbacUpdate = userService.findByEmail(username)
@@ -94,12 +95,12 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
                 );
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, authorities
+                        userDetails, "", authorities
                 );
 
                 String newAccessToken = provider.generateAccessToken(authentication, sid, userAfterAbacUpdate);
                 String newRefreshTokenString = provider.generateRefreshToken(authentication, sid, userAfterAbacUpdate);
-                refreshTokenService.overwriteRefreshToken(sid, newRefreshTokenString);
+                refreshTokenService.saveRefreshToken(sid, newRefreshTokenString);
 
                 provider.removeTokenFromABACBlacklist(sid);
 
@@ -108,7 +109,7 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } else {
-                // Normal flow where there is no abac changes
+                // Normal flow where there are no abac changes
                 List<GrantedAuthority> authorities = validated.roles()
                         .stream()
                         .map(SimpleGrantedAuthority::new)
@@ -119,7 +120,7 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
                 );
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, authorities
+                        userDetails, "", authorities
                 );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -140,7 +141,15 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-    // Only hold basic role based access control, not hold abac
+    @Override
+    protected boolean shouldNotFilter(@NotNull HttpServletRequest request) {
+        String path = request.getServletPath();
+        return path.startsWith("/auth")
+                || path.startsWith("/public")
+                || path.startsWith("/.well-known/jwks.json");
+    }
+
+    // Only hold basic role-based access control, not hold abac
     private JoseValidatedToken resolveAndValidateToken(@Nullable String token) {
         if (StringUtils.isEmpty(token)) {
             return null;
@@ -151,10 +160,11 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
 
         if (active.validateToken(token)) {
             Map<String, Object> claims = active.getClaimsFromToken(token);
-            String username = claims.get(JoseConstraint.JosePayload.SUB).toString();
-            List<String> role = List.of(claims.get(JoseConstraint.JosePayload.ROLE).toString());
-            String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
-            boolean isEnabled = claims.get(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED)
+
+            String username = claims.get(SUB).toString();
+            List<String> role = List.of(claims.get(ROLE).toString());
+            String sid = claims.get(SID).toString();
+            boolean isEnabled = claims.get(IS_ACCOUNTING_ENABLED)
                     .toString().equalsIgnoreCase("true");
 
             return new JoseValidatedToken(active, sid, username, role, isEnabled);
@@ -162,11 +172,13 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
         JoseProviderStrategy previous = joseContext.getPreviousProvider();
         if (previous != null && previous.validateToken(token)) {
             Map<String, Object> claims = active.getClaimsFromToken(token);
-            String username = claims.get(JoseConstraint.JosePayload.SUB).toString();
-            List<String> role = List.of(claims.get(JoseConstraint.JosePayload.ROLE).toString());
-            String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
-            boolean isEnabled = claims.get(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED)
+
+            String username = claims.get(SUB).toString();
+            List<String> role = List.of(claims.get(ROLE).toString());
+            String sid = claims.get(SID).toString();
+            boolean isEnabled = claims.get(IS_ACCOUNTING_ENABLED)
                     .toString().equalsIgnoreCase("true");
+
             return new JoseValidatedToken(previous, sid, username, role, isEnabled);
         }
         return null;

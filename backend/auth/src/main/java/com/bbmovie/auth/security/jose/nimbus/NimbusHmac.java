@@ -6,7 +6,6 @@ import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.example.common.annotation.Experimental;
-import com.example.common.entity.JoseConstraint;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -28,6 +27,11 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
+import static com.example.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX;
+import static com.example.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
+import static com.example.common.entity.JoseConstraint.JosePayload.*;
+import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
 
 @Log4j2
 @Component("nimbusHmac")
@@ -89,16 +93,16 @@ public class NimbusHmac implements JoseProviderStrategy {
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(username)
-                    .claim(JoseConstraint.JosePayload.ROLE, role)
-                    .claim(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
-                    .claim(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge())
-                    .claim(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name())
-                    .claim(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
-                    .claim(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
+                    .claim(ROLE, role)
+                    .claim(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
+                    .claim(AGE, loggedInUser.getAge())
+                    .claim(REGION, loggedInUser.getRegion().name())
+                    .claim(PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
+                    .claim(IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(UUID.randomUUID().toString())
-                    .claim(JoseConstraint.JosePayload.SID, sid)
+                    .claim(SID, sid)
                     .build();
 
             SignedJWT signedJWT = new SignedJWT(header, claimsSet);
@@ -129,16 +133,16 @@ public class NimbusHmac implements JoseProviderStrategy {
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .issuer(issuer)
                     .subject(username)
-                    .claim(JoseConstraint.JosePayload.ROLE, role)
-                    .claim(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
-                    .claim(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge())
-                    .claim(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name())
-                    .claim(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
-                    .claim(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
+                    .claim(ROLE, role)
+                    .claim(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
+                    .claim(AGE, loggedInUser.getAge())
+                    .claim(REGION, loggedInUser.getRegion().name())
+                    .claim(PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
+                    .claim(IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(jti)
-                    .claim(JoseConstraint.JosePayload.SID, sid)
+                    .claim(SID, sid)
                     .build();
 
             SignedJWT signedJWT = new SignedJWT(header, claimsSet);
@@ -194,7 +198,7 @@ public class NimbusHmac implements JoseProviderStrategy {
             if (!signedJWT.verify(new MACVerifier(secretKey.getEncoded()))) {
                 throw new IllegalArgumentException("JWT verification failed");
             }
-            String role = (String) signedJWT.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.ROLE);
+            String role = (String) signedJWT.getJWTClaimsSet().getClaim(ROLE);
             return List.of(role);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid JWT token", e);
@@ -235,7 +239,7 @@ public class NimbusHmac implements JoseProviderStrategy {
     public String getJtiFromToken(String token) {
         try {
             SignedJWT signedJWT = SignedJWT.parse(token);
-            return signedJWT.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.JTI).toString();
+            return signedJWT.getJWTClaimsSet().getClaim(JTI).toString();
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid JWT token", e);
         }
@@ -245,7 +249,7 @@ public class NimbusHmac implements JoseProviderStrategy {
     public String getSidFromToken(String token) {
         try {
             SignedJWT signedJWT = SignedJWT.parse(token);
-            return signedJWT.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.SID).toString();
+            return signedJWT.getJWTClaimsSet().getClaim(SID).toString();
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid JWT token", e);
         }
@@ -273,13 +277,13 @@ public class NimbusHmac implements JoseProviderStrategy {
 
     @Override
     public Map<String, Object> getOnlyABACFromClaims(Map<String, Object> claims) {
-        claims.remove(JoseConstraint.JosePayload.JTI);
-        claims.remove(JoseConstraint.JosePayload.SID);
-        claims.remove(JoseConstraint.JosePayload.ROLE);
-        claims.remove(JoseConstraint.JosePayload.SUB);
-        claims.remove(JoseConstraint.JosePayload.EXP);
-        claims.remove(JoseConstraint.JosePayload.IAT);
-        claims.remove(JoseConstraint.JosePayload.ISS);
+        claims.remove(JTI);
+        claims.remove(SID);
+        claims.remove(ROLE);
+        claims.remove(SUB);
+        claims.remove(EXP);
+        claims.remove(IAT);
+        claims.remove(ISS);
         return claims;
     }
 
@@ -296,36 +300,36 @@ public class NimbusHmac implements JoseProviderStrategy {
 
     @Override
     public boolean isTokenInLogoutBlacklist(String sid) {
-        return redisTemplate.hasKey(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid);
+        return redisTemplate != null && redisTemplate.hasKey(JWT_LOGOUT_BLACKLIST_PREFIX + sid);
     }
 
     @Override
     public void addTokenToLogoutBlacklist(String sid) {
-        String key = JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid;
+        String key = JWT_LOGOUT_BLACKLIST_PREFIX + sid;
         redisTemplate.opsForValue().set(key, "", 15, TimeUnit.MINUTES);
     }
 
     @Override
     public void removeFromLogoutBlacklist(String sid) {
-        String key = JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid;
+        String key = JWT_LOGOUT_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
     }
 
     @Override
     public boolean isTokenInABACBlacklist(String sid) {
-        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
-        return redisTemplate.hasKey(key);
+        String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
+        return redisTemplate != null && redisTemplate.hasKey(key);
     }
 
     @Override
     public void addTokenToABACBlacklist(String sid) {
-        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
+        String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.opsForValue().set(key, "", 15, TimeUnit.MINUTES);
     }
 
     @Override
     public void removeTokenFromABACBlacklist(String sid) {
-        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
+        String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
     }
 }

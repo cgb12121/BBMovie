@@ -49,8 +49,9 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "auth_provider")
     private AuthProvider authProvider = AuthProvider.LOCAL;
 
+    @Builder.Default
     @Column(name = "profile_picture_url")
-    private String profilePictureUrl;
+    private String profilePictureUrl = "https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png";
 
     @Column(name = "age")
     private Integer age;

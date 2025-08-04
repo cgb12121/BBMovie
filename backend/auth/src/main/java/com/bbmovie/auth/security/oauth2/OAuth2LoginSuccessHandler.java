@@ -132,7 +132,7 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
                 .revoked(false)
                 .build();
 
-        refreshTokenService.overwriteRefreshToken(
+        refreshTokenService.saveRefreshToken(
                 refreshTokenToDb.getToken(), email,
                 userAgentInfo.getDeviceIpAddress(), userAgentInfo.getDeviceName(), userAgentInfo.getDeviceOs(),
                 userAgentInfo.getBrowser(), userAgentInfo.getBrowserVersion()

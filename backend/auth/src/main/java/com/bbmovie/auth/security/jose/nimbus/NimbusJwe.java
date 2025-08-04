@@ -7,7 +7,6 @@ import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.example.common.annotation.Experimental;
-import com.example.common.entity.JoseConstraint;
 import com.nimbusds.jose.*;
 import com.nimbusds.jose.crypto.RSADecrypter;
 import com.nimbusds.jose.crypto.RSAEncrypter;
@@ -28,6 +27,11 @@ import org.springframework.stereotype.Component;
 import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+
+import static com.example.common.entity.JoseConstraint.*;
+import static com.example.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX;
+import static com.example.common.entity.JoseConstraint.JosePayload.*;
+import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
 
 @Log4j2
 @Component("nimbusJwe")
@@ -87,16 +91,16 @@ public class NimbusJwe implements JoseProviderStrategy {
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(username)
-                    .claim(JoseConstraint.JosePayload.ROLE, role)
-                    .claim(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
-                    .claim(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge())
-                    .claim(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name())
-                    .claim(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
-                    .claim(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
+                    .claim(ROLE, role)
+                    .claim(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
+                    .claim(AGE, loggedInUser.getAge())
+                    .claim(REGION, loggedInUser.getRegion().name())
+                    .claim(PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
+                    .claim(IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(UUID.randomUUID().toString())
-                    .claim(JoseConstraint.JosePayload.SID, sid)
+                    .claim(SID, sid)
                     .build();
 
             EncryptedJWT encryptedJWT = new EncryptedJWT(header, claimsSet);
@@ -132,16 +136,16 @@ public class NimbusJwe implements JoseProviderStrategy {
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .issuer(issuer)
                     .subject(username)
-                    .claim(JoseConstraint.JosePayload.ROLE, role)
-                    .claim(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
-                    .claim(JoseConstraint.JosePayload.ABAC.AGE, loggedInUser.getAge())
-                    .claim(JoseConstraint.JosePayload.ABAC.REGION, loggedInUser.getRegion().name())
-                    .claim(JoseConstraint.JosePayload.ABAC.PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
-                    .claim(JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
+                    .claim(ROLE, role)
+                    .claim(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
+                    .claim(AGE, loggedInUser.getAge())
+                    .claim(REGION, loggedInUser.getRegion().name())
+                    .claim(PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
+                    .claim(IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
                     .issueTime(now)
                     .expirationTime(expiryDate)
                     .jwtID(jti)
-                    .claim(JoseConstraint.JosePayload.SID, sid)
+                    .claim(SID, sid)
                     .build();
 
             EncryptedJWT encryptedJWT = new EncryptedJWT(header, claimsSet);
@@ -216,7 +220,7 @@ public class NimbusJwe implements JoseProviderStrategy {
         return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
-                        String role = (String) jwt.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.ROLE);
+                        String role = (String) jwt.getJWTClaimsSet().getClaim(ROLE);
                         return List.of(role);
                     } catch (ParseException e) {
                         throw new IllegalArgumentException("Invalid JWT role", e);
@@ -256,7 +260,7 @@ public class NimbusJwe implements JoseProviderStrategy {
         return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
-                        return (String) jwt.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.JTI);
+                        return (String) jwt.getJWTClaimsSet().getClaim(JTI);
                     } catch (Exception e) {
                         throw new IllegalArgumentException("Invalid jti from JWK", e);
                     }
@@ -269,7 +273,7 @@ public class NimbusJwe implements JoseProviderStrategy {
         return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
-                        return (String) jwt.getJWTClaimsSet().getClaim(JoseConstraint.JosePayload.SID);
+                        return (String) jwt.getJWTClaimsSet().getClaim(SID);
                     } catch (Exception e) {
                         throw new IllegalArgumentException("Invalid sid from JWK", e);
                     }
@@ -303,48 +307,48 @@ public class NimbusJwe implements JoseProviderStrategy {
 
     @Override
     public Map<String, Object> getOnlyABACFromClaims(Map<String, Object> claims) {
-        claims.remove(JoseConstraint.JosePayload.JTI);
-        claims.remove(JoseConstraint.JosePayload.SID);
-        claims.remove(JoseConstraint.JosePayload.ROLE);
-        claims.remove(JoseConstraint.JosePayload.SUB);
-        claims.remove(JoseConstraint.JosePayload.EXP);
-        claims.remove(JoseConstraint.JosePayload.IAT);
-        claims.remove(JoseConstraint.JosePayload.ISS);
+        claims.remove(JTI);
+        claims.remove(SID);
+        claims.remove(ROLE);
+        claims.remove(SUB);
+        claims.remove(EXP);
+        claims.remove(IAT);
+        claims.remove(ISS);
         return claims;
     }
 
     @Override
     public boolean isTokenInLogoutBlacklist(String sid) {
-        return redisTemplate.hasKey(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid);
+        return redisTemplate != null && redisTemplate.hasKey(JWT_LOGOUT_BLACKLIST_PREFIX + sid);
     }
 
     @Override
     public void addTokenToLogoutBlacklist(String sid) {
-        String key = JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid;
+        String key = JWT_LOGOUT_BLACKLIST_PREFIX + sid;
         redisTemplate.opsForValue().set(key, "", 15, TimeUnit.MINUTES);
     }
 
     @Override
     public void removeFromLogoutBlacklist(String sid) {
-        String key = JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid;
+        String key = JWT_LOGOUT_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
     }
 
     @Override
     public boolean isTokenInABACBlacklist(String sid) {
-        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
-        return redisTemplate.hasKey(key);
+        String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
+        return redisTemplate != null && redisTemplate.hasKey(key);
     }
 
     @Override
     public void addTokenToABACBlacklist(String sid) {
-        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
+        String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.opsForValue().set(key, "", 15, TimeUnit.MINUTES);
     }
 
     @Override
     public void removeTokenFromABACBlacklist(String sid) {
-        String key = JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + sid;
+        String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
     }
 

@@ -24,7 +24,6 @@ import com.bbmovie.auth.service.kafka.LogoutEventProducer;
 import com.bbmovie.auth.utils.DeviceInfoUtils;
 import com.bbmovie.auth.utils.IpAddressUtils;
 import com.bbmovie.auth.utils.UserAgentAnalyzerUtils;
-import com.example.common.annotation.Experimental;
 import com.example.common.entity.JoseConstraint;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -103,59 +102,6 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    @Experimental
-    public LoginResponse loginExperimental(LoginRequest loginRequest, HttpServletRequest request) {
-        User user = userRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
-
-        boolean correctPassword = passwordEncoder.matches(loginRequest.getPassword(), user.getPassword());
-        if (!correctPassword) {
-            throw new AuthenticationException("Invalid username/email or password");
-        }
-
-        boolean isUserEnabled = user.isEnabled();
-        if (!isUserEnabled) {
-            throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
-        }
-
-        UserAgentResponse userAgentResponse = getUserDeviceInformation(request);
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
-        );
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        user.setLastLoginTime(LocalDateTime.now());
-        userRepository.save(user);
-
-        TokenPair tokenPair = joseProviderStrategy.generateTokenPair(authentication, user);
-
-        refreshTokenService.overwriteRefreshToken(
-                tokenPair.refreshToken(), user.getEmail(),
-                userAgentResponse.getDeviceIpAddress(),
-                userAgentResponse.getDeviceName(),
-                userAgentResponse.getDeviceOs(),
-                userAgentResponse.getBrowser(),
-                userAgentResponse.getBrowserVersion()
-        );
-
-        AuthResponse authResponse = AuthResponse.builder()
-                .accessToken(tokenPair.accessToken())
-                .refreshToken(tokenPair.refreshToken())
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
-        UserResponse userResponse = UserResponse.builder()
-                .username(user.getDisplayedUsername())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .profilePictureUrl(user.getProfilePictureUrl())
-                .build();
-
-        return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
-    }
-
-    @Override
     public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
@@ -180,10 +126,10 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         String sid = UUID.randomUUID().toString();
-        String accessToken = joseProviderStrategy.generateAccessToken(authentication, sid, user);
-        String refreshToken = joseProviderStrategy.generateRefreshToken(authentication, sid, user);
+        TokenPair tokenPair = joseProviderStrategy.generateTokenPair(authentication, user);
 
-        boolean isNewSession = refreshTokenService.findAllValidByEmail(user.getEmail()).stream()
+        boolean isNewSession = refreshTokenService.findAllValidByEmail(user.getEmail())
+                .stream()
                 .noneMatch(token -> token.getSid().equals(sid));
         if (isNewSession) {
             log.info("New login detected for user {}", user.getEmail());
@@ -193,36 +139,16 @@ public class AuthServiceImpl implements AuthService {
         boolean isMfaEnabled = user.isMfaEnabled();
         if (isNewSession && isMfaEnabled) {
             log.info("Detected login from different device.");
-            //TODO: perform 2FA: prevent login until have valid otp (via email)
         }
 
         if (isNewSession && !isMfaEnabled) {
             log.info("Notify user about unknown device login.");
-            //TODO: notify new login via email with userAgentResponse, time (server time)
         }
 
-        refreshTokenService.overwriteRefreshToken(
-                refreshToken, user.getEmail(),
-                userAgentResponse.getDeviceIpAddress(),
-                userAgentResponse.getDeviceName(),
-                userAgentResponse.getDeviceOs(),
-                userAgentResponse.getBrowser(),
-                userAgentResponse.getBrowserVersion()
-        );
+        saveRefreshToken(tokenPair, user, userAgentResponse);
 
-        AuthResponse authResponse = AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
-        UserResponse userResponse = UserResponse.builder()
-                .username(user.getDisplayedUsername())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .profilePictureUrl(user.getProfilePictureUrl())
-                .build();
+        AuthResponse authResponse = createAuthResponse(tokenPair, user);
+        UserResponse userResponse = createUserResponseFromUser(user);
 
         return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
     }
@@ -234,25 +160,20 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse getLoginResponseFromOAuth2Login(UserDetails userDetails, HttpServletRequest request) {
-        UserAgentResponse userAgentResponse = deviceInfoUtils.extractUserAgentInfo(request);
-
         Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
         if (accessTokenCookie == null) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Access token cookie is missing");
         }
-
+        String accessToken = accessTokenCookie.getValue();
         UserResponse userResponse = loadAuthenticatedUserInformation(userDetails.getUsername());
-
-        AuthResponse authResponse = AuthResponse.builder()
-                .accessToken(accessTokenCookie.getValue())
-                .refreshToken(null)
-                .email(userResponse.getEmail())
-                .role(Role.USER)
-                .build();
-
-        return LoginResponse.fromUserAndAuthAndUserAgentResponse(
-                userResponse, authResponse, userAgentResponse
+        AuthResponse authResponse = createAuthResponse(
+                new TokenPair(accessToken, null),
+                User.builder()
+                        .email(userResponse.getEmail())
+                        .role(Role.USER)
+                        .build()
         );
+        return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
     }
 
     @Transactional
@@ -418,7 +339,7 @@ public class AuthServiceImpl implements AuthService {
             refreshToken.setJti(UUID.randomUUID().toString());
             refreshToken.setExpiryDate(new Date(System.currentTimeMillis() + 7 * 24 * 60 * 60 * 1000));
             refreshToken.setRevoked(false);
-            refreshTokenService.overwriteRefreshToken(newSid, newRefreshToken);
+            refreshTokenService.saveRefreshToken(newSid, newRefreshToken);
         }
     }
 
@@ -463,13 +384,7 @@ public class AuthServiceImpl implements AuthService {
     public UserResponse loadAuthenticatedUserInformation(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new UserNotFoundException(String.format(USER_NOT_FOUND_BY_EMAIL, email)));
-        return UserResponse.builder()
-                .username(user.getDisplayedUsername())
-                .email(user.getEmail())
-                .firstName(user.getFirstName())
-                .lastName(user.getLastName())
-                .profilePictureUrl(user.getProfilePictureUrl())
-                .build();
+        return createUserResponseFromUser(user);
     }
 
     @Transactional(noRollbackFor = CustomEmailException.class)
@@ -531,23 +446,6 @@ public class AuthServiceImpl implements AuthService {
         logoutFromAllDevices(email);
     }
 
-    private User createUserFromRegisterRequest(RegisterRequest request) {
-        return User.builder()
-                .email(request.getEmail())
-                .displayedUsername(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .firstName(request.getFirstName())
-                .lastName(request.getLastName())
-                .role(Role.USER)
-                .authProvider(AuthProvider.LOCAL)
-                .isEnabled(false)
-                .isAccountNonExpired(true)
-                .isAccountNonLocked(true)
-                .isCredentialsNonExpired(true)
-                .profilePictureUrl("https://cdn.pixabay.com/photo/2023/02/18/11/00/icon-7797704_1280.png")
-                .build();
-    }
-
     @Override
     public void revokeAuthCookies(HttpServletResponse response) {
         Cookie revokeAccessTokenCookie = revokeCookie("accessToken");
@@ -563,5 +461,51 @@ public class AuthServiceImpl implements AuthService {
         cookie.setHttpOnly(true);
         cookie.setPath("/");
         return cookie;
+    }
+
+    private static UserResponse createUserResponseFromUser(User user) {
+        return UserResponse.builder()
+                .username(user.getDisplayedUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .profilePictureUrl(user.getProfilePictureUrl())
+                .build();
+    }
+
+    private static AuthResponse createAuthResponse(TokenPair tokenPair, User user) {
+        return AuthResponse.builder()
+                .accessToken(tokenPair.accessToken())
+                .refreshToken(tokenPair.refreshToken())
+                .email(user.getEmail())
+                .role(user.getRole())
+                .build();
+    }
+
+    private void saveRefreshToken(TokenPair tokenPair, User user, UserAgentResponse userAgentResponse) {
+        refreshTokenService.saveRefreshToken(
+                tokenPair.refreshToken(), user.getEmail(),
+                userAgentResponse.getDeviceIpAddress(),
+                userAgentResponse.getDeviceName(),
+                userAgentResponse.getDeviceOs(),
+                userAgentResponse.getBrowser(),
+                userAgentResponse.getBrowserVersion()
+        );
+    }
+
+    private User createUserFromRegisterRequest(RegisterRequest request) {
+        return User.builder()
+                .email(request.getEmail())
+                .displayedUsername(request.getUsername())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .role(Role.USER)
+                .authProvider(AuthProvider.LOCAL)
+                .isEnabled(false)
+                .isAccountNonExpired(true)
+                .isAccountNonLocked(true)
+                .isCredentialsNonExpired(true)
+                .build();
     }
 }
