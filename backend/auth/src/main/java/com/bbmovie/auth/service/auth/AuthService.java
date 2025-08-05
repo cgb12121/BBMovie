@@ -40,7 +40,7 @@ public interface AuthService {
     @Transactional
     void logoutFromOneDevice(String accessToken, String targetSid);
 
-    List<LoggedInDeviceResponse> getAllLoggedInDevices(String email, HttpServletRequest request);
+    List<LoggedInDeviceResponse> getAllLoggedInDevices(String jwtToken, HttpServletRequest request);
 
     //need to check again
     @Transactional

@@ -16,40 +16,40 @@ public class KafkaTopicConfig {
     @Bean("registerEmailTopic")
     public NewTopic registerEmailTopic() {
         return TopicBuilder.name(REGISTER_EMAIL_TOPIC)
-                .partitions(1)
-                .replicas(1)
-                .config("retention.ms", "3600000")
-                .config("delete.retention.ms", "3600000")
+//                .partitions(1)
+//                .replicas(1)
+//                .config("retention.ms", "3600000")
+//                .config("delete.retention.ms", "1000")
                 .build();
     }
 
     @Bean("changePasswordEmailTopic")
     public NewTopic changePasswordEmailTopic() {
         return TopicBuilder.name(CHANGE_PASSWORD_EMAIL_TOPIC)
-                .partitions(1)
-                .replicas(1)
-                .config("retention.ms", "3600000")
-                .config("delete.retention.ms", "3600000")
+//                .partitions(1)
+//                .replicas(1)
+//                .config("retention.ms", "3600000")
+//                .config("delete.retention.ms", "1000")
                 .build();
     }
 
     @Bean("otpSmsTopic")
     public NewTopic otpSmsTopic() {
         return TopicBuilder.name(OTP_SMS_TOPIC)
-                .partitions(1)
-                .replicas(1)
-                .config("retention.ms", "3600000")
-                .config("delete.retention.ms", "3600000")
+//                .partitions(1)
+//                .replicas(1)
+//                .config("retention.ms", "3600000")
+//                .config("delete.retention.ms", "1000")
                 .build();
     }
 
     @Bean("forgotPasswordEmail")
     public NewTopic forgotPasswordEmailTopic() {
         return TopicBuilder.name(FORGOT_PASSWORD_TOPIC)
-                .partitions(1)
-                .replicas(1)
-                .config("retention.ms", "3600000")
-                .config("delete.retention.ms", "3600000")
+//                .partitions(1)
+//                .replicas(1)
+//                .config("retention.ms", "3600000")
+//                .config("delete.retention.ms", "1000")
                 .build();
     }
 }

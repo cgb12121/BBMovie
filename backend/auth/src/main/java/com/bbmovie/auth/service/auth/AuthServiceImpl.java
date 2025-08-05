@@ -110,13 +110,10 @@ public class AuthServiceImpl implements AuthService {
         if (!correctPassword) {
             throw new AuthenticationException("Invalid username/email or password");
         }
-
         boolean isUserEnabled = user.isEnabled();
         if (!isUserEnabled) {
             throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
         }
-
-        UserAgentResponse userAgentResponse = getUserDeviceInformation(request);
         Authentication authentication = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
         );
@@ -145,6 +142,7 @@ public class AuthServiceImpl implements AuthService {
             log.info("Notify user about unknown device login.");
         }
 
+        UserAgentResponse userAgentResponse = getUserDeviceInformation(request);
         saveRefreshToken(tokenPair, user, userAgentResponse);
 
         AuthResponse authResponse = createAuthResponse(tokenPair, user);
@@ -183,6 +181,11 @@ public class AuthServiceImpl implements AuthService {
             throw new EmailAlreadyExistsException(EMAIL_ALREADY_EXISTS);
         }
 
+        log.info("password: {}, {}", request.getPassword(), request.getConfirmPassword());
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            throw new AuthenticationException("Password and confirm password do not match. Please try again.");
+        }
+
         User user = createUserFromRegisterRequest(request);
         User savedUser = userRepository.save(user);
 
@@ -199,12 +202,11 @@ public class AuthServiceImpl implements AuthService {
         String email = emailVerifyTokenService.getEmailForToken(token);
         if (email == null) {
             log.warn("Token {} was already used or is invalid", token);
-            return "Account verification failed. Please try again.";
+            throw new AuthenticationException("Account verification failed. Please try again.");
         }
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException(
-                        String.format(USER_NOT_FOUND_BY_EMAIL, email)
-                ));
+
+        log.info("Trying to verify: {}", email);
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new AuthenticationException("Unable to verify user"));
         if (user.isEnabled()) {
             log.info("Email {} already verified", email);
             return "Account already verified.";
@@ -287,11 +289,13 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public List<LoggedInDeviceResponse> getAllLoggedInDevices(String email, HttpServletRequest request) {
+    public List<LoggedInDeviceResponse> getAllLoggedInDevices(String jwtToken, HttpServletRequest request) {
         String userAgentString = request.getHeader("User-Agent");
         UserAgent currentAgent = userAgentAnalyzer.parse(userAgentString);
         String currentDeviceName = currentAgent.getValue("DeviceName");
         String currentIp = IpAddressUtils.getClientIp(request);
+
+        String email = joseProviderStrategy.getUsernameFromToken(jwtToken);
 
         List<DeviceInfo> allDevices = getAllLoggedInDevicesRaw(email);
         List<LoggedInDeviceResponse> result = new ArrayList<>();
@@ -387,8 +391,8 @@ public class AuthServiceImpl implements AuthService {
         return createUserResponseFromUser(user);
     }
 
-    @Transactional(noRollbackFor = CustomEmailException.class)
     @Override
+    @Transactional(noRollbackFor = CustomEmailException.class)
     public void changePassword(String requestEmail, ChangePasswordRequest request) {
         User user = userRepository.findByDisplayedUsername(requestEmail)
                 .orElseThrow(() -> new UserNotFoundException("User not found for username: " + requestEmail));
@@ -498,8 +502,11 @@ public class AuthServiceImpl implements AuthService {
                 .email(request.getEmail())
                 .displayedUsername(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
+                .phoneNumber(request.getPhoneNumber())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
+                .age(request.getAge())
+                .region(request.getRegion())
                 .role(Role.USER)
                 .authProvider(AuthProvider.LOCAL)
                 .isEnabled(false)

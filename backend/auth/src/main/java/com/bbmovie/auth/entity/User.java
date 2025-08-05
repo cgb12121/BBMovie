@@ -6,7 +6,6 @@ import com.bbmovie.auth.entity.enumerate.Role;
 import com.bbmovie.auth.entity.enumerate.SubscriptionTier;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.SQLRestriction;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -15,7 +14,6 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
-@SQLRestriction("is_enabled is null or is_enabled = false")
 @Builder
 @Entity
 @Table(name = "users")
@@ -60,10 +58,12 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "region")
     private Region region;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "subscription_tier")
-    private SubscriptionTier subscriptionTier;
+    private SubscriptionTier subscriptionTier = SubscriptionTier.FREE;
 
+    @Builder.Default
     @Column(name = "parental_controls_enabled")
     private boolean parentalControlsEnabled = false;
 
@@ -86,6 +86,7 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "is_account_non_locked")
     private Boolean isAccountNonLocked = true;
 
+    @Builder.Default
     @Column(name = "is_credentials_non_expired")
     private Boolean isCredentialsNonExpired = true;
 
@@ -95,6 +96,10 @@ public class User extends BaseEntity implements UserDetails {
     @Enumerated(EnumType.STRING)
     @Column(name = "role", nullable = false)
     private Role role;
+
+    @Builder.Default
+    @Column(name = "is_soft_deleted")
+    private boolean isSoftDeleted = false;
 
     @Override
     public String getUsername() {

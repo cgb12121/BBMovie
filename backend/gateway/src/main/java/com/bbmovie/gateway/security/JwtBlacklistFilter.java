@@ -64,7 +64,12 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
         Route route = exchange.getAttribute(ServerWebExchangeUtils.GATEWAY_ROUTE_ATTR);
         assert route != null;
         log.info("Route: {}", route.toString());
-        boolean isPublicRoute = route.getMetadata().get("public").toString().equalsIgnoreCase("true");
+        boolean isPublicRoute;
+        try {
+            isPublicRoute = route.getMetadata().get("public").toString().equalsIgnoreCase("true");
+        } catch (Exception e) {
+            isPublicRoute = false;
+        }
 
         log.info("isPublicRoute: {}", isPublicRoute);
         String path = exchange.getRequest().getPath().toString();

@@ -17,6 +17,9 @@ public class EmailServiceFactory {
     private final EmailService defaultStrategy;
     private final List<String> rotationOrder;
 
+    @Value( "${app.email.rotation.enabled}")
+    private boolean isRotationEnabled;
+
     @Autowired
     public EmailServiceFactory(
             Map<String, EmailService> strategyMap,
@@ -27,7 +30,12 @@ public class EmailServiceFactory {
         this.defaultStrategy = strategyMap.getOrDefault(defaultStrategyName,
                 strategyMap.values().stream().findFirst().orElseThrow(() ->
                         new IllegalArgumentException("No default email strategy found")));
-        this.rotationOrder = Arrays.asList(rotationOrder.split(","));
+        if (!isRotationEnabled) {
+            this.rotationOrder = List.of(defaultStrategyName);
+        } else {
+            this.rotationOrder = Arrays.asList(rotationOrder.split(","));
+
+        }
     }
 
     public List<EmailService> getRotationStrategies() {

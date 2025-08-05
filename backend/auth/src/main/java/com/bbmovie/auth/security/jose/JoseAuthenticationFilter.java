@@ -91,11 +91,11 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
                         .toList();
 
                 UserDetails userDetails = new org.springframework.security.core.userdetails.User(
-                        username, "", authorities
+                        username, null, authorities
                 );
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, "", authorities
+                        userDetails, null, authorities
                 );
 
                 String newAccessToken = provider.generateAccessToken(authentication, sid, userAfterAbacUpdate);
@@ -116,11 +116,11 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
                         .collect(Collectors.toList());
 
                 UserDetails userDetails = new org.springframework.security.core.userdetails.User(
-                        username, "", authorities
+                        username, null, authorities
                 );
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, "", authorities
+                        userDetails, null, authorities
                 );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);

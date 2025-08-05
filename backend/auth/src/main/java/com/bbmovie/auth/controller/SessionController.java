@@ -4,13 +4,10 @@ import com.bbmovie.auth.dto.ApiResponse;
 import com.bbmovie.auth.dto.request.DeviceRevokeEntry;
 import com.bbmovie.auth.dto.request.RevokeDeviceRequest;
 import com.bbmovie.auth.dto.response.LoggedInDeviceResponse;
-import com.bbmovie.auth.exception.UnauthorizedUserException;
 import com.bbmovie.auth.service.auth.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
@@ -27,13 +24,13 @@ public class SessionController {
         this.authService = authService;
     }
 
-    //TODO: do not use AuthenticationPrincipal, pass jwt instead
+
+
     @GetMapping("/v1/sessions/all")
     public ResponseEntity<ApiResponse<List<LoggedInDeviceResponse>>> getAllDeviceLoggedIntoAccount(
-            @AuthenticationPrincipal UserDetails userDetails, HttpServletRequest request
+            @RequestHeader("Authorization") String accessToken, HttpServletRequest request
     ) {
-        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
-        List<LoggedInDeviceResponse> devices = authService.getAllLoggedInDevices(userDetails.getUsername(), request);
+        List<LoggedInDeviceResponse> devices = authService.getAllLoggedInDevices(accessToken, request);
         return devices.isEmpty()
                 ? ResponseEntity.ok(ApiResponse.success(List.of()))
                 : ResponseEntity.ok(ApiResponse.success(devices));
@@ -42,13 +39,12 @@ public class SessionController {
     //TODO: do not use AuthenticationPrincipal, pass jwt instead
     @PostMapping("/v1/sessions/revoke")
     public ResponseEntity<ApiResponse<String>> revokeDeviceLoggedIntoAccount(
-            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestHeader("Authorization") String accessToken,
             @RequestBody RevokeDeviceRequest request
     ) {
-        if (userDetails == null) { throw new UnauthorizedUserException("User not authenticated"); }
         List<String> revokedDevices = new ArrayList<>();
         for (DeviceRevokeEntry device : request.getDevices()) {
-            authService.logoutFromOneDevice(userDetails.getUsername(), device.getDeviceName());
+            authService.logoutFromOneDevice(accessToken, device.getDeviceName());
             revokedDevices.add(device.getDeviceName());
         }
         return ResponseEntity.ok(ApiResponse.success(

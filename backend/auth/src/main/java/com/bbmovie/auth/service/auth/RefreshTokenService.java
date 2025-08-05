@@ -24,6 +24,8 @@ import java.time.ZoneId;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.example.common.entity.JoseConstraint.JosePayload.*;
+
 @Service
 @Log4j2
 public class RefreshTokenService {
@@ -110,7 +112,7 @@ public class RefreshTokenService {
         RefreshToken refreshToken = refreshTokenRepository.findBySid(sid);
         if (refreshToken != null) {
             Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider().getClaimsFromToken(refreshTokenString);
-            Date newExp = (Date) claims.get(JoseConstraint.JosePayload.EXP);
+            Date newExp = (Date) claims.get(EXP);
             Date newIat = (Date) claims.get(JoseConstraint.JosePayload.IAT);
             String jti = claims.get(JoseConstraint.JosePayload.JTI).toString();
             refreshToken.setExpiryDate(newExp);
@@ -128,8 +130,11 @@ public class RefreshTokenService {
             String deviceIpAddress, String deviceName, String deviceOs,
             String browser, String browserVersion
     ) {
-        Date expiryDate = joseProviderStrategyContext.getActiveProvider().getExpirationDateFromToken(refreshToken);
-        Optional<RefreshToken> existingToken = refreshTokenRepository.findByEmailAndDeviceName(email, deviceName);
+        Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider().getClaimsFromToken(refreshToken);
+        Date expiryDate = (Date) claims.get(EXP);
+        String jti = (String) claims.get(JTI);
+        String sid = (String) claims.get(SID);
+        Optional<RefreshToken> existingToken = Optional.ofNullable(refreshTokenRepository.findBySid(sid));
 
         RefreshToken token = existingToken.map(existing -> {
             existing.setToken(refreshToken);
@@ -146,6 +151,8 @@ public class RefreshTokenService {
             log.info("Created new refresh token for user {}", email);
             return RefreshToken.builder()
                     .token(refreshToken)
+                    .jti(jti)
+                    .sid(sid)
                     .email(email)
                     .expiryDate(expiryDate)
                     .deviceIpAddress(deviceIpAddress)

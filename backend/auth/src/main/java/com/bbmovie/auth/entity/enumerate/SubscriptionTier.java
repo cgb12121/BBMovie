@@ -4,5 +4,5 @@ import lombok.Getter;
 
 @Getter
 public enum SubscriptionTier {
-    BASIC, PREMIUM, FAMILY
+    FREE, BASIC, PREMIUM, FAMILY
 }

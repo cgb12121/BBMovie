@@ -4,5 +4,5 @@ import lombok.Getter;
 
 @Getter
 public enum Region {
-        US, EU, ASIA, AU, GLOBAL
+    US, EU, ASIA, AU, GLOBAL
 }

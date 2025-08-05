@@ -135,12 +135,6 @@ public class SecurityConfig {
             )
             .addFilterBefore(joseAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterBefore(ipAnonymityFilter, JoseAuthenticationFilter.class)
-            .addFilterAfter((request, response, chain) -> {
-                    log.info("Cleaning SecurityContext after each request to prevent memory leaks");
-                    log.info("SecurityContext after request: {}", SecurityContextHolder.getContext().getAuthentication());
-                    chain.doFilter(request, response);
-                }, SecurityContextHolderFilter.class
-            )
             .build();
     }
 
