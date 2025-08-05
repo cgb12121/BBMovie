@@ -12,6 +12,12 @@ import org.springframework.stereotype.Service;
 import java.time.ZonedDateTime;
 import java.util.Map;
 
+/**
+ * This class serves as a Kafka producer to send various types of email-related and OTP-related events to Kafka topics.
+ * It provides methods to handle user notifications such as sending OTPs, magic links,
+ * and notifications related to changes in user credentials. Any failures during the event
+ * production process are handled by throwing respective custom exceptions.
+ */
 @Log4j2
 @Service
 public class EmailEventProducer {
@@ -29,6 +35,13 @@ public class EmailEventProducer {
         this.kafkaTemplate = kafkaTemplate;
     }
 
+    /**
+     * Sends a one-time password (OTP) to the specified phone number via Kafka.
+     *
+     * @param phoneNumber the phone number to which the OTP should be sent
+     * @param otp the one-time password to be sent
+     * @throws OtpEventException if an error occurs while sending the OTP
+     */
     public void sendOtp(String phoneNumber, String otp) {
         try {
             Map<String, String> event = Map.of(PHONE_NUMBER_KEY, phoneNumber, OTP_KEY, otp);
@@ -40,6 +53,13 @@ public class EmailEventProducer {
         }
     }
 
+    /**
+     * Sends a magic link during user registration to the specified email address via Kafka.
+     *
+     * @param email the email address to which the magic link should be sent
+     * @param tokenToCreateLink the token used to generate the magic link
+     * @throws MagicLinkEventException if an error occurs while sending the magic link
+     */
     public void sendMagicLinkOnRegistration(String email, String tokenToCreateLink) {
         try {
             Map<String, String> event = Map.of(EMAIL_KEY, email, TOKEN_FOR_MAGIC_LINK_KEY, tokenToCreateLink);
@@ -51,6 +71,13 @@ public class EmailEventProducer {
         }
     }
 
+    /**
+     * Sends a magic link to the specified email address via Kafka when a user initiates the forgot password process.
+     *
+     * @param email the email address to which the magic link should be sent
+     * @param tokenToCreateLink the token used to generate the magic link
+     * @throws MagicLinkEventException if an error occurs while sending the magic link
+     */
     public void sendMagicLinkOnForgotPassword(String email, String tokenToCreateLink) {
         try {
             Map<String, String> event = Map.of(EMAIL_KEY, email, TOKEN_FOR_MAGIC_LINK_KEY, tokenToCreateLink);
@@ -62,6 +89,13 @@ public class EmailEventProducer {
         }
     }
 
+    /**
+     * Sends a notification to the specified email address via Kafka when a user's password has been changed.
+     *
+     * @param email the email address to which the notification should be sent
+     * @param timeChangedPassword the timestamp indicating when the password was changed
+     * @throws ChangedPasswordNotificationEventException if an error occurs while sending the notification
+     */
     public void sendNotificationOnChangingPassword(String email, ZonedDateTime timeChangedPassword) {
         try {
             Map<String, String> event = Map.of(EMAIL_KEY, email, TIME_CHANGE_PASSWORD_KEY, timeChangedPassword.toString());

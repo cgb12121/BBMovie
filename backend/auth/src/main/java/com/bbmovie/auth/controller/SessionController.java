@@ -10,8 +10,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/device")
@@ -24,7 +25,10 @@ public class SessionController {
         this.authService = authService;
     }
 
-
+    @GetMapping("/test")
+    public ResponseEntity<ApiResponse<String>> test() {
+        return ResponseEntity.ok(ApiResponse.success("Hallo"));
+    }
 
     @GetMapping("/v1/sessions/all")
     public ResponseEntity<ApiResponse<List<LoggedInDeviceResponse>>> getAllDeviceLoggedIntoAccount(
@@ -36,19 +40,16 @@ public class SessionController {
                 : ResponseEntity.ok(ApiResponse.success(devices));
     }
 
-    //TODO: do not use AuthenticationPrincipal, pass jwt instead
     @PostMapping("/v1/sessions/revoke")
-    public ResponseEntity<ApiResponse<String>> revokeDeviceLoggedIntoAccount(
+    public ResponseEntity<ApiResponse<Map<String, String>>> revokeDeviceLoggedIntoAccount(
             @RequestHeader("Authorization") String accessToken,
             @RequestBody RevokeDeviceRequest request
     ) {
-        List<String> revokedDevices = new ArrayList<>();
+        Map<String, String> result = new HashMap<>();
         for (DeviceRevokeEntry device : request.getDevices()) {
             authService.logoutFromOneDevice(accessToken, device.getDeviceName());
-            revokedDevices.add(device.getDeviceName());
+            result.put(device.getDeviceName(), device.getIp());
         }
-        return ResponseEntity.ok(ApiResponse.success(
-                String.join(", ", revokedDevices) + " was forced to logout successfully")
-        );
+        return ResponseEntity.ok(ApiResponse.success(result));
     }
 }

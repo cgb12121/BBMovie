@@ -22,6 +22,18 @@ public class AnonymityCheckService {
     private static final Duration CACHE_TTL = Duration.ofHours(24);
     private static final String CACHE_KEY_PREFIX = "anonymity_check:";
 
+    /**
+     * Constructs an instance of the {@code AnonymityCheckService}.
+     * This service performs anonymity checks for IP addresses using a configured list
+     * of {@code IpAnonymityProvider} implementations. It also uses a Redis-based caching
+     * mechanism to store and retrieve IP anonymity statuses for a specified time-to-live.
+     *
+     * @param providers the list of {@code IpAnonymityProvider} implementations to be used for anonymity checks.
+     *                  Must not be null or empty.
+     * @param redisTemplate the Redis template configured for managing cache storage of IP anonymity statuses.
+     *                      The Redis connection should be properly configured to interact with the required cache.
+     * @throws IllegalArgumentException if the list of providers is null or empty.
+     */
     public AnonymityCheckService(
             List<IpAnonymityProvider> providers,
             @Qualifier("ipRedis") RedisTemplate<String, Boolean> redisTemplate
@@ -35,6 +47,14 @@ public class AnonymityCheckService {
         this.redisTemplate = redisTemplate;
     }
 
+    /**
+     * Determines whether the given IP address is considered anonymous.
+     * The method checks anonymity against a list of configured IP anonymity providers
+     * and leverages caching for improved performance.
+     *
+     * @param ip the IP address to check for anonymity
+     * @return true if the IP address is considered anonymous, false otherwise
+     */
     public boolean isAnonymous(String ip) {
         if (providers.isEmpty()) {
             log.warn("No IP anonymity providers configured. Defaulting to non-anonymous.");

@@ -36,6 +36,9 @@ public class MfaController {
         this.userRepository = userRepository;
     }
 
+    /**
+     * <b>WARNING:</b> This method is considered unsafe
+     */
     @PostMapping("/setup")
     public ResponseEntity<MfaSetupResponse> setupMfa(@AuthenticationPrincipal Authentication authentication) {
         String email = authentication.getName();
@@ -54,6 +57,10 @@ public class MfaController {
         return ResponseEntity.ok(new MfaSetupResponse(result.secret(), result.qrCode()));
     }
 
+
+    /**
+     * <b>WARNING:</b> This method is considered unsafe
+     */
     @PostMapping("/verify")
     public ResponseEntity<MfaVerifyResponse> verifyMfa(@RequestBody MfaVerifyRequest request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();

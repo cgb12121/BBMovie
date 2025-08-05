@@ -16,6 +16,16 @@ import java.util.List;
 import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateNewKeyForRotation;
 import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateRsaKey;
 
+/**
+ * A class responsible for caching and managing JSON Web Keys (JWK), specifically RSA keys,
+ * used in cryptographic operations, such as token signing and verification.
+ * <p>
+ * This class interacts with a {@code JwkKeyRepository} to retrieve, store, and manage cryptographic keys.
+ * It ensures the availability of the current active RSA private key and a list of all available public RSA keys
+ * while handling key rotation events and refreshing the key cache as needed.
+ * <p>
+ * Thread safety is maintained through synchronization in critical operations.
+ */
 @Getter
 @Slf4j
 @Component
@@ -34,6 +44,18 @@ public class JwkKeyCache {
         refreshPublicKeys();
     }
 
+    /**
+     * Handles the key rotation event triggered by the {@link JwkKeyRotatedEvent}.
+     * <p>
+     * This method listens to the key rotation event and performs the following actions:
+     * - Logs the occurrence of the JWK key rotation event.
+     * - Refreshes the currently active private RSA key.
+     * - Refreshes and updates the cached list of public RSA keys.
+     * <p>
+     * Thread safety is ensured through synchronization on the method.
+     *
+     * @param event the {@link JwkKeyRotatedEvent} that signals the occurrence of JWK key rotation.
+     */
     @EventListener
     public synchronized void handleKeyRotation(JwkKeyRotatedEvent event) {
         log.info("Received JwkKeyRotatedEvent, refreshing keys: {}", event);
@@ -41,6 +63,21 @@ public class JwkKeyCache {
         this.publicKeys = refreshPublicKeys();
     }
 
+    /**
+     * Refreshes the currently active private RSA key by querying the repository and handling key rotation if necessary.
+     * <p>
+     * This method:
+     * - Fetches all active keys from the repository.
+     * - If no active keys are found, generates a new RSA key, creates a new key entity for rotation, saves it,
+     *   and sets it as the active key.
+     * - Ensures that the active private key is parsed and set correctly from the retrieved or newly created key.
+     * <p>
+     * Thread safety is ensured through method synchronization.
+     *
+     * @throws IllegalStateException if:
+     *         - A new RSA key could not be generated due to a failure (e.g., JOSEException).
+     *         - The active key could not be parsed successfully.
+     */
     private synchronized void refreshActivePrivateKey() {
         List<JwkKey> activeKeys = keyRepo.findAll().stream().filter(JwkKey::isActive).toList();
         if (activeKeys.isEmpty()) {
@@ -63,6 +100,17 @@ public class JwkKeyCache {
         }
     }
 
+    /**
+     * Refreshes and retrieves the list of public RSA keys available in the repository.
+     * <p>
+     * This method queries the repository for all keys, sorts them by their creation date,
+     * and converts them into RSAKey objects. If any key is invalid during parsing,
+     * an IllegalStateException is thrown.
+     * <p>
+     * Thread safety is ensured by synchronizing this method.
+     * @throws IllegalStateException If any key is invalid during parsing.
+     * @return the refreshed and sorted list of public RSA keys
+     */
     private synchronized List<RSAKey> refreshPublicKeys() {
         publicKeys = keyRepo.findAll().stream()
                 .sorted(Comparator.comparing(JwkKey::getCreatedDate))

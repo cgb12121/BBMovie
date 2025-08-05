@@ -9,6 +9,11 @@ import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * An interface that defines a strategy for working with JOSE (JavaScript Object Signing and Encryption).
+ * Provides methods for generating, validating, and decoding JOSE Tokens, as well as handling token
+ * blacklists and extracting token claims.
+ */
 public interface JoseProviderStrategy {
 
     @Experimental

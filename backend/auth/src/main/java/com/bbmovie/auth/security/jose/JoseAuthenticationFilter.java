@@ -8,7 +8,6 @@ import com.bbmovie.auth.service.auth.RefreshTokenService;
 import jakarta.annotation.Nullable;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +34,7 @@ import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.IS_ACCOU
 @Log4j2
 @Component
 @RequiredArgsConstructor
+@SuppressWarnings("ConstantConditions") // Suppress warning on passing Nonnull (on purpose)
 public class JoseAuthenticationFilter extends OncePerRequestFilter {
 
     private final JoseProviderStrategyContext joseContext;
@@ -43,9 +43,7 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(
-            @NotNull HttpServletRequest request,
-            @NotNull HttpServletResponse response,
-            @NotNull FilterChain filterChain
+            @NotNull HttpServletRequest request, @NotNull HttpServletResponse response, @NotNull FilterChain filterChain
     ) throws ServletException, IOException {
         try {
             String token = getJwtFromRequest(request);
@@ -188,15 +186,6 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
         String bearerToken = request.getHeader("Authorization");
         if (bearerToken != null && bearerToken.startsWith("Bearer ")) {
             return bearerToken.substring(7);
-        }
-
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if ("accessToken".equals(cookie.getName())) {
-                    return cookie.getValue();
-                }
-            }
         }
         return null;
     }

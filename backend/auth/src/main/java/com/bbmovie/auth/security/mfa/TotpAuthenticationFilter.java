@@ -14,6 +14,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 @Component
+@SuppressWarnings("ConstantConditions") // pass null on purpose
 public class TotpAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(

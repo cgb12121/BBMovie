@@ -51,6 +51,9 @@ import java.util.*;
 
 import static com.bbmovie.auth.constant.error.AuthErrorMessages.EMAIL_ALREADY_EXISTS;
 import static com.bbmovie.auth.constant.error.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
+import static com.example.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
+import static com.example.common.entity.JoseConstraint.JosePayload.SID;
+import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
 
 @Service
 @Log4j2
@@ -101,6 +104,19 @@ public class AuthServiceImpl implements AuthService {
         this.joseProviderStrategy = joseProviderStrategyContext.getActiveProvider();
     }
 
+    /**
+     * Authenticates a user based on login credentials provided in the request.
+     * Validates the user's email and password, checks if the user's account is enabled,
+     * updates the last login time, generates token pairs, detects new login sessions,
+     * and handles multifactor authentication if enabled.
+     *
+     * @param loginRequest The login request containing the user's email and password.
+     * @param request The HTTP servlet request to retrieve additional request details.
+     * @return A {@code LoginResponse} object containing user and authentication details.
+     * @throws UserNotFoundException if the user is not found based on the provided email.
+     * @throws AuthenticationException if the password does not match or is invalid.
+     * @throws AccountNotEnabledException if the user's account is not verified or enabled.
+     */
     @Override
     public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {
         User user = userRepository.findByEmail(loginRequest.getEmail())
@@ -115,7 +131,7 @@ public class AuthServiceImpl implements AuthService {
             throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
         }
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword())
+                new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword(), user.getAuthorities())
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
@@ -151,11 +167,28 @@ public class AuthServiceImpl implements AuthService {
         return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
     }
 
+    /**
+     * Retrieves information about the user's device based on the user agent data
+     * present in the HTTP request.
+     *
+     * @param request the HttpServletRequest object containing the user agent and
+     *                other request-related data
+     * @return a UserAgentResponse object that contains the device information
+     *         extracted from the user agent string
+     */
     @Override
     public UserAgentResponse getUserDeviceInformation(HttpServletRequest request) {
         return deviceInfoUtils.extractUserAgentInfo(request);
     }
 
+    /**
+     * Retrieves the login response for a user authenticated via OAuth2 login.
+     *
+     * @param userDetails the details of the authenticated user
+     * @param request the HTTP servlet request containing authentication-related information
+     * @return the login response containing user and authentication details
+     * @throws ResponseStatusException if the access token cookie is missing
+     */
     @Override
     public LoginResponse getLoginResponseFromOAuth2Login(UserDetails userDetails, HttpServletRequest request) {
         Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
@@ -174,6 +207,15 @@ public class AuthServiceImpl implements AuthService {
         return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
     }
 
+    /**
+     * Registers a new user account with the provided registration details.
+     * Ensures email uniqueness, validates passwords, and generates a verification token.
+     *
+     * @param request the registration details containing the user's email, password,
+     *                and confirmation password
+     * @throws EmailAlreadyExistsException if the email address already exists in the system
+     * @throws AuthenticationException if the password and confirmation password does not match
+     */
     @Transactional
     @Override
     public void register(RegisterRequest request) {
@@ -183,7 +225,7 @@ public class AuthServiceImpl implements AuthService {
 
         log.info("password: {}, {}", request.getPassword(), request.getConfirmPassword());
         if (!request.getPassword().equals(request.getConfirmPassword())) {
-            throw new AuthenticationException("Password and confirm password do not match. Please try again.");
+            throw new AuthenticationException("Password and confirm password does not match. Please try again.");
         }
 
         User user = createUserFromRegisterRequest(request);
@@ -193,6 +235,18 @@ public class AuthServiceImpl implements AuthService {
         emailEventProducer.sendMagicLinkOnRegistration(savedUser.getEmail(), verificationToken);
     }
 
+    /**
+     * Verifies the user account using the provided email verification token.
+     * If the token is valid and the user's account is not yet enabled,
+     * the user's account is activated, and the token is deleted.
+     * Otherwise, appropriate exceptions are thrown for invalid tokens or other errors.
+     *
+     * @param token the email verification token used to verify the user account
+     * @return a success message indicating that the account verification is completed,
+     *         or that the account was already verified
+     * @throws TokenVerificationException if the token is null or empty
+     * @throws AuthenticationException if the token is invalid or the user cannot be verified
+     */
     @Transactional
     @Override
     public String verifyAccountByEmail(String token) {
@@ -218,6 +272,18 @@ public class AuthServiceImpl implements AuthService {
         return "Account verification successful. Please login to continue.";
     }
 
+    /**
+     * Sends a verification email to a user with the specified email address. This method generates
+     * a verification token and sends it to the user's email. If the email is already verified or
+     * the user does not exist, an appropriate exception is thrown.
+     *
+     * @param email the email address to which the verification email will be sent
+     *              (must not be null or empty)
+     * @throws IllegalArgumentException if the email is null or empty
+     * @throws UserNotFoundException if no user exists with the given email address
+     * @throws EmailAlreadyVerifiedException if the email is already verified
+     * @throws TokenVerificationException if an error occurs during the token generation or sending process
+     */
     @Override
     public void sendVerificationEmail(String email) {
         if (email == null || email.trim().isEmpty()) {
@@ -239,6 +305,14 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * Sends a one-time password (OTP) to the user's phone number.
+     * This method generates an OTP token for the specified user and sends it
+     * using an email event producer.
+     *
+     * @param user the user for whom the OTP will be generated and sent. The user must have a valid phone number.
+     * @throws IllegalArgumentException if the user's phone number is null or empty.
+     */
     @Override
     public void sendOtp(User user) {
         if (user.getPhoneNumber().isEmpty()) {
@@ -248,6 +322,16 @@ public class AuthServiceImpl implements AuthService {
         emailEventProducer.sendOtp(user.getPhoneNumber(), otp);
     }
 
+    /**
+     * Verifies a user's account using the provided OTP (One-Time Password).
+     * This method enables the user's account if the OTP is valid, not previously used,
+     * and associated with a registered email. If the OTP is null, empty, or invalid,
+     * an appropriate exception or log entry is generated.
+     *
+     * @param otp the One-Time Password provided by the user for account verification
+     * @throws TokenVerificationException if the OTP is null or empty
+     * @throws UserNotFoundException if no user is found for the email linked to the OTP
+     */
     @Transactional
     @Override
     public void verifyAccountByOtp(String otp) {
@@ -272,30 +356,55 @@ public class AuthServiceImpl implements AuthService {
         otpService.deleteOtpToken(otp);
     }
 
+    /**
+     * Logs out a user from all devices by revoking all active tokens associated with the given email.
+     *
+     * @param email the email address of the user to be logged out from all devices
+     */
     private void logoutFromAllDevices(String email) {
         revokeAllTokensFromAllDevices(email);
     }
 
+    /**
+     * Logs out the user from the current device by revoking the access token.
+     *
+     * @param accessToken the access token of the current session to be revoked
+     */
     @Transactional
     @Override
     public void logoutFromCurrentDevice(String accessToken) {
         revokeTokensFromCurrentDevice(accessToken);
     }
 
+    /**
+     * Logs out a user from a specific device by revoking the associated tokens.
+     *
+     * @param accessToken The access token of the user initiating the logout request.
+     * @param targetSid The unique identifier of the device to be logged out.
+     */
     @Transactional
     @Override
     public void logoutFromOneDevice(String accessToken, String targetSid) {
         revokeTokensFromSpecificDevice(accessToken, targetSid);
     }
 
+    /**
+     * Retrieves a list of all logged-in devices for a user based on the provided JWT token.
+     * The method identifies the current device and marks it in the response list.
+     *
+     * @param accessToken the JSON Web Token representing the user's session and identity
+     * @param request the HTTP servlet request containing details such as headers for identifying the current device and IP address
+     * @return a list of {@code LoggedInDeviceResponse} objects representing the devices associated with the user,
+     * including the current device and other previously logged-in devices
+     */
     @Override
-    public List<LoggedInDeviceResponse> getAllLoggedInDevices(String jwtToken, HttpServletRequest request) {
+    public List<LoggedInDeviceResponse> getAllLoggedInDevices(String accessToken, HttpServletRequest request) {
         String userAgentString = request.getHeader("User-Agent");
         UserAgent currentAgent = userAgentAnalyzer.parse(userAgentString);
         String currentDeviceName = currentAgent.getValue("DeviceName");
         String currentIp = IpAddressUtils.getClientIp(request);
 
-        String email = joseProviderStrategy.getUsernameFromToken(jwtToken);
+        String email = joseProviderStrategy.getUsernameFromToken(accessToken);
 
         List<DeviceInfo> allDevices = getAllLoggedInDevicesRaw(email);
         List<LoggedInDeviceResponse> result = new ArrayList<>();
@@ -308,6 +417,12 @@ public class AuthServiceImpl implements AuthService {
         return result;
     }
 
+    /**
+     * Retrieves a list of all devices where a user is logged in, based on their email.
+     *
+     * @param email The email address of the user whose logged-in devices are to be retrieved.
+     * @return A list of {@code DeviceInfo} objects representing the user's logged-in devices.
+     */
     private List<DeviceInfo> getAllLoggedInDevicesRaw(String email) {
         List<RefreshToken> tokens = refreshTokenService.findAllValidByEmail(email);
         return tokens.stream()
@@ -316,6 +431,15 @@ public class AuthServiceImpl implements AuthService {
                 .toList();
     }
 
+    /**
+     * Updates user refresh tokens and associated session identifiers in response to changes
+     * in Attribute-Based Access Control (ABAC) policies. This method retrieves all valid refresh
+     * tokens for the specified user, generates new tokens with updated session identifiers,
+     * blacklists the old tokens in the ABAC system, and queues an event to propagate the change.
+     *
+     * @param email the email address of the user whose tokens are to be updated.
+     *              This is used to locate the user in the repository and fetch associated tokens.
+     */
     //need to check again
     @Transactional
     @Override
@@ -347,19 +471,38 @@ public class AuthServiceImpl implements AuthService {
         }
     }
 
+    /**
+     * Revokes tokens associated with the current device by blacklisting the session ID (SID)
+     * extracted from the provided access token. This effectively logs out the device by
+     * ensuring its tokens can no longer be used.
+     *
+     * @param accessToken the access token associated with the current device,
+     *                    used to extract the session ID (SID) for revocation.
+     */
     private void revokeTokensFromCurrentDevice(String accessToken) {
         Map<String, Object> claims = joseProviderStrategy.getClaimsFromToken(accessToken);
-        String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
+        String sid = claims.get(SID).toString();
         refreshTokenService.deleteRefreshToken(sid);
         joseProviderStrategy.addTokenToLogoutBlacklist(sid);
 
-        logoutEventProducer.send(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid);
+        logoutEventProducer.send(JWT_LOGOUT_BLACKLIST_PREFIX + sid);
     }
 
+    /**
+     * Revokes tokens associated with a specific device based on the provided target session identifier (SID).
+     * The method ensures that the target SID is not the same as the current session SID, preventing self-revocation.
+     * It interacts with the token service to delete associated refresh tokens, adds the token to a logout blacklist,
+     * and triggers a logout event for the target SID.
+     *
+     * @param accessToken The access token of the currently authenticated user, used to extract claims.
+     * @param targetSid The session identifier (SID) of the specific device whose tokens are to be revoked.
+     *                  Must not be the same as the current session's SID.
+     * @throws IllegalArgumentException Thrown if the target SID matches the current session SID.
+     */
     private void revokeTokensFromSpecificDevice(String accessToken, String targetSid) {
         Map<String, Object> claims = joseProviderStrategy.getClaimsFromToken(accessToken);
-        String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
-        String email = claims.get(JoseConstraint.JosePayload.SUB).toString();
+        String sid = claims.get(SID).toString();
+        String email = claims.get(SUB).toString();
 
         if (Objects.equals(targetSid, sid)) {
             throw new IllegalArgumentException("Target SID cannot be the same with your current session.");
@@ -367,23 +510,34 @@ public class AuthServiceImpl implements AuthService {
 
         refreshTokenService.deleteByEmailAndSid(email, targetSid);
         joseProviderStrategy.addTokenToLogoutBlacklist(targetSid);
-        logoutEventProducer.send(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + targetSid);
+        logoutEventProducer.send(JWT_LOGOUT_BLACKLIST_PREFIX + targetSid);
     }
 
     /**
-     * Potential for incorrect session revocation or security risks (e.g., revoking another user’s session).
+     * <b>WARNING: </b> Potential for incorrect session revocation or security risks (e.g., revoking another user’s session).
+     * <p>
+     * Revokes all active tokens associated with a specific user's email address across all devices.
+     * This process includes deleting all refresh tokens for the user and blacklisting associated session tokens.
+     * Additionally, an event is produced to notify that the tokens have been invalidated.
      *
-     * @param email account's email to revoke access and refresh tokens
+     * @param email the email address of the user whose tokens need to be revoked
      */
     private void revokeAllTokensFromAllDevices(String email) {
         List<String> allSessions = refreshTokenService.getAllSessionsByEmail(email);
         refreshTokenService.deleteAllRefreshTokenByEmail(email);
         for (String sid : allSessions) {
             joseProviderStrategy.addTokenToLogoutBlacklist(sid);
-            logoutEventProducer.send(JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX + sid);
+            logoutEventProducer.send(JWT_LOGOUT_BLACKLIST_PREFIX + sid);
         }
     }
 
+    /**
+     * Loads and retrieves the authenticated user information based on the provided email.
+     *
+     * @param email the email address of the user whose information is to be retrieved
+     * @return the user response object containing the details of the authenticated user
+     * @throws UserNotFoundException if no user is found with the given email address
+     */
     @Override
     public UserResponse loadAuthenticatedUserInformation(String email) {
         User user = userRepository.findByEmail(email)
@@ -391,6 +545,20 @@ public class AuthServiceImpl implements AuthService {
         return createUserResponseFromUser(user);
     }
 
+    /**
+     * Changes the password for an existing user. The method performs the necessary
+     * validations to ensure that the current password is correct, the new password
+     * is different from the current password, and the new password matches the
+     * confirmation password. Upon a successful password change, an email notification
+     * is sent, and the user is logged out of all devices.
+     *
+     * @param requestEmail the email or username of the user requesting the password change
+     * @param request the request object containing the current password, new password, and confirmation of the new password
+     *
+     * @throws UserNotFoundException if the user associated with the given email or username does not exist
+     * @throws AuthenticationException if the current password is incorrect, the new password matches the current password,
+     *                                  or the new password and confirmation password does not match
+     */
     @Override
     @Transactional(noRollbackFor = CustomEmailException.class)
     public void changePassword(String requestEmail, ChangePasswordRequest request) {
@@ -419,6 +587,14 @@ public class AuthServiceImpl implements AuthService {
         logoutFromAllDevices(user.getEmail());
     }
 
+    /**
+     * Sends a "Forgot Password" email to the user associated with the provided email address.
+     * This method generates a password reset token and triggers an email containing a magic link
+     * for the user to reset their password.
+     *
+     * @param email the email address of the user requesting a password reset
+     * @throws UserNotFoundException if no user is found for the provided email address
+     */
     @Override
     public void sendForgotPasswordEmail(String email) {
         User user = userRepository.findByEmail(email)
@@ -427,6 +603,15 @@ public class AuthServiceImpl implements AuthService {
         emailEventProducer.sendMagicLinkOnForgotPassword(email, token);
     }
 
+    /**
+     * Resets the password of a user using a provided reset token and new password details.
+     * Validates the token, checks if the new password matches the confirmation password,
+     * updates the user's password, and invalidates the token upon successful reset.
+     * Sends a notification email to the user and logs out from all devices.
+     *
+     * @param token the reset password token used to identify the user and validate the request
+     * @param request the request object containing the new password and confirmation for the password change
+     */
     @Override
     public void resetPassword(String token, ResetPasswordRequest request) {
         String email = changePasswordTokenService.getEmailForToken(token);
@@ -450,6 +635,12 @@ public class AuthServiceImpl implements AuthService {
         logoutFromAllDevices(email);
     }
 
+    /**
+     * Revokes authentication cookies by creating cookies with the same names as the
+     * authentication cookies but with null or expired values and adding them to the response.
+     *
+     * @param response the HTTP response object to which the revoked cookies will be added
+     */
     @Override
     public void revokeAuthCookies(HttpServletResponse response) {
         Cookie revokeAccessTokenCookie = revokeCookie("accessToken");
@@ -459,6 +650,13 @@ public class AuthServiceImpl implements AuthService {
         response.addCookie(revokeJSESSIONID);
     }
 
+    /**
+     * Revokes a cookie by setting its value to null, its max age to 0, and marking it as HTTP only.
+     * The cookie path is set to "/".
+     *
+     * @param cookieName the name of the cookie to be revoked
+     * @return a Cookie object representing the revoked cookie
+     */
     private Cookie revokeCookie(String cookieName) {
         Cookie cookie = new Cookie(cookieName, null);
         cookie.setMaxAge(0);
@@ -467,6 +665,12 @@ public class AuthServiceImpl implements AuthService {
         return cookie;
     }
 
+    /**
+     * Converts a User entity into a UserResponse DTO.
+     *
+     * @param user the User object containing user information
+     * @return a UserResponse object constructed using the specified User's data
+     */
     private static UserResponse createUserResponseFromUser(User user) {
         return UserResponse.builder()
                 .username(user.getDisplayedUsername())
@@ -477,6 +681,14 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    /**
+     * Creates an authentication response containing the access token,
+     * refresh token, user's email, and user's role.
+     *
+     * @param tokenPair the pair of tokens including access token and refresh token
+     * @param user the user object containing email and role information
+     * @return an AuthResponse object containing authentication information
+     */
     private static AuthResponse createAuthResponse(TokenPair tokenPair, User user) {
         return AuthResponse.builder()
                 .accessToken(tokenPair.accessToken())
@@ -486,6 +698,13 @@ public class AuthServiceImpl implements AuthService {
                 .build();
     }
 
+    /**
+     * Saves the refresh token along with user and device-specific information.
+     *
+     * @param tokenPair the pair of tokens containing the refresh token to be saved
+     * @param user the user associated with the refresh token
+     * @param userAgentResponse the response object containing information about the user's device and browser
+     */
     private void saveRefreshToken(TokenPair tokenPair, User user, UserAgentResponse userAgentResponse) {
         refreshTokenService.saveRefreshToken(
                 tokenPair.refreshToken(), user.getEmail(),
@@ -497,6 +716,12 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
+    /**
+     * Creates a new User object based on the provided RegisterRequest.
+     *
+     * @param request the register request containing the user details such as email, username, password, phone number, first name, last name, age, and region
+     * @return a newly created User instance with the provided details and default settings for roles, authentication provider, and account status
+     */
     private User createUserFromRegisterRequest(RegisterRequest request) {
         return User.builder()
                 .email(request.getEmail())

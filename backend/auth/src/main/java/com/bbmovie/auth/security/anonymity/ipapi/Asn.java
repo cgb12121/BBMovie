@@ -3,6 +3,18 @@ package com.bbmovie.auth.security.anonymity.ipapi;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
+/**
+ * Represents an Autonomous System Number (ASN) entity and its associated metadata.
+ * <p>
+ * The ASN class captures various attributes related to an autonomous system,
+ * such as its number, route, description, associated organization, and country.
+ * Additionally, it includes information about its activity status, abuse-related
+ * contact details, type, and registration details such as creation and update timestamps.
+ * <p>
+ * The class provides fields for geographic and organizational data, reflecting
+ * the characteristics and metadata commonly associated with network entities
+ * in IP routing and registration systems.
+ */
 @Data
 @SuppressWarnings("squid:S1700")
 public class Asn {
