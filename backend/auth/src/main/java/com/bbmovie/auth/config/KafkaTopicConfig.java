@@ -50,8 +50,8 @@ public class KafkaTopicConfig {
         return TopicBuilder.name(name)
                 .partitions(1)
                 .replicas(1)
-                .config("retention.ms", "1000")
-                .config("delete.retention.ms", "1000")
+//                .config("retention.ms", "1000")
+//                .config("delete.retention.ms", "1000")
                 .build();
     }
 }

@@ -1,5 +1,6 @@
 package com.bbmovie.auth.dto;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
 
@@ -7,10 +8,18 @@ import java.util.Map;
 
 @Data
 @Builder
+@Schema(description = "Generic API response wrapper")
 public class ApiResponse<T> {
+    @Schema(description = "Indicates if the request was successful", example = "true")
     private boolean success;
+    
+    @Schema(description = "Response data (varies by endpoint)")
     private T data;
+    
+    @Schema(description = "Response message", example = "Operation completed successfully")
     private String message;
+    
+    @Schema(description = "Validation errors (if any)")
     private Map<String, String> errors;
 
     public static <T> ApiResponse<T> success(T data, String message) {

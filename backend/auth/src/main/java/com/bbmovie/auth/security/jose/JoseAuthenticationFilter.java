@@ -1,10 +1,6 @@
 package com.bbmovie.auth.security.jose;
 
-import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.BlacklistedJwtTokenException;
-import com.bbmovie.auth.exception.UserNotFoundException;
-import com.bbmovie.auth.service.UserService;
-import com.bbmovie.auth.service.auth.RefreshTokenService;
 import jakarta.annotation.Nullable;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -26,7 +22,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static com.example.common.entity.JoseConstraint.JosePayload.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED;
@@ -38,8 +36,6 @@ import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.IS_ACCOU
 public class JoseAuthenticationFilter extends OncePerRequestFilter {
 
     private final JoseProviderStrategyContext joseContext;
-    private final UserService userService;
-    private final RefreshTokenService  refreshTokenService;
 
     @Override
     protected void doFilterInternal(
@@ -49,8 +45,8 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
             String token = getJwtFromRequest(request);
 
             if (token == null) {
-                log.warn("Token is null,  can't get access token");
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                log.warn("No token provided, proceeding to next filter");
+                filterChain.doFilter(request, response);
                 return;
             }
 
@@ -68,6 +64,13 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
             String username = validated.username();
             boolean isAccountEnabled = validated.isEnabled();
 
+            boolean isAbacStale = provider.isTokenInABACBlacklist(sid);
+            if (isAbacStale) {
+                response.setHeader("X-Auth-Error", "abac-policy-changed");
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "User's status changed, required new token.");
+                return;
+            }
+
             if (!isAccountEnabled) {
                 log.warn("[Strategy: {}] Account is Disabled", provider.getClass().getName());
                 response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
@@ -78,64 +81,30 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
                 throw new BlacklistedJwtTokenException("Access token has been blocked for this email and device");
             }
 
-            boolean isAbacStale = provider.isTokenInABACBlacklist(sid);
-            if (isAbacStale) {
-                User userAfterAbacUpdate = userService.findByEmail(username)
-                        .orElseThrow(() -> new UserNotFoundException("Unexpected username, cannot find user"));
+            List<GrantedAuthority> authorities = validated.roles()
+                    .stream()
+                    .map(SimpleGrantedAuthority::new)
+                    .collect(Collectors.toList());
 
-                List<GrantedAuthority> authorities = userAfterAbacUpdate.getAuthorities()
-                        .stream()
-                        .map(GrantedAuthority.class::cast)
-                        .toList();
+            UserDetails userDetails = new org.springframework.security.core.userdetails.User(
+                    username, null, authorities
+            );
 
-                UserDetails userDetails = new org.springframework.security.core.userdetails.User(
-                        username, null, authorities
-                );
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, authorities
-                );
-
-                String newAccessToken = provider.generateAccessToken(authentication, sid, userAfterAbacUpdate);
-                String newRefreshTokenString = provider.generateRefreshToken(authentication, sid, userAfterAbacUpdate);
-                refreshTokenService.saveRefreshToken(sid, newRefreshTokenString);
-
-                provider.removeTokenFromABACBlacklist(sid);
-
-                response.setHeader("X-New-Access-Token", newAccessToken);
-
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            } else {
-                // Normal flow where there are no abac changes
-                List<GrantedAuthority> authorities = validated.roles()
-                        .stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
-
-                UserDetails userDetails = new org.springframework.security.core.userdetails.User(
-                        username, null, authorities
-                );
-
-                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                        userDetails, null, authorities
-                );
-                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authentication);
-            }
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                    userDetails, null, authorities
+            );
+            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+            SecurityContextHolder.getContext().setAuthentication(authentication);
         } catch (BlacklistedJwtTokenException ex) {
             log.warn("Blacklisted token detected: {}", ex.getMessage());
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, ex.getMessage());
-            SecurityContextHolder.clearContext();
             return;
         } catch (Exception ex) {
             log.error("Could not set user authentication in security context", ex);
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid token.");
-            SecurityContextHolder.clearContext();
             return;
         }
 
-        SecurityContextHolder.clearContext();
         filterChain.doFilter(request, response);
     }
 
@@ -144,42 +113,48 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
         return path.startsWith("/auth")
                 || path.startsWith("/public")
-                || path.startsWith("/.well-known/jwks.json");
+                || path.startsWith("/.well-known/jwks.json")
+                || path.contains("swagger")
+                || path.contains("api-docs");
     }
 
-    // Only hold basic role-based access control, not hold abac
     private JoseValidatedToken resolveAndValidateToken(@Nullable String token) {
-        if (StringUtils.isEmpty(token)) {
+        if (StringUtils.isEmpty(token)) return null;
+        return Stream.of(joseContext.getActiveProvider(), joseContext.getPreviousProvider())
+                .filter(Objects::nonNull)
+                .map(provider -> validateTokenWithProvider(token, provider))
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private JoseValidatedToken validateTokenWithProvider(String token, JoseProviderStrategy provider) {
+        if (provider == null || !provider.validateToken(token)) {
             return null;
         }
 
-        JoseProviderStrategy active = joseContext.getActiveProvider();
-        log.debug("Active provider: {}", active);
+        try {
+            Map<String, Object> claims = provider.getClaimsFromToken(token);
+            String username = getClaimAsString(claims, SUB);
+            String roleStr = getClaimAsString(claims, ROLE);
+            String sid = getClaimAsString(claims, SID);
+            boolean isEnabled = Boolean.parseBoolean(getClaimAsString(claims, IS_ACCOUNTING_ENABLED));
 
-        if (active.validateToken(token)) {
-            Map<String, Object> claims = active.getClaimsFromToken(token);
+            if (username == null || roleStr == null || sid == null) {
+                log.warn("Required claims missing in token for provider: {}", provider.getClass().getSimpleName());
+                return null;
+            }
 
-            String username = claims.get(SUB).toString();
-            List<String> role = List.of(claims.get(ROLE).toString());
-            String sid = claims.get(SID).toString();
-            boolean isEnabled = claims.get(IS_ACCOUNTING_ENABLED)
-                    .toString().equalsIgnoreCase("true");
-
-            return new JoseValidatedToken(active, sid, username, role, isEnabled);
+            return new JoseValidatedToken(provider, sid, username, List.of(roleStr), isEnabled);
+        } catch (Exception ex) {
+            log.warn("Failed to parse claims from token using provider: {}", provider.getClass().getSimpleName(), ex);
+            return null;
         }
-        JoseProviderStrategy previous = joseContext.getPreviousProvider();
-        if (previous != null && previous.validateToken(token)) {
-            Map<String, Object> claims = active.getClaimsFromToken(token);
+    }
 
-            String username = claims.get(SUB).toString();
-            List<String> role = List.of(claims.get(ROLE).toString());
-            String sid = claims.get(SID).toString();
-            boolean isEnabled = claims.get(IS_ACCOUNTING_ENABLED)
-                    .toString().equalsIgnoreCase("true");
-
-            return new JoseValidatedToken(previous, sid, username, role, isEnabled);
-        }
-        return null;
+    private String getClaimAsString(Map<String, Object> claims, String key) {
+        Object value = claims.get(key);
+        return value != null ? value.toString() : null;
     }
 
     private String getJwtFromRequest(HttpServletRequest request) {

@@ -2,16 +2,17 @@ package com.bbmovie.auth.service.auth;
 
 import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.entity.jose.RefreshToken;
+import com.bbmovie.auth.exception.BlacklistedJwtTokenException;
 import com.bbmovie.auth.exception.NoRefreshTokenException;
 import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.RefreshTokenRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
 import com.bbmovie.auth.service.UserService;
-import com.example.common.entity.JoseConstraint;
 import jakarta.transaction.Transactional;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -25,24 +26,33 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.example.common.entity.JoseConstraint.JosePayload.*;
+import static com.example.common.entity.JoseConstraint.JosePayload.IAT;
+import static com.example.common.entity.JoseConstraint.JosePayload.JTI;
+import static com.example.common.entity.JoseConstraint.JosePayload.ROLE;
+import static com.example.common.entity.JoseConstraint.JosePayload.SID;
+import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
 
 @Service
 @Log4j2
+@SuppressWarnings("ConstantConditions") // Suppress warning on passing Nonnull (on purpose)
 public class RefreshTokenService {
 
     private final JoseProviderStrategyContext joseProviderStrategyContext;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserService userService;
+    private final RefreshTokenService selfProxy; // spring should solve this proxied self-reference instance
 
     @Autowired
     public RefreshTokenService(
             JoseProviderStrategyContext joseProviderStrategyContext,
             RefreshTokenRepository refreshTokenRepository,
-            UserService userService
+            UserService userService,
+            @Lazy RefreshTokenService selfProxy
     ) {
         this.joseProviderStrategyContext = joseProviderStrategyContext;
         this.refreshTokenRepository = refreshTokenRepository;
         this.userService = userService;
+        this.selfProxy = selfProxy;
     }
 
     @Transactional
@@ -55,8 +65,10 @@ public class RefreshTokenService {
         refreshTokenRepository.deleteAllByEmail(email);
     }
 
-    //TODO: "One-Time Use" Refresh Token: Should also create a new refresh token to handle replay attack (optional)
-    //The current approach is "Multi-Use" Refresh Token
+    /**
+     <b>WARN: </b> "One-Time Use" Refresh Token: Should also create a new refresh token to handle replay attack (optional)
+     The current approach is "Multi-Use" Refresh Token
+     */
     public String refreshAccessToken(String oldAccessToken) {
         if (oldAccessToken == null || oldAccessToken.trim().isEmpty()) {
             throw new IllegalArgumentException("Access token cannot be null or empty");
@@ -65,21 +77,25 @@ public class RefreshTokenService {
             oldAccessToken = oldAccessToken.substring(7);
         }
 
-        JoseProviderStrategy joseProviderStrategy = joseProviderStrategyContext.getActiveProvider();
-        Map<String, Object> claims = joseProviderStrategy.getClaimsFromToken(oldAccessToken);
-        String username = claims.get(JoseConstraint.JosePayload.SUB).toString();
-        String sid = claims.get(JoseConstraint.JosePayload.SID).toString();
-        String roleListString = claims.get(JoseConstraint.JosePayload.ROLE).toString();
+        JoseProviderStrategy provider = joseProviderStrategyContext.getActiveProvider();
+
+        Map<String, Object> claims = provider.getClaimsFromToken(oldAccessToken);
+        String username = claims.get(SUB).toString();
+        String sid = claims.get(SID).toString();
+        String roleListString = claims.get(ROLE).toString();
         List<String> roles;
         if (roleListString != null) {
             roles = Arrays.asList(roleListString.split(","));
         } else {
             roles = List.of();
         }
-
         List<GrantedAuthority> authorities = roles.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());
+
+        if (provider.isTokenInLogoutBlacklist(sid)) {
+            throw new BlacklistedJwtTokenException("Session has logged out or expired.");
+        }
 
         RefreshToken userRefreshToken = refreshTokenRepository.findByEmailAndSid(username, sid)
                 .orElseThrow(() -> new NoRefreshTokenException("Refresh token not found"));
@@ -92,19 +108,26 @@ public class RefreshTokenService {
                 .orElseThrow(() -> new UserNotFoundException("Unable to find user"));
 
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(
-                username, "", authorities
+                username, null, authorities
         );
         Authentication authentication = new UsernamePasswordAuthenticationToken(
-                userDetails, "", authorities
+                userDetails, null, authorities
         );
 
-        log.info("Refreshing access token for user {}", username);
         String sameSidWithRefreshToken = String.valueOf(userRefreshToken.getSid());
-        return joseProviderStrategy.generateAccessToken(authentication, sameSidWithRefreshToken, user);
+        String newAccessToken = provider.generateAccessToken(authentication, sameSidWithRefreshToken, user);
+
+        if (provider.isTokenInABACBlacklist(sid)) {
+            String newRefreshTokenString = provider.generateRefreshToken(authentication, sameSidWithRefreshToken, user);
+            selfProxy.saveRefreshToken(sid, newRefreshTokenString);
+            provider.removeTokenFromABACBlacklist(sameSidWithRefreshToken);
+        }
+
+        return newAccessToken;
     }
 
     /**
-     * saveRefreshToken assumes an existing RefreshToken for the sid, which may fail if the sid is new or deleted
+     * <b>WARN</b>: saveRefreshToken assumes an existing RefreshToken for the sid, which may fail if the sid is new or deleted
      * => Token updates may fail silently, leading to an inconsistent session state
      */
     @Transactional
@@ -113,8 +136,8 @@ public class RefreshTokenService {
         if (refreshToken != null) {
             Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider().getClaimsFromToken(refreshTokenString);
             Date newExp = (Date) claims.get(EXP);
-            Date newIat = (Date) claims.get(JoseConstraint.JosePayload.IAT);
-            String jti = claims.get(JoseConstraint.JosePayload.JTI).toString();
+            Date newIat = (Date) claims.get(IAT);
+            String jti = claims.get(JTI).toString();
             refreshToken.setExpiryDate(newExp);
             refreshToken.setCreatedDate(LocalDateTime.ofInstant(newIat.toInstant(), ZoneId.systemDefault()));
             refreshToken.setSid(sid);

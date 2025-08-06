@@ -69,9 +69,9 @@ public class TotpConfig {
 
     private HashingAlgorithm getHashingAlgorithm() {
         return switch (algorithm.trim().toUpperCase()) {
+            case "SHA1" -> HashingAlgorithm.SHA1;
             case "SHA256" -> HashingAlgorithm.SHA256;
-            case "SHA512" -> HashingAlgorithm.SHA512;
-            default -> HashingAlgorithm.SHA256; // avoid SHA1
+            default -> HashingAlgorithm.SHA512;
         };
     }
 }

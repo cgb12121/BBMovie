@@ -10,7 +10,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.security.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -28,10 +27,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.csrf.*;
-import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
-import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
 import org.springframework.util.StringUtils;
 import org.springframework.web.cors.CorsConfigurationSource;
 
@@ -72,23 +68,10 @@ public class SecurityConfig {
         return http
             .headers(header -> header
                 .frameOptions(HeadersConfigurer.FrameOptionsConfig::sameOrigin)
-                .contentSecurityPolicy(csp -> csp
-                    .policyDirectives("style-src 'self'; script-src 'self'; form-action 'self'; report-uri /report; report-to csp-violation-report")
-                )
                 .httpStrictTransportSecurity(sts -> sts
                         .maxAgeInSeconds(31536000)
                         .includeSubDomains(true)
                         .preload(true)
-                )
-                .xssProtection(xss -> xss
-                        .headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED)
-                )
-                .contentTypeOptions(HeadersConfigurer.ContentTypeOptionsConfig::disable)
-                .referrerPolicy(referrer -> referrer
-                        .policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN)
-                )
-                .permissionsPolicyHeader(policy -> policy
-                        .policy("geolocation=(self), camera=(), microphone=()")
                 )
                 .cacheControl(HeadersConfigurer.CacheControlConfig::disable)
             )
@@ -96,6 +79,7 @@ public class SecurityConfig {
                 .ignoringRequestMatchers("/.well-known/jwks.json")
                 .ignoringRequestMatchers("/auth/csrf")
                 .ignoringRequestMatchers("/oauth2/authorization/**")
+                .ignoringRequestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
             )
@@ -105,12 +89,14 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/.well-known/jwks.json").permitAll()
-                // Allow websocket handshake, jwt will be processed later in interceptor
-                .requestMatchers(PathRequest.toStaticResources().atCommonLocations()).permitAll()
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
+                            log.warn("[AuthenticationEntryPoint] {}, message: {}",
+                                    authException.getAuthenticationRequest(), authException.getLocalizedMessage()
+                            );
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.getWriter().write("Unauthorized request");
                         })

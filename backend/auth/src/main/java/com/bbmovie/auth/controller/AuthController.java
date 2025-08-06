@@ -1,6 +1,7 @@
 package com.bbmovie.auth.controller;
 
 import com.bbmovie.auth.common.ValidationHandler;
+import com.bbmovie.auth.controller.openapi.AuthControllerOpenApi;
 import com.bbmovie.auth.dto.ApiResponse;
 import com.bbmovie.auth.dto.request.*;
 import com.bbmovie.auth.dto.response.AccessTokenResponse;
@@ -22,11 +23,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/auth")
-public class AuthController {
+public class AuthController implements AuthControllerOpenApi {
 
     private final AuthService authService;
     private final RefreshTokenService refreshTokenService;
@@ -66,10 +65,8 @@ public class AuthController {
     }
 
 
-    @GetMapping("/auth/abac/new-access-token")
-    public ResponseEntity<String> getNewAccessTokenForLatestAbac(@RequestBody Map<String, String> request) {
-        String oldAccessToken = request.get("oldAccessToken");
-        if (oldAccessToken == null) return ResponseEntity.badRequest().build();
+    @GetMapping("/abac/new-access-token")
+    public ResponseEntity<String> getNewAccessTokenForLatestAbac(@RequestHeader(value = "Authorization") String oldAccessToken) {
         return ResponseEntity.ok(refreshTokenService.refreshAccessToken(oldAccessToken));
     }
 
