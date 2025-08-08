@@ -26,7 +26,11 @@ public class TempFileCleanUpService {
     }
 
     public Mono<Void> cleanupTempFile(Path tempPath) {
-        String fileName = tempPath.getFileName().toString();
+        Path path = tempPath.getFileName();
+        if (path == null) {
+            return Mono.empty();
+        }
+        String fileName = path.toString();
         return Mono.fromCallable(() -> {
             log.info("Attempt to deleting temp file: {}", fileName);
                     try {

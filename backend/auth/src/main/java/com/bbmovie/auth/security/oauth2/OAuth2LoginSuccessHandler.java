@@ -13,7 +13,6 @@ import com.bbmovie.auth.utils.DeviceInfoUtils;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang.RandomStringUtils;
 import org.springframework.beans.factory.ObjectProvider;
@@ -42,7 +41,6 @@ import java.util.*;
  */
 @Log4j2
 @Component
-@RequiredArgsConstructor
 public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSuccessHandler {
 
     @Value("${app.frontend.url}")
@@ -54,6 +52,19 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     private final ObjectProvider<PasswordEncoder> passwordEncoderProvider;
     private final OAuth2UserInfoStrategyFactory strategyFactory;
     private final DeviceInfoUtils deviceInfoUtils;
+
+    public OAuth2LoginSuccessHandler(
+            UserService userService, JoseProviderStrategyContext joseProviderStrategyContext,
+            RefreshTokenService refreshTokenService, ObjectProvider<PasswordEncoder> passwordEncoderProvider,
+            OAuth2UserInfoStrategyFactory strategyFactory, DeviceInfoUtils deviceInfoUtils
+    ) {
+        this.userService = userService;
+        this.joseProviderStrategyContext = joseProviderStrategyContext;
+        this.refreshTokenService = refreshTokenService;
+        this.passwordEncoderProvider = passwordEncoderProvider;
+        this.strategyFactory = strategyFactory;
+        this.deviceInfoUtils = deviceInfoUtils;
+    }
 
     /**
      * Retrieves a {@link PasswordEncoder} instance from the provider.

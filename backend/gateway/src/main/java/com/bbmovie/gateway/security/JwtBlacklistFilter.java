@@ -23,10 +23,7 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 import org.springframework.http.HttpStatus;
 
@@ -197,7 +194,7 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
         return Mono.fromCallable(() -> {
             String[] parts = token.split("\\.");
             if (parts.length != 3) throw new IllegalArgumentException("Invalid JWT format");
-            String payload = new String(Base64.getUrlDecoder().decode(parts[1]));
+            String payload = Arrays.toString(Base64.getUrlDecoder().decode(parts[1]));
             return objectMapper.readTree(payload);
         });
     }

@@ -159,13 +159,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleAllUncaughtException(Exception ex) {
-        log.error("Unhandled exception occurred: {}", ex.getMessage(), ex);
+        log.error("[Unhandled] exception occurred: {}", ex.getMessage(), ex);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.error("An unexpected error occurred. Please try again later."));
     }
 
     private ResponseEntity<ApiResponse<Void>> buildErrorResponse(Exception ex, HttpStatus status, String message) {
-        log.error("Handled exception: {} - {}", ex.getClass().getSimpleName(), ex.getMessage());
+        log.error("[Handled exception]: {} - {}", ex.getClass().getSimpleName(), ex.getMessage());
         return ResponseEntity.status(status).body(ApiResponse.error(message));
     }
 }

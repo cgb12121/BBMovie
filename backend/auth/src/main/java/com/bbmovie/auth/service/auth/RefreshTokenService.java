@@ -83,12 +83,8 @@ public class RefreshTokenService {
         String username = claims.get(SUB).toString();
         String sid = claims.get(SID).toString();
         String roleListString = claims.get(ROLE).toString();
-        List<String> roles;
-        if (roleListString != null) {
-            roles = Arrays.asList(roleListString.split(","));
-        } else {
-            roles = List.of();
-        }
+        List<String> roles = List.of(roleListString.split(","));
+
         List<GrantedAuthority> authorities = roles.stream()
                 .map(SimpleGrantedAuthority::new)
                 .collect(Collectors.toList());

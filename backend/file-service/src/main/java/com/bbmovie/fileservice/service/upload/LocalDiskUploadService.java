@@ -24,19 +24,16 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.File;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
@@ -44,7 +41,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.bbmovie.fileservice.service.ffmpeg.VideoTranscoderService.PREDEFINED_RESOLUTIONS;
 import static com.bbmovie.fileservice.utils.FileMetaDataUtils.*;
@@ -95,9 +92,30 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
         this.tempFileCleanUpService = tempFileCleanUpService;
     }
 
-    public Mono<ResponseEntity<String>> uploadRawFile(FilePart filePart, UploadMetadata uploadMetadata, Authentication authentication) {
-        return Mono.just(ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body("Not implemented"));
+    @Transactional
+    public Mono<ResponseEntity<String>> uploadFileAndTranscodeEx(FilePart filePart, UploadMetadata metadata, Authentication auth) {
+        String username = auth.getName();
+        String originalFilename = filePart.filename();
+        String fileExtension = getExtension(originalFilename);
+        String nameNoExt = FilenameUtils.removeExtension(originalFilename);
+        String tempSaveName = sanitizeFilenameWithoutExtension(nameNoExt) + "." + fileExtension;
+        Path tempPath = Paths.get(tempDir, tempSaveName);
+        StorageStrategy strategy = storageStrategyFactory.getStrategy(Storage.LOCAL.name());
+
+        log.info("Uploading {} -> {}", originalFilename, tempPath);
+
+        return filePart.transferTo(tempPath)
+                .then(validateAndSaveTemp(tempPath, metadata, nameNoExt, fileExtension, username))
+                .then(metadataService.getMetadata(tempPath))
+                .flatMap(meta -> transcodeAndUpload(meta, nameNoExt, fileExtension, tempPath, username, metadata, strategy))
+                .publishOn(Schedulers.boundedElastic())
+                .doOnNext(ok -> tempFileCleanUpService.cleanupTempFile(tempPath).subscribe())
+                .onErrorResume(ex -> {
+                    log.error("Upload failed: {}", ex.getMessage(), ex);
+                    return Mono.error(new FileUploadException("❌ Upload failed: " + ex.getMessage()));
+                });
     }
+
 
     @Override
     @Transactional
@@ -256,8 +274,7 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
                                             .concatWith(Flux.just("🎉 Upload & processing complete."))
                                             .publishOn(Schedulers.boundedElastic())
                                             .doOnNext(response ->
-                                                    tempFileCleanUpService.cleanupTempFile(tempPath)
-                                                            .subscribe()
+                                                    tempFileCleanUpService.cleanupTempFile(tempPath).subscribe()
                                             );
                                 });
                     })
@@ -275,6 +292,69 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
         }, FluxSink.OverflowStrategy.BUFFER);
     }
 
+    private String extractLabel(String filename) {
+        String[] parts = filename.split("_");
+        return parts.length >= 2 ? parts[1].replace(".mp4", "") : "unknown";
+    }
+
+    private Mono<ResponseEntity<String>> transcodeAndUpload(
+            FFmpegVideoMetadata meta,
+            String nameNoExt,
+            String ext,
+            Path tempPath,
+            String username,
+            UploadMetadata uploadMeta,
+            StorageStrategy strategy
+    ) {
+        List<VideoTranscoderService.VideoResolution> resolutions =
+                getResolutionsToTranscode(meta, nameNoExt, ext);
+
+        return transcoderService.transcode(tempPath, resolutions, uploadDir)
+                .flatMap(paths -> {
+                    List<Mono<FileUploadEvent>> events = IntStream.range(0, paths.size())
+                            .mapToObj(i -> handleTranscodedFile(
+                                    paths.get(i),
+                                    resolutions.get(i),
+                                    username,
+                                    uploadMeta,
+                                    strategy
+                            ))
+                            .toList();
+
+                    return Flux.merge(events)
+                            .collectList()
+                            .thenReturn(ResponseEntity.ok("🎉 Upload complete"));
+                });
+    }
+
+    private Mono<FileUploadEvent> handleTranscodedFile(
+            Path path,
+            VideoTranscoderService.VideoResolution resolution,
+            String username,
+            UploadMetadata metadata,
+            StorageStrategy strategy
+    ) {
+        String label = extractLabel(resolution.filename());
+
+        return strategy.store(path.toFile(), resolution.filename())
+                .doOnNext(result -> log.info("📤 Stored {} -> {}", resolution.filename(), result.getUrl()))
+                .flatMap(result -> {
+                    FileUploadEvent event = createEvent(resolution.filename(), username, metadata, result);
+                    event.setQuality(label);
+                    return publishEventAndOutbox(event);
+                });
+    }
+
+
+    private Mono<Void> validateAndSaveTemp(Path tempPath, UploadMetadata meta, String nameNoExt, String ext, String username) {
+        return fileValidationService.validateFile(tempPath)
+                .then(Mono.defer(() -> {
+                    TempFileRecord recordEntity = createNewTempUploadEvent(meta, nameNoExt, ext, tempPath, username);
+                    return tempFileRecordRepository.saveTempFile(recordEntity).then();
+                }));
+    }
+
+
     private List<VideoTranscoderService.VideoResolution> getResolutionsToTranscode(
             FFmpegVideoMetadata meta, String baseNameWithoutExtension, String extension
     ) {
@@ -284,7 +364,7 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
                     String filename = String.format("%s_%s.%s", baseNameWithoutExtension, def.suffix(), extension);
                     return new VideoTranscoderService.VideoResolution(def.targetWidth(), def.targetHeight(), filename);
                 })
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private Mono<FileUploadEvent> publishEventAndOutbox(FileUploadEvent event) {
