@@ -1,7 +1,14 @@
 package com.bbmovie.payment.controller
 
 import com.bbmovie.payment.entity.PaymentStatus
+import com.bbmovie.payment.service.payment.PaymentService
 import com.bbmovie.payment.service.payment.dto.ApiResponse
+import com.bbmovie.payment.service.payment.dto.PaymentRequest
+import com.bbmovie.payment.service.payment.dto.PaymentRequestDto
+import com.bbmovie.payment.service.payment.dto.PaymentResponse
+import com.bbmovie.payment.service.payment.dto.PaymentVerification
+import com.bbmovie.payment.service.payment.dto.RefundRequestDto
+import com.bbmovie.payment.service.payment.dto.RefundResponse
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
@@ -15,21 +22,22 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/api/payment")
-class PaymentController @Autowired constructor(private val paymentService: PaymentService) {
+class PaymentController
+@Autowired constructor(private val paymentService: PaymentService) {
 
     @PostMapping("/initiate")
     fun initiatePayment(
         @RequestBody request: PaymentRequestDto,
-        httpServletRequest: HttpServletRequest?
-    ): ResponseEntity<ApiResponse<PaymentResponse?>?> {
+        httpServletRequest: HttpServletRequest
+    ): ResponseEntity<ApiResponse<PaymentResponse>> {
         try {
-            val paymentRequest: PaymentRequest = PaymentRequest()
+            val paymentRequest = PaymentRequest()
             paymentRequest.amount = request.amount
             paymentRequest.currency = request.currency
             paymentRequest.userId = request.userId
             paymentRequest.orderId = request.orderId
             val response: PaymentResponse? = paymentService.processPayment(
-                request.getProvider(), paymentRequest, httpServletRequest
+                request.provider as String, paymentRequest, httpServletRequest
             )
             return ResponseEntity.ok(ApiResponse.success(response))
         } catch (e: Exception) {
@@ -41,11 +49,11 @@ class PaymentController @Autowired constructor(private val paymentService: Payme
 
     @GetMapping("/vnpay/callback")
     fun handleVNPayCallback(
-        @RequestParam params: MutableMap<String?, String?>?,
-        httpServletRequest: HttpServletRequest?
-    ): ResponseEntity<ApiResponse<PaymentVerification?>?> {
+        @RequestParam params: MutableMap<String, String>,
+        httpServletRequest: HttpServletRequest
+    ): ResponseEntity<ApiResponse<PaymentVerification>> {
         try {
-            val verification: PaymentVerification? = paymentService.verifyPayment(
+            val verification: PaymentVerification = paymentService.verifyPayment(
                 "vnpayProvider", params, httpServletRequest
             )
             return ResponseEntity.ok(ApiResponse.success(verification))
@@ -58,10 +66,10 @@ class PaymentController @Autowired constructor(private val paymentService: Payme
 
     @PostMapping("/webhook")
     fun handleWebhook(
-        @RequestHeader("X-Payment-Provider") provider: String?,
-        @RequestBody paymentData: MutableMap<String?, String?>?,
-        httpServletRequest: HttpServletRequest?
-    ): ResponseEntity<ApiResponse<PaymentVerification?>?> {
+        @RequestHeader("X-Payment-Provider") provider: String,
+        @RequestBody paymentData: MutableMap<String, String>,
+        httpServletRequest: HttpServletRequest
+    ): ResponseEntity<ApiResponse<PaymentVerification>> {
         try {
             val verification: PaymentVerification? =
                 paymentService.verifyPayment(provider, paymentData, httpServletRequest)
@@ -76,11 +84,11 @@ class PaymentController @Autowired constructor(private val paymentService: Payme
     @PostMapping("/refund")
     fun refundPayment(
         @RequestBody request: RefundRequestDto,
-        httpServletRequest: HttpServletRequest?
-    ): ResponseEntity<ApiResponse<RefundResponse?>?> {
+        httpServletRequest: HttpServletRequest
+    ): ResponseEntity<ApiResponse<RefundResponse>> {
         try {
             val response: RefundResponse? = paymentService.refundPayment(
-                request.getProvider(), request.getPaymentId(), httpServletRequest
+                request.provider as String, request.paymentId as String, httpServletRequest
             )
             return ResponseEntity.ok(ApiResponse.success(response))
         } catch (e: Exception) {
