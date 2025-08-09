@@ -93,7 +93,7 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
     }
 
     @Transactional
-    public Mono<ResponseEntity<String>> uploadFileAndTranscodeEx(FilePart filePart, UploadMetadata metadata, Authentication auth) {
+    public Mono<ResponseEntity<String>> executeFileUpload(FilePart filePart, UploadMetadata metadata, Authentication auth) {
         String username = auth.getName();
         String originalFilename = filePart.filename();
         String fileExtension = getExtension(originalFilename);
@@ -298,13 +298,8 @@ public class LocalDiskUploadService implements FileUploadStrategyService {
     }
 
     private Mono<ResponseEntity<String>> transcodeAndUpload(
-            FFmpegVideoMetadata meta,
-            String nameNoExt,
-            String ext,
-            Path tempPath,
-            String username,
-            UploadMetadata uploadMeta,
-            StorageStrategy strategy
+            FFmpegVideoMetadata meta, String nameNoExt, String ext, Path tempPath,
+            String username, UploadMetadata uploadMeta, StorageStrategy strategy
     ) {
         List<VideoTranscoderService.VideoResolution> resolutions =
                 getResolutionsToTranscode(meta, nameNoExt, ext);

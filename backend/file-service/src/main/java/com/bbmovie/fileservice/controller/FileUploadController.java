@@ -36,10 +36,7 @@ public class FileUploadController {
         this.uploadStrategyServiceFactory = uploadStrategyServiceFactory;
     }
 
-    @PostMapping(
-            value = "/upload/v1",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
+    @PostMapping(value = "/upload/v1", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<ResponseEntity<String>> handleUploadWithoutRealTimeProgress(
             @RequestPart("file") FilePart filePart,
             @Valid @RequestPart("metadata") UploadMetadata metadata,
@@ -62,10 +59,7 @@ public class FileUploadController {
                 .map(message -> ServerSentEvent.builder(message).build());
     }
 
-    @PostMapping(
-            value = "/upload/test",
-            consumes = MediaType.MULTIPART_FORM_DATA_VALUE
-    )
+    @PostMapping(value = "/upload/test", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<ResponseEntity<String>> upload(
             @RequestPart("file") FilePart filePart,
             @Valid @RequestPart("metadata") UploadMetadata metadata,
@@ -73,5 +67,16 @@ public class FileUploadController {
     ) {
         FileUploadStrategyService strategyService = uploadStrategyServiceFactory.getService(metadata.getStorage());
         return strategyService.uploadFileAndTranscodeV1(filePart, metadata, auth);
+    }
+
+    @PostMapping(value = "/upload/test", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Mono<ServerSentEvent<ResponseEntity<String>>> uploadWithProgress(
+            @RequestPart("file") FilePart filePart,
+            @Valid @RequestPart("metadata") UploadMetadata metadata,
+            Authentication auth
+    ) {
+        LocalDiskUploadService strategyService = (LocalDiskUploadService) uploadStrategyServiceFactory.getService(metadata.getStorage());
+        return strategyService.executeFileUpload(filePart, metadata, auth)
+                .map(message -> ServerSentEvent.builder(message).build());
     }
 }

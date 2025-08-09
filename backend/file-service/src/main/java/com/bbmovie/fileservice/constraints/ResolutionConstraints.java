@@ -1,8 +1,7 @@
 package com.bbmovie.fileservice.constraints;
 
-@SuppressWarnings({ "squid:S00115" })
+@SuppressWarnings({ "squid:S00115", "squid:S1118" })
 public class ResolutionConstraints {
-    private ResolutionConstraints() { }
     public static final String _1080P = "1080p";
     public static final String _720P = "720p";
     public static final String _480P = "480p";

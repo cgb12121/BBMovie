@@ -32,7 +32,10 @@ public class CloudinaryStorageStrategy implements StorageStrategy {
                 .then(Mono.fromCallable(() -> {
                     Map<?, ?> result = cloudinary.uploader().upload(
                         new File(tempUploadDir + safeName),
-                        Map.of("public_id", safeName)
+                        Map.of(
+                                "public_id", safeName,
+                                "access_mode", "authenticated"
+                        )
                     );
                     return new FileUploadResult((String) result.get("secure_url"), (String) result.get("public_id"));
                 }));
