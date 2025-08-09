@@ -3,7 +3,16 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
 const isAuthenticated = () => {
-  // Replace with your actual auth logic (e.g., check Redux, context, or localStorage)
+  // Prefer the structured 'auth' object, fallback to bare accessToken for backward compatibility
+  const auth = localStorage.getItem('auth');
+  if (auth) {
+    try {
+      const parsed = JSON.parse(auth);
+      return !!parsed?.accessToken;
+    } catch {
+      // ignore parse errors
+    }
+  }
   return !!localStorage.getItem('accessToken');
 };
 

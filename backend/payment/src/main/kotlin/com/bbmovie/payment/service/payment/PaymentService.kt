@@ -20,11 +20,6 @@ class PaymentService @Autowired constructor(
     private val providers: MutableMap<String?, PaymentProviderAdapter>,
     private val paymentTransactionRepository: PaymentTransactionRepository
 ) {
-
-    fun getProvider(name: String?): PaymentProviderAdapter? {
-        return providers[name]
-    }
-
     fun processPayment(
         providerName: String,
         request: PaymentRequest,
@@ -33,14 +28,19 @@ class PaymentService @Autowired constructor(
         val provider: PaymentProviderAdapter? = providers[providerName]
 
         val response: PaymentResponse? = provider?.processPayment(request, httpServletRequest)
+        val createdAt: LocalDateTime = LocalDateTime.now()
         val entity = PaymentTransaction(
-            user = null,
-            amount = null,
-            currency = null,
+            user = request.userId,
+            amount = request.amount,
+            currency = request.currency,
             paymentProvider = provider?.getPaymentProviderName() as PaymentProvider,
-            paymentMethod = null,
-            transactionDate = LocalDateTime.now(),
-            description = ""
+            paymentMethod = request.paymentMethodId,
+            transactionDate = createdAt,
+            description = """
+                User ${request.userId} with order ${request.orderId} and amount ${request.amount} ${request.currency} 
+                by ${request.paymentMethodId} attempted to pay with ${provider.getPaymentProviderName()} 
+                id ${response?.transactionId} at $createdAt
+            """.trimIndent()
         )
 
         paymentTransactionRepository.save(entity)

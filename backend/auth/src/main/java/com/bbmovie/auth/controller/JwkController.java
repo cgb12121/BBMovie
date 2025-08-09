@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @RestController
-@RequestMapping("/.well-known")
+@RequestMapping()
 public class JwkController {
 
     private final JwkService jwkService;
@@ -24,7 +24,7 @@ public class JwkController {
         this.jwkService = jwkService;
     }
 
-    @GetMapping("/jwks.json")
+    @GetMapping("/.well-known/jwks.json")
     public ResponseEntity<Map<String, Object>> getJwk() {
         List<Map<String, Object>> jwks = jwkService.getAllPublicJwks();
         return ResponseEntity.ok()
@@ -32,13 +32,13 @@ public class JwkController {
                 .body(Map.of("keys", jwks));
     }
 
-    @GetMapping("/all")
+    @GetMapping("/admin/jwks/all")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Map<String, Object> getJwks() {
         return Map.of("keys", List.of(jwkService.getAllActiveJwks()));
     }
 
-    @GetMapping("/active")
+    @GetMapping("/admin/jwks/active")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public Map<String, Object> getActiveJwks() {
         return Map.of("keys", List.of(jwkService.getJwk()));

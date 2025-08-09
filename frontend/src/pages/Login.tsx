@@ -8,7 +8,6 @@ import {
 import {
   Form,
   Alert,
-  Checkbox,
   Row,
   Col
 } from "antd"
@@ -121,10 +120,14 @@ const Login: React.FC = () => {
     // Save to Redux
     dispatch(setCredentials({ user: userResponse, auth: authResponse, userAgent: userAgentResponse }))  
 
-    // Save to localStorage (optional)
+    // Save to localStorage
     localStorage.setItem("user", JSON.stringify(userResponse))
     localStorage.setItem("auth", JSON.stringify(authResponse))
     localStorage.setItem("userAgent", JSON.stringify(userAgentResponse))
+    // keep single accessToken for components still reading it
+    if (authResponse?.accessToken) {
+      localStorage.setItem('accessToken', authResponse.accessToken)
+    }
     navigate("/")
   }
 

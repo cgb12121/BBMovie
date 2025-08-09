@@ -17,6 +17,8 @@ import { Layout } from 'antd';
 import PrivateRoute from '../components/security/PrivateRoute';
 import Watchlist from '../pages/Watchlist';
 import PasswordReset from '../pages/PasswordReset';
+import Movies from '../pages/Movies';
+import NotFound from '../pages/NotFound';
 
 const AppRoutes: React.FC = () => {
   return (
@@ -51,6 +53,12 @@ const AppRoutes: React.FC = () => {
     </Router>
   );
 };
+
+interface AppRoute {
+  path: string;
+  element: React.ReactNode;
+  name: string;
+}
 
 export const routes: AppRoute[] = [
   {
@@ -95,7 +103,8 @@ export const routes: AppRoute[] = [
   },
   {
       path: '/search',
-      element: <SearchResults />
+      element: <SearchResults />,
+      name: 'Search Results'
   },
   {
       path: '/not-found',
@@ -112,11 +121,6 @@ export const routes: AppRoute[] = [
       element: <Profile/>,
       name: 'Profile'
   },
-  {
-      path: '/jose-debug',
-      element: <JoseDebug />,
-      name: 'JOSE Debug'
-  }
 ]; 
 
 export default AppRoutes; 

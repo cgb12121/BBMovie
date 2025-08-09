@@ -5,6 +5,7 @@ import GlobalStyles from './styles/GlobalStyles';
 import Navbar from './components/Navbar';
 import { routes } from './routes';
 import CsrfProvider from './components/security/CsrfProvider';
+import MfaProvider from './components/security/MfaProvider';
 
 const MainLayout: React.FC = () => {
   const location = useLocation();
@@ -30,12 +31,14 @@ const MainLayout: React.FC = () => {
 const App: React.FC = () => {
    return (
     <CsrfProvider>
-      <ConfigProvider theme={{ token: { colorPrimary: '#1890ff', borderRadius: 4 } }}>
-        <Router>
-          <GlobalStyles />
-            <MainLayout/>
-        </Router>
-      </ConfigProvider>
+      <MfaProvider>
+        <ConfigProvider theme={{ token: { colorPrimary: '#1890ff', borderRadius: 4 } }}>
+          <Router>
+            <GlobalStyles />
+              <MainLayout/>
+          </Router>
+        </ConfigProvider>
+      </MfaProvider>
     </CsrfProvider>
   );
 };

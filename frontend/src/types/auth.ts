@@ -38,7 +38,7 @@ export interface AccessTokenResponse {
 }
 
 export interface LoginCredentials {
-     username: string;
+     email: string;
      password: string;
 }
 
@@ -53,5 +53,13 @@ export interface Device {
 export interface RevokeDeviceRequest {
   devices: {
     deviceName: string;
+    ip: string;
   }[];
+}
+
+// Matches backend LoggedInDeviceResponse
+export interface LoggedInDeviceResponse {
+  deviceName: string;
+  ipAddress: string;
+  current: boolean;
 }

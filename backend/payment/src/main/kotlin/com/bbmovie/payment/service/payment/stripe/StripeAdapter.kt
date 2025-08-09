@@ -15,6 +15,7 @@ import com.stripe.Stripe
 import com.stripe.exception.StripeException
 import com.stripe.model.PaymentIntent
 import com.stripe.model.Refund
+import jakarta.annotation.PostConstruct
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import jakarta.servlet.http.HttpServletRequest
@@ -30,12 +31,14 @@ class StripeAdapter(
     @Value("\${payment.stripe.secret-key}")
     private lateinit var secretKey: String
 
+    @Suppress("unused")
     @Value("\${payment.stripe.publishable-key}")
     private lateinit var publishableKey: String
 
     private val log = LoggerFactory.getLogger(PayPalAdapter::class.java)
 
-    init {
+    @PostConstruct
+    fun init() {
         Stripe.apiKey = secretKey
     }
 

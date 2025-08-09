@@ -4,12 +4,10 @@ import { LogoutOutlined } from '@ant-design/icons';
 import authService from '../services/authService';
 import { useUserAgent } from '../hooks/useUserAgent';
 
-interface Device {
+interface LoggedInDeviceResponse {
   deviceName: string;
-  deviceOs: string;
-  deviceIpAddress: string;
-  browser: string;
-  browserVersion: string;
+  ipAddress: string;
+  current: boolean;
 }
 
 interface DeviceRevokeEntry {
@@ -18,7 +16,7 @@ interface DeviceRevokeEntry {
 }
 
 const DeviceManagement: React.FC = () => {
-  const [devices, setDevices] = useState<Device[]>([]);
+  const [devices, setDevices] = useState<LoggedInDeviceResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedDevices, setSelectedDevices] = useState<DeviceRevokeEntry[]>([]);
   const { userAgent, loading: userAgentLoading } = useUserAgent();
@@ -32,11 +30,7 @@ const DeviceManagement: React.FC = () => {
       setLoading(true);
       const response = await authService.getAllLoggedInDevices();
       if (response.success) {
-        const transformedDevices = response.data.map((device: Device) => ({
-          ...device,
-          isCurrentDevice: userAgent ? device.deviceName === userAgent.deviceName : false
-        }));
-        setDevices(transformedDevices);
+        setDevices(response.data);
       }
     } catch (error: any) {
       console.log(error);
@@ -49,9 +43,9 @@ const DeviceManagement: React.FC = () => {
   const handleRevokeDevices = async (devicesToRevoke: DeviceRevokeEntry[]) => {
     try {
       setLoading(true);
-      const response = await authService.revokeDevices(devicesToRevoke.map(device => device.deviceName));
+      const response = await authService.revokeDevices(devicesToRevoke);
       if (response.success) {
-        message.success(response.data);
+        message.success('Revoked selected devices');
         fetchDevices();
         setSelectedDevices([]);
       }
@@ -68,7 +62,7 @@ const DeviceManagement: React.FC = () => {
       title: 'Device Name',
       dataIndex: 'deviceName',
       key: 'deviceName',
-      render: (text: string, record: Device) => (
+      render: (text: string, record: LoggedInDeviceResponse) => (
         <Space>
           {text}
           {record.deviceName === userAgent?.deviceName && (
@@ -79,34 +73,36 @@ const DeviceManagement: React.FC = () => {
     },
     {
       title: 'IP Address',
-      dataIndex: 'deviceIpAddress',
-      key: 'deviceIpAddress',
+      dataIndex: 'ipAddress',
+      key: 'ipAddress',
     },
     {
       title: 'Operating System',
-      dataIndex: 'deviceOs',
-      key: 'deviceOs',
+      dataIndex: 'current',
+      key: 'current',
+      render: (isCurrent: boolean) => (isCurrent ? 'Current' : 'Active')
     },
     {
-      title: 'Browser',
-      dataIndex: 'browser',
-      key: 'browser',
-      render: (_: any, record: Device) => 
-        record.browser ? `${record.browser} ${record.browserVersion}` : 'N/A',
+      title: 'Status',
+      dataIndex: 'current',
+      key: 'status',
+      render: (isCurrent: boolean) => (
+        isCurrent ? <Tag color="blue">Current Device</Tag> : <Tag>Other</Tag>
+      )
     },
     {
       title: 'Action',
       key: 'action',
-      render: (_: any, record: Device) => (
+      render: (_: any, record: LoggedInDeviceResponse) => (
         <Button
           type="text"
           danger
           icon={<LogoutOutlined />}
           onClick={() => handleRevokeDevices([{ 
             deviceName: record.deviceName, 
-            ip: record.deviceIpAddress 
+            ip: record.ipAddress 
           }])}
-          disabled={record.deviceName === userAgent?.deviceName}
+          disabled={record.current}
         >
           Revoke
         </Button>
@@ -145,10 +141,10 @@ const DeviceManagement: React.FC = () => {
           onChange: (selectedRowKeys, selectedRows) => {
             setSelectedDevices(selectedRows.map(row => ({
               deviceName: row.deviceName,
-              ip: row.deviceIpAddress
+              ip: row.ipAddress
             })));
           },
-          getCheckboxProps: (record: Device) => ({
+          getCheckboxProps: (record: LoggedInDeviceResponse) => ({
             disabled: record.deviceName === userAgent?.deviceName,
           }),
         }}

@@ -10,6 +10,7 @@ import com.bbmovie.payment.service.payment.dto.PaymentVerification
 import com.bbmovie.payment.service.payment.dto.RefundRequestDto
 import com.bbmovie.payment.service.payment.dto.RefundResponse
 import jakarta.servlet.http.HttpServletRequest
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -24,6 +25,8 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/api/payment")
 class PaymentController
 @Autowired constructor(private val paymentService: PaymentService) {
+
+    private val log = LoggerFactory.getLogger(this.javaClass)
 
     @PostMapping("/initiate")
     fun initiatePayment(
@@ -41,6 +44,7 @@ class PaymentController
             )
             return ResponseEntity.ok(ApiResponse.success(response))
         } catch (e: Exception) {
+            log.error("Error processing payment: {}", e.message)
             return ResponseEntity.badRequest().body(
                 ApiResponse.error(PaymentResponse(null, PaymentStatus.FAILED, e.message).toString())
             )
@@ -58,6 +62,7 @@ class PaymentController
             )
             return ResponseEntity.ok(ApiResponse.success(verification))
         } catch (e: Exception) {
+            log.error("Error processing VNPay callback: {}", e.message)
             return ResponseEntity.badRequest().body(
                 ApiResponse.error(PaymentVerification(false, null).toString())
             )
@@ -71,10 +76,10 @@ class PaymentController
         httpServletRequest: HttpServletRequest
     ): ResponseEntity<ApiResponse<PaymentVerification>> {
         try {
-            val verification: PaymentVerification? =
-                paymentService.verifyPayment(provider, paymentData, httpServletRequest)
+            val verification: PaymentVerification = paymentService.verifyPayment(provider, paymentData, httpServletRequest)
             return ResponseEntity.ok(ApiResponse.success(verification))
         } catch (e: Exception) {
+            log.error("Error processing webhook: {}", e.message)
             return ResponseEntity.badRequest().body(
                 ApiResponse.error(PaymentVerification(false, null).toString())
             )
@@ -92,6 +97,7 @@ class PaymentController
             )
             return ResponseEntity.ok(ApiResponse.success(response))
         } catch (e: Exception) {
+            log.error("Error processing refund: {}", e.message)
             return ResponseEntity.badRequest().body(
                 ApiResponse.error(RefundResponse(null, PaymentStatus.FAILED.getStatus).toString())
             )

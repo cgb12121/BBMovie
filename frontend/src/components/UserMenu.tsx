@@ -17,7 +17,7 @@ const UserMenu: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await api.post('/api/auth/logout');
+      await api.post('/api/auth/v2/logout');
       dispatch(logout());
       message.success('Logged out successfully');
       navigate('/login');
