@@ -50,8 +50,11 @@ import javax.crypto.spec.SecretKeySpec
 @Service("vnpayProvider")
 class VNPayAdapter() : PaymentProviderAdapter {
 
-    @Value("\${payment.vnpay.TmnCode}") private lateinit var tmnCode: String
-    @Value("\${payment.vnpay.HashSecret}") private lateinit var hashSecret: String
+    @Value("\${payment.vnpay.TmnCode}")
+    private lateinit var tmnCode: String
+
+    @Value("\${payment.vnpay.HashSecret}")
+    private lateinit var hashSecret: String
 
     private val log = LoggerFactory.getLogger(VNPayAdapter::class.java)
 
@@ -152,15 +155,15 @@ class VNPayAdapter() : PaymentProviderAdapter {
 
         val params = mutableMapOf(
             "vnp_RequestId" to vnpRequestId,
-            "vnp_Version" to VnPayConstraint.VERSION,
-            "vnp_Command" to VnPayCommand.QUERY_DR.command,
-            "vnp_TmnCode" to tmnCode,
-            "vnp_TxnRef" to paymentId,
-            "vnp_OrderInfo" to "Query for transaction $paymentId",
-            "vnp_TransactionDate" to vnpTransactionDate,
+            VNPAY_VERSION_PARAM to VnPayConstraint.VERSION,
+            VNPAY_COMMAND_PARAM to VnPayCommand.QUERY_DR.command,
+            VNPAY_TMN_CODE_PARAM to tmnCode,
+            VNPAY_TXN_REF_PARAM to paymentId,
+            VNPAY_ORDER_INFO_PARAM to "Query for transaction $paymentId",
+            VNPAY_TRANSACTION_DATE to vnpTransactionDate,
             "vnp_CreateBy" to vnpCreateBy,
-            "vnp_CreateDate" to vnpCreateDate,
-            "vnp_IpAddr" to vnpIpAddr
+            VNPAY_CREATE_DATE_PARAM to vnpCreateDate,
+            VNPAY_IP_ADDRESS_PARAM to vnpIpAddr
         )
 
         val rawData = listOf(

@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -69,6 +70,7 @@ public class FileUploadController {
         return strategyService.uploadFileAndTranscodeV1(filePart, metadata, auth);
     }
 
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping(value = "/upload/test", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public Mono<ServerSentEvent<ResponseEntity<String>>> uploadWithProgress(
             @RequestPart("file") FilePart filePart,

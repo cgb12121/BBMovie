@@ -51,6 +51,42 @@ class PaymentController
         }
     }
 
+    @PostMapping("/momo/ipn")
+    fun handleMomoIpn(
+        @RequestBody paymentData: MutableMap<String, String>,
+        httpServletRequest: HttpServletRequest
+    ): ResponseEntity<ApiResponse<PaymentVerification>> {
+        return try {
+            val verification: PaymentVerification = paymentService.verifyPayment(
+                "momoProvider", paymentData, httpServletRequest
+            )
+            ResponseEntity.ok(ApiResponse.success(verification))
+        } catch (e: Exception) {
+            log.error("Error processing MoMo IPN: {}", e.message)
+            ResponseEntity.badRequest().body(
+                ApiResponse.error(PaymentVerification(false, null).toString())
+            )
+        }
+    }
+
+    @PostMapping("/zalopay/callback")
+    fun handleZaloPayCallback(
+        @RequestParam params: MutableMap<String, String>,
+        httpServletRequest: HttpServletRequest
+    ): ResponseEntity<ApiResponse<PaymentVerification>> {
+        return try {
+            val verification: PaymentVerification = paymentService.verifyPayment(
+                "zalopayProvider", params, httpServletRequest
+            )
+            ResponseEntity.ok(ApiResponse.success(verification))
+        } catch (e: Exception) {
+            log.error("Error processing ZaloPay callback: {}", e.message)
+            ResponseEntity.badRequest().body(
+                ApiResponse.error(PaymentVerification(false, null).toString())
+            )
+        }
+    }
+
     @GetMapping("/vnpay/callback")
     fun handleVNPayCallback(
         @RequestParam params: MutableMap<String, String>,
