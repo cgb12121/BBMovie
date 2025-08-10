@@ -29,37 +29,14 @@ public class PaymentService {
         this.paymentTransactionRepository = paymentTransactionRepository;
     }
 
-    public PaymentProviderAdapter getProvider(String name) {
-        return providers.get(name);
-    }
-
     public PaymentResponse processPayment(
-            String providerName,
-            PaymentRequest request,
-            HttpServletRequest httpServletRequest
+            String providerName, PaymentRequest request, HttpServletRequest httpServletRequest
     ) {
         PaymentProviderAdapter provider = providers.get(providerName);
         if (provider == null) {
             throw new IllegalArgumentException("Provider " + providerName + " not supported");
         }
-
-        PaymentResponse response = provider.processPayment(request, httpServletRequest);
-        PaymentTransaction entity = PaymentTransaction.builder()
-                .amount(request.getAmount())
-                .currency(request.getCurrency())
-                .paymentProvider(provider.getPaymentProviderName())
-                .paymentMethod(request.getPaymentMethodId())
-                .status(PaymentStatus.PENDING)
-                .cancelDate(null)
-                .paymentGatewayId(response.getTransactionId())
-                .userId(request.getUserId())
-                .transactionDate(LocalDateTime.now())
-                .paymentMethod(request.getPaymentMethodId())
-                .providerStatus(String.valueOf(response.getStatus()))
-                .build();
-
-        paymentTransactionRepository.save(entity);
-        return response;
+        return provider.processPayment(request, httpServletRequest);
     }
 
     public PaymentVerification verifyPayment(
@@ -72,7 +49,7 @@ public class PaymentService {
         }
 
         PaymentVerification verification = provider.verifyPayment(paymentDataParams, httpServletRequest);
-        if (verification.isSuccess()) {
+        if (verification.isValid()) {
             paymentTransactionRepository.findByPaymentGatewayId(verification.getTransactionId())
                     .ifPresent(entity -> {
                         entity.setStatus(PaymentStatus.SUCCEEDED);

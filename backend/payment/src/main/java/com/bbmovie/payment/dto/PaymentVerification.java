@@ -7,6 +7,8 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 public class PaymentVerification {
-    private boolean success;
+    private boolean isValid;
     private String transactionId;
+    private String code;
+    private String message;
 }

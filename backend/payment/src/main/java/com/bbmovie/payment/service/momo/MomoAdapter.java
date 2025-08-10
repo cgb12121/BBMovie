@@ -119,7 +119,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
         String signature = paymentData.get("signature");
         Integer resultCode = Optional.ofNullable(paymentData.get("resultCode")).map(Integer::parseInt).orElse(null);
         if (signature == null || signature.isBlank() || resultCode == null) {
-            return new PaymentVerification(false, null);
+            return new PaymentVerification(false, null, null, null);
         }
 
         boolean isIpn = paymentData.containsKey("transId");
@@ -159,7 +159,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
         boolean match = calculated.equalsIgnoreCase(signature);
         boolean success = match && resultCode == 0;
 
-        return new PaymentVerification(success, paymentData.get("orderId"));
+        return new PaymentVerification(success, paymentData.get("orderId"), null, null);
     }
 
     @Override

@@ -13,7 +13,7 @@ import java.util.*;
 public class VNPayUtils {
 
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-    public static String vnp_Returnurl = "/vnpay/callback";
+    public static String vnp_Returnurl = "http:localhost:8088/api/payment/vnpay/callback";
     public static String vnp_TmnCode = "8WXB2M3M"; // Got on random github
     public static String vnp_HashSecret = "L9DBOO6OZ0TN8J8BVZJ5BXT0X6UY83RC";// Got on random github
     public static String vnp_apiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
@@ -83,9 +83,7 @@ public class VNPayUtils {
         return sb.toString();
     }
 
-    public static String createOrder(
-            HttpServletRequest request, String amount, String vnp_TxnRef,
-            String orderInfor, String urlReturn) {
+    public static String createOrder(HttpServletRequest request, String amount, String vnp_TxnRef, String orderInfor) {
         String vnp_Version = "2.1.0";
         String vnp_Command = "pay";
         String vnp_IpAddr = VNPayUtils.getIpAddress(request);
@@ -106,7 +104,7 @@ public class VNPayUtils {
         String locate = "vn";
         vnp_Params.put("vnp_Locale", locate);
 
-        vnp_Params.put("vnp_ReturnUrl", urlReturn);
+        vnp_Params.put("vnp_ReturnUrl", vnp_Returnurl);
         vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
 
         Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));

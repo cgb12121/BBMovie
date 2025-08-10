@@ -20,6 +20,7 @@ import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -30,6 +31,7 @@ import java.util.*;
 
 import static com.bbmovie.payment.service.vnpay.VNPayUtils.hashAllFields;
 import static com.bbmovie.payment.service.vnpay.VnPayQueryParams.*;
+import static com.bbmovie.payment.service.vnpay.VnPayTransactionStatus.SUCCESS;
 
 @Log4j2
 @Service("vnpayProvider")
@@ -48,40 +50,25 @@ public class VNPayAdapter implements PaymentProviderAdapter {
         this.paymentTransactionRepository = paymentTransactionRepository;
     }
 
+    @Transactional
     public PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
         BigDecimal amountInVnd = request.getAmount();
         String amountStr = amountInVnd.multiply(BigDecimal.valueOf(100))
                 .setScale(0, RoundingMode.HALF_UP)
                 .toPlainString();
         String vnpTxnRef = VNPayUtils.getRandomNumber(16);
-        String paymentUrl = VNPayUtils.createOrder(
-                httpServletRequest, amountStr , vnpTxnRef, "billpayment",
-                "http:localhost:8088/api/payment/vnpay/callback"
-        );
+        String paymentUrl = VNPayUtils.createOrder(httpServletRequest, amountStr , vnpTxnRef, "billpayment");
 
-        PaymentTransaction transaction = new PaymentTransaction();
-        transaction.setUserId(request.getUserId());
-        transaction.setSubscription(null); // or set if linked to subscription
-        transaction.setAmount(request.getAmount());
-        transaction.setCurrency(request.getCurrency());
-        transaction.setPaymentProvider(PaymentProvider.VNPAY);
-        transaction.setPaymentMethod(request.getPaymentMethodId());
-        transaction.setPaymentGatewayId(vnpTxnRef); // store gateway transaction reference
-        transaction.setProviderStatus("PENDING");
-        transaction.setTransactionDate(LocalDateTime.now());
-        transaction.setStatus(PaymentStatus.PENDING);
-        transaction.setDescription("VNPay payment for order: " + request.getOrderId());
-        transaction.setIpnUrl("http://localhost:8088/api/payment/vnpay/callback");
-        transaction.setReturnUrl(paymentUrl);
-
+        PaymentTransaction transaction = createTransactionForVnpay(request, vnpTxnRef, paymentUrl);
         paymentTransactionRepository.save(transaction);
 
         return new PaymentResponse(vnpTxnRef, PaymentStatus.PENDING, paymentUrl);
     }
 
     @Override
+    @Transactional
     public PaymentVerification verifyPayment(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
-        String vnpSecureHash = paymentData.get(VNPAY_SECURE_HASH);
+        String checkSum = paymentData.get(VNPAY_SECURE_HASH);
         String vnpTxnRef = paymentData.get(VNPAY_TXN_REF_PARAM);
         String cardType = paymentData.get("vnp_CardType");
         String bankCode = paymentData.get("vnp_BankCode");
@@ -100,9 +87,12 @@ public class VNPayAdapter implements PaymentProviderAdapter {
             default -> "Unknown (" + cardType + ", " + bankCode + ")";
         };
 
-        String calculatedHash = hashAllFields(paymentData);
-        boolean isValid = vnpSecureHash.equals(calculatedHash)
-                && VnPayTransactionStatus.SUCCESS.getCode().equals(paymentData.get(VNPAY_RESPONSE_CODE));
+        String calculateChecksum = hashAllFields(paymentData);
+
+        String responseCode = paymentData.get(VNPAY_RESPONSE_CODE);
+        String message = VnPayTransactionStatus.getMessageFromCode(responseCode);
+
+        boolean isValid = checkSum.equals(calculateChecksum) && SUCCESS.getCode().equals(responseCode);
 
         paymentTransactionRepository.findByPaymentGatewayId(vnpTxnRef).ifPresent(tx -> {
             tx.setLastModifiedDate(LocalDateTime.now());
@@ -113,13 +103,13 @@ public class VNPayAdapter implements PaymentProviderAdapter {
                 tx.setProviderStatus(paymentData.get(VNPAY_RESPONSE_CODE));
             } else {
                 tx.setStatus(PaymentStatus.FAILED);
-                tx.setErrorCode(paymentData.get(VNPAY_RESPONSE_CODE));
-                tx.setErrorMessage("Signature mismatch or VNPay error");
+                tx.setErrorCode(responseCode);
+                tx.setErrorMessage(VnPayTransactionStatus.getMessageFromCode(responseCode));
             }
             paymentTransactionRepository.save(tx);
         });
 
-        return new PaymentVerification(isValid, vnpTxnRef);
+        return new PaymentVerification(isValid, vnpTxnRef, responseCode, message);
     }
 
     @SuppressWarnings("all")
@@ -197,10 +187,11 @@ public class VNPayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
+    @Transactional
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
         return new RefundResponse(
                 null,
-                VnPayTransactionStatus.SUCCESS.getCode().equals("00")
+                SUCCESS.getCode().equals("00")
                     ? PaymentStatus.SUCCEEDED.getStatus()
                     : PaymentStatus.FAILED.getStatus()
         );
@@ -209,5 +200,22 @@ public class VNPayAdapter implements PaymentProviderAdapter {
     @Override
     public PaymentProvider getPaymentProviderName() {
         return PaymentProvider.VNPAY;
+    }
+
+    private static PaymentTransaction createTransactionForVnpay(PaymentRequest request, String vnpTxnRef, String paymentUrl) {
+        PaymentTransaction transaction = new PaymentTransaction();
+        transaction.setUserId(request.getUserId());
+        transaction.setSubscription(null); // or set if linked to a subscription later
+        transaction.setAmount(request.getAmount());
+        transaction.setCurrency(request.getCurrency());
+        transaction.setPaymentProvider(PaymentProvider.VNPAY);
+        transaction.setPaymentGatewayId(vnpTxnRef); // store gateway transaction reference
+        transaction.setProviderStatus("PENDING");
+        transaction.setTransactionDate(LocalDateTime.now());
+        transaction.setStatus(PaymentStatus.PENDING);
+        transaction.setDescription("VNPay payment for order: " + request.getOrderId());
+        transaction.setIpnUrl("http://localhost:8088/api/payment/vnpay/callback");
+        transaction.setReturnUrl(paymentUrl);
+        return transaction;
     }
 }

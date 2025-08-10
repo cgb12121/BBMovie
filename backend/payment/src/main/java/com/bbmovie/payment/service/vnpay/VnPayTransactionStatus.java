@@ -46,4 +46,13 @@ public enum VnPayTransactionStatus {
         }
         return null;
     }
+
+    public static String getMessageFromCode(String code) {
+        for (VnPayTransactionStatus status : values()) {
+            if (status.code.equals(code)) {
+                return status.message;
+            }
+        }
+        return null;
+    }
 }

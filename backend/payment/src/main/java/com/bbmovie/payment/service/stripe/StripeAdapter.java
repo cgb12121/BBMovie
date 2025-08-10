@@ -106,7 +106,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
             transaction.setStatus(stripeStatus.getPaymentStatus());
             paymentTransactionRepository.save(transaction);
 
-            return new PaymentVerification(stripeStatus == StripeTransactionStatus.SUCCEEDED, paymentId);
+            return new PaymentVerification(stripeStatus == StripeTransactionStatus.SUCCEEDED, paymentId, null, null);
         } catch (StripeException ex) {
             log.error("Failed to verify Stripe payment: {}", ex.getMessage());
             throw new StripePaymentException("Payment verification failed: " + ex.getMessage());

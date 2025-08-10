@@ -67,7 +67,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             }
             Payment payment = Payment.get(getApiContext(), paymentId);
             boolean success = payment.getState().equalsIgnoreCase(PaypalTransactionStatus.APPROVED.getStatus());
-            return new PaymentVerification(success, payment.getId());
+            return new PaymentVerification(success, payment.getId(), null, null);
         } catch (PayPalRESTException e) {
             log.error("Unable to verify PayPal payment", e);
             throw new PayPalPaymentException("Unable to verify PayPal payment");

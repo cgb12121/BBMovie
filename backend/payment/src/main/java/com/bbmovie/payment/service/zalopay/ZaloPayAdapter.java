@@ -136,14 +136,14 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
         String mac = paymentData.get(ZaloPayConstraint.CALLBACK_MAC);
         String data = paymentData.get(ZaloPayConstraint.CALLBACK_DATA);
         if (mac == null || mac.isBlank() || data == null || data.isBlank()) {
-            return new PaymentVerification(false, null);
+            return new PaymentVerification(false, null, null, null);
         }
 
         String calculated = ZaloHmacUtil.hmacHexStringEncode(ZaloHmacUtil.HMACSHA256, key2, data);
         boolean isValid = calculated != null && calculated.equalsIgnoreCase(mac);
 
         if (!isValid) {
-            return new PaymentVerification(false, null);
+            return new PaymentVerification(false, null, null, null);
         }
 
         try {
@@ -154,9 +154,9 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             String returnCode = decoded.get("returncode") != null ? decoded.get("returncode").toString() : null;
             boolean success = "1".equals(returnCode) || "0".equals(returnCode);
 
-            return new PaymentVerification(success, appTransId);
+            return new PaymentVerification(success, appTransId, null, null);
         } catch (IOException e) {
-            return new PaymentVerification(false, null);
+            return new PaymentVerification(false, null, null, null);
         }
     }
 

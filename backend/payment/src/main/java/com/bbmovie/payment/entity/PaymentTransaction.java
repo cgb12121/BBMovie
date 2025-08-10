@@ -35,7 +35,7 @@ public class PaymentTransaction extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private PaymentProvider paymentProvider;
 
-    @Column(name = "payment_method", nullable = false)
+    @Column(name = "payment_method")
     private String paymentMethod;
 
     @Column(name = "payment_gateway_id", columnDefinition = "TEXT")
