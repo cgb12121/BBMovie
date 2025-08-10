@@ -7,6 +7,7 @@ import com.bbmovie.payment.dto.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
+import com.bbmovie.payment.exception.VNPayException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,6 +39,11 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     @Transactional
     public PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
         BigDecimal amountInVnd = request.getAmount();
+        String currency = request.getCurrency();
+        if (currency == null || !currency.equalsIgnoreCase("VND")) {
+            throw new VNPayException("Vnpay only support VND currency");
+        }
+
         String amountStr = amountInVnd.multiply(BigDecimal.valueOf(100))
                 .setScale(0, RoundingMode.HALF_UP)
                 .toPlainString();

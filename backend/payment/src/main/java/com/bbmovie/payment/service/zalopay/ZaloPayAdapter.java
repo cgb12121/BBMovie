@@ -4,6 +4,7 @@ import com.bbmovie.payment.dto.PaymentRequest;
 import com.bbmovie.payment.dto.PaymentResponse;
 import com.bbmovie.payment.dto.PaymentVerification;
 import com.bbmovie.payment.dto.RefundResponse;
+import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.ZalopayException;
@@ -24,10 +25,12 @@ import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -68,7 +71,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     private String returnCodeParam;
     private String orderUrlParam;
     private String zpTransTokenParam;
-    private String returnCodeKeyInCallback;
+    private String returnMessageParam;
 
     @PostConstruct
     public void init() {
@@ -89,7 +92,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                 returnCodeParam = "returncode";
                 orderUrlParam = "orderurl";
                 zpTransTokenParam = null;
-                returnCodeKeyInCallback = "returncode";
+                returnMessageParam = "returnmessage";
             }
             case 2 -> {
                 createOrderUrl = sandbox
@@ -107,7 +110,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                 returnCodeParam = "return_code";
                 orderUrlParam = "order_url";
                 zpTransTokenParam = "zp_trans_token";
-                returnCodeKeyInCallback = "return_code";
+                returnMessageParam = "return_message";
             }
             default -> {
                 log.fatal("Shut down the application: Unsupported ZaloPay version: {}", version);
@@ -124,11 +127,15 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
+    @Transactional
     public PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
         BigDecimal amount = Objects.requireNonNull(request.getAmount(), "amount is required");
-        String currency = request.getCurrency() != null ? request.getCurrency() : ZaloPayConstraint.ONLY_SUPPORTED_CURRENCY;
+        String currency = request.getCurrency() != null
+                ? request.getCurrency()
+                : ZaloPayConstraint.ONLY_SUPPORTED_CURRENCY;
+
         if (!currency.equals(ZaloPayConstraint.ONLY_SUPPORTED_CURRENCY)) {
-            throw new IllegalArgumentException("ZaloPay supports only VND");
+            throw new ZalopayException("ZaloPay supports only VND");
         }
 
         long appTime = System.currentTimeMillis();
@@ -138,11 +145,11 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             ObjectMapper objectMapper = new ObjectMapper();
             String embedData = objectMapper.writeValueAsString(Map.of(
                     "redirecturl", callbackUrl,
-                    "merchantinfo", request.getOrderId() != null ? request.getOrderId() : ""
+                    "merchantinfo", request.getOrderId()
             ));
 
             String items = objectMapper.writeValueAsString(List.of(Map.of(
-                    "itemid", request.getOrderId() != null ? request.getOrderId() : "order",
+                    "itemid", request.getOrderId(),
                     "itemname", "Payment for order " + request.getOrderId(),
                     "itemprice", amount.multiply(BigDecimal.ONE).longValue(),
                     "itemquantity", 1
@@ -159,7 +166,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
             if (version == 2 && bankCodeParam != null) {
                 params.put(bankCodeParam, "zalopayapp");
-                params.put("description", "Payment for order " + (request.getOrderId() != null ? request.getOrderId() : ""));
+                params.put("description", "Payment for order " + (request.getOrderId()));
             }
 
             String rawData = String.join("|",
@@ -191,19 +198,57 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
             log.info("ZaloPay response: {}", responseBody);
 
-            @SuppressWarnings("unchecked")
+            @SuppressWarnings("all")
+            /*
+              Tham số api trả về:
+
+                return_code	                Int	                1: Thành công
+                                                                2: Thất bại
+                return_message	            String	            Mô tả mã trạng thái
+                sub_return_code	            Int	                Mã trạng thái chi tiết
+                sub_return_message	        String	            Mô tả chi tiết mã trạng thái
+                order_url	                String	            Dùng để tạo QR code hoặc gọi chuyển tiếp sang trang cổng ZaloPay
+                zp_trans_token	            String	            Thông tin token đơn hàng
+                order_token	                String	            Thông tin token đơn hàng
+                qr_code                 	String	            Dùng để tạo NAPAS VietQR trên hệ thống Merchant. NAPAS VietQR là một trong những giải pháp thanh toán hoàn toàn mới,
+                                                                chấp nhận thanh toán được thực hiện bởi cả ZaloPay & +40 ngân hàng thuộc hệ thống NAPAS. Người dùng có thể sử dụng
+                                                                ứng dụng ngân hàng quét NAPAS VietQR để thanh toán
+
+                Ví dụ:
+
+                {
+                  "return_code": 1,
+                  "return_message": "Giao dịch thành công",
+                  "sub_return_code": 1,
+                  "sub_return_message": "Giao dịch thành công",
+                  "zp_trans_token": "ACSMARlbXkIzcSCNHDWC_5jA",
+                  "order_url": "https://qcgateway.zalopay.vn/openinapp?order=eyJ6cHRyYW5zdG9rZW4iOiJBQ1NNQVJsYlhrSXpjU0NOSERXQ181akEiLCJhcHBpZCI6MTI0NzA1fQ==",
+                  "order_token": "ACSMARlbXkIzcSCNHDWC_5jA",
+                  "qr_code": "00020101021226520010vn.zalopay0203001010627000503173307089089161731338580010A000000727012800069704540114998002401295460208QRIBFTTA5204739953037045405690005802VN62210817330708908916173136304409F"
+                }
+
+            */
             Map<String, Object> result = new ObjectMapper().readValue(responseBody, Map.class);
 
-            String returnCode = result.get(returnCodeParam) != null ? result.get(returnCodeParam).toString() : "-1";
+            String returnCode = result.get(returnCodeParam).toString();
+            String returnMessage = result.get(returnMessageParam) != null ? result.get(returnMessageParam).toString() : null;
+            log.info("ZaloPay return code: {}, message: {}", returnCode, returnMessage);
 
             String paramKey = version == 1 ? orderUrlParam : zpTransTokenParam;
             String orderUrl = result.get(paramKey) != null ? result.get(paramKey).toString() : null;
 
-            PaymentStatus status = ("1".equals(returnCode) || "0".equals(returnCode)) ?
-                    PaymentStatus.PENDING : PaymentStatus.FAILED;
+            PaymentStatus status = ("1".equals(returnCode))
+                    ? PaymentStatus.PENDING
+                    : PaymentStatus.FAILED;
+
+            if (returnCode.equals("2")) {
+                log.info("Failed to create order, return code: {}", returnCode);
+            }
+
+            PaymentTransaction transaction = createZalopayTransaction(request, appTransId, orderUrl, status, returnCode);
+            paymentTransactionRepository.save(transaction);
 
             return new PaymentResponse(appTransId, status, orderUrl);
-
         } catch (IOException e) {
             log.error("Error processing ZaloPay payment", e);
             throw new ZalopayException("Error processing ZaloPay payment");
@@ -211,32 +256,84 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
+    @Transactional
     public PaymentVerification verifyPayment(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
-        String mac = paymentData.get(ZaloPayConstraint.CALLBACK_MAC);
-        String data = paymentData.get(ZaloPayConstraint.CALLBACK_DATA);
-        if (mac == null || mac.isBlank() || data == null || data.isBlank()) {
-            return new PaymentVerification(false, null, null, null);
+        @SuppressWarnings("all")
+        /*
+            Dữ liệu nhận được từ callback:
+            data	        Json String	        Dữ liệu giao dịch ZaloPay gọi về cho ứng dụng
+            mac	            String	            Thông tin chứng thực của đơn hàng, dùng Callback Key (Key2) được cung cấp để chứng thực đơn hàng
+            type	        Int	                Loại callback               1: Order
+                                                                            2: Agreement
+         */
+        // ZaloPay callback (v1/v2): form-urlencoded with keys data, mac
+
+
+        String macFromRequest = paymentData.get("mac");
+        String data = paymentData.get("data");
+        if (macFromRequest == null || macFromRequest.isBlank() || data == null || data.isBlank()) {
+            return new PaymentVerification(false, null, "INVALID", "Missing data/mac");
         }
 
+        // Verify with key2
         String calculated = ZaloHmacUtil.hmacHexStringEncode(ZaloHmacUtil.HMACSHA256, key2, data);
-        boolean isValid = calculated != null && calculated.equalsIgnoreCase(mac);
-
-        if (!isValid) {
-            return new PaymentVerification(false, null, null, null);
+        if (calculated == null || !calculated.equalsIgnoreCase(macFromRequest)) {
+            return new PaymentVerification(false, null, "SIGNATURE_MISMATCH", "MAC not match");
         }
+
 
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> decoded = new ObjectMapper().readValue(data, Map.class);
 
-            String appTransId = decoded.get(appTransIdParam) != null ? decoded.get(appTransIdParam).toString() : null;
-            String returnCode = decoded.get(returnCodeKeyInCallback) != null ? decoded.get(returnCodeKeyInCallback).toString() : null;
+            // Support both v1 and v2 field names
+            String appTransId = asString(decoded.get(appTransIdParam), decoded.get("apptransid"), decoded.get("app_trans_id"));
+            String returnCode = asString(decoded.get(returnCodeParam), decoded.get("returncode"), decoded.get(returnCodeParam));
             boolean success = "1".equals(returnCode) || "0".equals(returnCode);
 
-            return new PaymentVerification(success, appTransId, null, null);
-        } catch (IOException e) {
-            return new PaymentVerification(false, null, null, null);
+            // Update DB transaction by appTransId
+            if (appTransId != null) {
+                paymentTransactionRepository.findByPaymentGatewayId(appTransId).ifPresent(tx -> {
+                    tx.setProviderStatus(returnCode);
+                    tx.setStatus(success ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED);
+                    paymentTransactionRepository.save(tx);
+                });
+            }
+
+            @SuppressWarnings("all")
+            /*
+                Thông tin AppServer trả về cho ZaloPayServer khi nhận callback#
+                Content-Type: application/json
+                Tham số	Kiểu dữ liệu	Ý nghĩa
+                return_code	                Int                 1: thành công
+                                                                2: trùng mã giao dịch ZaloPay zptransid hoặc app_trans_id
+                                                                ( đã cung cấp dịch vụ cho user trước đó)
+                                                                <>: thất bại (không callback lại)
+                return_message	            String	            Mô tả chi tiết mã trạng thái
+
+
+                Ví dụ:
+
+                {
+                  "return_code": "[return_code]",
+                  "return_message": "[return_message]"
+                }
+             */
+            String s = "this is just a placeholder to suppress comment warnings. need to perform post request after call back";
+
+            return new PaymentVerification(success, appTransId, returnCode, success ? "SUCCESS" : "FAILED");
+        } catch (Exception e) {
+            log.error("Error verifying ZaloPay payment", e);
+            return new PaymentVerification(false, null, "PARSE_ERROR", "Invalid data payload");
         }
+    }
+
+    private String asString(Object... candidates) {
+        if (candidates == null) return null;
+        for (Object c : candidates) {
+            if (c != null) return String.valueOf(c);
+        }
+        return null;
     }
 
     @Override
@@ -259,5 +356,27 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
         String yymmdd = nowVN.format(DateTimeFormatter.ofPattern("yyMMdd"));
         String suffix = UUID.randomUUID().toString().replace("-", "").substring(0, 10);
         return yymmdd + "_" + appId + "_" + suffix;
+    }
+
+    private PaymentTransaction createZalopayTransaction(
+            PaymentRequest request, String appTransId, String orderUrl,
+            PaymentStatus status, String returnCode
+    ) {
+        PaymentTransaction transaction = new PaymentTransaction();
+        transaction.setUserId(request.getUserId());
+        transaction.setSubscription(null);
+        transaction.setAmount(request.getAmount());
+        transaction.setCurrency(request.getCurrency());
+        transaction.setPaymentProvider(PaymentProvider.ZALO_PAY);
+        transaction.setPaymentMethod(request.getPaymentMethodId());
+        transaction.setPaymentGatewayId(appTransId);
+        transaction.setPaymentGatewayOrderId(orderUrl); // v1: orderurl, v2: zp_trans_token
+        transaction.setProviderStatus(status == PaymentStatus.PENDING ? "PENDING" : returnCode);
+        transaction.setTransactionDate(LocalDateTime.now());
+        transaction.setStatus(status);
+        transaction.setDescription("ZaloPay payment for order: " + request.getOrderId());
+        transaction.setIpnUrl(callbackUrl);
+        transaction.setReturnUrl(orderUrl);
+        return transaction;
     }
 }
