@@ -4,7 +4,7 @@ import lombok.Getter;
 
 @Getter
 @SuppressWarnings("all")
-public enum VnPayTransactionStatus {
+public enum VnpayTransactionStatus {
 
     // --- vnp_TransactionStatus codes ---
     SUCCESS("00", "Giao dịch thành công"),
@@ -34,13 +34,13 @@ public enum VnPayTransactionStatus {
     private final String code;
     private final String message;
 
-    VnPayTransactionStatus(String code, String message) {
+    VnpayTransactionStatus(String code, String message) {
         this.code = code;
         this.message = message;
     }
 
-    public static VnPayTransactionStatus fromCode(String code) {
-        for (VnPayTransactionStatus status : values()) {
+    public static VnpayTransactionStatus fromCode(String code) {
+        for (VnpayTransactionStatus status : values()) {
             if (status.code.equals(code)) {
                 return status;
             }
@@ -49,7 +49,7 @@ public enum VnPayTransactionStatus {
     }
 
     public static String getMessageFromCode(String code) {
-        for (VnPayTransactionStatus status : values()) {
+        for (VnpayTransactionStatus status : values()) {
             if (status.code.equals(code)) {
                 return status.message;
             }

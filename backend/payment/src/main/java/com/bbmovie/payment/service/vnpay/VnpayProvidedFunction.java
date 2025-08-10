@@ -6,6 +6,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
@@ -20,11 +21,11 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
-import static com.bbmovie.payment.service.vnpay.VnPayQueryParams.*;
+import static com.bbmovie.payment.service.vnpay.VnpayQueryParams.*;
 
 @SuppressWarnings("all")
 @Log4j2
-public class VNPayUtils {
+public class VnpayProvidedFunction {
 
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
     public static String vnp_Returnurl = "http:localhost:8088/api/payment/vnpay/callback";
@@ -100,8 +101,8 @@ public class VNPayUtils {
     public static String createOrder(HttpServletRequest request, String amount, String vnp_TxnRef, String orderInfor) {
         String vnp_Version = "2.1.0";
         String vnp_Command = "pay";
-        String vnp_IpAddr = VNPayUtils.getIpAddress(request);
-        String vnp_TmnCode = VNPayUtils.vnp_TmnCode;
+        String vnp_IpAddr = VnpayProvidedFunction.getIpAddress(request);
+        String vnp_TmnCode = VnpayProvidedFunction.vnp_TmnCode;
         String orderType = "order-type";
 
         Map<String, String> vnp_Params = new HashMap<>();
@@ -157,10 +158,10 @@ public class VNPayUtils {
             }
         }
         String queryUrl = query.toString();
-        String salt = VNPayUtils.vnp_HashSecret;
-        String vnp_SecureHash = VNPayUtils.hmacSHA512(salt, hashData.toString());
+        String salt = VnpayProvidedFunction.vnp_HashSecret;
+        String vnp_SecureHash = VnpayProvidedFunction.hmacSHA512(salt, hashData.toString());
         queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
-        String paymentUrl = VNPayUtils.vnp_PayUrl + "?" + queryUrl;
+        String paymentUrl = VnpayProvidedFunction.vnp_PayUrl + "?" + queryUrl;
         return paymentUrl;
     }
 
@@ -175,7 +176,7 @@ public class VNPayUtils {
         String vnpRequestId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
         String vnpVersion = "2.1.0";
         String vnpCommand = "querydr";
-        String vnpIpAddr = VNPayUtils.getIpAddress(httpServletRequest);
+        String vnpIpAddr = VnpayProvidedFunction.getIpAddress(httpServletRequest);
         String vnpCreateDate = formatter.format(LocalDateTime.now());
         String vnpOrderInfo = "Query transaction " + vnpTxnRef;
 
@@ -183,66 +184,44 @@ public class VNPayUtils {
         body.put("vnp_RequestId", vnpRequestId);
         body.put("vnp_Version", vnpVersion);
         body.put("vnp_Command", vnpCommand);
-        body.put("vnp_TmnCode", VNPayUtils.vnp_TmnCode);
+        body.put("vnp_TmnCode", VnpayProvidedFunction.vnp_TmnCode);
         body.put("vnp_TxnRef", vnpTxnRef);
         body.put("vnp_OrderInfo", vnpOrderInfo);
         body.put("vnp_TransactionDate", vnpTransactionDate);
         body.put("vnp_CreateDate", vnpCreateDate);
         body.put("vnp_IpAddr", vnpIpAddr);
 
-        List fieldNames = new ArrayList(body.keySet());
-        Collections.sort(fieldNames);
-        StringBuilder hashData = new StringBuilder();
-        StringBuilder query = new StringBuilder();
-        Iterator itr = fieldNames.iterator();
-        while (itr.hasNext()) {
-            String fieldName = (String) itr.next();
-            String fieldValue = (String) body.get(fieldName);
-            if ((fieldValue != null) && (fieldValue.length() > 0)) {
-                //Build hash data
-                hashData.append(fieldName);
-                hashData.append('=');
-                try {
-                    hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-                    //Build query
-                    query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString()));
-                    query.append('=');
-                    query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
-                } catch (UnsupportedEncodingException e) {
-                    e.printStackTrace();
-                }
-                if (itr.hasNext()) {
-                    query.append('&');
-                    hashData.append('&');
-                }
-            }
-        }
+        String data = String.join("|",
+                vnpRequestId, vnpVersion, vnpCommand, VnpayProvidedFunction.vnp_TmnCode,
+                vnpTxnRef, vnpTransactionDate, vnpCreateDate, vnpIpAddr, vnpOrderInfo
+        );
 
-        String vnpSecureHash = VNPayUtils.hmacSHA512(VNPayUtils.vnp_HashSecret, hashData.toString());
+        String vnpSecureHash = VnpayProvidedFunction.hmacSHA512(VnpayProvidedFunction.vnp_HashSecret, data);
         body.put("vnp_SecureHash", vnpSecureHash);
 
         return body;
     }
 
-    public static Map<String, String> executeQueryRequest(Map<String, String> body) {
+    public static Map<String, String> executeRequest(Map<String, String> body) {
+        Map<String, String> vpnQueryResult = new HashMap<>();
         try {
             ObjectMapper mapper = new ObjectMapper();
             String json = mapper.writeValueAsString(body);
 
             CloseableHttpClient client = HttpClients.createDefault();
-            HttpPost post = new HttpPost(VNPayUtils.vnp_apiUrl);
+            HttpPost post = new HttpPost(VnpayProvidedFunction.vnp_apiUrl);
             post.setHeader("Content-Type", "application/json");
-            post.setEntity(new org.apache.http.entity.StringEntity(json, StandardCharsets.UTF_8));
+            post.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
             try (CloseableHttpClient closeable = client; CloseableHttpResponse response = closeable.execute(post)) {
                 String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
 
-                Map<String, String> vpnQueryResult = mapper.readValue(responseBody, Map.class);
-                String checksum = vpnQueryResult.get("vnp_SecureHash").toString();
+                vpnQueryResult = mapper.readValue(responseBody, Map.class);
+                String checksum = vpnQueryResult.get("vnp_SecureHash");
                 vpnQueryResult.remove("vnp_SecureHash");
 
                 String calculatedHash = hashAllFields(vpnQueryResult);
-                if (!checksum.equals(calculatedHash)) {
+                if (!checksum.equals(calculatedHash) && checksum != null) {
                     log.error("Invalid hash: {}", checksum);
                     // Throw or just leave it
                 }
@@ -251,7 +230,11 @@ public class VNPayUtils {
             }
         } catch (Exception ex) {
             log.error("Failed to execute query request: {}", ex.getMessage());
-            return Map.of("error", "unable to execute query request to vnpay");
+            return vpnQueryResult;
         }
+    }
+
+    public static Map<String, String> createRefundOrder(HttpServletRequest httpServletRequest, PaymentTransaction txn) {
+        throw new UnsupportedOperationException("Not supported yet.");
     }
 }

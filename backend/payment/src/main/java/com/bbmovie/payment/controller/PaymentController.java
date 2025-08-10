@@ -45,20 +45,6 @@ public class PaymentController {
         }
     }
 
-    @PostMapping("/momo/ipn")
-    public ResponseEntity<ApiResponse<PaymentVerification>> handleMomoIpn
-            (@RequestBody Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
-        PaymentVerification verification = paymentService.verifyPayment("momoProvider", paymentData, httpServletRequest);
-        return ResponseEntity.ok(ApiResponse.success(verification));
-    }
-
-    @PostMapping("/zalopay/callback")
-    public ResponseEntity<ApiResponse<PaymentVerification>> handleZaloPayCallback
-            (@RequestParam Map<String, String> params, HttpServletRequest httpServletRequest) {
-        PaymentVerification verification = paymentService.verifyPayment("zalopayProvider", params, httpServletRequest);
-        return ResponseEntity.ok(ApiResponse.success(verification));
-    }
-
     @GetMapping("/{provider}/callback")
     public ResponseEntity<ApiResponse<PaymentVerification>> handleVNPayCallback
             (@RequestParam Map<String, String> params, HttpServletRequest request,
@@ -88,7 +74,7 @@ public class PaymentController {
     }
 
     @GetMapping("/query")
-    public ResponseEntity<ApiResponse<Object>> queryPayment(@RequestParam String id, HttpServletRequest request) {
+    public ResponseEntity<ApiResponse<Object>> queryPaymentFromProvider(@RequestParam String id, HttpServletRequest request) {
         return ResponseEntity.ok(ApiResponse.success(paymentService.queryPayment(id, request)));
     }
 }

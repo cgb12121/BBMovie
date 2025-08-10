@@ -5,6 +5,8 @@ import com.bbmovie.payment.dto.PaymentResponse;
 import com.bbmovie.payment.dto.PaymentVerification;
 import com.bbmovie.payment.dto.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
+import com.bbmovie.payment.exception.TransactionNotFoundException;
+import com.bbmovie.payment.exception.UnsupportedProviderException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,7 +51,7 @@ public class PaymentService {
 
     public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+                .orElseThrow(() -> new TransactionNotFoundException("Payment not found"));
         String paymentProvider;
         switch (txn.getPaymentProvider()) {
             case VNPAY -> paymentProvider = "vnpay";
@@ -57,7 +59,7 @@ public class PaymentService {
             case ZALO_PAY -> paymentProvider = "zalopay";
             case STRIPE -> paymentProvider = "stripe";
             case PAYPAL -> paymentProvider = "paypal";
-            default -> throw new IllegalArgumentException("Payment provider not supported");
+            default -> throw new UnsupportedProviderException("Payment provider not supported");
         }
         PaymentProviderAdapter provider = providers.get(paymentProvider);
         return provider.queryPaymentFromProvider(paymentId, httpServletRequest);

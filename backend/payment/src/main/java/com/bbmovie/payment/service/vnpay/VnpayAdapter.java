@@ -20,18 +20,18 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 
-import static com.bbmovie.payment.service.vnpay.VNPayUtils.hashAllFields;
-import static com.bbmovie.payment.service.vnpay.VnPayQueryParams.*;
-import static com.bbmovie.payment.service.vnpay.VnPayTransactionStatus.SUCCESS;
+import static com.bbmovie.payment.service.vnpay.VnpayProvidedFunction.hashAllFields;
+import static com.bbmovie.payment.service.vnpay.VnpayQueryParams.*;
+import static com.bbmovie.payment.service.vnpay.VnpayTransactionStatus.SUCCESS;
 
 @Log4j2
 @Service("vnpay")
-public class VNPayAdapter implements PaymentProviderAdapter {
+public class VnpayAdapter implements PaymentProviderAdapter {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Autowired
-    public VNPayAdapter(PaymentTransactionRepository paymentTransactionRepository) {
+    public VnpayAdapter(PaymentTransactionRepository paymentTransactionRepository) {
         this.paymentTransactionRepository = paymentTransactionRepository;
     }
 
@@ -41,8 +41,8 @@ public class VNPayAdapter implements PaymentProviderAdapter {
         String amountStr = amountInVnd.multiply(BigDecimal.valueOf(100))
                 .setScale(0, RoundingMode.HALF_UP)
                 .toPlainString();
-        String vnpTxnRef = VNPayUtils.getRandomNumber(16);
-        String paymentUrl = VNPayUtils.createOrder(httpServletRequest, amountStr , vnpTxnRef, "billpayment");
+        String vnpTxnRef = VnpayProvidedFunction.getRandomNumber(16);
+        String paymentUrl = VnpayProvidedFunction.createOrder(httpServletRequest, amountStr , vnpTxnRef, "billpayment");
 
         PaymentTransaction transaction = createTransactionForVnpay(request, vnpTxnRef, paymentUrl);
         paymentTransactionRepository.save(transaction);
@@ -75,7 +75,7 @@ public class VNPayAdapter implements PaymentProviderAdapter {
         String calculateChecksum = hashAllFields(paymentData);
 
         String responseCode = paymentData.get(VNPAY_RESPONSE_CODE);
-        String message = VnPayTransactionStatus.getMessageFromCode(responseCode);
+        String message = VnpayTransactionStatus.getMessageFromCode(responseCode);
 
         boolean isValid = checkSum.equals(calculateChecksum) && SUCCESS.getCode().equals(responseCode);
 
@@ -89,7 +89,7 @@ public class VNPayAdapter implements PaymentProviderAdapter {
             } else {
                 tx.setStatus(PaymentStatus.FAILED);
                 tx.setErrorCode(responseCode);
-                tx.setErrorMessage(VnPayTransactionStatus.getMessageFromCode(responseCode));
+                tx.setErrorMessage(VnpayTransactionStatus.getMessageFromCode(responseCode));
             }
             paymentTransactionRepository.save(tx);
         });
@@ -101,14 +101,19 @@ public class VNPayAdapter implements PaymentProviderAdapter {
     public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-        Map<String, String> body = VNPayUtils.createQueryOrder(httpServletRequest, txn);
-        return VNPayUtils.executeQueryRequest(body);
+        Map<String, String> body = VnpayProvidedFunction.createQueryOrder(httpServletRequest, txn);
+        log.info("Querying VNPay payment: {}", body);
+        return VnpayProvidedFunction.executeRequest(body);
     }
 
     @Override
     @Transactional
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
-        throw new UnsupportedOperationException("Refund is not supported by VNPay");
+        PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        Map<String, String> body = VnpayProvidedFunction.createRefundOrder(httpServletRequest, txn);
+        Map<String, String> result = VnpayProvidedFunction.executeRequest(body);
+        return new RefundResponse(result.get(VNPAY_TXN_REF_PARAM), result.get(VNPAY_RESPONSE_CODE));
     }
 
     @Override

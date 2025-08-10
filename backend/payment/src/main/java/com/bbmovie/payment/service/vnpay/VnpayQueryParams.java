@@ -1,7 +1,7 @@
 package com.bbmovie.payment.service.vnpay;
 
 @SuppressWarnings({"squid:S1118", "unused"})
-public class VnPayQueryParams {
+public class VnpayQueryParams {
     public static final String VNPAY_VERSION_PARAM = "vnp_Version";
     public static final String VNPAY_COMMAND_PARAM = "vnp_Command";
     public static final String VNPAY_TMN_CODE_PARAM = "vnp_TmnCode";
