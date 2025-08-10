@@ -1,15 +1,29 @@
 package com.bbmovie.payment.service.vnpay;
 
+import com.bbmovie.payment.entity.PaymentTransaction;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.log4j.Log4j2;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import static com.bbmovie.payment.service.vnpay.VnPayQueryParams.*;
+
 @SuppressWarnings("all")
+@Log4j2
 public class VNPayUtils {
 
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
@@ -35,7 +49,7 @@ public class VNPayUtils {
                 sb.append("&");
             }
         }
-        return hmacSHA512(vnp_HashSecret,sb.toString());
+        return hmacSHA512(vnp_HashSecret, sb.toString());
     }
 
     public static String hmacSHA512(final String key, final String data) {
@@ -91,30 +105,29 @@ public class VNPayUtils {
         String orderType = "order-type";
 
         Map<String, String> vnp_Params = new HashMap<>();
-        vnp_Params.put("vnp_Version", vnp_Version);
-        vnp_Params.put("vnp_Command", vnp_Command);
-        vnp_Params.put("vnp_TmnCode", vnp_TmnCode);
-        vnp_Params.put("vnp_Amount", String.valueOf(amount));
-        vnp_Params.put("vnp_CurrCode", "VND");
+        vnp_Params.put(VNPAY_VERSION_PARAM, vnp_Version);
+        vnp_Params.put(VNPAY_COMMAND_PARAM, vnp_Command);
+        vnp_Params.put(VNPAY_TMN_CODE_PARAM, vnp_TmnCode);
+        vnp_Params.put(VNPAY_AMOUNT_PARAM, String.valueOf(amount));
+        vnp_Params.put(VNPAY_CURRENCY_PARAM, "VND");
 
-        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
-        vnp_Params.put("vnp_OrderInfo", orderInfor);
-        vnp_Params.put("vnp_OrderType", orderType);
+        vnp_Params.put(VNPAY_TXN_REF_PARAM, vnp_TxnRef);
+        vnp_Params.put(VNPAY_ORDER_INFO_PARAM, orderInfor);
+        vnp_Params.put(VNPAY_ORDER_TYPE_PARAM, orderType);
 
-        String locate = "vn";
-        vnp_Params.put("vnp_Locale", locate);
+        vnp_Params.put(VNPAY_LOCALE_PARAM, "vn");
 
-        vnp_Params.put("vnp_ReturnUrl", vnp_Returnurl);
-        vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
+        vnp_Params.put(VNPAY_RETURN_URL_PARAM, vnp_Returnurl);
+        vnp_Params.put(VNPAY_IP_ADDRESS_PARAM, vnp_IpAddr);
 
         Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
         String vnp_CreateDate = formatter.format(cld.getTime());
-        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
+        vnp_Params.put(VNPAY_CREATE_DATE_PARAM, vnp_CreateDate);
 
         cld.add(Calendar.MINUTE, 15);
         String vnp_ExpireDate = formatter.format(cld.getTime());
-        vnp_Params.put("vnp_ExpireDate", vnp_ExpireDate);
+        vnp_Params.put(VNPAY_EXPIRE_DATE_PARAM, vnp_ExpireDate);
 
         List fieldNames = new ArrayList(vnp_Params.keySet());
         Collections.sort(fieldNames);
@@ -151,51 +164,94 @@ public class VNPayUtils {
         return paymentUrl;
     }
 
-    public static String createQueryOrder(
-            HttpServletRequest request, String vnp_TxnRef, String vnp_TransactionDate
+    public static Map<String, String> createQueryOrder(
+            HttpServletRequest httpServletRequest, PaymentTransaction txn
     ) {
-        String vnp_Version = "2.1.0";
-        String vnp_Command = "querydr";
-        String vnp_TmnCode = VNPayUtils.vnp_TmnCode;
-        String vnp_IpAddr = VNPayUtils.getIpAddress(request);
-        String vnp_RequestId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
-        String vnp_CreateDate = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
-        String vnp_CreateBy = "system";
-        String vnp_OrderInfo = "Query transaction " + vnp_TxnRef;
+        String vnpTxnRef = txn.getPaymentGatewayId();
+        String transactionNo = txn.getPaymentGatewayOrderId();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+        String vnpTransactionDate = txn.getTransactionDate().format(formatter);
 
-        Map<String, String> vnp_Params = new HashMap<>();
-        vnp_Params.put("vnp_RequestId", vnp_RequestId);
-        vnp_Params.put("vnp_Version", vnp_Version);
-        vnp_Params.put("vnp_Command", vnp_Command);
-        vnp_Params.put("vnp_TmnCode", vnp_TmnCode);
-        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
-        vnp_Params.put("vnp_OrderInfo", vnp_OrderInfo);
-        vnp_Params.put("vnp_TransactionDate", vnp_TransactionDate);
-        vnp_Params.put("vnp_CreateBy", vnp_CreateBy);
-        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
-        vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
+        String vnpRequestId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
+        String vnpVersion = "2.1.0";
+        String vnpCommand = "querydr";
+        String vnpIpAddr = VNPayUtils.getIpAddress(httpServletRequest);
+        String vnpCreateDate = formatter.format(LocalDateTime.now());
+        String vnpOrderInfo = "Query transaction " + vnpTxnRef;
 
-        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
+        Map<String, String> body = new LinkedHashMap<>();
+        body.put("vnp_RequestId", vnpRequestId);
+        body.put("vnp_Version", vnpVersion);
+        body.put("vnp_Command", vnpCommand);
+        body.put("vnp_TmnCode", VNPayUtils.vnp_TmnCode);
+        body.put("vnp_TxnRef", vnpTxnRef);
+        body.put("vnp_OrderInfo", vnpOrderInfo);
+        body.put("vnp_TransactionDate", vnpTransactionDate);
+        body.put("vnp_CreateDate", vnpCreateDate);
+        body.put("vnp_IpAddr", vnpIpAddr);
+
+        List fieldNames = new ArrayList(body.keySet());
         Collections.sort(fieldNames);
         StringBuilder hashData = new StringBuilder();
         StringBuilder query = new StringBuilder();
-        for (Iterator<String> itr = fieldNames.iterator(); itr.hasNext(); ) {
-            String fieldName = itr.next();
-            String fieldValue = vnp_Params.get(fieldName);
-            if (fieldValue != null && fieldValue.length() > 0) {
-                hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
-                query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII))
-                        .append('=')
-                        .append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
+        Iterator itr = fieldNames.iterator();
+        while (itr.hasNext()) {
+            String fieldName = (String) itr.next();
+            String fieldValue = (String) body.get(fieldName);
+            if ((fieldValue != null) && (fieldValue.length() > 0)) {
+                //Build hash data
+                hashData.append(fieldName);
+                hashData.append('=');
+                try {
+                    hashData.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
+                    //Build query
+                    query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII.toString()));
+                    query.append('=');
+                    query.append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII.toString()));
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
                 if (itr.hasNext()) {
-                    hashData.append('&');
                     query.append('&');
+                    hashData.append('&');
                 }
             }
         }
 
-        String vnp_SecureHash = VNPayUtils.hmacSHA512(VNPayUtils.vnp_HashSecret, hashData.toString());
-        query.append("&vnp_SecureHash=").append(vnp_SecureHash);
-        return "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction" + "?" + query.toString();
+        String vnpSecureHash = VNPayUtils.hmacSHA512(VNPayUtils.vnp_HashSecret, hashData.toString());
+        body.put("vnp_SecureHash", vnpSecureHash);
+
+        return body;
+    }
+
+    public static Map<String, String> executeQueryRequest(Map<String, String> body) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            String json = mapper.writeValueAsString(body);
+
+            CloseableHttpClient client = HttpClients.createDefault();
+            HttpPost post = new HttpPost(VNPayUtils.vnp_apiUrl);
+            post.setHeader("Content-Type", "application/json");
+            post.setEntity(new org.apache.http.entity.StringEntity(json, StandardCharsets.UTF_8));
+
+            try (CloseableHttpClient closeable = client; CloseableHttpResponse response = closeable.execute(post)) {
+                String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+
+                Map<String, String> vpnQueryResult = mapper.readValue(responseBody, Map.class);
+                String checksum = vpnQueryResult.get("vnp_SecureHash").toString();
+                vpnQueryResult.remove("vnp_SecureHash");
+
+                String calculatedHash = hashAllFields(vpnQueryResult);
+                if (!checksum.equals(calculatedHash)) {
+                    log.error("Invalid hash: {}", checksum);
+                    // Throw or just leave it
+                }
+
+                return vpnQueryResult;
+            }
+        } catch (Exception ex) {
+            log.error("Failed to execute query request: {}", ex.getMessage());
+            return Map.of("error", "unable to execute query request to vnpay");
+        }
     }
 }

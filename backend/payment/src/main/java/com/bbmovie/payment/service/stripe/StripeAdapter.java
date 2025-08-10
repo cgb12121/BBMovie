@@ -14,12 +14,11 @@ import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,8 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
-@Service("stripeProvider")
-@RequiredArgsConstructor
+@Service("stripe")
 public class StripeAdapter implements PaymentProviderAdapter {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
@@ -40,8 +38,9 @@ public class StripeAdapter implements PaymentProviderAdapter {
     @Value("${payment.stripe.publishable-key}")
     private String publishableKey;
 
-    @PostConstruct
-    public void init() {
+    @Autowired
+    public StripeAdapter(PaymentTransactionRepository paymentTransactionRepository) {
+        this.paymentTransactionRepository = paymentTransactionRepository;
         Stripe.apiKey = secretKey;
     }
 
@@ -114,7 +113,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
         return null;
     }
 

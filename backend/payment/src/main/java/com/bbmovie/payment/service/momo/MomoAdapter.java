@@ -23,7 +23,7 @@ import java.util.*;
 import java.util.Base64;
 
 @Slf4j
-@Service("momoProvider")
+@Service("momo")
 public class MomoAdapter implements PaymentProviderAdapter {
 
     @Value("${payment.momo.partner-code}")
@@ -163,7 +163,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
         return null;
     }
 

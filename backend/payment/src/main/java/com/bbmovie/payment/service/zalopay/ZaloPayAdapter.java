@@ -32,7 +32,7 @@ import java.util.*;
 
 import static com.bbmovie.payment.service.zalopay.ZaloPayQueryParams.*;
 
-@Service("zalopayProvider")
+@Service("zalopay")
 public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Value("${payment.zalopay.app-id}")
@@ -49,8 +49,6 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Value("${payment.zalopay.callback-url}")
     private String callbackUrl;
-
-    private static final Logger log = LoggerFactory.getLogger(ZaloPayAdapter.class);
 
     @Override
     public PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
@@ -161,7 +159,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
         return null;
     }
 

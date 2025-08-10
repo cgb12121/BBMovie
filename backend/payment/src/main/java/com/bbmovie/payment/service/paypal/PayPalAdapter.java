@@ -21,7 +21,7 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 import java.util.Map;
 
-@Service("paypalProvider")
+@Service("paypal")
 public class PayPalAdapter implements PaymentProviderAdapter {
 
     @Value("${payment.paypal.client-id}")
@@ -75,7 +75,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
         return null;
     }
 

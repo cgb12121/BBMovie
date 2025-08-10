@@ -3,6 +3,7 @@ package com.bbmovie.payment.service.vnpay;
 import lombok.Getter;
 
 @Getter
+@SuppressWarnings("all")
 public enum VnPayTransactionStatus {
 
     // --- vnp_TransactionStatus codes ---

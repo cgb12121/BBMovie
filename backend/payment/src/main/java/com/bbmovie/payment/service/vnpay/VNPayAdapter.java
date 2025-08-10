@@ -9,24 +9,15 @@ import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 import static com.bbmovie.payment.service.vnpay.VNPayUtils.hashAllFields;
@@ -34,14 +25,8 @@ import static com.bbmovie.payment.service.vnpay.VnPayQueryParams.*;
 import static com.bbmovie.payment.service.vnpay.VnPayTransactionStatus.SUCCESS;
 
 @Log4j2
-@Service("vnpayProvider")
+@Service("vnpay")
 public class VNPayAdapter implements PaymentProviderAdapter {
-
-    @Value("${payment.vnpay.TmnCode}")
-    private String tmnCode;
-
-    @Value("${payment.vnpay.HashSecret}")
-    private String hashSecret;
 
     private final PaymentTransactionRepository paymentTransactionRepository;
 
@@ -70,11 +55,11 @@ public class VNPayAdapter implements PaymentProviderAdapter {
     public PaymentVerification verifyPayment(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         String checkSum = paymentData.get(VNPAY_SECURE_HASH);
         String vnpTxnRef = paymentData.get(VNPAY_TXN_REF_PARAM);
-        String cardType = paymentData.get("vnp_CardType");
-        String bankCode = paymentData.get("vnp_BankCode");
+        String cardType = paymentData.get(VNPAY_CARD_TYPE);
+        String bankCode = paymentData.get(VNPAY_BANK_CODE);
         paymentData.remove(VNPAY_SECURE_HASH);
 
-        String vpnTransactionNo = paymentData.get("vnp_TransactionNo");
+        String vpnTransactionNo = paymentData.get(VNPAY_TRANSACTION_NO);
 
         String paymentMethod = switch (cardType) {
             case "ATM" -> "Domestic card (" + bankCode + ")";
@@ -112,89 +97,18 @@ public class VNPayAdapter implements PaymentProviderAdapter {
         return new PaymentVerification(isValid, vnpTxnRef, responseCode, message);
     }
 
-    @SuppressWarnings("all")
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-
-        String vnpTxnRef = txn.getPaymentGatewayId();
-        String transactionNo = txn.getPaymentGatewayOrderId();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-        String vnpTransactionDate = txn.getTransactionDate().format(formatter);
-
-        String vnpRequestId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
-        String vnpVersion = "2.1.0";
-        String vnpCommand = "querydr";
-        String vnpIpAddr = VNPayUtils.getIpAddress(httpServletRequest);
-        String vnpCreateDate = formatter.format(LocalDateTime.now());
-        String vnpOrderInfo = "Query transaction " + vnpTxnRef;
-
-        String data = String.join("|",
-                vnpRequestId, vnpVersion, vnpCommand, VNPayUtils.vnp_TmnCode,
-                vnpTxnRef, vnpTransactionDate, vnpCreateDate, vnpIpAddr, vnpOrderInfo
-        );
-
-        String vnpSecureHash = VNPayUtils.hmacSHA512(VNPayUtils.vnp_HashSecret, data);
-
-        Map<String, Object> body = new LinkedHashMap<>();
-        body.put("vnp_RequestId", vnpRequestId);
-        body.put("vnp_Version", vnpVersion);
-        body.put("vnp_Command", vnpCommand);
-        body.put("vnp_TmnCode", VNPayUtils.vnp_TmnCode);
-        body.put("vnp_TxnRef", vnpTxnRef);
-        body.put("vnp_OrderInfo", vnpOrderInfo);
-        body.put("vnp_TransactionDate", vnpTransactionDate);
-        body.put("vnp_CreateDate", vnpCreateDate);
-        body.put("vnp_IpAddr", vnpIpAddr);
-        body.put("vnp_SecureHash", vnpSecureHash);
-        try {
-            ObjectMapper mapper = new ObjectMapper();
-            String json = mapper.writeValueAsString(body);
-            log.info("VNPay querydr request: {}", json);
-
-            CloseableHttpClient client = HttpClients.createDefault();
-            HttpPost post = new HttpPost(VNPayUtils.vnp_apiUrl);
-            post.setHeader("Content-Type", "application/json");
-            post.setEntity(new org.apache.http.entity.StringEntity(json, StandardCharsets.UTF_8));
-
-            try (CloseableHttpClient closeable = client; CloseableHttpResponse response = closeable.execute(post)) {
-                String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-
-                Map<String, String> vpnQueryResult = mapper.readValue(responseBody, Map.class);
-                String hashSecret = (String) vpnQueryResult.get("vnp_SecureHash"); //need to check
-                vpnQueryResult.remove("vnp_SecureHash");
-
-                String calculatedHash = hashAllFields(vpnQueryResult);
-                if (!hashSecret.equals(calculatedHash)) {
-                    log.error("VNPay querydr hash mismatch: {}", vpnQueryResult);
-                }
-
-                if (!"00".equals(vpnQueryResult.get("vnp_ResponseCode"))) {
-                    log.error("VNPay querydr failed: {}", vpnQueryResult);
-                    return vpnQueryResult;
-                }
-                log.info("VNPay querydr response: {}", vpnQueryResult);
-                return vpnQueryResult;
-            }
-        } catch (Exception ex) {
-            log.error("VNPay querydr call failed: {}", ex.getMessage());
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", true);
-            error.put("message", ex.getMessage());
-            return error;
-        }
+        Map<String, String> body = VNPayUtils.createQueryOrder(httpServletRequest, txn);
+        return VNPayUtils.executeQueryRequest(body);
     }
 
     @Override
     @Transactional
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
-        return new RefundResponse(
-                null,
-                SUCCESS.getCode().equals("00")
-                    ? PaymentStatus.SUCCEEDED.getStatus()
-                    : PaymentStatus.FAILED.getStatus()
-        );
+        throw new UnsupportedOperationException("Refund is not supported by VNPay");
     }
 
     @Override

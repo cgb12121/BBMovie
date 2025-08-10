@@ -1,7 +1,6 @@
 package com.bbmovie.payment.controller;
 
 import com.bbmovie.payment.dto.*;
-import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
@@ -60,11 +59,12 @@ public class PaymentController {
         return ResponseEntity.ok(ApiResponse.success(verification));
     }
 
-    @GetMapping("/vnpay/callback")
+    @GetMapping("/{provider}/callback")
     public ResponseEntity<ApiResponse<PaymentVerification>> handleVNPayCallback
-            (@RequestParam Map<String, String> params, HttpServletRequest request) {
+            (@RequestParam Map<String, String> params, HttpServletRequest request,
+             @PathVariable String provider) {
         try {
-            PaymentVerification verification = paymentService.verifyPayment("vnpayProvider", params, request);
+            PaymentVerification verification = paymentService.verifyPayment(provider, params, request);
             if (verification.isValid()) {
                 return ResponseEntity.ok(ApiResponse.success(verification));
             }

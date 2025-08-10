@@ -1,6 +1,6 @@
 package com.bbmovie.payment.service.vnpay;
 
-@SuppressWarnings("squid:S1118")
+@SuppressWarnings({"squid:S1118", "unused"})
 public class VnPayQueryParams {
     public static final String VNPAY_VERSION_PARAM = "vnp_Version";
     public static final String VNPAY_COMMAND_PARAM = "vnp_Command";
@@ -14,10 +14,12 @@ public class VnPayQueryParams {
     public static final String VNPAY_RETURN_URL_PARAM = "vnp_ReturnUrl";
     public static final String VNPAY_IP_ADDRESS_PARAM = "vnp_IpAddr";
     public static final String VNPAY_CREATE_DATE_PARAM = "vnp_CreateDate";
+    public static final String VNPAY_EXPIRE_DATE_PARAM = "vnp_ExpireDate";
     public static final String VNPAY_SECURE_HASH = "vnp_SecureHash";
     public static final String VNPAY_TRANSACTION_TYPE = "vnp_TransactionType";
     public static final String VNPAY_TRANSACTION_NO = "vnp_TransactionNo";
     public static final String VNPAY_TRANSACTION_DATE = "vnp_TransactionDate";
-
+    public static final String VNPAY_CARD_TYPE = "vnp_CardType";
+    public static final String VNPAY_BANK_CODE = "vnp_BankCode";
     public static final String VNPAY_RESPONSE_CODE = "vnp_ResponseCode";
 }
