@@ -38,10 +38,10 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "payment_method", nullable = false)
     private String paymentMethod;
 
-    @Column(name = "payment_gateway_id", nullable = false)
+    @Column(name = "payment_gateway_id", columnDefinition = "TEXT")
     private String paymentGatewayId;
 
-    @Column(name = "payment_gateway_order_id")
+    @Column(name = "payment_gateway_order_id", columnDefinition = "TEXT")
     private String paymentGatewayOrderId;
 
     @Column(name = "provider_status", nullable = false)
@@ -63,16 +63,16 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "error_code")
     private String errorCode;
 
-    @Column(name = "error_message")
+    @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
 
-    @Column(name = "ipn_url")
+    @Column(name = "ipn_url", columnDefinition = "TEXT")
     private String ipnUrl;
 
-    @Column(name = "return_url")
+    @Column(name = "return_url", columnDefinition = "TEXT")
     private String returnUrl;
 
-    @Column(name = "description")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     @Column(name = "payment_details", columnDefinition = "TEXT")

@@ -20,6 +20,7 @@ import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -31,6 +32,7 @@ import java.util.*;
 
 import static com.bbmovie.payment.service.zalopay.ZaloPayQueryParams.*;
 
+@Service("zalopayProvider")
 public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Value("${payment.zalopay.app-id}")
@@ -156,6 +158,11 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
         } catch (IOException e) {
             return new PaymentVerification(false, null);
         }
+    }
+
+    @Override
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+        return null;
     }
 
     @Override

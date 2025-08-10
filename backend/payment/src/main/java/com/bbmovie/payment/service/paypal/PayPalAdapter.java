@@ -75,6 +75,11 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+        return null;
+    }
+
+    @Override
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
         try {
             Sale sale = Sale.get(getApiContext(), paymentId);

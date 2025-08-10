@@ -114,6 +114,11 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+        return null;
+    }
+
+    @Override
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
         log.info("Processing Stripe refund for paymentId: {}", paymentId);
 

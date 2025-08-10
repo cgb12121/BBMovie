@@ -63,8 +63,7 @@ public class PaymentService {
     }
 
     public PaymentVerification verifyPayment(
-            String providerName,
-            Map<String, String> paymentData,
+            String providerName, Map<String, String> paymentDataParams,
             HttpServletRequest httpServletRequest
     ) {
         PaymentProviderAdapter provider = providers.get(providerName);
@@ -72,9 +71,9 @@ public class PaymentService {
             throw new IllegalArgumentException("Provider " + providerName + " not supported");
         }
 
-        PaymentVerification verification = provider.verifyPayment(paymentData, httpServletRequest);
+        PaymentVerification verification = provider.verifyPayment(paymentDataParams, httpServletRequest);
         if (verification.isSuccess()) {
-            paymentTransactionRepository.findById(UUID.fromString(verification.getTransactionId()))
+            paymentTransactionRepository.findByPaymentGatewayId(verification.getTransactionId())
                     .ifPresent(entity -> {
                         entity.setStatus(PaymentStatus.SUCCEEDED);
                         entity.setLastModifiedDate(LocalDateTime.now());
@@ -100,5 +99,21 @@ public class PaymentService {
                     });
         }
         return response;
+    }
+
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+        PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
+                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+        String paymentProvider;
+        switch (txn.getPaymentProvider()) {
+            case VNPAY -> paymentProvider = "vnpayProvider";
+            case MOMO -> paymentProvider = "momoAdapter";
+            case ZALO_PAY -> paymentProvider = "zalopayAdapter";
+            case STRIPE -> paymentProvider = "stripeAdapter";
+            case PAYPAL -> paymentProvider = "paypalAdapter";
+            default -> throw new IllegalArgumentException("Payment provider not supported");
+        }
+        PaymentProviderAdapter provider = providers.get(paymentProvider);
+        return provider.queryPayment(paymentId, httpServletRequest);
     }
 }

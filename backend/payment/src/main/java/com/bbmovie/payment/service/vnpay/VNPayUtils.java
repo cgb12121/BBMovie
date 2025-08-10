@@ -1,22 +1,23 @@
 package com.bbmovie.payment.service.vnpay;
 
 import jakarta.servlet.http.HttpServletRequest;
-
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
-import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-public class VNPayConfig {
+@SuppressWarnings("all")
+public class VNPayUtils {
+
     public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-    public static String vnp_Returnurl = "/vnpay-payment-return";
-    public static String vnp_TmnCode = "8WXB2M3M";
-    public static String vnp_HashSecret = "L9DBOO6OZ0TN8J8BVZJ5BXT0X6UY83RC"; // khi đăng ký Test
+    public static String vnp_Returnurl = "/vnpay/callback";
+    public static String vnp_TmnCode = "8WXB2M3M"; // Got on random github
+    public static String vnp_HashSecret = "L9DBOO6OZ0TN8J8BVZJ5BXT0X6UY83RC";// Got on random github
     public static String vnp_apiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
+
     public static String hashAllFields(Map fields) {
         List fieldNames = new ArrayList(fields.keySet());
         Collections.sort(fieldNames);
@@ -36,9 +37,9 @@ public class VNPayConfig {
         }
         return hmacSHA512(vnp_HashSecret,sb.toString());
     }
+
     public static String hmacSHA512(final String key, final String data) {
         try {
-
             if (key == null || data == null) {
                 throw new NullPointerException();
             }
@@ -58,6 +59,7 @@ public class VNPayConfig {
             return "";
         }
     }
+
     public static String getIpAddress(HttpServletRequest request) {
         String ipAdress;
         try {
@@ -70,6 +72,7 @@ public class VNPayConfig {
         }
         return ipAdress;
     }
+
     public static String getRandomNumber(int len) {
         Random rnd = new Random();
         String chars = "0123456789";
@@ -80,13 +83,13 @@ public class VNPayConfig {
         return sb.toString();
     }
 
-    public String createOrder(HttpServletRequest request, int amount, String orderInfor, String urlReturn ){
-
+    public static String createOrder(
+            HttpServletRequest request, String amount, String vnp_TxnRef,
+            String orderInfor, String urlReturn) {
         String vnp_Version = "2.1.0";
         String vnp_Command = "pay";
-        String vnp_TxnRef = VNPayConfig.getRandomNumber(8);
-        String vnp_IpAddr = VNPayConfig.getIpAddress(request);
-        String vnp_TmnCode = VNPayConfig.vnp_TmnCode;
+        String vnp_IpAddr = VNPayUtils.getIpAddress(request);
+        String vnp_TmnCode = VNPayUtils.vnp_TmnCode;
         String orderType = "order-type";
 
         Map<String, String> vnp_Params = new HashMap<>();
@@ -103,7 +106,6 @@ public class VNPayConfig {
         String locate = "vn";
         vnp_Params.put("vnp_Locale", locate);
 
-        urlReturn += VNPayConfig.vnp_Returnurl;
         vnp_Params.put("vnp_ReturnUrl", urlReturn);
         vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
 
@@ -144,10 +146,58 @@ public class VNPayConfig {
             }
         }
         String queryUrl = query.toString();
-        String salt = VNPayConfig.vnp_HashSecret;
-        String vnp_SecureHash = VNPayConfig.hmacSHA512(salt, hashData.toString());
+        String salt = VNPayUtils.vnp_HashSecret;
+        String vnp_SecureHash = VNPayUtils.hmacSHA512(salt, hashData.toString());
         queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
-        String paymentUrl = VNPayConfig.vnp_PayUrl + "?" + queryUrl;
+        String paymentUrl = VNPayUtils.vnp_PayUrl + "?" + queryUrl;
         return paymentUrl;
+    }
+
+    public static String createQueryOrder(
+            HttpServletRequest request, String vnp_TxnRef, String vnp_TransactionDate
+    ) {
+        String vnp_Version = "2.1.0";
+        String vnp_Command = "querydr";
+        String vnp_TmnCode = VNPayUtils.vnp_TmnCode;
+        String vnp_IpAddr = VNPayUtils.getIpAddress(request);
+        String vnp_RequestId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
+        String vnp_CreateDate = new SimpleDateFormat("yyyyMMddHHmmss").format(new Date());
+        String vnp_CreateBy = "system";
+        String vnp_OrderInfo = "Query transaction " + vnp_TxnRef;
+
+        Map<String, String> vnp_Params = new HashMap<>();
+        vnp_Params.put("vnp_RequestId", vnp_RequestId);
+        vnp_Params.put("vnp_Version", vnp_Version);
+        vnp_Params.put("vnp_Command", vnp_Command);
+        vnp_Params.put("vnp_TmnCode", vnp_TmnCode);
+        vnp_Params.put("vnp_TxnRef", vnp_TxnRef);
+        vnp_Params.put("vnp_OrderInfo", vnp_OrderInfo);
+        vnp_Params.put("vnp_TransactionDate", vnp_TransactionDate);
+        vnp_Params.put("vnp_CreateBy", vnp_CreateBy);
+        vnp_Params.put("vnp_CreateDate", vnp_CreateDate);
+        vnp_Params.put("vnp_IpAddr", vnp_IpAddr);
+
+        List<String> fieldNames = new ArrayList<>(vnp_Params.keySet());
+        Collections.sort(fieldNames);
+        StringBuilder hashData = new StringBuilder();
+        StringBuilder query = new StringBuilder();
+        for (Iterator<String> itr = fieldNames.iterator(); itr.hasNext(); ) {
+            String fieldName = itr.next();
+            String fieldValue = vnp_Params.get(fieldName);
+            if (fieldValue != null && fieldValue.length() > 0) {
+                hashData.append(fieldName).append('=').append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
+                query.append(URLEncoder.encode(fieldName, StandardCharsets.US_ASCII))
+                        .append('=')
+                        .append(URLEncoder.encode(fieldValue, StandardCharsets.US_ASCII));
+                if (itr.hasNext()) {
+                    hashData.append('&');
+                    query.append('&');
+                }
+            }
+        }
+
+        String vnp_SecureHash = VNPayUtils.hmacSHA512(VNPayUtils.vnp_HashSecret, hashData.toString());
+        query.append("&vnp_SecureHash=").append(vnp_SecureHash);
+        return "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction" + "?" + query.toString();
     }
 }

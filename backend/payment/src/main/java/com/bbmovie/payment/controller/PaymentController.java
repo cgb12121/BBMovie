@@ -2,10 +2,12 @@ package com.bbmovie.payment.controller;
 
 import com.bbmovie.payment.dto.*;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
+import com.bbmovie.payment.exception.VNPayException;
 import com.bbmovie.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,10 +26,9 @@ public class PaymentController {
     }
 
     @PostMapping("/initiate")
-    public ResponseEntity<ApiResponse<PaymentResponse>> initiatePayment(
-            @RequestBody PaymentRequestDto request,
-            HttpServletRequest httpServletRequest
-    ) {
+    public ResponseEntity<ApiResponse<PaymentResponse>> initiatePayment
+            (@RequestHeader("Authorization") String jwtToken,
+             @RequestBody PaymentRequestDto request, HttpServletRequest httpServletRequest) {
         try {
             PaymentRequest paymentRequest = new PaymentRequest();
             paymentRequest.setPaymentMethodId(request.getProvider());
@@ -37,23 +38,17 @@ public class PaymentController {
             paymentRequest.setOrderId(request.getOrderId());
             log.info("Initiating payment for order: {}", request.toString());
 
-            PaymentResponse response = paymentService.processPayment(
-                    String.valueOf(request.getProvider()), paymentRequest, httpServletRequest
-            );
+            PaymentResponse response = paymentService.processPayment(String.valueOf(request.getProvider()), paymentRequest, httpServletRequest);
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (Exception e) {
             log.error("Error processing payment: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(
-                    ApiResponse.error("Unable to process payment")
-            );
+            return ResponseEntity.badRequest().body(ApiResponse.error("Unable to process payment"));
         }
     }
 
     @PostMapping("/momo/ipn")
-    public ResponseEntity<ApiResponse<PaymentVerification>> handleMomoIpn(
-            @RequestBody Map<String, String> paymentData,
-            HttpServletRequest httpServletRequest
-    ) {
+    public ResponseEntity<ApiResponse<PaymentVerification>> handleMomoIpn
+            (@RequestBody Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         try {
             PaymentVerification verification = paymentService.verifyPayment(
                     "momoProvider", paymentData, httpServletRequest
@@ -68,63 +63,41 @@ public class PaymentController {
     }
 
     @PostMapping("/zalopay/callback")
-    public ResponseEntity<ApiResponse<PaymentVerification>> handleZaloPayCallback(
-            @RequestParam Map<String, String> params,
-            HttpServletRequest httpServletRequest
-    ) {
+    public ResponseEntity<ApiResponse<PaymentVerification>> handleZaloPayCallback
+            (@RequestParam Map<String, String> params, HttpServletRequest httpServletRequest) {
         try {
-            PaymentVerification verification = paymentService.verifyPayment(
-                    "zalopayProvider", params, httpServletRequest
-            );
+            PaymentVerification verification = paymentService.verifyPayment("zalopayProvider", params, httpServletRequest);
             return ResponseEntity.ok(ApiResponse.success(verification));
         } catch (Exception e) {
             log.error("Error processing ZaloPay callback: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(
-                    ApiResponse.error(new PaymentVerification(false, null).toString())
-            );
+            return ResponseEntity.badRequest().body(ApiResponse.error(new PaymentVerification(false, null).toString()));
         }
     }
 
     @GetMapping("/vnpay/callback")
-    public ResponseEntity<ApiResponse<PaymentVerification>> handleVNPayCallback(
-            @RequestParam Map<String, String> params,
-            HttpServletRequest httpServletRequest
-    ) {
+    public ResponseEntity<ApiResponse<PaymentVerification>> handleVNPayCallback
+            (@RequestParam Map<String, String> params, HttpServletRequest request) {
         try {
-            PaymentVerification verification = paymentService.verifyPayment(
-                    "vnpayProvider", params, httpServletRequest
-            );
-            return ResponseEntity.ok(ApiResponse.success(verification));
+            PaymentVerification verification = paymentService.verifyPayment("vnpayProvider", params, request);
+            if (verification.isSuccess()) {
+                return ResponseEntity.ok(ApiResponse.success(verification));
+            }
+            return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE)
+                    .body(ApiResponse.error("Unable to verify payment from VNPay, transaction id: " + verification.getTransactionId()));
         } catch (Exception e) {
             log.error("Error processing VNPay callback: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(
-                    ApiResponse.error(new PaymentVerification(false, null).toString())
-            );
-        }
-    }
-
-    @PostMapping("/webhook")
-    public ResponseEntity<ApiResponse<PaymentVerification>> handleWebhook(
-            @RequestHeader("X-Payment-Provider") String provider,
-            @RequestBody Map<String, String> paymentData,
-            HttpServletRequest httpServletRequest
-    ) {
-        try {
-            PaymentVerification verification = paymentService.verifyPayment(provider, paymentData, httpServletRequest);
-            return ResponseEntity.ok(ApiResponse.success(verification));
-        } catch (Exception e) {
-            log.error("Error processing webhook: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(
-                    ApiResponse.error(new PaymentVerification(false, null).toString())
-            );
+            return ResponseEntity.internalServerError().body(ApiResponse.error(
+                    """
+                    Unable to verify payment from VNPay.
+                    Please contact the admin or Vnpay hotline for further assistance.
+                    """
+            ));
         }
     }
 
     @PostMapping("/refund")
-    public ResponseEntity<ApiResponse<RefundResponse>> refundPayment(
-            @RequestBody RefundRequestDto request,
-            HttpServletRequest httpServletRequest
-    ) {
+    public ResponseEntity<ApiResponse<RefundResponse>> refundPayment
+            (@RequestBody RefundRequestDto request, HttpServletRequest httpServletRequest) {
         try {
             RefundResponse response = paymentService.refundPayment(
                     String.valueOf(request.getProvider()),
@@ -138,5 +111,10 @@ public class PaymentController {
                     ApiResponse.error(new RefundResponse(null, PaymentStatus.FAILED.getStatus()).toString())
             );
         }
+    }
+
+    @GetMapping("/query")
+    public ResponseEntity<ApiResponse<Object>> queryPayment(@RequestParam String id, HttpServletRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(paymentService.queryPayment(id, request)));
     }
 }

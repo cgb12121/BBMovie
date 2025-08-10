@@ -163,6 +163,11 @@ public class MomoAdapter implements PaymentProviderAdapter {
     }
 
     @Override
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+        return null;
+    }
+
+    @Override
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
         throw new UnsupportedOperationException("Refund is not supported by Momo");
     }

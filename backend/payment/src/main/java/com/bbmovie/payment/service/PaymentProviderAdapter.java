@@ -12,7 +12,7 @@ import java.util.Map;
 public interface PaymentProviderAdapter {
     PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest);
     PaymentVerification verifyPayment(Map<String, String> paymentData, HttpServletRequest httpServletRequest);
+    Object queryPayment(String paymentId, HttpServletRequest httpServletRequest);
     RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest);
-
     PaymentProvider getPaymentProviderName();
 }
