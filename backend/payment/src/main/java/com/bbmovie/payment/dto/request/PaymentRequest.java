@@ -1,4 +1,4 @@
-package com.bbmovie.payment.dto;
+package com.bbmovie.payment.dto.request;
 
 import lombok.*;
 
@@ -10,7 +10,7 @@ import java.math.BigDecimal;
 @Builder
 @ToString
 public class PaymentRequest {
-    private String paymentMethodId;
+    private String provider;
     private BigDecimal amount;
     private String currency;
     private String userId;

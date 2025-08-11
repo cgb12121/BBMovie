@@ -1,9 +1,9 @@
 package com.bbmovie.payment.service;
 
-import com.bbmovie.payment.dto.PaymentRequest;
-import com.bbmovie.payment.dto.PaymentResponse;
-import com.bbmovie.payment.dto.PaymentVerification;
-import com.bbmovie.payment.dto.RefundResponse;
+import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.response.PaymentCreationResponse;
+import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
+import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.exception.TransactionNotFoundException;
 import com.bbmovie.payment.exception.UnsupportedProviderException;
@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 
 import java.util.Map;
 import java.util.UUID;
+
+import static com.bbmovie.payment.entity.enums.PaymentProvider.*;
 
 @Service
 public class PaymentService {
@@ -29,19 +31,19 @@ public class PaymentService {
         this.paymentTransactionRepository = paymentTransactionRepository;
     }
 
-    public PaymentResponse processPayment(
+    public PaymentCreationResponse processPayment(
             String providerName, PaymentRequest request, HttpServletRequest httpServletRequest
     ) {
         PaymentProviderAdapter provider = providers.get(providerName);
         return provider.processPayment(request, httpServletRequest);
     }
 
-    public PaymentVerification verifyPayment(
+    public PaymentVerificationResponse verifyPayment(
             String providerName, Map<String, String> paymentDataParams,
             HttpServletRequest httpServletRequest
     ) {
         PaymentProviderAdapter provider = providers.get(providerName);
-        return provider.verifyPayment(paymentDataParams, httpServletRequest);
+        return provider.verifyPaymentCallback(paymentDataParams, httpServletRequest);
     }
 
     public RefundResponse refundPayment(String providerName, String paymentId, HttpServletRequest request) {
@@ -54,11 +56,11 @@ public class PaymentService {
                 .orElseThrow(() -> new TransactionNotFoundException("Payment not found"));
         String paymentProvider;
         switch (txn.getPaymentProvider()) {
-            case VNPAY -> paymentProvider = "vnpay";
-            case MOMO -> paymentProvider = "momo";
-            case ZALO_PAY -> paymentProvider = "zalopay";
-            case STRIPE -> paymentProvider = "stripe";
-            case PAYPAL -> paymentProvider = "paypal";
+            case VNPAY -> paymentProvider = VNPAY.getName();
+            case MOMO -> paymentProvider = MOMO.getName();
+            case ZALOPAY -> paymentProvider = ZALOPAY.getName();
+            case STRIPE -> paymentProvider = STRIPE.getName();
+            case PAYPAL -> paymentProvider = PAYPAL.getName();
             default -> throw new UnsupportedProviderException("Payment provider not supported");
         }
         PaymentProviderAdapter provider = providers.get(paymentProvider);

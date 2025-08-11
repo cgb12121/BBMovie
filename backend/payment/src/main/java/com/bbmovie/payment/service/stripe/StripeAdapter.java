@@ -1,9 +1,9 @@
 package com.bbmovie.payment.service.stripe;
 
-import com.bbmovie.payment.dto.PaymentRequest;
-import com.bbmovie.payment.dto.PaymentResponse;
-import com.bbmovie.payment.dto.PaymentVerification;
-import com.bbmovie.payment.dto.RefundResponse;
+import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.response.PaymentCreationResponse;
+import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
+import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.exception.StripePaymentException;
@@ -45,7 +45,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
         log.info("Processing Stripe payment for order: {}", request.getOrderId());
 
         PaymentTransaction transaction = new PaymentTransaction();
@@ -53,7 +53,6 @@ public class StripeAdapter implements PaymentProviderAdapter {
         transaction.setAmount(request.getAmount());
         transaction.setCurrency(request.getCurrency());
         transaction.setPaymentProvider(PaymentProvider.STRIPE);
-        transaction.setPaymentMethod(request.getPaymentMethodId());
         transaction.setTransactionDate(LocalDateTime.now());
         transaction.setDescription("Order " + request.getOrderId());
 
@@ -62,7 +61,6 @@ public class StripeAdapter implements PaymentProviderAdapter {
                     "amount", request.getAmount().multiply(BigDecimal.valueOf(100)).longValueExact(),
                     "currency", request.getCurrency(),
                     "description", "Order " + request.getOrderId(),
-                    "payment_method", request.getPaymentMethodId(),
                     "confirmation_method", "manual",
                     "confirm", true
             );
@@ -76,7 +74,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
 
             paymentTransactionRepository.save(transaction);
 
-            return new PaymentResponse(paymentIntent.getId(), stripeStatus.getPaymentStatus(), paymentIntent.getClientSecret());
+            return new PaymentCreationResponse(paymentIntent.getId(), stripeStatus.getPaymentStatus(), paymentIntent.getClientSecret());
         } catch (StripeException ex) {
             log.error("Failed to process Stripe payment: {}", ex.getMessage());
             transaction.setStatus(PaymentStatus.FAILED);
@@ -88,7 +86,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public PaymentVerification verifyPayment(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         String paymentId = Optional.ofNullable(paymentData.get("id"))
                 .orElseThrow(() -> new StripePaymentException("Missing payment ID"));
 
@@ -105,7 +103,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
             transaction.setStatus(stripeStatus.getPaymentStatus());
             paymentTransactionRepository.save(transaction);
 
-            return new PaymentVerification(stripeStatus == StripeTransactionStatus.SUCCEEDED, paymentId, null, null);
+            return new PaymentVerificationResponse(stripeStatus == StripeTransactionStatus.SUCCEEDED, paymentId, null, null, null, null);
         } catch (StripeException ex) {
             log.error("Failed to verify Stripe payment: {}", ex.getMessage());
             throw new StripePaymentException("Payment verification failed: " + ex.getMessage());

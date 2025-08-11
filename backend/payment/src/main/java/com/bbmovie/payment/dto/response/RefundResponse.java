@@ -1,4 +1,4 @@
-package com.bbmovie.payment.dto;
+package com.bbmovie.payment.dto.response;
 
 import lombok.*;
 

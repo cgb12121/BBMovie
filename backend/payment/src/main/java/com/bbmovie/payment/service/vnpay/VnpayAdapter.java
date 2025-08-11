@@ -1,15 +1,16 @@
 package com.bbmovie.payment.service.vnpay;
 
-import com.bbmovie.payment.dto.PaymentRequest;
-import com.bbmovie.payment.dto.PaymentResponse;
-import com.bbmovie.payment.dto.PaymentVerification;
-import com.bbmovie.payment.dto.RefundResponse;
+import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.response.PaymentCreationResponse;
+import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
+import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.VNPayException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,8 @@ import java.util.*;
 import static com.bbmovie.payment.service.vnpay.VnpayProvidedFunction.hashAllFields;
 import static com.bbmovie.payment.service.vnpay.VnpayQueryParams.*;
 import static com.bbmovie.payment.service.vnpay.VnpayTransactionStatus.SUCCESS;
+import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.stringToJsonNode;
+import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.toJsonString;
 
 @Log4j2
 @Service("vnpay")
@@ -37,7 +40,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     }
 
     @Transactional
-    public PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
         BigDecimal amountInVnd = request.getAmount();
         String currency = request.getCurrency();
         if (currency == null || !currency.equalsIgnoreCase("VND")) {
@@ -53,12 +56,13 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         PaymentTransaction transaction = createTransactionForVnpay(request, vnpTxnRef, paymentUrl);
         paymentTransactionRepository.save(transaction);
 
-        return new PaymentResponse(vnpTxnRef, PaymentStatus.PENDING, paymentUrl);
+        return new PaymentCreationResponse(vnpTxnRef, PaymentStatus.PENDING, paymentUrl);
     }
 
+    //should prevent process payment again after callback
     @Override
     @Transactional
-    public PaymentVerification verifyPayment(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         String checkSum = paymentData.get(VNPAY_SECURE_HASH);
         String vnpTxnRef = paymentData.get(VNPAY_TXN_REF_PARAM);
         String cardType = paymentData.get(VNPAY_CARD_TYPE);
@@ -100,7 +104,16 @@ public class VnpayAdapter implements PaymentProviderAdapter {
             paymentTransactionRepository.save(tx);
         });
 
-        return new PaymentVerification(isValid, vnpTxnRef, responseCode, message);
+        JsonNode providerData = stringToJsonNode(toJsonString(paymentData));
+
+        return PaymentVerificationResponse.builder()
+                .isValid(isValid)
+                .transactionId(vpnTransactionNo)
+                .code(responseCode)
+                .message(message)
+                .providerPayloadStringJson(providerData)
+                .responseToProviderStringJson("No response to VNPay")
+                .build();
     }
 
     @Override

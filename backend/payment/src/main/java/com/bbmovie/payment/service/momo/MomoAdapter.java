@@ -1,6 +1,9 @@
 package com.bbmovie.payment.service.momo;
 
-import com.bbmovie.payment.dto.*;
+import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.response.PaymentCreationResponse;
+import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
+import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
@@ -22,6 +25,9 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.Base64;
 
+/**
+ * MOMO banned the developer account
+ */
 @Slf4j
 @Service("momo")
 public class MomoAdapter implements PaymentProviderAdapter {
@@ -46,8 +52,14 @@ public class MomoAdapter implements PaymentProviderAdapter {
 
     private final ObjectMapper mapper = new ObjectMapper();
 
+    private final boolean supported = false;
+
     @Override
-    public PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+        if (!supported) {
+            throw new UnsupportedOperationException("Momo is not supported yet");
+        }
+
         long amount = Optional.ofNullable(request.getAmount())
                 .map(BigDecimal::longValue)
                 .orElseThrow(() -> new IllegalArgumentException("amount is required"));
@@ -95,31 +107,41 @@ public class MomoAdapter implements PaymentProviderAdapter {
         String url = sandbox ? MomoConstraint.CREATE_URL_TEST : MomoConstraint.CREATE_URL_PROD;
         String responseBody = sendJson(url, body);
 
-        Map<String, Object> response;
+
         try {
-            response = mapper.readValue(responseBody, Map.class);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> response = mapper.readValue(responseBody, Map.class);
+
+            int resultCode = Optional.ofNullable((Number) response.get("resultCode")).map(Number::intValue).orElse(-1);
+            String payUrl = Optional.ofNullable(response.get("payUrl")).map(Object::toString).orElse(null);
+
+            PaymentStatus status = (resultCode == 0) ? PaymentStatus.PENDING : PaymentStatus.FAILED;
+
+            return PaymentCreationResponse.builder()
+                    .transactionId(orderId)
+                    .status(status)
+                    .providerReference(payUrl)
+                    .build();
         } catch (Exception e) {
-            throw new RuntimeException("Invalid MoMo response", e);
+            log.error("Failed to process payment: {}", e.getMessage());
+            return PaymentCreationResponse.builder()
+                    .transactionId(null)
+                    .status(null)
+                    .providerReference(null)
+                    .build();
         }
-
-        int resultCode = Optional.ofNullable((Number) response.get("resultCode")).map(Number::intValue).orElse(-1);
-        String payUrl = Optional.ofNullable(response.get("payUrl")).map(Object::toString).orElse(null);
-
-        PaymentStatus status = (resultCode == 0) ? PaymentStatus.PENDING : PaymentStatus.FAILED;
-
-        return PaymentResponse.builder()
-                .transactionId(orderId)
-                .status(status)
-                .providerReference(payUrl)
-                .build();
     }
 
     @Override
-    public PaymentVerification verifyPayment(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+        if (!supported) {
+            throw new UnsupportedOperationException("Momo is not supported yet");
+        }
+
         String signature = paymentData.get("signature");
         Integer resultCode = Optional.ofNullable(paymentData.get("resultCode")).map(Integer::parseInt).orElse(null);
         if (signature == null || signature.isBlank() || resultCode == null) {
-            return new PaymentVerification(false, null, null, null);
+            return new PaymentVerificationResponse(false, null, null, null, null, null);
         }
 
         boolean isIpn = paymentData.containsKey("transId");
@@ -159,16 +181,22 @@ public class MomoAdapter implements PaymentProviderAdapter {
         boolean match = calculated.equalsIgnoreCase(signature);
         boolean success = match && resultCode == 0;
 
-        return new PaymentVerification(success, paymentData.get("orderId"), null, null);
+        return new PaymentVerificationResponse(success, paymentData.get("orderId"), null, null, null, null);
     }
 
     @Override
     public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
+        if (!supported) {
+            throw new UnsupportedOperationException("Momo is not supported yet");
+        }
         return null;
     }
 
     @Override
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
+        if (!supported) {
+            throw new UnsupportedOperationException("Momo is not supported yet");
+        }
         throw new UnsupportedOperationException("Refund is not supported by Momo");
     }
 

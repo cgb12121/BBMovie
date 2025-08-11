@@ -1,4 +1,4 @@
-package com.bbmovie.payment.dto;
+package com.bbmovie.payment.dto.request;
 
 import lombok.*;
 
@@ -6,7 +6,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class RefundRequestDto {
+public class RefundRequest {
     private String provider;
     private String paymentId;
 }

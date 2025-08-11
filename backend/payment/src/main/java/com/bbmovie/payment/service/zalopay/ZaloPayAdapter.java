@@ -1,9 +1,9 @@
 package com.bbmovie.payment.service.zalopay;
 
-import com.bbmovie.payment.dto.PaymentRequest;
-import com.bbmovie.payment.dto.PaymentResponse;
-import com.bbmovie.payment.dto.PaymentVerification;
-import com.bbmovie.payment.dto.RefundResponse;
+import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.response.PaymentCreationResponse;
+import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
+import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
@@ -36,6 +36,9 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.stringToJsonNode;
+import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.toJsonString;
+
 @Log4j2
 @Service("zalopay")
 public class ZaloPayAdapter implements PaymentProviderAdapter {
@@ -58,6 +61,9 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     @Value("${payment.zalopay.callback-url}")
     private String callbackUrl;
 
+    @Value("${payment.zalopay.redirect-url}")
+    private String redirectUrl;
+
     private String createOrderUrl;
     private String appIdParam;
     private String appUserParam;
@@ -70,8 +76,11 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     private String bankCodeParam;
     private String returnCodeParam;
     private String orderUrlParam;
+    @SuppressWarnings("all")
     private String zpTransTokenParam;
     private String returnMessageParam;
+    private String redirectUrlParam;
+    private String callbackUrlParam;
 
     @PostConstruct
     public void init() {
@@ -93,6 +102,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                 orderUrlParam = "orderurl";
                 zpTransTokenParam = null;
                 returnMessageParam = "returnmessage";
+                callbackUrlParam = "callbackurl";
+                redirectUrlParam = "redirecturl";
             }
             case 2 -> {
                 createOrderUrl = sandbox
@@ -111,6 +122,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                 orderUrlParam = "order_url";
                 zpTransTokenParam = "zp_trans_token";
                 returnMessageParam = "return_message";
+                callbackUrlParam = "callback_url";
+                redirectUrlParam = "redirect_url";
             }
             default -> {
                 log.fatal("Shut down the application: Unsupported ZaloPay version: {}", version);
@@ -128,7 +141,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional
-    public PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
         BigDecimal amount = Objects.requireNonNull(request.getAmount(), "amount is required");
         String currency = request.getCurrency() != null
                 ? request.getCurrency()
@@ -144,7 +157,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             String embedData = objectMapper.writeValueAsString(Map.of(
-                    "redirecturl", callbackUrl,
+                    redirectUrlParam, redirectUrl,
                     "merchantinfo", request.getOrderId()
             ));
 
@@ -163,6 +176,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             params.put(appTransIdParam, appTransId);
             params.put(embedDataParam, embedData);
             params.put(itemParam, items);
+            params.put(callbackUrlParam, callbackUrl);
 
             if (version == 2 && bankCodeParam != null) {
                 params.put(bankCodeParam, "zalopayapp");
@@ -231,11 +245,10 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             Map<String, Object> result = new ObjectMapper().readValue(responseBody, Map.class);
 
             String returnCode = result.get(returnCodeParam).toString();
-            String returnMessage = result.get(returnMessageParam) != null ? result.get(returnMessageParam).toString() : null;
+            String returnMessage = result.get(returnMessageParam).toString();
             log.info("ZaloPay return code: {}, message: {}", returnCode, returnMessage);
 
-            String paramKey = version == 1 ? orderUrlParam : zpTransTokenParam;
-            String orderUrl = result.get(paramKey) != null ? result.get(paramKey).toString() : null;
+            String orderUrl = result.get(orderUrlParam).toString();
 
             PaymentStatus status = ("1".equals(returnCode))
                     ? PaymentStatus.PENDING
@@ -248,7 +261,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             PaymentTransaction transaction = createZalopayTransaction(request, appTransId, orderUrl, status, returnCode);
             paymentTransactionRepository.save(transaction);
 
-            return new PaymentResponse(appTransId, status, orderUrl);
+            return new PaymentCreationResponse(appTransId, status, orderUrl);
         } catch (IOException e) {
             log.error("Error processing ZaloPay payment", e);
             throw new ZalopayException("Error processing ZaloPay payment");
@@ -257,7 +270,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional
-    public PaymentVerification verifyPayment(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         @SuppressWarnings("all")
         /*
             Dữ liệu nhận được từ callback:
@@ -267,20 +280,42 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                                                                             2: Agreement
          */
         // ZaloPay callback (v1/v2): form-urlencoded with keys data, mac
-
-
         String macFromRequest = paymentData.get("mac");
         String data = paymentData.get("data");
-        if (macFromRequest == null || macFromRequest.isBlank() || data == null || data.isBlank()) {
-            return new PaymentVerification(false, null, "INVALID", "Missing data/mac");
+
+        if (macFromRequest == null) {
+            macFromRequest = paymentData.get("checksum");
+        }
+
+        if (macFromRequest == null) {
+            return PaymentVerificationResponse.builder()
+                    .isValid(false)
+                    .transactionId(null)
+                    .code("INVALID")
+                    .message("Missing data/mac")
+                    .providerPayloadStringJson(data)
+                    .responseToProviderStringJson(stringToJsonNode(toJsonString(Map.of(
+                            returnCodeParam, -1,
+                            returnMessageParam, "Missing data/mac"
+                    ))))
+                    .build();
         }
 
         // Verify with key2
         String calculated = ZaloHmacUtil.hmacHexStringEncode(ZaloHmacUtil.HMACSHA256, key2, data);
         if (calculated == null || !calculated.equalsIgnoreCase(macFromRequest)) {
-            return new PaymentVerification(false, null, "SIGNATURE_MISMATCH", "MAC not match");
+            return PaymentVerificationResponse.builder()
+                    .isValid(false)
+                    .transactionId(null)
+                    .code("SIGNATURE_MISMATCH")
+                    .message("MAC not match")
+                    .providerPayloadStringJson(data)
+                    .responseToProviderStringJson(stringToJsonNode(toJsonString(Map.of(
+                            returnCodeParam, -1,
+                            returnMessageParam, "MAC not match"
+                    ))))
+                    .build();
         }
-
 
         try {
             @SuppressWarnings("unchecked")
@@ -321,10 +356,30 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
              */
             String s = "this is just a placeholder to suppress comment warnings. need to perform post request after call back";
 
-            return new PaymentVerification(success, appTransId, returnCode, success ? "SUCCESS" : "FAILED");
+            return PaymentVerificationResponse.builder()
+                    .isValid(success)
+                    .transactionId(appTransId)
+                    .code(returnCode)
+                    .message(success ? "SUCCESS" : "FAILED")
+                    .providerPayloadStringJson(data)
+                    .responseToProviderStringJson(stringToJsonNode(toJsonString(Map.of(
+                            returnCodeParam, success ? 1 : -1,
+                            returnMessageParam, success ? "OK" : "FAILED"
+                    ))))
+                    .build();
         } catch (Exception e) {
             log.error("Error verifying ZaloPay payment", e);
-            return new PaymentVerification(false, null, "PARSE_ERROR", "Invalid data payload");
+            return PaymentVerificationResponse.builder()
+                    .isValid(false)
+                    .transactionId(null)
+                    .code("PARSE_ERROR")
+                    .message("Invalid data payload")
+                    .providerPayloadStringJson(data)
+                    .responseToProviderStringJson(stringToJsonNode(toJsonString(Map.of(
+                            returnCodeParam, -1,
+                            returnMessageParam, "Invalid data payload"
+                    ))))
+                    .build();
         }
     }
 
@@ -348,7 +403,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Override
     public PaymentProvider getPaymentProviderName() {
-        return PaymentProvider.ZALO_PAY;
+        return PaymentProvider.ZALOPAY;
     }
 
     private String generateAppTransId() {
@@ -367,8 +422,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
         transaction.setSubscription(null);
         transaction.setAmount(request.getAmount());
         transaction.setCurrency(request.getCurrency());
-        transaction.setPaymentProvider(PaymentProvider.ZALO_PAY);
-        transaction.setPaymentMethod(request.getPaymentMethodId());
+        transaction.setPaymentProvider(PaymentProvider.ZALOPAY);
         transaction.setPaymentGatewayId(appTransId);
         transaction.setPaymentGatewayOrderId(orderUrl); // v1: orderurl, v2: zp_trans_token
         transaction.setProviderStatus(status == PaymentStatus.PENDING ? "PENDING" : returnCode);

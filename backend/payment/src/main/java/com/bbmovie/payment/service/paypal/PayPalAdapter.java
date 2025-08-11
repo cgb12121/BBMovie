@@ -1,9 +1,9 @@
 package com.bbmovie.payment.service.paypal;
 
-import com.bbmovie.payment.dto.PaymentRequest;
-import com.bbmovie.payment.dto.PaymentResponse;
-import com.bbmovie.payment.dto.PaymentVerification;
-import com.bbmovie.payment.dto.RefundResponse;
+import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.response.PaymentCreationResponse;
+import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
+import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.PayPalPaymentException;
@@ -12,15 +12,17 @@ import com.paypal.api.payments.*;
 import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;
 import jakarta.servlet.http.HttpServletRequest;
-import org.jetbrains.annotations.NotNull;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.util.Collections;
 import java.util.Map;
 
+import static com.bbmovie.payment.service.paypal.PaypalTransactionStatus.APPROVED;
+import static com.bbmovie.payment.service.paypal.PaypalTransactionStatus.COMPLETED;
+
+@Log4j2
 @Service("paypal")
 public class PayPalAdapter implements PaymentProviderAdapter {
 
@@ -33,21 +35,25 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     @Value("${payment.paypal.mode}")
     private String mode;
 
-    private static final Logger log = LoggerFactory.getLogger(PayPalAdapter.class);
+    @Value("${payment.paypal.return-url:http://localhost:8080/api/payment/success}")
+    private String returnUrl;
+
+    @Value("${payment.paypal.cancel-url:http://localhost:8080/api/payment/cancel}")
+    private String cancelUrl;
 
     private APIContext getApiContext() {
         return new APIContext(clientId, clientSecret, mode);
     }
 
     @Override
-    public PaymentResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
         Payment payment = createPayment(request);
         try {
             Payment createdPayment = payment.create(getApiContext());
-            PaymentStatus status = createdPayment.getState().equalsIgnoreCase(PaypalTransactionStatus.APPROVED.getStatus())
+            PaymentStatus status = createdPayment.getState().equalsIgnoreCase(APPROVED.getStatus())
                     ? PaymentStatus.SUCCEEDED
                     : PaymentStatus.PENDING;
-            return new PaymentResponse(
+            return new PaymentCreationResponse(
                     createdPayment.getId(),
                     status,
                     createdPayment.getId()
@@ -59,15 +65,15 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public PaymentVerification verifyPayment(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         try {
             String paymentId = paymentData.get("paymentId");
             if (paymentId == null) {
                 throw new PayPalPaymentException("Missing paymentId in verification data");
             }
             Payment payment = Payment.get(getApiContext(), paymentId);
-            boolean success = payment.getState().equalsIgnoreCase(PaypalTransactionStatus.APPROVED.getStatus());
-            return new PaymentVerification(success, payment.getId(), null, null);
+            boolean success = payment.getState().equalsIgnoreCase(APPROVED.getStatus());
+            return new PaymentVerificationResponse(success, payment.getId(), null, null, null, null);
         } catch (PayPalRESTException e) {
             log.error("Unable to verify PayPal payment", e);
             throw new PayPalPaymentException("Unable to verify PayPal payment");
@@ -85,7 +91,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             Sale sale = Sale.get(getApiContext(), paymentId);
             RefundRequest refundRequest = new RefundRequest();
             DetailedRefund refund = sale.refund(getApiContext(), refundRequest);
-            String status = PaypalTransactionStatus.COMPLETED.getStatus().equals(refund.getState())
+            String status = COMPLETED.getStatus().equals(refund.getState())
                     ? PaymentStatus.SUCCEEDED.getStatus()
                     : PaymentStatus.FAILED.getStatus();
             return new RefundResponse(refund.getId(), status);
@@ -112,14 +118,13 @@ public class PayPalAdapter implements PaymentProviderAdapter {
         return createPayment(transaction);
     }
 
-    @NotNull
-    private static Payment createPayment(Transaction transaction) {
+    private Payment createPayment(Transaction transaction) {
         Payer payer = new Payer();
         payer.setPaymentMethod("paypal");
 
         RedirectUrls redirectUrls = new RedirectUrls();
-        redirectUrls.setReturnUrl("http://localhost:8080/api/payment/success");
-        redirectUrls.setCancelUrl("http://localhost:8080/api/payment/cancel");
+        redirectUrls.setReturnUrl(returnUrl);
+        redirectUrls.setCancelUrl(cancelUrl);
 
         Payment payment = new Payment();
         payment.setIntent("sale");
