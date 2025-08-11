@@ -55,7 +55,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
     private final boolean supported = false;
 
     @Override
-    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
         if (!supported) {
             throw new UnsupportedOperationException("Momo is not supported yet");
         }

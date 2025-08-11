@@ -141,7 +141,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional
-    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
         BigDecimal amount = Objects.requireNonNull(request.getAmount(), "amount is required");
         String currency = request.getCurrency() != null
                 ? request.getCurrency()

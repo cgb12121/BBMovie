@@ -9,6 +9,7 @@ import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.PayPalPaymentException;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.paypal.api.payments.*;
+import com.paypal.api.payments.Error;
 import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,21 +47,114 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
+        /*
+                Init object for request:
+                {
+                  "intent": The payment intent from the request,
+                  "payer": {
+                    "payment_method": "paypal"
+                  },
+                  "transactions": [
+                    {
+                      "amount": {
+                        "currency": "[...]",
+                        "total": "[...]"
+                      },
+                      "description": "[...]"
+                    }
+                  ],
+                  "redirect_urls": {
+                    "return_url": "[...]",
+                    "cancel_url": "[...]"
+                  }
+                }
+
+         */
         Payment payment = createPayment(request);
+        log.info("Created PayPal payment {}", payment.toJSON());
         try {
+            /*
+                    Execute request to PayPal: Payment.create(getApiContext())
+
+                    Return object:
+
+                            {
+                              "id": A unique string identifier for the payment,
+                              "intent": The payment intent from the request,
+                              "payer": {
+                                "payment_method": "paypal"
+                              },
+                              "transactions": [
+                                {
+                                  "related_resources": [],
+                                  "amount": {
+                                    "currency": "[...]",
+                                    "total": "[...]"
+                                  },
+                                  "description": "[...]"
+                                }
+                              ],
+                              "state": "created",
+                              "create_time": "[ISO 8601]",
+                              "links": [
+                                {
+                                  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                                        This is an API link to retrieve (GET) the current payment details from PayPal's servers.
+                                        It's for your backend to check or update the payment status later.
+                                        Not for the user.
+                                  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                                  "href": "https://api.sandbox.paypal.com/v1/payments/payment/{id}",
+                                  "rel": "self",
+                                  "method": "GET"
+                                },
+                                {
+                                  >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                                        This is the link you should use for the user.
+                                        Redirect the user to this URL (via a browser or app) to approve and complete the
+                                        payment on PayPal's website.
+                                   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                                  "href": "https://www.sandbox.paypal.com/cgi-bin/webscr?cmd[what are these here for?]",
+                                  "rel": "approval_url",
+                                  "method": "REDIRECT"
+                                },
+                                {
+
+                                 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                                     This is an API link to execute (POST) the payment after user approval.
+                                     Your backend calls this to finalize the transaction once the user returns from the approval page.
+                                     Not for the user.
+                                 >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+                                  "href": "https://api.sandbox.paypal.com/v1/payments/payment/{id}/execute",
+                                  "rel": "execute",
+                                  "method": "POST"
+                                }
+                              ]
+                            }
+             */
             Payment createdPayment = payment.create(getApiContext());
+            log.info("Created PayPal payment {}", createdPayment.toJSON());
+
+            String approvalUrl = null;
+            for (Links link : createdPayment.getLinks()) {
+                if ("approval_url".equals(link.getRel())) {
+                    approvalUrl = link.getHref();
+                    break;
+                }
+            }
+
+            if (approvalUrl == null) {
+                throw new PayPalPaymentException("Approval URL not found in PayPal response");
+            }
+
             PaymentStatus status = createdPayment.getState().equalsIgnoreCase(APPROVED.getStatus())
                     ? PaymentStatus.SUCCEEDED
                     : PaymentStatus.PENDING;
-            return new PaymentCreationResponse(
-                    createdPayment.getId(),
-                    status,
-                    createdPayment.getId()
-            );
+
+            return new PaymentCreationResponse(createdPayment.getId(), status, approvalUrl);
         } catch (PayPalRESTException e) {
             log.error("Unable to create PayPal payment", e);
-            throw new PayPalPaymentException("Unable to create PayPal payment");
+            throw new PayPalPaymentException(e.getDetails());
         }
     }
 

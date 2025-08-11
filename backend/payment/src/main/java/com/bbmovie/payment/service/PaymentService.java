@@ -35,7 +35,7 @@ public class PaymentService {
             String providerName, PaymentRequest request, HttpServletRequest httpServletRequest
     ) {
         PaymentProviderAdapter provider = providers.get(providerName);
-        return provider.processPayment(request, httpServletRequest);
+        return provider.createPaymentRequest(request, httpServletRequest);
     }
 
     public PaymentVerificationResponse verifyPayment(

@@ -10,7 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.Map;
 
 public interface PaymentProviderAdapter {
-    PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest);
+    PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest);
     PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest);
     Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest);
     RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest);

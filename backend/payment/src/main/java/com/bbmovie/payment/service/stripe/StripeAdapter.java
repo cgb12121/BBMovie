@@ -45,7 +45,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
         log.info("Processing Stripe payment for order: {}", request.getOrderId());
 
         PaymentTransaction transaction = new PaymentTransaction();

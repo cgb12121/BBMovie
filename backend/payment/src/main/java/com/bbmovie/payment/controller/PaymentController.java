@@ -36,7 +36,6 @@ public class PaymentController {
             @RequestBody PaymentRequest request, HttpServletRequest httpServletRequest
         ) {
         try {
-            log.info("Received payment request: {}", jwtToken);
             PaymentCreationResponse response = paymentService.processPayment(
                     String.valueOf(request.getProvider()), request, httpServletRequest);
             return ResponseEntity.ok(ApiResponse.success(response));

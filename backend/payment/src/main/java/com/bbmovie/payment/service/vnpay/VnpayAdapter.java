@@ -40,7 +40,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     }
 
     @Transactional
-    public PaymentCreationResponse processPayment(PaymentRequest request, HttpServletRequest httpServletRequest) {
+    public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
         BigDecimal amountInVnd = request.getAmount();
         String currency = request.getCurrency();
         if (currency == null || !currency.equalsIgnoreCase("VND")) {
