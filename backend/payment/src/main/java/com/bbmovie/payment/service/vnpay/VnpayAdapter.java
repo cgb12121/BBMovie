@@ -23,6 +23,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import static com.bbmovie.payment.service.vnpay.VnpayProvidedFunction.hashAllFields;
+import static com.bbmovie.payment.service.vnpay.VnpayProvidedFunction.vnp_Returnurl;
 import static com.bbmovie.payment.service.vnpay.VnpayQueryParams.*;
 import static com.bbmovie.payment.service.vnpay.VnpayTransactionStatus.SUCCESS;
 import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.stringToJsonNode;
@@ -62,7 +63,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     //should prevent process payment again after callback
     @Override
     @Transactional
-    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         String checkSum = paymentData.get(VNPAY_SECURE_HASH);
         String vnpTxnRef = paymentData.get(VNPAY_TXN_REF_PARAM);
         String cardType = paymentData.get(VNPAY_CARD_TYPE);
@@ -117,7 +118,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
         Map<String, String> body = VnpayProvidedFunction.createQueryOrder(httpServletRequest, txn);
@@ -135,25 +136,20 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         return new RefundResponse(result.get(VNPAY_TXN_REF_PARAM), result.get(VNPAY_RESPONSE_CODE));
     }
 
-    @Override
-    public PaymentProvider getPaymentProviderName() {
-        return PaymentProvider.VNPAY;
-    }
-
     private static PaymentTransaction createTransactionForVnpay(PaymentRequest request, String vnpTxnRef, String paymentUrl) {
-        PaymentTransaction transaction = new PaymentTransaction();
-        transaction.setUserId(request.getUserId());
-        transaction.setSubscription(null); // or set if linked to a subscription later
-        transaction.setAmount(request.getAmount());
-        transaction.setCurrency(request.getCurrency());
-        transaction.setPaymentProvider(PaymentProvider.VNPAY);
-        transaction.setPaymentGatewayId(vnpTxnRef); // store gateway transaction reference
-        transaction.setProviderStatus("PENDING");
-        transaction.setTransactionDate(LocalDateTime.now());
-        transaction.setStatus(PaymentStatus.PENDING);
-        transaction.setDescription("VNPay payment for order: " + request.getOrderId());
-        transaction.setIpnUrl("http://localhost:8088/api/payment/vnpay/callback");
-        transaction.setReturnUrl(paymentUrl);
-        return transaction;
+        return PaymentTransaction.builder()
+                .userId(request.getUserId())
+                .subscription(null)  // or set if linked to a subscription later
+                .amount(request.getAmount())
+                .currency(request.getCurrency())
+                .paymentProvider(PaymentProvider.VNPAY)
+                .paymentGatewayOrderId(vnpTxnRef) // store gateway transaction reference
+                .providerStatus("PENDING")
+                .transactionDate(LocalDateTime.now())
+                .status(PaymentStatus.PENDING)
+                .description("VNPay payment for order: " + request.getOrderId())
+                .ipnUrl(vnp_Returnurl)
+                .returnUrl(paymentUrl)
+                .build();
     }
 }

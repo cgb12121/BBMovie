@@ -86,7 +86,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         String paymentId = Optional.ofNullable(paymentData.get("id"))
                 .orElseThrow(() -> new StripePaymentException("Missing payment ID"));
 
@@ -111,7 +111,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
         return null;
     }
 
@@ -142,10 +142,5 @@ public class StripeAdapter implements PaymentProviderAdapter {
             paymentTransactionRepository.save(transaction);
             throw new StripePaymentException("Refund processing failed: " + ex.getMessage());
         }
-    }
-
-    @Override
-    public PaymentProvider getPaymentProviderName() {
-        return PaymentProvider.STRIPE;
     }
 }

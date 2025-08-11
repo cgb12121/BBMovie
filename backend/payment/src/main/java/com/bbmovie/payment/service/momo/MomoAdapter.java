@@ -4,7 +4,6 @@ import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
-import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -133,7 +132,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         if (!supported) {
             throw new UnsupportedOperationException("Momo is not supported yet");
         }
@@ -185,7 +184,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
         if (!supported) {
             throw new UnsupportedOperationException("Momo is not supported yet");
         }
@@ -198,11 +197,6 @@ public class MomoAdapter implements PaymentProviderAdapter {
             throw new UnsupportedOperationException("Momo is not supported yet");
         }
         throw new UnsupportedOperationException("Refund is not supported by Momo");
-    }
-
-    @Override
-    public PaymentProvider getPaymentProviderName() {
-        return PaymentProvider.MOMO;
     }
 
     private String buildSignatureString(Map<String, String> fields) {

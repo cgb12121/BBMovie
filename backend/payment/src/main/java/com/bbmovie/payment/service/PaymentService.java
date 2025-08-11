@@ -1,5 +1,6 @@
 package com.bbmovie.payment.service;
 
+import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -19,6 +20,7 @@ import static com.bbmovie.payment.entity.enums.PaymentProvider.*;
 
 @Service
 public class PaymentService {
+
     private final Map<String, PaymentProviderAdapter> providers;
     private final PaymentTransactionRepository paymentTransactionRepository;
 
@@ -31,27 +33,32 @@ public class PaymentService {
         this.paymentTransactionRepository = paymentTransactionRepository;
     }
 
-    public PaymentCreationResponse processPayment(
-            String providerName, PaymentRequest request, HttpServletRequest httpServletRequest
-    ) {
-        PaymentProviderAdapter provider = providers.get(providerName);
-        return provider.createPaymentRequest(request, httpServletRequest);
+    public PaymentCreationResponse createPayment(String provider, PaymentRequest request, HttpServletRequest hsr) {
+        PaymentProviderAdapter adapter = providers.get(provider);
+        return adapter.createPaymentRequest(request, hsr);
     }
 
-    public PaymentVerificationResponse verifyPayment(
-            String providerName, Map<String, String> paymentDataParams,
-            HttpServletRequest httpServletRequest
-    ) {
-        PaymentProviderAdapter provider = providers.get(providerName);
-        return provider.verifyPaymentCallback(paymentDataParams, httpServletRequest);
+    public PaymentVerificationResponse handleCallback(String provider, Map<String, String> params, HttpServletRequest hsr) {
+        PaymentProviderAdapter adapter = providers.get(provider);
+        return adapter.handleCallback(params, hsr);
     }
 
-    public RefundResponse refundPayment(String providerName, String paymentId, HttpServletRequest request) {
-        PaymentProviderAdapter provider = providers.get(providerName);
-        return provider.refundPayment(paymentId, request);
+    public PaymentVerificationResponse handleIpn(String provider, CallbackRequestContext ctx) {
+        PaymentProviderAdapter adapter = providers.get(provider);
+        return adapter.handleIpn(ctx);
     }
 
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse handleWebhook(String provider, CallbackRequestContext ctx) {
+        PaymentProviderAdapter adapter = providers.get(provider);
+        return adapter.handleWebhook(ctx);
+    }
+
+    public RefundResponse refundPayment(String provider, String paymentId, HttpServletRequest hsr) {
+        PaymentProviderAdapter adapter = providers.get(provider);
+        return adapter.refundPayment(paymentId, hsr);
+    }
+
+    public Object queryPayment(String paymentId, HttpServletRequest hsr) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new TransactionNotFoundException("Payment not found"));
         String paymentProvider;
@@ -64,6 +71,6 @@ public class PaymentService {
             default -> throw new UnsupportedProviderException("Payment provider not supported");
         }
         PaymentProviderAdapter provider = providers.get(paymentProvider);
-        return provider.queryPaymentFromProvider(paymentId, httpServletRequest);
+        return provider.queryPayment(paymentId, hsr);
     }
 }

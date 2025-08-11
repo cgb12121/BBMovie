@@ -5,7 +5,8 @@ import lombok.Getter;
 @Getter
 public enum PaypalTransactionStatus {
     APPROVED("APPROVED"),
-    COMPLETED("COMPLETED");
+    COMPLETED("COMPLETED"),
+    FAILED("FAILED");
 
     private final String status;
 

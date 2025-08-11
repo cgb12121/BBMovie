@@ -1,15 +1,14 @@
 package com.bbmovie.payment.service.paypal;
 
 import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
-import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.PayPalPaymentException;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.paypal.api.payments.*;
-import com.paypal.api.payments.Error;
 import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,8 +19,7 @@ import org.springframework.stereotype.Service;
 import java.util.Collections;
 import java.util.Map;
 
-import static com.bbmovie.payment.service.paypal.PaypalTransactionStatus.APPROVED;
-import static com.bbmovie.payment.service.paypal.PaypalTransactionStatus.COMPLETED;
+import static com.bbmovie.payment.service.paypal.PaypalTransactionStatus.*;
 
 @Log4j2
 @Service("paypal")
@@ -36,9 +34,32 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     @Value("${payment.paypal.mode}")
     private String mode;
 
-    @Value("${payment.paypal.return-url:http://localhost:8080/api/payment/success}")
-    private String returnUrl;
+    /**
+     * <b>NOTE:</b>
+     * <p>
+     * This is the URL PayPal will redirect the user’s browser to after they approve the payment on PayPal’s site.
+     * <p>
+     * After the user clicks "Pay" on PayPal, they are sent back to your site at returnUrl.
+     * <p>
+     * This is not a confirmation that the payment succeeded — it just means the user approved it.
+     * <p>
+     * <b>IMPORTANT</b>
+     * <p>
+     * You still have to call PayPal’s "execute payment" or "capture payment" API on your backend to finalize.
+     */
+    @Value("${payment.paypal.return-url}")
+    private String returnUrl; //(sometimes called successUrl or redirectUrl)
 
+    /**
+     * <b>NOTE:</b>
+     * <p>
+     * The URL PayPal redirects the user to if they cancel during checkout on PayPal’s site.
+     * <p>
+     * If the user clicks “Cancel and return to merchant” before completing the payment.
+     * <b>IMPORTANT</b>
+     * <p>
+     * Let you handle the UI for “payment canceled” or restore the shopping cart.
+     */
     @Value("${payment.paypal.cancel-url:http://localhost:8080/api/payment/cancel}")
     private String cancelUrl;
 
@@ -158,16 +179,31 @@ public class PayPalAdapter implements PaymentProviderAdapter {
         }
     }
 
+
     @Override
-    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         try {
             String paymentId = paymentData.get("paymentId");
             if (paymentId == null) {
                 throw new PayPalPaymentException("Missing paymentId in verification data");
             }
+            // Shows details for a payment, by ID.
             Payment payment = Payment.get(getApiContext(), paymentId);
-            boolean success = payment.getState().equalsIgnoreCase(APPROVED.getStatus());
-            return new PaymentVerificationResponse(success, payment.getId(), null, null, null, null);
+            log.info("Got payment details from PayPal {}", payment.toJSON());
+
+            String stateOfPayment = payment.getState();
+            boolean success = stateOfPayment.equalsIgnoreCase(COMPLETED.getStatus());
+
+            String messageForClient = getMessage(stateOfPayment);
+
+            return PaymentVerificationResponse.builder()
+                    .isValid(success)
+                    .transactionId(payment.getId())
+                    .code(payment.getState())
+                    .message(messageForClient)
+                    .providerPayloadStringJson(payment.getTransactions())
+                    .responseToProviderStringJson(null)
+                    .build();
         } catch (PayPalRESTException e) {
             log.error("Unable to verify PayPal payment", e);
             throw new PayPalPaymentException("Unable to verify PayPal payment");
@@ -175,7 +211,15 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse handleWebhook(CallbackRequestContext ctx) {
+        // Typically you would validate headers and raw payload signature with PayPal SDK or your verifier.
+        // For now, treat the presence of payload as a basic check and return success=false to force implementors to finish
+        boolean hasPayload = ctx.getRawBody() != null && !ctx.getRawBody().isBlank();
+        return new PaymentVerificationResponse(hasPayload, null, null, null, null, null);
+    }
+
+    @Override
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
         return null;
     }
 
@@ -193,11 +237,6 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             log.error("Unable to refund PayPal payment", e);
             throw new PayPalPaymentException("Unable to refund PayPal payment");
         }
-    }
-
-    @Override
-    public PaymentProvider getPaymentProviderName() {
-        return PaymentProvider.PAYPAL;
     }
 
     private Payment createPayment(PaymentRequest request) {
@@ -226,5 +265,19 @@ public class PayPalAdapter implements PaymentProviderAdapter {
         payment.setTransactions(Collections.singletonList(transaction));
         payment.setRedirectUrls(redirectUrls);
         return payment;
+    }
+
+    private static String getMessage(String stateOfPayment) {
+        String messageForClient = "";
+        if (stateOfPayment.equalsIgnoreCase(COMPLETED.getStatus())) {
+            messageForClient = "The payment is completed, please check your order.";
+        }
+        if (stateOfPayment.equalsIgnoreCase(APPROVED.getStatus())) {
+            messageForClient = "The payment is pending, please check your order.";
+        }
+        if (stateOfPayment.equalsIgnoreCase(FAILED.getStatus())) {
+            messageForClient = "The payment is failed. if your balance has been deducted, please contact the admin or PayPal hotline for support.";
+        }
+        return messageForClient;
     }
 }

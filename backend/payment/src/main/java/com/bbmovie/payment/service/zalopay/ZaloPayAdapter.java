@@ -270,7 +270,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional
-    public PaymentVerificationResponse verifyPaymentCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
+    public PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
         @SuppressWarnings("all")
         /*
             Dữ liệu nhận được từ callback:
@@ -392,18 +392,13 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPaymentFromProvider(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
         throw new UnsupportedOperationException("Query payment is not supported by ZaloPay");
     }
 
     @Override
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
         throw new UnsupportedOperationException("Refund is not supported by ZaloPay");
-    }
-
-    @Override
-    public PaymentProvider getPaymentProviderName() {
-        return PaymentProvider.ZALOPAY;
     }
 
     private String generateAppTransId() {
@@ -417,20 +412,20 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             PaymentRequest request, String appTransId, String orderUrl,
             PaymentStatus status, String returnCode
     ) {
-        PaymentTransaction transaction = new PaymentTransaction();
-        transaction.setUserId(request.getUserId());
-        transaction.setSubscription(null);
-        transaction.setAmount(request.getAmount());
-        transaction.setCurrency(request.getCurrency());
-        transaction.setPaymentProvider(PaymentProvider.ZALOPAY);
-        transaction.setPaymentGatewayId(appTransId);
-        transaction.setPaymentGatewayOrderId(orderUrl); // v1: orderurl, v2: zp_trans_token
-        transaction.setProviderStatus(status == PaymentStatus.PENDING ? "PENDING" : returnCode);
-        transaction.setTransactionDate(LocalDateTime.now());
-        transaction.setStatus(status);
-        transaction.setDescription("ZaloPay payment for order: " + request.getOrderId());
-        transaction.setIpnUrl(callbackUrl);
-        transaction.setReturnUrl(orderUrl);
-        return transaction;
+        return PaymentTransaction.builder()
+                .userId(request.getUserId())
+                .subscription(null)
+                .amount(request.getAmount())
+                .currency(request.getCurrency())
+                .paymentProvider(PaymentProvider.ZALOPAY)
+                .paymentGatewayId(appTransId)
+                .paymentGatewayOrderId(orderUrl) // v1: orderurl, v2: zp_trans_token
+                .providerStatus(status == PaymentStatus.PENDING ? "PENDING" : returnCode)
+                .transactionDate(LocalDateTime.now())
+                .status(status)
+                .description("ZaloPay payment for order: " + request.getOrderId())
+                .ipnUrl(callbackUrl)
+                .returnUrl(orderUrl)
+                .build();
     }
 }
