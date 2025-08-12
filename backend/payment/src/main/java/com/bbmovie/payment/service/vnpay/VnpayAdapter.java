@@ -55,6 +55,9 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         String paymentUrl = VnpayProvidedFunction.createOrder(httpServletRequest, amountStr , vnpTxnRef, "billpayment");
 
         PaymentTransaction transaction = createTransactionForVnpay(request, vnpTxnRef, paymentUrl);
+        if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
+            transaction.setExpiresAt(LocalDateTime.now().plusMinutes(request.getExpiresInMinutes()));
+        }
         PaymentTransaction saved = paymentTransactionRepository.save(transaction);
 
         return PaymentCreationResponse.builder()

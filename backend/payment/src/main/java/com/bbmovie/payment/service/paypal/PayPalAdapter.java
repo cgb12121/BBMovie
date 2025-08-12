@@ -118,6 +118,9 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                     .returnUrl(approvalUrl)
                     .paymentGatewayOrderId(createdPayment.getId())
                     .build();
+            if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
+                transaction.setExpiresAt(java.time.LocalDateTime.now().plusMinutes(request.getExpiresInMinutes()));
+            }
             
             PaymentTransaction saved = paymentTransactionRepository.save(transaction);
 
@@ -205,7 +208,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                     ctx.getRawBody(),
                     null);
         } catch (NoSuchAlgorithmException | SignatureException | InvalidKeyException e) {
-            throw new RuntimeException(e);
+            throw new PayPalPaymentException("Webhook signature validation error");
         }
     }
 
@@ -229,6 +232,28 @@ public class PayPalAdapter implements PaymentProviderAdapter {
         try {
             Sale sale = Sale.get(getApiContext(), paymentId);
             RefundRequest refundRequest = new RefundRequest();
+            DetailedRefund refund = sale.refund(getApiContext(), refundRequest);
+            String status = COMPLETED.getStatus().equals(refund.getState())
+                    ? PaymentStatus.SUCCEEDED.getStatus()
+                    : PaymentStatus.FAILED.getStatus();
+            return new RefundResponse(refund.getId(), status);
+        } catch (PayPalRESTException e) {
+            log.error("Unable to refund PayPal payment", e);
+            throw new PayPalPaymentException("Unable to refund PayPal payment");
+        }
+    }
+
+    @Override
+    public RefundResponse refundPayment(String paymentId, java.math.BigDecimal amount, String reason, HttpServletRequest httpServletRequest) {
+        try {
+            Sale sale = Sale.get(getApiContext(), paymentId);
+            RefundRequest refundRequest = new RefundRequest();
+            if (amount != null) {
+                Amount amt = new Amount();
+                amt.setCurrency("USD"); // consider mapping from the original transaction
+                amt.setTotal(amount.toString());
+                refundRequest.setAmount(amt);
+            }
             DetailedRefund refund = sale.refund(getApiContext(), refundRequest);
             String status = COMPLETED.getStatus().equals(refund.getState())
                     ? PaymentStatus.SUCCEEDED.getStatus()

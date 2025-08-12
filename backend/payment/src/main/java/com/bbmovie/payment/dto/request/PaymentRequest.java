@@ -15,4 +15,5 @@ public class PaymentRequest {
     private String currency;
     private String userId;
     private String orderId;
+    private Integer expiresInMinutes; // optional TTL for order expiration
 }

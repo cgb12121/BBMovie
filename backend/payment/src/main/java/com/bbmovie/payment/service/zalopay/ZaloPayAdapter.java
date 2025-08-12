@@ -259,6 +259,9 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             }
 
             PaymentTransaction transaction = createZalopayTransaction(request, appTransId, orderUrl, status, returnCode);
+            if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
+                transaction.setExpiresAt(LocalDateTime.now().plusMinutes(request.getExpiresInMinutes()));
+            }
             PaymentTransaction saved = paymentTransactionRepository.save(transaction);
 
             return PaymentCreationResponse.builder()

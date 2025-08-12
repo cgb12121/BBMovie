@@ -14,6 +14,7 @@ import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +29,8 @@ import java.util.Optional;
 @Slf4j
 @Service("stripe")
 public class StripeAdapter implements PaymentProviderAdapter {
+
+    private static final String TXN_NOT_FOUND = "Transaction not found: ";
 
     @Value("${payment.stripe.secret-key}")
     private String secretKey;
@@ -57,13 +60,12 @@ public class StripeAdapter implements PaymentProviderAdapter {
         transaction.setDescription("Order " + request.getOrderId());
 
         try {
-            Map<String, Object> params = Map.of(
-                    "amount", request.getAmount().multiply(BigDecimal.valueOf(100)).longValueExact(),
-                    "currency", request.getCurrency(),
-                    "description", "Order " + request.getOrderId(),
-                    "confirmation_method", "manual",
-                    "confirm", true
-            );
+            Map<String, Object> params = new java.util.HashMap<>();
+            params.put("amount", request.getAmount().multiply(BigDecimal.valueOf(100)).longValueExact());
+            params.put("currency", request.getCurrency());
+            params.put("description", "Order " + request.getOrderId());
+            params.put("confirmation_method", "manual");
+            params.put("confirm", true);
 
             PaymentIntent paymentIntent = PaymentIntent.create(params);
             StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
@@ -71,6 +73,9 @@ public class StripeAdapter implements PaymentProviderAdapter {
             transaction.setPaymentGatewayId(paymentIntent.getId());
             transaction.setProviderStatus(stripeStatus.getStatus());
             transaction.setStatus(stripeStatus.getPaymentStatus());
+            if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
+                transaction.setExpiresAt(LocalDateTime.now().plusMinutes(request.getExpiresInMinutes()));
+            }
 
             PaymentTransaction saved = paymentTransactionRepository.save(transaction);
 
@@ -103,16 +108,45 @@ public class StripeAdapter implements PaymentProviderAdapter {
             StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
 
             PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
-                    .orElseThrow(() -> new StripePaymentException("Transaction not found: " + paymentId));
+                    .orElseThrow(() -> new StripePaymentException(TXN_NOT_FOUND + paymentId));
 
             transaction.setProviderStatus(stripeStatus.getStatus());
-            transaction.setStatus(stripeStatus.getPaymentStatus());
+            // Auto-cancel if expired and still unpaid
+            boolean success = stripeStatus == StripeTransactionStatus.SUCCEEDED;
+            if (!success && transaction.getExpiresAt() != null
+                    && LocalDateTime.now().isAfter(transaction.getExpiresAt())
+                    && transaction.getStatus() == PaymentStatus.PENDING) {
+                transaction.setStatus(PaymentStatus.CANCELLED);
+                transaction.setCancelDate(LocalDateTime.now());
+                transaction.setProviderStatus("EXPIRED_AUTO_CANCEL");
+            } else {
+                transaction.setStatus(stripeStatus.getPaymentStatus());
+            }
             paymentTransactionRepository.save(transaction);
+            if (stripeStatus == StripeTransactionStatus.SUCCEEDED) {
+                scanAndFlagRapidSuccess(transaction.getUserId());
+            }
 
             return new PaymentVerificationResponse(stripeStatus == StripeTransactionStatus.SUCCEEDED, paymentId, null, null, null, null);
         } catch (StripeException ex) {
             log.error("Failed to verify Stripe payment: {}", ex.getMessage());
             throw new StripePaymentException("Payment verification failed: " + ex.getMessage());
+        }
+    }
+
+    private void scanAndFlagRapidSuccess(String userId) {
+        var recent = paymentTransactionRepository
+                .findTop100ByUserIdAndStatusOrderByTransactionDateDesc(userId, PaymentStatus.SUCCEEDED);
+        if (recent.size() < 2) return;
+        var latest = recent.getFirst();
+        for (int i = 1; i < recent.size(); i++) {
+            var other = recent.get(i);
+            if (latest.getTransactionDate().minusMinutes(5).isBefore(other.getTransactionDate())) {
+                latest.setFraudFlag(true);
+                latest.setFraudReason("Multiple successful payments by same user within 5 minutes");
+                paymentTransactionRepository.save(latest);
+                break;
+            }
         }
     }
 
@@ -124,7 +158,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
             StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
 
             PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
-                    .orElseThrow(() -> new StripePaymentException("Transaction not found: " + paymentId));
+                    .orElseThrow(() -> new StripePaymentException(TXN_NOT_FOUND + paymentId));
 
             transaction.setProviderStatus(stripeStatus.getStatus());
             transaction.setStatus(stripeStatus.getPaymentStatus());
@@ -149,7 +183,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
         log.info("Processing Stripe refund for paymentId: {}", paymentId);
 
         PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
-                .orElseThrow(() -> new RuntimeException("Transaction not found: " + paymentId));
+                .orElseThrow(() -> new RuntimeException(TXN_NOT_FOUND + paymentId));
 
         try {
             Map<String, Object> params = Map.of("payment_intent", paymentId);
@@ -165,11 +199,42 @@ public class StripeAdapter implements PaymentProviderAdapter {
 
             return new RefundResponse(refund.getId(), refundStatus.getPaymentStatus().getStatus());
         } catch (StripeException ex) {
-            log.error("Failed to process Stripe refund: {}", ex.getMessage());
+            log.error("Failed to process Stripe refund...: {}", ex.getMessage());
             transaction.setErrorCode(ex.getCode());
             transaction.setErrorMessage(ex.getMessage());
             paymentTransactionRepository.save(transaction);
             throw new StripePaymentException("Refund processing failed: " + ex.getMessage());
         }
     } 
+
+    @Override
+    public RefundResponse refundPayment(String paymentId, java.math.BigDecimal amount, String reason, HttpServletRequest httpServletRequest) {
+        log.info("Processing Stripe refund for paymentId: {} amount: {}", paymentId, amount);
+        PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
+                .orElseThrow(() -> new RuntimeException(TXN_NOT_FOUND + paymentId));
+        try {
+            java.util.Map<String, Object> params = new java.util.HashMap<>();
+            params.put("payment_intent", paymentId);
+            if (amount != null) {
+                params.put("amount", amount.multiply(java.math.BigDecimal.valueOf(100)).longValueExact());
+            }
+            if (reason != null) {
+                params.put("reason", reason);
+            }
+            Refund refund = Refund.create(params);
+            StripeTransactionStatus refundStatus = refund.getStatus().equalsIgnoreCase("succeeded")
+                    ? StripeTransactionStatus.SUCCEEDED
+                    : StripeTransactionStatus.fromStatus(refund.getStatus());
+            transaction.setStatus(PaymentStatus.REFUNDED);
+            transaction.setProviderStatus(refund.getStatus());
+            paymentTransactionRepository.save(transaction);
+            return new RefundResponse(refund.getId(), refundStatus.getPaymentStatus().getStatus());
+        } catch (StripeException ex) {
+            log.error("Failed to process Stripe refund: {}", ex.getMessage());
+            transaction.setErrorCode(ex.getCode());
+            transaction.setErrorMessage(ex.getMessage());
+            paymentTransactionRepository.save(transaction);
+            throw new StripePaymentException("Refund partially processing failed: " + ex.getMessage());
+        }
+    }
 }

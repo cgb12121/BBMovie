@@ -7,17 +7,23 @@ import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.exception.TransactionNotFoundException;
+import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.UnsupportedProviderException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 import static com.bbmovie.payment.entity.enums.PaymentProvider.*;
 
+@Log4j2
 @Service
 public class PaymentService {
 
@@ -40,7 +46,12 @@ public class PaymentService {
 
     public PaymentVerificationResponse handleCallback(String provider, Map<String, String> params, HttpServletRequest hsr) {
         PaymentProviderAdapter adapter = providers.get(provider);
-        return adapter.handleCallback(params, hsr);
+        PaymentVerificationResponse resp = adapter.handleCallback(params, hsr);
+        if (resp != null && resp.isValid() && resp.getTransactionId() != null) {
+            paymentTransactionRepository.findByPaymentGatewayId(resp.getTransactionId())
+                    .ifPresent(txn -> scanAndFlagRapidSuccess(txn.getUserId()));
+        }
+        return resp;
     }
 
     public PaymentVerificationResponse handleIpn(String provider, CallbackRequestContext ctx) {
@@ -58,6 +69,11 @@ public class PaymentService {
         return adapter.refundPayment(paymentId, hsr);
     }
 
+    public RefundResponse refundPayment(String provider, String paymentId, java.math.BigDecimal amount, String reason, HttpServletRequest hsr) {
+        PaymentProviderAdapter adapter = providers.get(provider);
+        return adapter.refundPayment(paymentId, amount, reason, hsr);
+    }
+
     public Object queryPayment(String paymentId, HttpServletRequest hsr) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new TransactionNotFoundException("Payment not found"));
@@ -72,5 +88,63 @@ public class PaymentService {
         }
         PaymentProviderAdapter provider = providers.get(paymentProvider);
         return provider.queryPayment(paymentId, hsr);
+    }
+
+    // Auto-cancel unpaid orders that passed expiration time. Runs every 5 minutes.
+    @Scheduled(fixedDelay = 5 * 60 * 1000)
+    public void autoCancelExpiredUnpaid() {
+        LocalDateTime now = LocalDateTime.now();
+        List<PaymentTransaction> expired = paymentTransactionRepository
+                .findByStatusAndExpiresAtBefore(PaymentStatus.PENDING, now);
+        for (PaymentTransaction txn : expired) {
+            if (txn.getStatus() == PaymentStatus.PENDING) {
+                txn.setStatus(PaymentStatus.CANCELLED);
+                txn.setCancelDate(now);
+                txn.setProviderStatus("EXPIRED_AUTO_CANCEL");
+            }
+        }
+        if (!expired.isEmpty()) {
+            paymentTransactionRepository.saveAll(expired);
+        }
+    }
+
+    // End-of-day reconciliation. Runs at 23:55 server time daily.
+    @Scheduled(cron = "0 55 23 * * *")
+    public void reconcileDaily() {
+        LocalDateTime since = LocalDateTime.now().minusDays(1);
+        List<PaymentTransaction> toCheck = paymentTransactionRepository
+                .findByStatusAndTransactionDateAfter(PaymentStatus.PENDING, since);
+        for (PaymentTransaction txn : toCheck) {
+            String providerKey = switch (txn.getPaymentProvider()) {
+                case VNPAY -> VNPAY.getName();
+                case MOMO -> MOMO.getName();
+                case ZALOPAY -> ZALOPAY.getName();
+                case STRIPE -> STRIPE.getName();
+                case PAYPAL -> PAYPAL.getName();
+            };
+            PaymentProviderAdapter adapter = providers.get(providerKey);
+            try {
+                adapter.queryPayment(txn.getPaymentGatewayId(), null);
+            } catch (Exception e) {
+                log.error(e);
+            }
+        }
+    }
+
+    // Simple fraud heuristic: if multiple SUCCEEDED payments by the same user in a short window, flag a newer one.
+    public void scanAndFlagRapidSuccess(String userId) {
+        List<PaymentTransaction> recent = paymentTransactionRepository
+                .findTop100ByUserIdAndStatusOrderByTransactionDateDesc(userId, PaymentStatus.SUCCEEDED);
+        if (recent.size() < 2) return;
+        PaymentTransaction latest = recent.getFirst();
+        for (int i = 1; i < recent.size(); i++) {
+            PaymentTransaction other = recent.get(i);
+            if (latest.getTransactionDate().minusMinutes(5).isBefore(other.getTransactionDate())) {
+                latest.setFraudFlag(true);
+                latest.setFraudReason("Multiple successful payments by same user within 5 minutes");
+                paymentTransactionRepository.save(latest);
+                break;
+            }
+        }
     }
 }

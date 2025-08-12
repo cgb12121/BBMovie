@@ -10,12 +10,12 @@ import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.*;
@@ -27,7 +27,6 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
-    @Autowired
     public PaymentController(PaymentService paymentService) {
         this.paymentService = paymentService;
     }
@@ -38,6 +37,9 @@ public class PaymentController {
             @RequestBody PaymentRequest request, HttpServletRequest httpServletRequest
     ) {
         try {
+            if (request.getExpiresInMinutes() == null) {
+                request.setExpiresInMinutes(30); // default expiry window
+            }
             PaymentCreationResponse response = paymentService.createPayment(request.getProvider(), request, httpServletRequest);
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (Exception e) {
@@ -63,20 +65,7 @@ public class PaymentController {
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(ApiResponse.fail(verification));
     }
 
-    /*
-        Zalopay expect response from the server:
-            for v1:
-            {
-              "returncode": "[...]",
-              "returnmessage": "[...]"
-            }
-
-            for v2:
-            {
-              "return_code": "[...]",
-              "return_message": "[...]"
-            }
-     */
+    // For Zalopay, the server must return a minimal JSON with return_code/return_message per provider docs.
     @PostMapping("/zalopay/callback")
     public ResponseEntity<Map<String, String>> handleProviderCallbackPost(
             @RequestBody Map<String, String> body, HttpServletRequest request
@@ -127,7 +116,12 @@ public class PaymentController {
 
     @PostMapping("/refund")
     public ResponseEntity<ApiResponse<RefundResponse>> refundPayment(@RequestBody RefundRequest request, HttpServletRequest httpServletRequest) {
-        RefundResponse response = paymentService.refundPayment(String.valueOf(request.getProvider()), String.valueOf(request.getPaymentId()), httpServletRequest);
+        if (request.getAmount() == null || request.getAmount().equals(BigDecimal.ZERO)) {
+            RefundResponse response = paymentService.refundPayment(String.valueOf(request.getProvider()), String.valueOf(request.getPaymentId()), httpServletRequest);
+            return ResponseEntity.ok(ApiResponse.success(response));
+        }
+
+        RefundResponse response = paymentService.refundPayment(String.valueOf(request.getProvider()), String.valueOf(request.getPaymentId()), request.getAmount(), request.getReason(), httpServletRequest);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

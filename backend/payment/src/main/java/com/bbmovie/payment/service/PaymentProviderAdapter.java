@@ -17,6 +17,13 @@ public interface PaymentProviderAdapter {
 
     RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest);
 
+    /**
+     * Optional: partial refunds where supported. Default delegates to full refundPayment when amount is null.
+     */
+    default RefundResponse refundPayment(String paymentId, java.math.BigDecimal amount, String reason, HttpServletRequest httpServletRequest) {
+        return refundPayment(paymentId, httpServletRequest);
+    }
+
     PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest);
 
     /**

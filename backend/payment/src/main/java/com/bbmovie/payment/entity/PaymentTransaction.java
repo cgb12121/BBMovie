@@ -50,6 +50,9 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "transaction_date", nullable = false)
     private LocalDateTime transactionDate;
 
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
     @Column(name = "cancel_date")
     private LocalDateTime cancelDate;
 
@@ -77,4 +80,10 @@ public class PaymentTransaction extends BaseEntity {
 
     @Column(name = "payment_details", columnDefinition = "TEXT")
     private String paymentDetails;
+
+    @Column(name = "fraud_flag")
+    private boolean fraudFlag;
+
+    @Column(name = "fraud_reason", columnDefinition = "TEXT")
+    private String fraudReason;
 }
