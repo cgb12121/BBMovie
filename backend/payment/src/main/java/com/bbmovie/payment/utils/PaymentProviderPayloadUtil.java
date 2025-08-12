@@ -1,14 +1,31 @@
 package com.bbmovie.payment.utils;
 
+import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.HttpMethod;
+
+import java.util.Map;
 
 public final class PaymentProviderPayloadUtil {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private PaymentProviderPayloadUtil() {}
+
+    public static CallbackRequestContext createContext(HttpServletRequest request, Map<String, String> params, HttpMethod method) {
+        return CallbackRequestContext.builder().httpServletRequest(request)
+                .formParams(params).httpMethod(method.name())
+                .contentType(request.getContentType()).build();
+    }
+
+    public static CallbackRequestContext createContext(HttpServletRequest request,String payload, HttpMethod method, Map<String, String> headers) {
+        return CallbackRequestContext.builder().httpServletRequest(request)
+                .headers(headers).rawBody(payload).httpMethod(method.name())
+                .contentType(request.getContentType()).build();
+    }
 
     public static String toJsonString(Object payload) {
         try {

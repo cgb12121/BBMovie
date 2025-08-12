@@ -11,6 +11,7 @@ import com.bbmovie.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -90,57 +91,12 @@ public class PaymentController {
         return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(providerPayload);
     }
 
-//    @PostMapping("/paypal/webhook")
-//    public ResponseEntity<Void> handlePayPalWebhook(@RequestBody String payload,
-//                                                    @RequestHeader Map<String, String> headers,
-//                                                    HttpServletRequest request) {
-//        log.info("PayPal webhook received: {}", payload);
-//        try {
-//            CallbackRequestContext ctx = CallbackRequestContext.builder()
-//                    .httpServletRequest(request)
-//                    .headers(headers)
-//                    .rawBody(payload)
-//                    .httpMethod("POST")
-//                    .contentType(request.getContentType())
-//                    .build();
-//            PaymentVerificationResponse verification = paymentService.handleWebhook("paypal", ctx);
-//            return verification.isValid() ? ResponseEntity.ok().build() : ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-//        } catch (UnsupportedOperationException ex) {
-//            log.warn("Webhook not supported by provider paypal: {}", ex.getMessage());
-//            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
-//        }
-//    }
-//
-//    @PostMapping("/paypal/ipn")
-//    public ResponseEntity<Void> handlePayPalIPN(@RequestParam Map<String, String> params, HttpServletRequest request) {
-//        log.info("PayPal IPN received: {}", params);
-//        CallbackRequestContext ctx = CallbackRequestContext.builder()
-//                .httpServletRequest(request)
-//                .formParams(params)
-//                .httpMethod("POST")
-//                .contentType(request.getContentType())
-//                .build();
-//        try {
-//            PaymentVerificationResponse verification = paymentService.handleIpn("paypal", ctx);
-//            return verification.isValid() ? ResponseEntity.ok().build() : ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-//        } catch (UnsupportedOperationException ex) {
-//            log.warn("IPN not supported by provider paypal: {}", ex.getMessage());
-//            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).build();
-//        }
-//    }
-
     @PostMapping("/{provider}/ipn")
     public ResponseEntity<ApiResponse<PaymentVerificationResponse>> handleGenericIpn(
-            @PathVariable String provider,
-            @RequestParam Map<String, String> params,
+            @PathVariable String provider, @RequestParam Map<String, String> params,
             HttpServletRequest request
     ) {
-        CallbackRequestContext ctx = CallbackRequestContext.builder()
-                .httpServletRequest(request)
-                .formParams(params)
-                .httpMethod("POST")
-                .contentType(request.getContentType())
-                .build();
+        CallbackRequestContext ctx = createContext(request, params, HttpMethod.POST);
         try {
             PaymentVerificationResponse verification = paymentService.handleIpn(provider, ctx);
             if (verification.isValid()) {
@@ -154,18 +110,10 @@ public class PaymentController {
 
     @PostMapping("/{provider}/webhook")
     public ResponseEntity<ApiResponse<PaymentVerificationResponse>> handleGenericWebhook(
-            @PathVariable String provider,
-            @RequestBody String payload,
-            @RequestHeader Map<String, String> headers,
-            HttpServletRequest request
+            @PathVariable String provider, @RequestBody String payload,
+            @RequestHeader Map<String, String> headers, HttpServletRequest request
     ) {
-        CallbackRequestContext ctx = CallbackRequestContext.builder()
-                .httpServletRequest(request)
-                .headers(headers)
-                .rawBody(payload)
-                .httpMethod("POST")
-                .contentType(request.getContentType())
-                .build();
+        CallbackRequestContext ctx = createContext(request, payload, HttpMethod.POST, headers);
         try {
             PaymentVerificationResponse verification = paymentService.handleWebhook(provider, ctx);
             if (verification.isValid()) {
