@@ -1,5 +1,6 @@
 package com.bbmovie.payment.dto.response;
 
+import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import lombok.*;
 
@@ -9,7 +10,9 @@ import lombok.*;
 @Builder
 @ToString
 public class PaymentCreationResponse {
-    private String transactionId;
-    private PaymentStatus status;
-    private String providerReference;
+    private PaymentProvider provider;
+    private String providerTransactionId;
+    private String serverTransactionId;
+    private PaymentStatus serverStatus;
+    private String providerPaymentLink;
 }

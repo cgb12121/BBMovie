@@ -29,14 +29,14 @@ import java.util.Optional;
 @Service("stripe")
 public class StripeAdapter implements PaymentProviderAdapter {
 
-    private final PaymentTransactionRepository paymentTransactionRepository;
-
     @Value("${payment.stripe.secret-key}")
     private String secretKey;
 
     @SuppressWarnings("unused")
     @Value("${payment.stripe.publishable-key}")
     private String publishableKey;
+
+    private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Autowired
     public StripeAdapter(PaymentTransactionRepository paymentTransactionRepository) {
@@ -72,9 +72,15 @@ public class StripeAdapter implements PaymentProviderAdapter {
             transaction.setProviderStatus(stripeStatus.getStatus());
             transaction.setStatus(stripeStatus.getPaymentStatus());
 
-            paymentTransactionRepository.save(transaction);
+            PaymentTransaction saved = paymentTransactionRepository.save(transaction);
 
-            return new PaymentCreationResponse(paymentIntent.getId(), stripeStatus.getPaymentStatus(), paymentIntent.getClientSecret());
+            return PaymentCreationResponse.builder()
+                    .provider(PaymentProvider.STRIPE)
+                    .serverTransactionId(String.valueOf(saved.getId()))
+                    .providerTransactionId(paymentIntent.getId())
+                    .serverStatus(stripeStatus.getPaymentStatus())
+                    .providerPaymentLink(paymentIntent.getClientSecret())
+                    .build();
         } catch (StripeException ex) {
             log.error("Failed to process Stripe payment: {}", ex.getMessage());
             transaction.setStatus(PaymentStatus.FAILED);
@@ -112,7 +118,30 @@ public class StripeAdapter implements PaymentProviderAdapter {
 
     @Override
     public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
-        return null;
+        log.info("Querying Stripe payment with ID: {}", paymentId);
+        try {
+            PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentId);
+            StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
+
+            PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
+                    .orElseThrow(() -> new StripePaymentException("Transaction not found: " + paymentId));
+
+            transaction.setProviderStatus(stripeStatus.getStatus());
+            transaction.setStatus(stripeStatus.getPaymentStatus());
+            paymentTransactionRepository.save(transaction);
+
+            return new PaymentVerificationResponse(
+                    stripeStatus == StripeTransactionStatus.SUCCEEDED,
+                    paymentId,
+                    paymentIntent.getDescription(),
+                    paymentIntent.getAmount().toString(),
+                    paymentIntent.getCurrency(),
+                    stripeStatus.getStatus()
+            );
+        } catch (StripeException ex) {
+            log.error("Failed to query Stripe payment: {}", ex.getMessage());
+            throw new StripePaymentException("Payment query failed: " + ex.getMessage());
+        }
     }
 
     @Override
@@ -142,5 +171,5 @@ public class StripeAdapter implements PaymentProviderAdapter {
             paymentTransactionRepository.save(transaction);
             throw new StripePaymentException("Refund processing failed: " + ex.getMessage());
         }
-    }
+    } 
 }

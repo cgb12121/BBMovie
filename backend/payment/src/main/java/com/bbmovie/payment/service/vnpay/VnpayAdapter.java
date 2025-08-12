@@ -55,9 +55,15 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         String paymentUrl = VnpayProvidedFunction.createOrder(httpServletRequest, amountStr , vnpTxnRef, "billpayment");
 
         PaymentTransaction transaction = createTransactionForVnpay(request, vnpTxnRef, paymentUrl);
-        paymentTransactionRepository.save(transaction);
+        PaymentTransaction saved = paymentTransactionRepository.save(transaction);
 
-        return new PaymentCreationResponse(vnpTxnRef, PaymentStatus.PENDING, paymentUrl);
+        return PaymentCreationResponse.builder()
+                .provider(PaymentProvider.VNPAY)
+                .serverTransactionId(String.valueOf(saved.getId()))
+                .providerTransactionId(vnpTxnRef)
+                .serverStatus(PaymentStatus.PENDING)
+                .providerPaymentLink(paymentUrl)
+                .build();
     }
 
     //should prevent process payment again after callback

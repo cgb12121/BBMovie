@@ -117,16 +117,16 @@ public class MomoAdapter implements PaymentProviderAdapter {
             PaymentStatus status = (resultCode == 0) ? PaymentStatus.PENDING : PaymentStatus.FAILED;
 
             return PaymentCreationResponse.builder()
-                    .transactionId(orderId)
-                    .status(status)
-                    .providerReference(payUrl)
+                    .providerTransactionId(orderId)
+                    .serverStatus(status)
+                    .providerPaymentLink(payUrl)
                     .build();
         } catch (Exception e) {
             log.error("Failed to process payment: {}", e.getMessage());
             return PaymentCreationResponse.builder()
-                    .transactionId(null)
-                    .status(null)
-                    .providerReference(null)
+                    .providerTransactionId(null)
+                    .serverStatus(null)
+                    .providerPaymentLink(null)
                     .build();
         }
     }

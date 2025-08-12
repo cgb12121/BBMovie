@@ -259,9 +259,15 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             }
 
             PaymentTransaction transaction = createZalopayTransaction(request, appTransId, orderUrl, status, returnCode);
-            paymentTransactionRepository.save(transaction);
+            PaymentTransaction saved = paymentTransactionRepository.save(transaction);
 
-            return new PaymentCreationResponse(appTransId, status, orderUrl);
+            return PaymentCreationResponse.builder()
+                    .provider(PaymentProvider.VNPAY)
+                    .serverTransactionId(String.valueOf(saved.getId()))
+                    .providerTransactionId(appTransId)
+                    .serverStatus(status)
+                    .providerPaymentLink(orderUrl)
+                    .build();
         } catch (IOException e) {
             log.error("Error processing ZaloPay payment", e);
             throw new ZalopayException("Error processing ZaloPay payment");
