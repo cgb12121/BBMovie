@@ -110,6 +110,12 @@ public class StripeAdapter implements PaymentProviderAdapter {
             PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
                     .orElseThrow(() -> new StripePaymentException(TXN_NOT_FOUND + paymentId));
 
+            // Reject replays: only allow transition if currently PENDING
+            if (transaction.getStatus() != PaymentStatus.PENDING) {
+                log.warn("Ignoring Stripe callback replay for txn {} with status {}", paymentId, transaction.getStatus());
+                return new PaymentVerificationResponse(false, paymentId, "ALREADY_FINALIZED", "Transaction is not pending", null, null);
+            }
+
             transaction.setProviderStatus(stripeStatus.getStatus());
             // Auto-cancel if expired and still unpaid
             boolean success = stripeStatus == StripeTransactionStatus.SUCCEEDED;
@@ -160,9 +166,12 @@ public class StripeAdapter implements PaymentProviderAdapter {
             PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
                     .orElseThrow(() -> new StripePaymentException(TXN_NOT_FOUND + paymentId));
 
-            transaction.setProviderStatus(stripeStatus.getStatus());
-            transaction.setStatus(stripeStatus.getPaymentStatus());
-            paymentTransactionRepository.save(transaction);
+            // Only update DB based on provider if we haven't finalized internally
+            if (transaction.getStatus() == PaymentStatus.PENDING) {
+                transaction.setProviderStatus(stripeStatus.getStatus());
+                transaction.setStatus(stripeStatus.getPaymentStatus());
+                paymentTransactionRepository.save(transaction);
+            }
 
             return new PaymentVerificationResponse(
                     stripeStatus == StripeTransactionStatus.SUCCEEDED,

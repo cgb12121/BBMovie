@@ -335,9 +335,12 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             String returnCode = asString(decoded.get(returnCodeParam), decoded.get("returncode"), decoded.get(returnCodeParam));
             boolean success = "1".equals(returnCode) || "0".equals(returnCode);
 
-            // Update DB transaction by appTransId
+            // Update DB transaction by appTransId only if still pending (prevent replay abuse)
             if (appTransId != null) {
                 paymentTransactionRepository.findByPaymentGatewayId(appTransId).ifPresent(tx -> {
+                    if (tx.getStatus() != PaymentStatus.PENDING) {
+                        return;
+                    }
                     tx.setProviderStatus(returnCode);
                     tx.setStatus(success ? PaymentStatus.SUCCEEDED : PaymentStatus.FAILED);
                     paymentTransactionRepository.save(tx);

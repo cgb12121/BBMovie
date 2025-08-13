@@ -101,6 +101,10 @@ public class VnpayAdapter implements PaymentProviderAdapter {
 
         paymentTransactionRepository.findByPaymentGatewayId(vnpTxnRef).ifPresent(tx -> {
             tx.setLastModifiedDate(LocalDateTime.now());
+            // Only process if still pending; prevent replay from flipping canceled/refunded/succeeded
+            if (tx.getStatus() != PaymentStatus.PENDING) {
+                return;
+            }
             if (isValid) {
                 tx.setStatus(PaymentStatus.SUCCEEDED);
                 tx.setPaymentMethod(paymentMethod);

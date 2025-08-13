@@ -7,6 +7,7 @@ import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
 import jakarta.servlet.http.HttpServletRequest;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 public interface PaymentProviderAdapter {
@@ -18,9 +19,9 @@ public interface PaymentProviderAdapter {
     RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest);
 
     /**
-     * Optional: partial refunds where supported. Default delegates to full refundPayment when amount is null.
+     * Optional: partial refunds where supported. Default delegates to full refundPayment when the amount is null.
      */
-    default RefundResponse refundPayment(String paymentId, java.math.BigDecimal amount, String reason, HttpServletRequest httpServletRequest) {
+    default RefundResponse refundPayment(String paymentId, BigDecimal amount, String reason, HttpServletRequest httpServletRequest) {
         return refundPayment(paymentId, httpServletRequest);
     }
 

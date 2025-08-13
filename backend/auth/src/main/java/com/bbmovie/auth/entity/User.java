@@ -1,9 +1,6 @@
 package com.bbmovie.auth.entity;
 
-import com.bbmovie.auth.entity.enumerate.AuthProvider;
-import com.bbmovie.auth.entity.enumerate.Region;
-import com.bbmovie.auth.entity.enumerate.Role;
-import com.bbmovie.auth.entity.enumerate.SubscriptionTier;
+import com.bbmovie.auth.entity.enumerate.*;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
@@ -13,6 +10,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+
+import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.PENDING;
 
 @Builder
 @Entity
@@ -98,17 +97,34 @@ public class User extends BaseEntity implements UserDetails {
     private Role role;
 
     @Builder.Default
+    @Column(name = "is_student", nullable = false)
+    private boolean isStudent = false;
+
+    @Column(name = "student_status_expire_at")
+    private LocalDateTime studentStatusExpireAt;
+
+    @Builder.Default
+    @Column(name = "student_verification_status")
+    @Enumerated(EnumType.STRING)
+    private StudentVerificationStatus studentVerificationStatus = PENDING;
+
+    @Column(name = "student_document_url", columnDefinition = "TEXT")
+    private String studentDocumentUrl;
+
+
+    public boolean isEligibleForStudentDiscount() {
+        return isStudent
+                && (studentStatusExpireAt != null)
+                && studentStatusExpireAt.isBefore(LocalDateTime.now());
+    }
+
+    @Builder.Default
     @Column(name = "is_soft_deleted")
     private boolean isSoftDeleted = false;
 
     @Override
     public String getUsername() {
         return this.email;
-    }
-
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 
     @Override
@@ -129,5 +145,10 @@ public class User extends BaseEntity implements UserDetails {
     @Override
     public boolean isEnabled() {
         return isEnabled;
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
     }
 }

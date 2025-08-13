@@ -157,7 +157,19 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             
             PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
                     .orElseThrow(() -> new PayPalPaymentException("Transaction not found: " + paymentId));
-            
+
+            // Reject replays: only allow update when still pending
+            if (transaction.getStatus() != com.bbmovie.payment.entity.enums.PaymentStatus.PENDING) {
+                return PaymentVerificationResponse.builder()
+                        .isValid(false)
+                        .transactionId(payment.getId())
+                        .code("ALREADY_FINALIZED")
+                        .message("Transaction is not pending")
+                        .providerPayloadStringJson(payment.getTransactions())
+                        .responseToProviderStringJson(null)
+                        .build();
+            }
+
             if (!transaction.getProviderStatus().equalsIgnoreCase(stateOfPayment)) {
                 transaction.setProviderStatus(stateOfPayment);
                 paymentTransactionRepository.save(transaction);

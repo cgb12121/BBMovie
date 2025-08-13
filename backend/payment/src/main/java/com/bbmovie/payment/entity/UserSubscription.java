@@ -29,9 +29,11 @@ public class UserSubscription extends BaseEntity {
     @Column(name = "end_date", nullable = false)
     private LocalDateTime endDate;
 
+    @Builder.Default
     @Column(name = "is_active")
     private boolean isActive = true;
 
+    @Builder.Default
     @Column(name = "auto_renew")
     private boolean autoRenew = false;
 
