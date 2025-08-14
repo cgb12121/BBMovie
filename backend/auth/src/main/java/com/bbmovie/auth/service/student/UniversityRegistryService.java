@@ -1,5 +1,6 @@
 package com.bbmovie.auth.service.student;
 
+import com.bbmovie.auth.dto.UniversityObject;
 import com.bbmovie.auth.dto.response.CountryUniversityResponse;
 import com.bbmovie.auth.dto.response.UniversityLookupResponse;
 import com.bbmovie.auth.dto.response.UniversitySummary;
@@ -44,6 +45,7 @@ public class UniversityRegistryService {
     @EventListener(ApplicationReadyEvent.class)
     @Transactional
     public void init() {
+        long startTime = System.nanoTime();
         long count = universityRepository.count();
         log.info("Found {} entries in university registry at the database", count);
         if (count > 0 && count < 10000) {
@@ -87,6 +89,9 @@ public class UniversityRegistryService {
         } catch (Exception e) {
             log.error("Failed to load university registry from JSON", e);
             throw new IllegalStateException("Failed to initialize university registry", e);
+        } finally {
+            long endTime = System.nanoTime();
+            log.info("Initialization took {} ms", (endTime - startTime) / 1000000);
         }
     }
 

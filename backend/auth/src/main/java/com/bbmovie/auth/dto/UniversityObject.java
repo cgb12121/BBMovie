@@ -1,4 +1,4 @@
-package com.bbmovie.auth.service.student;
+package com.bbmovie.auth.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
@@ -13,7 +13,7 @@ public class UniversityObject {
 
     private List<String> web_pages;
 
-    @JsonProperty("web_page")  // ← Handles the incorrect singular version
+    @JsonProperty("web_page")
     private void setWebPage(List<String> web_page) {
         this.web_pages = web_page;
     }

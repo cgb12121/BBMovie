@@ -11,7 +11,7 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
-import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.PENDING;
+import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.NOT_STUDENT;
 
 @Builder
 @Entity
@@ -100,23 +100,9 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "is_student", nullable = false)
     private boolean isStudent = false;
 
-    @Column(name = "student_status_expire_at")
-    private LocalDateTime studentStatusExpireAt;
-
-    @Builder.Default
-    @Column(name = "student_verification_status")
-    @Enumerated(EnumType.STRING)
-    private StudentVerificationStatus studentVerificationStatus = PENDING;
-
-    @Column(name = "student_document_url", columnDefinition = "TEXT")
-    private String studentDocumentUrl;
-
-
-    public boolean isEligibleForStudentDiscount() {
-        return isStudent
-                && (studentStatusExpireAt != null)
-                && studentStatusExpireAt.isBefore(LocalDateTime.now());
-    }
+    @OneToOne(fetch = FetchType.LAZY, optional = true)
+    @JoinColumn(name = "student_profile_id", nullable = true)
+    private transient StudentProfile studentProfile;
 
     @Builder.Default
     @Column(name = "is_soft_deleted")
