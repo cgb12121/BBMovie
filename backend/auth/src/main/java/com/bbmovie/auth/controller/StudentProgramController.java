@@ -42,9 +42,9 @@ public class StudentProgramController {
 	@PostMapping(value = "/apply", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<StudentVerificationResponse>> apply(
             @RequestHeader("Authorization") String authorization,
-            Authentication authentication,
             @Valid @RequestPart("payload") StudentVerificationRequest request,
-            @RequestPart("document") MultipartFile document
+            @RequestPart("document") MultipartFile document,
+            Authentication authentication
     ) {
         String email = authentication.getName();
         StudentVerificationResponse resp = studentVerificationService.apply(authorization, email, request, document);

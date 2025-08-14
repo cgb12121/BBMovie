@@ -151,9 +151,11 @@ public class StudentVerificationService {
 				.orElseThrow(() -> new UserNotFoundException("User not found"));
 
 		StudentProfile profile = studentProfileRepository.findByUserId(userId)
-				.orElseGet(() -> StudentProfile.builder()
+				.orElseGet(() ->
+                        StudentProfile.builder()
 						.user(user)
-						.build());
+						.build()
+                );
 
 		if (approve) {
 			profile.setStudentVerificationStatus(VERIFIED);
@@ -164,7 +166,7 @@ public class StudentVerificationService {
 					.status(profile.getStudentVerificationStatus())
 					.documentUrl(profile.getStudentDocumentUrl())
 					.matchedUniversity(null)
-					.message("Manually verified")
+					.message("Your application has been approved by admin.")
 					.build();
 		} else {
 			profile.setStudentVerificationStatus(REJECTED);
@@ -175,7 +177,7 @@ public class StudentVerificationService {
 					.status(profile.getStudentVerificationStatus())
 					.documentUrl(profile.getStudentDocumentUrl())
 					.matchedUniversity(null)
-					.message("Manually rejected")
+					.message("Your application got rejected by admin.")
 					.build();
 		}
 	}
