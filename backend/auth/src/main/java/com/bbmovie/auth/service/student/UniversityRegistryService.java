@@ -18,7 +18,6 @@ import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -91,10 +90,24 @@ public class UniversityRegistryService {
         }
     }
 
-    public CountryUniversityResponse getAllSupportedUniByCountry(String country, int page, int size) {
-        Page<University> universities = universityRepository.findByCountryIgnoreCase(country, PageRequest.of(page, size));
+    public CountryUniversityResponse getAllSupportedUniByCountryAndCode(String country, String code, int page, int size) {
+        Page<University> universities;
+        String resolvedCountry;
+
+        if (code != null && code.length() == 2) {
+            universities = universityRepository.findByAlphaTwoCodeIgnoreCase(code.trim(), PageRequest.of(page, size));
+            resolvedCountry = universities.hasContent() ? universities.getContent().getFirst().getCountry() : null;
+        } else {
+            universities = universityRepository.findByCountryIgnoreCase(country.trim(), PageRequest.of(page, size));
+            resolvedCountry = country;
+        }
+
+        if (universities.isEmpty()) {
+            return null;
+        }
+
         return CountryUniversityResponse.builder()
-                .country(universities.getContent().getFirst().getCountry())
+                .country(resolvedCountry)
                 .total(universities.getTotalElements())
                 .universities(universities.getContent().stream()
                         .map(u -> new UniversitySummary(
@@ -107,16 +120,11 @@ public class UniversityRegistryService {
     }
 
     public UniversityLookupResponse findByDomain(String query) {
-        if (query.contains("@")) {
-            String domain = extractDomain(query);
-            if (domain != null) {
-                Optional<University> byDomain = universityRepository.findByDomainsContainingIgnoreCase(domain);
-                if (byDomain.isPresent()) {
-                    return UniversityLookupResponse.from(byDomain.get());
-                }
-            }
-        }
-        return null;
+        if (query.contains("@"))
+            query = extractDomain(query);
+        Optional<University> byDomain = universityRepository.findByDomainsContainingIgnoreCase(query);
+        return byDomain.map(UniversityLookupResponse::from)
+                .orElse(null);
     }
 
     public Optional<String> bestMatchByName(String text) {

@@ -90,6 +90,7 @@ public class SecurityConfig {
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/.well-known/jwks.json").permitAll()
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                .requestMatchers("/api/student-program/supported/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex

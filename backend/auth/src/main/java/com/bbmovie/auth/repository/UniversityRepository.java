@@ -13,4 +13,6 @@ public interface UniversityRepository extends JpaRepository<University, Long> {
     Optional<University> findByDomainsContainingIgnoreCase(String domain);
 
     Page<University> findByCountryIgnoreCase(String trim, Pageable pageable);
+
+    Page<University> findByAlphaTwoCodeIgnoreCase(String trim, Pageable pageable);
 }

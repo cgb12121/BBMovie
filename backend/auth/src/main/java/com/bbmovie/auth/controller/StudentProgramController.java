@@ -53,11 +53,15 @@ public class StudentProgramController {
 
     @GetMapping("/supported/countries")
     public ResponseEntity<ApiResponse<CountryUniversityResponse>> getUniversitiesByCountry(
-            @RequestParam("country") String country,
+            @RequestParam(value = "country", required = false) String country,
+            @RequestParam(value = "code", required = false) String code,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "20") int size
     ) {
-        CountryUniversityResponse response = universityRegistryService.getAllSupportedUniByCountry(country, page, size);
+        if(null == country && code == null)
+            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid country or code"));
+        CountryUniversityResponse response = universityRegistryService
+                .getAllSupportedUniByCountryAndCode(country, code, page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 }
