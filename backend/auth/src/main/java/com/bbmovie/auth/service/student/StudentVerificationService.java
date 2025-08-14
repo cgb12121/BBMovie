@@ -35,7 +35,7 @@ import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.VERIFI
 public class StudentVerificationService {
 
     private final UserRepository userRepository;
-    private final UniversityRegistry universityRegistry;
+    private final UniversityRegistryService universityRegistryService;
     private final OcrExtractionService ocrExtractionService;
     private final ObjectMapper objectMapper;
     private final JoseProviderStrategyContext joseContext;
@@ -45,10 +45,10 @@ public class StudentVerificationService {
 
     @Autowired
     public StudentVerificationService(
-            UserRepository userRepository, UniversityRegistry universityRegistry,
+            UserRepository userRepository, UniversityRegistryService universityRegistryService,
             OcrExtractionService ocrExtractionService, JoseProviderStrategyContext joseContext) {
         this.userRepository = userRepository;
-        this.universityRegistry = universityRegistry;
+        this.universityRegistryService = universityRegistryService;
         this.ocrExtractionService = ocrExtractionService;
         this.joseContext = joseContext;
         this.objectMapper = new ObjectMapper();
@@ -65,13 +65,13 @@ public class StudentVerificationService {
         Optional<String> matchedUniversity = Optional.empty();
         if (extractedTextOpt.isPresent()) {
             String text = extractedTextOpt.get().toLowerCase();
-            matchedUniversity = universityRegistry.bestMatchByName(text);
+            matchedUniversity = universityRegistryService.bestMatchByName(text);
         }
 
         boolean acceptedByAutomation = matchedUniversity
                 .map(name -> textContains(request.getUniversityName(), name))
                 .orElse(false);
-        if (!acceptedByAutomation && universityRegistry.containsDomain(request.getUniversityDomain())) {
+        if (!acceptedByAutomation && universityRegistryService.containsDomain(request.getUniversityDomain())) {
             acceptedByAutomation = true;
         }
 

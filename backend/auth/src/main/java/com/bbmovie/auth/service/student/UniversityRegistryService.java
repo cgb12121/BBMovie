@@ -1,5 +1,8 @@
 package com.bbmovie.auth.service.student;
 
+import com.bbmovie.auth.dto.response.CountryUniversityResponse;
+import com.bbmovie.auth.dto.response.UniversityLookupResponse;
+import com.bbmovie.auth.dto.response.UniversitySummary;
 import com.bbmovie.auth.entity.University;
 import com.bbmovie.auth.repository.UniversityRepository;
 import com.fasterxml.jackson.core.JsonFactory;
@@ -13,6 +16,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -21,16 +27,16 @@ import java.util.*;
 
 @Log4j2
 @Service
-public class UniversityRegistry {
-
-    private final UniversityRepository universityRepository;
-    private final ObjectMapper objectMapper;
+public class UniversityRegistryService {
 
     @PersistenceContext
     private final EntityManager entityManager;
 
+    private final UniversityRepository universityRepository;
+    private final ObjectMapper objectMapper;
+
     @Autowired
-    public UniversityRegistry(UniversityRepository universityRepository, EntityManager entityManager) {
+    public UniversityRegistryService(UniversityRepository universityRepository, EntityManager entityManager) {
         this.universityRepository = universityRepository;
         this.entityManager = entityManager;
         this.objectMapper = new ObjectMapper();
@@ -41,7 +47,7 @@ public class UniversityRegistry {
     public void init() {
         long count = universityRepository.count();
         log.info("Found {} entries in university registry at the database", count);
-        if (count > 0) {
+        if (count > 0 && count < 10000) {
             log.info("University registry already contains {} entries, skipping initialization", count);
             return;
         }
@@ -85,6 +91,34 @@ public class UniversityRegistry {
         }
     }
 
+    public CountryUniversityResponse getAllSupportedUniByCountry(String country, int page, int size) {
+        Page<University> universities = universityRepository.findByCountryIgnoreCase(country, PageRequest.of(page, size));
+        return CountryUniversityResponse.builder()
+                .country(universities.getContent().getFirst().getCountry())
+                .total(universities.getTotalElements())
+                .universities(universities.getContent().stream()
+                        .map(u -> new UniversitySummary(
+                                u.getName(),
+                                Collections.singletonList(u.getDomains())
+                        ))
+                        .toList())
+                .hasMore(universities.hasNext())
+                .build();
+    }
+
+    public UniversityLookupResponse findByDomain(String query) {
+        if (query.contains("@")) {
+            String domain = extractDomain(query);
+            if (domain != null) {
+                Optional<University> byDomain = universityRepository.findByDomainsContainingIgnoreCase(domain);
+                if (byDomain.isPresent()) {
+                    return UniversityLookupResponse.from(byDomain.get());
+                }
+            }
+        }
+        return null;
+    }
+
     public Optional<String> bestMatchByName(String text) {
         return universityRepository.findByNameContainingIgnoreCase((text))
                 .map(University::getName);
@@ -100,6 +134,14 @@ public class UniversityRegistry {
                 .flatMap(Arrays::stream)
                 .map(String::trim)
                 .anyMatch(d -> d.equalsIgnoreCase(domain));
+    }
+
+    private String extractDomain(String emailOrText) {
+        int atIndex = emailOrText.lastIndexOf('@');
+        if (atIndex >= 0 && atIndex < emailOrText.length() - 1) {
+            return emailOrText.substring(atIndex + 1).trim().toLowerCase();
+        }
+        return null;
     }
 
     private University convert(UniversityObject uniObject) {
