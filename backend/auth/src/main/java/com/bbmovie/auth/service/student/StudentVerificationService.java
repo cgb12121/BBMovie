@@ -5,12 +5,13 @@ import com.bbmovie.auth.dto.response.StudentVerificationResponse;
 import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.UserRepository;
+import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
 import com.example.common.dtos.kafka.UploadMetadata;
 import com.example.common.enums.EntityType;
 import com.example.common.enums.Storage;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
@@ -31,80 +32,99 @@ import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.VERIFI
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class StudentVerificationService {
 
-	private final UserRepository userRepository;
-	private final UniversityRegistry universityRegistry;
-	private final OcrExtractionService ocrExtractionService;
+    private final UserRepository userRepository;
+    private final UniversityRegistry universityRegistry;
+    private final OcrExtractionService ocrExtractionService;
     private final ObjectMapper objectMapper;
+    private final JoseProviderStrategyContext joseContext;
 
-	@Value("${services.file-service.base-url:http://localhost:8084}")
-	private String fileServiceBaseUrl;
+    @Value("${services.file-service.base-url:http://localhost:8084}")
+    private String fileServiceBaseUrl;
 
-	@Transactional
+    @Autowired
+    public StudentVerificationService(
+            UserRepository userRepository, UniversityRegistry universityRegistry,
+            OcrExtractionService ocrExtractionService, JoseProviderStrategyContext joseContext) {
+        this.userRepository = userRepository;
+        this.universityRegistry = universityRegistry;
+        this.ocrExtractionService = ocrExtractionService;
+        this.joseContext = joseContext;
+        this.objectMapper = new ObjectMapper();
+    }
+
+    @Transactional
     public StudentVerificationResponse apply(String bearerToken, String email, StudentVerificationRequest request, MultipartFile document) {
-		User user = userRepository.findByEmail(email)
-				.orElseThrow(() -> new UserNotFoundException("User not found"));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserNotFoundException("User not found"));
 
-		validateDocument(document);
+        validateDocument(document);
 
-		Optional<String> extractedTextOpt = ocrExtractionService.extractText(document);
-		Optional<String> matchedUniversity = Optional.empty();
-		if (extractedTextOpt.isPresent()) {
-			String text = extractedTextOpt.get().toLowerCase();
-			matchedUniversity = universityRegistry.bestMatchByName(text);
-		}
+        Optional<String> extractedTextOpt = ocrExtractionService.extractText(document);
+        Optional<String> matchedUniversity = Optional.empty();
+        if (extractedTextOpt.isPresent()) {
+            String text = extractedTextOpt.get().toLowerCase();
+            matchedUniversity = universityRegistry.bestMatchByName(text);
+        }
 
         boolean acceptedByAutomation = matchedUniversity
                 .map(name -> textContains(request.getUniversityName(), name))
                 .orElse(false);
-        if (!acceptedByAutomation && universityRegistry.containsDomain(request.getUniversityDomain())) acceptedByAutomation = true;
+        if (!acceptedByAutomation && universityRegistry.containsDomain(request.getUniversityDomain())) {
+            acceptedByAutomation = true;
+        }
 
-		String uploadedUrl = uploadToFileService(bearerToken, document);
+        String uploadedUrl = uploadToFileService(bearerToken, document);
 
-		user.setStudentDocumentUrl(uploadedUrl);
-		user.setStudentVerificationStatus(acceptedByAutomation ? VERIFIED : PENDING);
-		if (acceptedByAutomation) {
-			user.setStudent(true);
-			user.setStudentStatusExpireAt(LocalDateTime.now().plusYears(1));
-		}
-		userRepository.save(user);
+        user.setStudentDocumentUrl(uploadedUrl);
+        user.setStudentVerificationStatus(acceptedByAutomation ? VERIFIED : PENDING);
+        if (acceptedByAutomation) {
+            user.setStudent(true);
+            user.setStudentStatusExpireAt(LocalDateTime.now().plusYears(1));
+        }
+        userRepository.save(user);
 
-		return StudentVerificationResponse.builder()
-				.status(user.getStudentVerificationStatus())
-				.documentUrl(uploadedUrl)
-				.matchedUniversity(matchedUniversity.orElse(null))
-				.message(acceptedByAutomation ? "Auto-verified" : "Submitted for manual review")
-				.build();
-	}
+        return StudentVerificationResponse.builder()
+                .status(user.getStudentVerificationStatus())
+                .documentUrl(uploadedUrl)
+                .matchedUniversity(matchedUniversity.orElse(null))
+                .message(acceptedByAutomation ? "Auto-verified" : "Submitted for manual review")
+                .build();
+    }
 
-	private boolean textContains(String requestValue, String matched) {
-		if (!StringUtils.hasText(requestValue) || !StringUtils.hasText(matched)) return false;
-		String req = requestValue.toLowerCase();
-		String m = matched.toLowerCase();
-		return req.contains(m) || m.contains(req);
-	}
+    private boolean textContains(String requestValue, String matched) {
+        if (!StringUtils.hasText(requestValue) || !StringUtils.hasText(matched)) return false;
+        String req = requestValue.toLowerCase();
+        String m = matched.toLowerCase();
+        return req.contains(m) || m.contains(req);
+    }
 
     private void validateDocument(MultipartFile document) {
-		String contentType = document.getContentType();
-		if (contentType == null) throw new IllegalArgumentException("Unsupported file type");
+        String contentType = document.getContentType();
+        if (contentType == null) throw new IllegalArgumentException("Unsupported file type");
         boolean allowed = contentType.equals(MediaType.APPLICATION_PDF_VALUE)
                 || contentType.startsWith(MediaType.IMAGE_PNG_VALUE)
                 || contentType.startsWith(MediaType.IMAGE_JPEG_VALUE)
                 || contentType.equals("image/jpg");
-		if (!allowed) throw new IllegalArgumentException("Only PDF, PNG, JPG, JPEG are allowed");
-	}
+        if (!allowed) throw new IllegalArgumentException("Only PDF, PNG, JPG, JPEG are allowed");
+    }
 
-	private String uploadToFileService(String bearerToken, MultipartFile document) {
+    private String uploadToFileService(String bearerToken, MultipartFile document) {
         try {
+            String jwt;
+            if (bearerToken.startsWith("Bearer ")) {
+                jwt = bearerToken.substring(7);
+            } else {
+                jwt = bearerToken;
+            }
             UploadMetadata metadata = new UploadMetadata(EntityType.STUDENT_DOCUMENT, Storage.LOCAL, null);
 
             MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
             ByteArrayResource fileResource = new ByteArrayResource(document.getBytes()) {
                 @Override
                 public String getFilename() {
-                    return StringUtils.hasText(document.getOriginalFilename()) ? document.getOriginalFilename() : "student-document";
+                    return joseContext.getActiveProvider().getUsernameFromToken(jwt) + "_" + LocalDateTime.now();
                 }
             };
 
@@ -125,7 +145,8 @@ public class StudentVerificationService {
 
             HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(parts, headers);
             RestTemplate restTemplate = new RestTemplate();
-            ResponseEntity<String> response = restTemplate.postForEntity(fileServiceBaseUrl + "/file/upload/v1", requestEntity, String.class);
+            ResponseEntity<String> response = restTemplate
+                    .postForEntity(fileServiceBaseUrl + "/file/upload/v1", requestEntity, String.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
                 throw new IllegalStateException("Upload failed");
             }
@@ -133,7 +154,8 @@ public class StudentVerificationService {
         } catch (Exception ex) {
             throw new IllegalStateException("Upload failed: " + ex.getMessage(), ex);
         }
-	}
+    }
 }
+
 
 

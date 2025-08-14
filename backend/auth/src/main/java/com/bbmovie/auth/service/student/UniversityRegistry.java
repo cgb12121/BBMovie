@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ClassPathResource;
@@ -28,6 +29,7 @@ public class UniversityRegistry {
     @PersistenceContext
     private final EntityManager entityManager;
 
+    @Autowired
     public UniversityRegistry(UniversityRepository universityRepository, EntityManager entityManager) {
         this.universityRepository = universityRepository;
         this.entityManager = entityManager;
