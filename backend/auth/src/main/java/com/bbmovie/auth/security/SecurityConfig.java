@@ -82,6 +82,7 @@ public class SecurityConfig {
                 .ignoringRequestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
+                .disable() // Disable for stateless API, which doesn't rely on cookie authentication
             )
             .cors(cors -> cors
                 .configurationSource(corsConfigurationSource)
