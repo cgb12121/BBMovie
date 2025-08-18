@@ -72,15 +72,17 @@ public class AuthController implements AuthControllerOpenApi {
 
     @PostMapping("/v2/access-token")
     public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessTokenV1(
-            @RequestHeader(value = "Authorization") String oldAccessTokenHeader
+            @RequestHeader(value = "Authorization") String oldBearerToken
     ) {
-        if (!oldAccessTokenHeader.startsWith("Bearer ")) {
-            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
+        String oldAccessToken;
+        if (oldBearerToken.startsWith("Bearer ")) {
+            oldAccessToken = oldBearerToken.substring(7);
+        } else {
+            oldAccessToken = oldBearerToken;
         }
-        String oldAccessToken = oldAccessTokenHeader.substring(7);
-        String newAccessToken = refreshTokenService.refreshAccessToken(oldAccessToken);
-        AccessTokenResponse accessTokenResponse = new AccessTokenResponse(newAccessToken);
-        return ResponseEntity.ok(ApiResponse.success(accessTokenResponse));
+        return ResponseEntity.ok(ApiResponse.success(
+                new AccessTokenResponse(refreshTokenService.refreshAccessToken(oldAccessToken)))
+        );
     }
 
     @PostMapping("/v2/logout")

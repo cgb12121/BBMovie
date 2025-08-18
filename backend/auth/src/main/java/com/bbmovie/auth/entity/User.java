@@ -102,6 +102,7 @@ public class User extends BaseEntity implements UserDetails {
 
     @OneToOne(fetch = FetchType.LAZY, optional = true)
     @JoinColumn(name = "student_profile_id", nullable = true)
+    @ToString.Exclude
     private transient StudentProfile studentProfile;
 
     @Builder.Default

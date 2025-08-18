@@ -6,6 +6,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.core.io.buffer.DefaultDataBufferFactory;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -58,7 +59,7 @@ public class FileStreamingController {
 
     // Optional SSE endpoints (base64 chunks). Clients should decode base64 to bytes.
     @GetMapping(value = "/local/video/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<org.springframework.http.codec.ServerSentEvent<String>> streamLocalSse(
+    public Flux<ServerSentEvent<String>> streamLocalSse(
             @RequestParam("name") String nameWithoutExtension,
             @RequestParam(value = "ext", required = false, defaultValue = "mp4") String extension,
             @RequestParam(value = "res", required = false) String resolution,
@@ -66,20 +67,27 @@ public class FileStreamingController {
             @RequestParam(value = "to", required = false) Integer toSeconds
     ) {
         return streamingService.streamLocalVideoSse(
-                nameWithoutExtension, extension, resolution, fromSeconds, toSeconds,
+                nameWithoutExtension,
+                extension,
+                resolution,
+                fromSeconds,
+                toSeconds,
                 DefaultDataBufferFactory.sharedInstance
         );
     }
 
     @GetMapping(value = "/cloud/video/sse", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<org.springframework.http.codec.ServerSentEvent<String>> streamCloudinarySse(
+    public Flux<ServerSentEvent<String>> streamCloudinarySse(
             @RequestParam("pid") String privateId,
             @RequestParam(value = "res", required = false) String resolution,
             @RequestParam(value = "from", required = false) Integer fromSeconds,
             @RequestParam(value = "to", required = false) Integer toSeconds
     ) {
         return streamingService.streamCloudinaryVideoSse(
-                privateId, resolution, fromSeconds, toSeconds
+                privateId,
+                resolution,
+                fromSeconds,
+                toSeconds
         );
     }
 }

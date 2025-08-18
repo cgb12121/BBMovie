@@ -1,6 +1,7 @@
 package com.bbmovie.watchlist.security
 
 import jakarta.annotation.PostConstruct
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.security.config.Customizer
@@ -17,11 +18,16 @@ import org.springframework.security.web.SecurityFilterChain
 @EnableMethodSecurity
 class Security {
 
+    @Value("\${app.auth.jwk}")
+    private lateinit var jwkUri: String;
+
     @Bean
     fun securityFilterChain(http: HttpSecurity): SecurityFilterChain {
         http.csrf { it.disable() }
             .authorizeHttpRequests {
-                it.requestMatchers("/test/**").permitAll()
+                it.requestMatchers("/test/hello").permitAll()
+                    .requestMatchers("/test/secure").hasAuthority("SCOPE_message:read")
+                    .requestMatchers("/test/secure").hasAnyRole("USER", "ADMIN")
                     .anyRequest().authenticated()
             }
             .oauth2ResourceServer { obj -> obj.jwt(Customizer.withDefaults()) }
@@ -36,6 +42,6 @@ class Security {
 
     @Bean
     fun jwkDecoder(): ReactiveJwtDecoder {
-        return NimbusReactiveJwtDecoder.withJwkSetUri("http://localhost:8080/.well-known/jwk.json").build()
+        return NimbusReactiveJwtDecoder.withJwkSetUri(jwkUri).build()
     }
 }

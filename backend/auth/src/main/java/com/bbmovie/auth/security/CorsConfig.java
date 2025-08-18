@@ -38,11 +38,5 @@ public class CorsConfig {
             "X-XSRF-TOKEN",
             "Range",
             "Content-Range",
-            "X-DEVICE-NAME",
-            "X-DEVICE-OS",
-            "X-DEVICE-IP-ADDRESS",
-            "X-BROWSER",
-            "X-BROWSER-VERSION",
-            "X-Frame-Options"
     };
 }
