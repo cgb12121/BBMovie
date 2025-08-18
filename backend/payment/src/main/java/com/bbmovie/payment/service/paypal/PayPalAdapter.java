@@ -9,6 +9,7 @@ import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.PayPalPaymentException;
+import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.paypal.api.payments.*;
@@ -24,6 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
@@ -157,6 +159,11 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             
             PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
                     .orElseThrow(() -> new PayPalPaymentException("Transaction not found: " + paymentId));
+
+            LocalDateTime now = LocalDateTime.now();
+            if (transaction.getExpiresAt() != null && now.isAfter(transaction.getExpiresAt())) {
+                throw new TransactionExpiredException("Payment expired");
+            }
 
             // Reject replays: only allow update when still pending
             if (transaction.getStatus() != com.bbmovie.payment.entity.enums.PaymentStatus.PENDING) {

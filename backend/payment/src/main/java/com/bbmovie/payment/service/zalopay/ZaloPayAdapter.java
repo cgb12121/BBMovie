@@ -7,6 +7,7 @@ import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
+import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.exception.ZalopayException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
@@ -338,6 +339,11 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             // Update DB transaction by appTransId only if still pending (prevent replay abuse)
             if (appTransId != null) {
                 paymentTransactionRepository.findByPaymentGatewayId(appTransId).ifPresent(tx -> {
+                    LocalDateTime now = LocalDateTime.now();
+                    if (tx.getExpiresAt() != null && now.isAfter(tx.getExpiresAt())) {
+                        throw new TransactionExpiredException("Payment expired");
+                    }
+
                     if (tx.getStatus() != PaymentStatus.PENDING) {
                         return;
                     }

@@ -7,6 +7,7 @@ import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.exception.StripePaymentException;
+import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
@@ -14,7 +15,6 @@ import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
 import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -110,6 +110,11 @@ public class StripeAdapter implements PaymentProviderAdapter {
             PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
                     .orElseThrow(() -> new StripePaymentException(TXN_NOT_FOUND + paymentId));
 
+            LocalDateTime now = LocalDateTime.now();
+            if (transaction.getExpiresAt() != null && now.isAfter(transaction.getExpiresAt())) {
+                throw new TransactionExpiredException("Payment expired");
+            }
+
             // Reject replays: only allow transition if currently PENDING
             if (transaction.getStatus() != PaymentStatus.PENDING) {
                 log.warn("Ignoring Stripe callback replay for txn {} with status {}", paymentId, transaction.getStatus());
@@ -166,7 +171,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
             PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
                     .orElseThrow(() -> new StripePaymentException(TXN_NOT_FOUND + paymentId));
 
-            // Only update DB based on provider if we haven't finalized internally
+            // Only update DB based on the provider if we haven't finalized internally
             if (transaction.getStatus() == PaymentStatus.PENDING) {
                 transaction.setProviderStatus(stripeStatus.getStatus());
                 transaction.setStatus(stripeStatus.getPaymentStatus());

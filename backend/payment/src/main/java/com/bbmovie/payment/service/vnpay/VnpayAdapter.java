@@ -7,6 +7,7 @@ import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
+import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.exception.VNPayException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
@@ -69,7 +70,6 @@ public class VnpayAdapter implements PaymentProviderAdapter {
                 .build();
     }
 
-    //should prevent process payment again after callback
     @Override
     @Transactional
     public PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
@@ -100,11 +100,17 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         boolean isValid = checkSum.equals(calculateChecksum) && SUCCESS.getCode().equals(responseCode);
 
         paymentTransactionRepository.findByPaymentGatewayId(vnpTxnRef).ifPresent(tx -> {
-            tx.setLastModifiedDate(LocalDateTime.now());
+            LocalDateTime now = LocalDateTime.now();
+            if (tx.getExpiresAt() != null && now.isAfter(tx.getExpiresAt())) {
+                throw new TransactionExpiredException("Payment expired");
+            }
+
+            tx.setLastModifiedDate(now);
             // Only process if still pending; prevent replay from flipping canceled/refunded/succeeded
             if (tx.getStatus() != PaymentStatus.PENDING) {
                 return;
             }
+
             if (isValid) {
                 tx.setStatus(PaymentStatus.SUCCEEDED);
                 tx.setPaymentMethod(paymentMethod);

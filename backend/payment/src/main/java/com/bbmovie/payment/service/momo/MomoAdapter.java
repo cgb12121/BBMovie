@@ -4,7 +4,12 @@ import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
+import com.bbmovie.payment.entity.PaymentTransaction;
+import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
+import com.bbmovie.payment.exception.MomoException;
+import com.bbmovie.payment.exception.TransactionExpiredException;
+import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,6 +26,7 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.Base64;
 
@@ -49,9 +55,16 @@ public class MomoAdapter implements PaymentProviderAdapter {
     @Value("${payment.momo.ipn-url}")
     private String ipnUrl;
 
-    private final ObjectMapper mapper = new ObjectMapper();
-
     private final boolean supported = false;
+
+    private final PaymentTransactionRepository paymentTransactionRepository;
+
+    private final ObjectMapper mapper;
+
+    public MomoAdapter(PaymentTransactionRepository paymentTransactionRepository) {
+        this.paymentTransactionRepository = paymentTransactionRepository;
+        this.mapper = new ObjectMapper();
+    }
 
     @Override
     public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
@@ -106,15 +119,30 @@ public class MomoAdapter implements PaymentProviderAdapter {
         String url = sandbox ? MomoConstraint.CREATE_URL_TEST : MomoConstraint.CREATE_URL_PROD;
         String responseBody = sendJson(url, body);
 
-
         try {
             @SuppressWarnings("unchecked")
             Map<String, Object> response = mapper.readValue(responseBody, Map.class);
 
-            int resultCode = Optional.ofNullable((Number) response.get("resultCode")).map(Number::intValue).orElse(-1);
-            String payUrl = Optional.ofNullable(response.get("payUrl")).map(Object::toString).orElse(null);
+            int resultCode = Optional.ofNullable((Number) response.get("resultCode"))
+                    .map(Number::intValue)
+                    .orElse(-1);
+            String payUrl = Optional.ofNullable(response.get("payUrl"))
+                    .map(Object::toString)
+                    .orElse(null);
 
             PaymentStatus status = (resultCode == 0) ? PaymentStatus.PENDING : PaymentStatus.FAILED;
+
+            PaymentTransaction transaction = PaymentTransaction.builder()
+                    .userId(request.getUserId())
+                    .subscription(null)
+                    .amount(request.getAmount())
+                    .currency(request.getCurrency())
+                    .paymentProvider(PaymentProvider.PAYPAL)
+                    .providerStatus(status.getStatus())
+                    .returnUrl(payUrl)
+                    .paymentGatewayOrderId(orderId)
+                    .build();
+            paymentTransactionRepository.save(transaction);
 
             return PaymentCreationResponse.builder()
                     .providerTransactionId(orderId)
@@ -138,7 +166,9 @@ public class MomoAdapter implements PaymentProviderAdapter {
         }
 
         String signature = paymentData.get("signature");
-        Integer resultCode = Optional.ofNullable(paymentData.get("resultCode")).map(Integer::parseInt).orElse(null);
+        Integer resultCode = Optional.ofNullable(paymentData.get("resultCode"))
+                .map(Integer::parseInt)
+                .orElse(null);
         if (signature == null || signature.isBlank() || resultCode == null) {
             return new PaymentVerificationResponse(false, null, null, null, null, null);
         }
@@ -180,6 +210,16 @@ public class MomoAdapter implements PaymentProviderAdapter {
         boolean match = calculated.equalsIgnoreCase(signature);
         boolean success = match && resultCode == 0;
 
+        String orderId = paymentData.get("orderId");
+        PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(orderId)
+                .orElseThrow(() -> new MomoException("Transaction not found: " + orderId));
+
+        LocalDateTime now = LocalDateTime.now();
+        if (transaction.getExpiresAt() != null && now.isAfter(transaction.getExpiresAt())) {
+            throw new TransactionExpiredException("Payment expired");
+        }
+
+        //TODO: complete response for momo
         return new PaymentVerificationResponse(success, paymentData.get("orderId"), null, null, null, null);
     }
 
