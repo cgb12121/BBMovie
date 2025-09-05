@@ -1,4 +1,8 @@
 app:
+  internal:
+    api:
+      key:
+        auth: 1
   jose:
     #jweRsaNimbus //debug endpoint not compatible, using the wrong key from jwk
     # nimbusJwe

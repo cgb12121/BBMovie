@@ -99,6 +99,7 @@ eureka:
 internal:
   url:
     auth:
+      api-key: 1
       base-url: lb://auth
       abac-endpoint: /auth/abac/new-access-token
 

@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 
@@ -17,9 +18,9 @@ public class AuthHeaderFilter extends AbstractGatewayFilterFactory<AuthHeaderFil
     @Override
     public GatewayFilter apply(Config config) {
         return (exchange, chain) -> {
-            String token = exchange.getRequest().getHeaders().getFirst("Authorization");
+            String token = exchange.getRequest().getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
             ServerHttpRequest request = exchange.getRequest().mutate()
-                .header("Authorization", token)
+                .header(HttpHeaders.AUTHORIZATION, token)
                 .build();
             return chain.filter(exchange.mutate().request(request).build());
         };

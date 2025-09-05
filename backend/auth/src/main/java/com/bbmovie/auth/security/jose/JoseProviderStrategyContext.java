@@ -1,13 +1,15 @@
 package com.bbmovie.auth.security.jose;
 
 import lombok.Getter;
-import lombok.Setter;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Collections;
 import java.util.Map;
+
+import static com.example.common.entity.JoseConstraint.JwtType.JWE;
+import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
 /**
  * A context class used to manage and interact with different implementations of
@@ -34,11 +36,9 @@ public class JoseProviderStrategyContext {
     private final Map<String, JoseProviderStrategy> providers;
 
     @Getter
-    @Setter
     private JoseProviderStrategy activeProvider;
 
     @Getter
-    @Setter
     private JoseProviderStrategy previousProvider;
 
     public JoseProviderStrategyContext(
@@ -52,6 +52,26 @@ public class JoseProviderStrategyContext {
 
     public Map<String, JoseProviderStrategy> getAll() {
         return Collections.unmodifiableMap(providers);
+    }
+
+    public JoseProviderStrategy getLastActiveJwe() {
+        if (activeProvider != null && JWE.equals(activeProvider.getType())) {
+            return activeProvider;
+        }
+        if (previousProvider != null && JWE.equals(previousProvider.getType())) {
+            return previousProvider;
+        }
+        return null;
+    }
+
+    public JoseProviderStrategy getLastActiveJws() {
+        if (activeProvider != null && JWS.equals(previousProvider.getType())) {
+            return activeProvider;
+        }
+        if (previousProvider != null && JWS.equals(previousProvider.getType())) {
+            return previousProvider;
+        }
+        return null;
     }
 
     public synchronized void changeProvider(String strategy) {

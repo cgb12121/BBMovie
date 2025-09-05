@@ -8,6 +8,7 @@ import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.example.common.annotation.Experimental;
+import com.example.common.entity.JoseConstraint.JwtType;
 import io.jsonwebtoken.*;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,6 +34,7 @@ import static com.example.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX
 import static com.example.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
 import static com.example.common.entity.JoseConstraint.JosePayload.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
+import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
 @Log4j2
 @SuppressWarnings("squid:S6830")
@@ -327,6 +329,11 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
     public void removeTokenFromABACBlacklist(String sid) {
         String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
+    }
+
+    @Override
+    public JwtType getType() {
+        return JWS;
     }
 
     @Override

@@ -31,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import static com.example.common.entity.JoseConstraint.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
+import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
 @Log4j2
 @Component("nimbusJws")
@@ -391,5 +392,10 @@ public class NimbusJws implements JoseProviderStrategy {
     public void removeTokenFromABACBlacklist(String sid) {
         String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
+    }
+
+    @Override
+    public JwtType getType() {
+        return JWS;
     }
 }

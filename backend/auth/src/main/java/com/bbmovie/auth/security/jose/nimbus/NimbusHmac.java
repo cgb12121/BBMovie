@@ -6,6 +6,7 @@ import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.example.common.annotation.Experimental;
+import com.example.common.entity.JoseConstraint;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -32,6 +33,7 @@ import static com.example.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX
 import static com.example.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
 import static com.example.common.entity.JoseConstraint.JosePayload.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
+import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
 @Log4j2
 @Component("nimbusHmac")
@@ -331,5 +333,10 @@ public class NimbusHmac implements JoseProviderStrategy {
     public void removeTokenFromABACBlacklist(String sid) {
         String key = JWT_ABAC_BLACKLIST_PREFIX + sid;
         redisTemplate.delete(key);
+    }
+
+    @Override
+    public JoseConstraint.JwtType getType() {
+        return JWS;
     }
 }

@@ -1,5 +1,7 @@
 package com.example.common.entity;
 
+import java.util.Map;
+
 /**
  * Utility class containing constants related to JOSE (JavaScript Object Signing and Encryption)
  * and JWT (JSON Web Token) structures used across the authentication and authorization system.
@@ -22,6 +24,32 @@ public class JoseConstraint {
      */
     public static final String JWT_ABAC_BLACKLIST_PREFIX = "abac-blacklist:";
 
+    public enum JwtType {
+         JWS, JWE;
+
+        public String type() {
+            return name().toLowerCase();
+        }
+
+        public static JwtType getType(String tokenString) {
+            String[] parts = tokenString.split("\\.");
+            return switch (parts.length) {
+                case 3 -> JWS;
+                case 5 -> JWE;
+                default -> throw new IllegalArgumentException("Invalid JWT format");
+            };
+        }
+
+        public static String getPayload(String tokenString) {
+            String[] parts = tokenString.split("\\.");
+            return switch (parts.length) {
+                case 3 -> parts[1]; // payload for JWS
+                case 5 -> parts[3]; // payload for JWE (after encryption)
+                default -> throw new IllegalArgumentException("Invalid JWT format");
+            };
+        }
+    }
+
     /**
      * Constants representing standard JOSE header fields in JWT.
      */
@@ -37,7 +65,7 @@ public class JoseConstraint {
         public static final String ALGO = "alg";
 
         /**
-         * Header field representing the key ID used to sign the token.
+         * The header field representing the key ID used to sign the token.
          */
         public static final String KID = "kid";
 
@@ -114,7 +142,7 @@ public class JoseConstraint {
             public static final String PARENTAL_CONTROLS_ENABLED = "parentalControlsEnabled";
 
             /**
-             * Indicates whether  user's account is enabled.
+             * Indicates whether a user's account is enabled.
              */
             public static final String IS_ACCOUNTING_ENABLED = "isEnabled";
         }
