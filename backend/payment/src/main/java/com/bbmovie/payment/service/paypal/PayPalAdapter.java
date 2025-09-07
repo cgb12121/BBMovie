@@ -1,5 +1,6 @@
 package com.bbmovie.payment.service.paypal;
 
+import com.bbmovie.payment.config.payment.PayPalProperties;
 import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
@@ -18,7 +19,6 @@ import com.paypal.base.rest.PayPalRESTException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,54 +35,18 @@ import static com.bbmovie.payment.service.paypal.PaypalTransactionStatus.*;
 @Log4j2
 @Service("paypal")
 public class PayPalAdapter implements PaymentProviderAdapter {
-
-    @Value("${payment.paypal.client-id}")
-    private String clientId;
-
-    @Value("${payment.paypal.client-secret}")
-    private String clientSecret;
-
-    @Value("${payment.paypal.mode}")
-    private String mode;
-
-    /**
-     * <b>NOTE:</b>
-     * <p>
-     * This is the URL PayPal will redirect the user’s browser to after they approve the payment on PayPal’s site.
-     * <p>
-     * After the user clicks "Pay" on PayPal, they are sent back to your site at returnUrl.
-     * <p>
-     * This is not a confirmation that the payment succeeded — it just means the user approved it.
-     * <p>
-     * <b>IMPORTANT</b>
-     * <p>
-     * You still have to call PayPal’s "execute payment" or "capture payment" API on your backend to finalize.
-     */
-    @Value("${payment.paypal.return-url}")
-    private String returnUrl; //(sometimes called successUrl or redirectUrl)
-
-    /**
-     * <b>NOTE:</b>
-     * <p>
-     * The URL PayPal redirects the user to if they cancel during checkout on PayPal’s site.
-     * <p>
-     * If the user clicks “Cancel and return to merchant” before completing the payment.
-     * <b>IMPORTANT</b>
-     * <p>
-     * Let you handle the UI for “payment canceled” or restore the shopping cart.
-     */
-    @Value("${payment.paypal.cancel-url:http://localhost:8080/api/payment/cancel}")
-    private String cancelUrl;
     
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final PayPalProperties properties;
 
     @Autowired
-    public PayPalAdapter(PaymentTransactionRepository paymentTransactionRepository) {
+    public PayPalAdapter(PaymentTransactionRepository paymentTransactionRepository, PayPalProperties properties) {
         this.paymentTransactionRepository = paymentTransactionRepository;
+        this.properties = properties;
     }
 
     private APIContext getApiContext() {
-        return new APIContext(clientId, clientSecret, mode);
+        return new APIContext(properties.getClientId(), properties.getClientSecret(), properties.getMode());
     }
 
     @Override
@@ -325,8 +289,8 @@ public class PayPalAdapter implements PaymentProviderAdapter {
         payer.setPaymentMethod("paypal");
 
         RedirectUrls redirectUrls = new RedirectUrls();
-        redirectUrls.setReturnUrl(returnUrl);
-        redirectUrls.setCancelUrl(cancelUrl);
+        redirectUrls.setReturnUrl(properties.getReturnUrl());
+        redirectUrls.setCancelUrl(properties.getCancelUrl());
 
         Payment payment = new Payment();
         payment.setIntent("sale");

@@ -1,5 +1,6 @@
 package com.bbmovie.payment.service.stripe;
 
+import com.bbmovie.payment.config.payment.StripeProperties;
 import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -17,7 +18,6 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,19 +32,12 @@ public class StripeAdapter implements PaymentProviderAdapter {
 
     private static final String TXN_NOT_FOUND = "Transaction not found: ";
 
-    @Value("${payment.stripe.secret-key}")
-    private String secretKey;
-
-    @SuppressWarnings("unused")
-    @Value("${payment.stripe.publishable-key}")
-    private String publishableKey;
-
     private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Autowired
-    public StripeAdapter(PaymentTransactionRepository paymentTransactionRepository) {
+    public StripeAdapter(PaymentTransactionRepository paymentTransactionRepository, StripeProperties properties) {
         this.paymentTransactionRepository = paymentTransactionRepository;
-        Stripe.apiKey = secretKey;
+        Stripe.apiKey = properties.getSecretKey();
     }
 
     @Override

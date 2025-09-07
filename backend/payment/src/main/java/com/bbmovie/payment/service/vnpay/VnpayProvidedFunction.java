@@ -10,6 +10,7 @@ import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -25,15 +26,10 @@ import static com.bbmovie.payment.service.vnpay.VnpayQueryParams.*;
 
 @SuppressWarnings("all")
 @Log4j2
+@Component
 public class VnpayProvidedFunction {
 
-    public static String vnp_PayUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
-    public static String vnp_Returnurl = "http:localhost:8088/api/payment/vnpay/callback";
-    public static String vnp_TmnCode = "8WXB2M3M"; // Got on random github
-    public static String vnp_HashSecret = "L9DBOO6OZ0TN8J8BVZJ5BXT0X6UY83RC";// Got on random github
-    public static String vnp_apiUrl = "https://sandbox.vnpayment.vn/merchant_webapi/api/transaction";
-
-    public static String hashAllFields(Map fields) {
+    public String hashAllFields(Map fields, String hashSecret) {
         List fieldNames = new ArrayList(fields.keySet());
         Collections.sort(fieldNames);
         StringBuilder sb = new StringBuilder();
@@ -50,10 +46,10 @@ public class VnpayProvidedFunction {
                 sb.append("&");
             }
         }
-        return hmacSHA512(vnp_HashSecret, sb.toString());
+        return hmacSHA512(hashSecret, sb.toString());
     }
 
-    public static String hmacSHA512(final String key, final String data) {
+    public String hmacSHA512(final String key, final String data) {
         try {
             if (key == null || data == null) {
                 throw new NullPointerException();
@@ -75,7 +71,7 @@ public class VnpayProvidedFunction {
         }
     }
 
-    public static String getIpAddress(HttpServletRequest request) {
+    public String getIpAddress(HttpServletRequest request) {
         String ipAdress;
         try {
             ipAdress = request.getHeader("X-FORWARDED-FOR");
@@ -88,21 +84,14 @@ public class VnpayProvidedFunction {
         return ipAdress;
     }
 
-    public static String getRandomNumber(int len) {
-        Random rnd = new Random();
-        String chars = "0123456789";
-        StringBuilder sb = new StringBuilder(len);
-        for (int i = 0; i < len; i++) {
-            sb.append(chars.charAt(rnd.nextInt(chars.length())));
-        }
-        return sb.toString();
-    }
-
-    public static String createOrder(HttpServletRequest request, String amount, String vnp_TxnRef, String orderInfor) {
+    public String createOrder(
+            HttpServletRequest request, String amount, String vnp_TxnRef, String orderInfor,
+            String tmpCode, String returnUrl, String hashSecret, String payUrl
+    ) {
         String vnp_Version = "2.1.0";
         String vnp_Command = "pay";
-        String vnp_IpAddr = VnpayProvidedFunction.getIpAddress(request);
-        String vnp_TmnCode = VnpayProvidedFunction.vnp_TmnCode;
+        String vnp_IpAddr = getIpAddress(request);
+        String vnp_TmnCode = tmpCode;
         String orderType = "order-type";
 
         Map<String, String> vnp_Params = new HashMap<>();
@@ -118,7 +107,7 @@ public class VnpayProvidedFunction {
 
         vnp_Params.put(VNPAY_LOCALE_PARAM, "vn");
 
-        vnp_Params.put(VNPAY_RETURN_URL_PARAM, vnp_Returnurl);
+        vnp_Params.put(VNPAY_RETURN_URL_PARAM, returnUrl);
         vnp_Params.put(VNPAY_IP_ADDRESS_PARAM, vnp_IpAddr);
 
         Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
@@ -158,15 +147,16 @@ public class VnpayProvidedFunction {
             }
         }
         String queryUrl = query.toString();
-        String salt = VnpayProvidedFunction.vnp_HashSecret;
-        String vnp_SecureHash = VnpayProvidedFunction.hmacSHA512(salt, hashData.toString());
+        String salt = hashSecret;
+        String vnp_SecureHash = hmacSHA512(salt, hashData.toString());
         queryUrl += "&vnp_SecureHash=" + vnp_SecureHash;
-        String paymentUrl = VnpayProvidedFunction.vnp_PayUrl + "?" + queryUrl;
+        String paymentUrl = payUrl + "?" + queryUrl;
         return paymentUrl;
     }
 
-    public static Map<String, String> createQueryOrder(
-            HttpServletRequest httpServletRequest, PaymentTransaction txn
+    public Map<String, String> createQueryOrder(
+            HttpServletRequest httpServletRequest, PaymentTransaction txn,
+            String tmpCode, String hashSecret
     ) {
         String vnpTxnRef = txn.getPaymentGatewayId();
         String transactionNo = txn.getPaymentGatewayOrderId();
@@ -176,7 +166,7 @@ public class VnpayProvidedFunction {
         String vnpRequestId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
         String vnpVersion = "2.1.0";
         String vnpCommand = "querydr";
-        String vnpIpAddr = VnpayProvidedFunction.getIpAddress(httpServletRequest);
+        String vnpIpAddr = getIpAddress(httpServletRequest);
         String vnpCreateDate = formatter.format(LocalDateTime.now());
         String vnpOrderInfo = "Query transaction " + vnpTxnRef;
 
@@ -184,7 +174,7 @@ public class VnpayProvidedFunction {
         body.put("vnp_RequestId", vnpRequestId);
         body.put("vnp_Version", vnpVersion);
         body.put("vnp_Command", vnpCommand);
-        body.put("vnp_TmnCode", VnpayProvidedFunction.vnp_TmnCode);
+        body.put("vnp_TmnCode", tmpCode);
         body.put("vnp_TxnRef", vnpTxnRef);
         body.put("vnp_OrderInfo", vnpOrderInfo);
         body.put("vnp_TransactionDate", vnpTransactionDate);
@@ -192,24 +182,24 @@ public class VnpayProvidedFunction {
         body.put("vnp_IpAddr", vnpIpAddr);
 
         String data = String.join("|",
-                vnpRequestId, vnpVersion, vnpCommand, VnpayProvidedFunction.vnp_TmnCode,
+                vnpRequestId, vnpVersion, vnpCommand, tmpCode,
                 vnpTxnRef, vnpTransactionDate, vnpCreateDate, vnpIpAddr, vnpOrderInfo
         );
 
-        String vnpSecureHash = VnpayProvidedFunction.hmacSHA512(VnpayProvidedFunction.vnp_HashSecret, data);
+        String vnpSecureHash = hmacSHA512(hashSecret, data);
         body.put("vnp_SecureHash", vnpSecureHash);
 
         return body;
     }
 
-    public static Map<String, String> executeRequest(Map<String, String> body) {
+    public Map<String, String> executeRequest(Map<String, String> body, String apiUrl, String hashSecret) {
         Map<String, String> vpnQueryResult = new HashMap<>();
         try {
             ObjectMapper mapper = new ObjectMapper();
             String json = mapper.writeValueAsString(body);
 
             CloseableHttpClient client = HttpClients.createDefault();
-            HttpPost post = new HttpPost(VnpayProvidedFunction.vnp_apiUrl);
+            HttpPost post = new HttpPost(apiUrl);
             post.setHeader("Content-Type", "application/json");
             post.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
@@ -220,7 +210,7 @@ public class VnpayProvidedFunction {
                 String checksum = vpnQueryResult.get("vnp_SecureHash");
                 vpnQueryResult.remove("vnp_SecureHash");
 
-                String calculatedHash = hashAllFields(vpnQueryResult);
+                String calculatedHash = hashAllFields(vpnQueryResult, hashSecret);
                 if (!checksum.equals(calculatedHash) && checksum != null) {
                     log.error("Invalid hash: {}", checksum);
                     // Throw or just leave it
@@ -234,7 +224,7 @@ public class VnpayProvidedFunction {
         }
     }
 
-    public static Map<String, String> createRefundOrder(HttpServletRequest httpServletRequest, PaymentTransaction txn) {
+    public Map<String, String> createRefundOrder(HttpServletRequest httpServletRequest, PaymentTransaction txn, String tmpCode, String hashSecret) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 }

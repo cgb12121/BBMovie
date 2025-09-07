@@ -1,4 +1,4 @@
-package com.bbmovie.payment.config;
+package com.bbmovie.payment.config.payment;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.log4j.Log4j2;
@@ -22,7 +22,7 @@ public class PaymentProviderInitializer {
     public void init() {
         properties.getProviders()
                 .forEach((name, cfg) -> {
-                    registry.setProviderStatus(name, cfg.isEnabled(), "System", cfg.getReason());
+                    registry.setProviderStatus(name, cfg.isEnabled(), "System", "System", cfg.getReason());
                     log.info("Payment provider {} is {} by System on start up", name, cfg.isEnabled() ? "enabled" : "disabled");
                 });
     }

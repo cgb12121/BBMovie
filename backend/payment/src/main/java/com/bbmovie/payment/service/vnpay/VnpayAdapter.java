@@ -1,5 +1,6 @@
 package com.bbmovie.payment.service.vnpay;
 
+import com.bbmovie.payment.config.payment.VnpayProperties;
 import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -23,8 +24,6 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.*;
 
-import static com.bbmovie.payment.service.vnpay.VnpayProvidedFunction.hashAllFields;
-import static com.bbmovie.payment.service.vnpay.VnpayProvidedFunction.vnp_Returnurl;
 import static com.bbmovie.payment.service.vnpay.VnpayQueryParams.*;
 import static com.bbmovie.payment.service.vnpay.VnpayTransactionStatus.SUCCESS;
 import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.stringToJsonNode;
@@ -35,10 +34,17 @@ import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.toJsonString;
 public class VnpayAdapter implements PaymentProviderAdapter {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final VnpayProvidedFunction vnpayProvidedFunction;
+    private final VnpayProperties properties;
 
     @Autowired
-    public VnpayAdapter(PaymentTransactionRepository paymentTransactionRepository) {
+    public VnpayAdapter(
+            PaymentTransactionRepository paymentTransactionRepository,
+            VnpayProvidedFunction vnpayProvidedFunction,
+            VnpayProperties properties) {
         this.paymentTransactionRepository = paymentTransactionRepository;
+        this.vnpayProvidedFunction = vnpayProvidedFunction;
+        this.properties = properties;
     }
 
     @Transactional
@@ -52,8 +58,11 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         String amountStr = amountInVnd.multiply(BigDecimal.valueOf(100))
                 .setScale(0, RoundingMode.HALF_UP)
                 .toPlainString();
-        String vnpTxnRef = VnpayProvidedFunction.getRandomNumber(16);
-        String paymentUrl = VnpayProvidedFunction.createOrder(httpServletRequest, amountStr , vnpTxnRef, "billpayment");
+        String vnpTxnRef = getRandomNumber(16);
+        String paymentUrl = vnpayProvidedFunction.createOrder(
+                httpServletRequest, amountStr , vnpTxnRef, "billpayment",
+                properties.getTmnCode(), properties.getReturnUrl(), properties.getHashSecret(), properties.getPayUrl()
+        );
 
         PaymentTransaction transaction = createTransactionForVnpay(request, vnpTxnRef, paymentUrl);
         if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
@@ -92,7 +101,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
             default -> "Unknown (" + cardType + ", " + bankCode + ")";
         };
 
-        String calculateChecksum = hashAllFields(paymentData);
+        String calculateChecksum = vnpayProvidedFunction.hashAllFields(paymentData, properties.getHashSecret());
 
         String responseCode = paymentData.get(VNPAY_RESPONSE_CODE);
         String message = VnpayTransactionStatus.getMessageFromCode(responseCode);
@@ -140,9 +149,9 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-        Map<String, String> body = VnpayProvidedFunction.createQueryOrder(httpServletRequest, txn);
+        Map<String, String> body = vnpayProvidedFunction.createQueryOrder(httpServletRequest, txn, properties.getTmnCode(), properties.getHashSecret());
         log.info("Querying VNPay payment: {}", body);
-        return VnpayProvidedFunction.executeRequest(body);
+        return vnpayProvidedFunction.executeRequest(body, properties.getApiUrl(), properties.getHashSecret());
     }
 
     @Override
@@ -150,12 +159,12 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-        Map<String, String> body = VnpayProvidedFunction.createRefundOrder(httpServletRequest, txn);
-        Map<String, String> result = VnpayProvidedFunction.executeRequest(body);
+        Map<String, String> body = vnpayProvidedFunction.createRefundOrder(httpServletRequest, txn, properties.getTmnCode(), properties.getHashSecret());
+        Map<String, String> result = vnpayProvidedFunction.executeRequest(body, properties.getApiUrl(), properties.getHashSecret());
         return new RefundResponse(result.get(VNPAY_TXN_REF_PARAM), result.get(VNPAY_RESPONSE_CODE));
     }
 
-    private static PaymentTransaction createTransactionForVnpay(PaymentRequest request, String vnpTxnRef, String paymentUrl) {
+    private PaymentTransaction createTransactionForVnpay(PaymentRequest request, String vnpTxnRef, String paymentUrl) {
         return PaymentTransaction.builder()
                 .userId(request.getUserId())
                 .subscription(null)  // or set if linked to a subscription later
@@ -167,8 +176,19 @@ public class VnpayAdapter implements PaymentProviderAdapter {
                 .transactionDate(LocalDateTime.now())
                 .status(PaymentStatus.PENDING)
                 .description("VNPay payment for order: " + request.getOrderId())
-                .ipnUrl(vnp_Returnurl)
+                .ipnUrl(properties.getReturnUrl())
                 .returnUrl(paymentUrl)
                 .build();
+    }
+
+    @SuppressWarnings("squid:S2119")
+    public String getRandomNumber(int len) {
+        Random rnd = new Random();
+        String chars = "0123456789";
+        StringBuilder sb = new StringBuilder(len);
+        for (int i = 0; i < len; i++) {
+            sb.append(chars.charAt(rnd.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 }

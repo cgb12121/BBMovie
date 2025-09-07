@@ -1,4 +1,4 @@
-package com.bbmovie.payment.config;
+package com.bbmovie.payment.config.payment;
 
 import lombok.Getter;
 import lombok.Setter;

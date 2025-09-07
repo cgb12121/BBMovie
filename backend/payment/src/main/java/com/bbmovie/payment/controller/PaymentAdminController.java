@@ -1,11 +1,13 @@
 package com.bbmovie.payment.controller;
 
-import com.bbmovie.payment.config.PaymentProviderRegistry;
+import com.bbmovie.payment.config.payment.PaymentProviderRegistry;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
 
 @Log4j2
 @RestController
@@ -23,17 +25,22 @@ public class PaymentAdminController {
     @PostMapping("/{provider}/enable")
     public void enable(@PathVariable String provider, @RequestParam String reason, Authentication authentication) {
         String username = authentication.getName();
-        registry.setProviderStatus(provider, true, username, reason);
+        String principal = authentication.getPrincipal().toString();
+        registry.setProviderStatus(provider, true, username, principal, reason);
     }
 
     @PostMapping("/{provider}/disable")
     public void disable(@PathVariable String provider, @RequestParam String reason, Authentication authentication) {
         String username = authentication.getName();
-        registry.setProviderStatus(provider, false, username, reason);
+        String principal = authentication.getPrincipal().toString();
+        registry.setProviderStatus(provider, false, username, principal, reason);
     }
 
     @GetMapping("/{provider}")
-    public PaymentProviderRegistry.ProviderStatus status(@PathVariable String provider) {
+    public PaymentProviderRegistry.ProviderStatus status(@PathVariable String provider, Authentication authentication) {
+        String username = authentication.getName();
+        String principal = authentication.getPrincipal().toString();
+        log.info("[{}] {} requested status of provider {}", LocalDateTime.now(), username, principal);
         return registry.getStatus(provider);
     }
 }

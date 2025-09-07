@@ -1,5 +1,6 @@
 package com.bbmovie.payment.service;
 
+import com.bbmovie.payment.config.payment.PaymentProviderProperties;
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
@@ -28,18 +29,25 @@ import static com.bbmovie.payment.entity.enums.PaymentProvider.*;
 public class PaymentService {
 
     private final Map<String, PaymentProviderAdapter> providers;
+    private final PaymentProviderProperties properties;
     private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Autowired
     public PaymentService(
             Map<String, PaymentProviderAdapter> providers,
+            PaymentProviderProperties properties,
             PaymentTransactionRepository paymentTransactionRepository
     ) {
         this.providers = providers;
+        this.properties = properties;
         this.paymentTransactionRepository = paymentTransactionRepository;
     }
 
     public PaymentCreationResponse createPayment(String provider, PaymentRequest request, HttpServletRequest hsr) {
+        PaymentProviderProperties.ProviderConfig toggle = properties.getProviders().get(provider);
+        if (toggle == null || !toggle.isEnabled()) {
+            throw new IllegalStateException(provider + " is disabled: " + (toggle != null ? toggle.getReason() : "Unknown reason"));
+        }
         PaymentProviderAdapter adapter = providers.get(provider);
         return adapter.createPaymentRequest(request, hsr);
     }

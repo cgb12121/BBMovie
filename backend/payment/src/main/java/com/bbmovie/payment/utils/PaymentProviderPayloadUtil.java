@@ -9,22 +9,28 @@ import org.springframework.http.HttpMethod;
 
 import java.util.Map;
 
+@SuppressWarnings("squid:S1118")
 public final class PaymentProviderPayloadUtil {
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 
-    private PaymentProviderPayloadUtil() {}
-
     public static CallbackRequestContext createContext(HttpServletRequest request, Map<String, String> params, HttpMethod method) {
-        return CallbackRequestContext.builder().httpServletRequest(request)
-                .formParams(params).httpMethod(method.name())
-                .contentType(request.getContentType()).build();
+        return CallbackRequestContext.builder()
+                .httpServletRequest(request)
+                .formParams(params)
+                .httpMethod(method.name())
+                .contentType(request.getContentType())
+                .build();
     }
 
     public static CallbackRequestContext createContext(HttpServletRequest request,String payload, HttpMethod method, Map<String, String> headers) {
-        return CallbackRequestContext.builder().httpServletRequest(request)
-                .headers(headers).rawBody(payload).httpMethod(method.name())
-                .contentType(request.getContentType()).build();
+        return CallbackRequestContext.builder()
+                .httpServletRequest(request)
+                .headers(headers)
+                .rawBody(payload)
+                .httpMethod(method.name())
+                .contentType(request.getContentType())
+                .build();
     }
 
     public static String toJsonString(Object payload) {
