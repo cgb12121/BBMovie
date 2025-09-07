@@ -103,6 +103,17 @@ internal:
       base-url: lb://auth
       abac-endpoint: /auth/abac/new-access-token
 
+
+app:
+  frontend:
+    url: http://localhost:3000
+gateway:
+  config:
+    security:
+      enabled: true
+      api-key-header: X-Api-Key
+
+
 logging:
   level:
     org.springframework.cloud.gateway.filter.ratelimit: DEBUG

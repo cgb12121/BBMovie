@@ -6,7 +6,6 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -19,14 +18,9 @@ public class SecurityConfig {
         return httpSecurity
                 .cors(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
-                .authorizeHttpRequests(
-                        authorizeHttpRequests -> authorizeHttpRequests.anyRequest().permitAll()
+                .authorizeHttpRequests(authorizeHttpRequests ->
+                        authorizeHttpRequests.anyRequest().permitAll()
                 )
                 .build();
     }
-
-//    @Bean
-//    public NimbusJwtDecoder jwtDecoder() {
-//        return NimbusJwtDecoder.withJwkSetUri("http://localhost:8080/auth/realms/bbmovie/protocol/openid-connect/certs").build();
-//    }
 }

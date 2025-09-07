@@ -55,8 +55,6 @@ public class MomoAdapter implements PaymentProviderAdapter {
     @Value("${payment.momo.ipn-url}")
     private String ipnUrl;
 
-    private final boolean supported = false;
-
     private final PaymentTransactionRepository paymentTransactionRepository;
 
     private final ObjectMapper mapper;
@@ -68,10 +66,6 @@ public class MomoAdapter implements PaymentProviderAdapter {
 
     @Override
     public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
-        if (!supported) {
-            throw new UnsupportedOperationException("Momo is not supported yet");
-        }
-
         long amount = Optional.ofNullable(request.getAmount())
                 .map(BigDecimal::longValue)
                 .orElseThrow(() -> new IllegalArgumentException("amount is required"));
@@ -85,7 +79,8 @@ public class MomoAdapter implements PaymentProviderAdapter {
         try {
             extraDataJson = mapper.writeValueAsString(Map.of("skus", ""));
         } catch (Exception e) {
-            throw new RuntimeException("Failed to serialize extraData", e);
+            log.error("Failed to serialize extraData: {}", e.getMessage());
+            throw new MomoException("Failed to serialize extraData");
         }
         String extraData = Base64.getEncoder().encodeToString(extraDataJson.getBytes(StandardCharsets.UTF_8));
 
@@ -161,10 +156,6 @@ public class MomoAdapter implements PaymentProviderAdapter {
 
     @Override
     public PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest) {
-        if (!supported) {
-            throw new UnsupportedOperationException("Momo is not supported yet");
-        }
-
         String signature = paymentData.get("signature");
         Integer resultCode = Optional.ofNullable(paymentData.get("resultCode"))
                 .map(Integer::parseInt)
@@ -225,17 +216,11 @@ public class MomoAdapter implements PaymentProviderAdapter {
 
     @Override
     public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
-        if (!supported) {
-            throw new UnsupportedOperationException("Momo is not supported yet");
-        }
-        return null;
+        throw new UnsupportedOperationException("This operation is not implemented for Momo");
     }
 
     @Override
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
-        if (!supported) {
-            throw new UnsupportedOperationException("Momo is not supported yet");
-        }
         throw new UnsupportedOperationException("Refund is not supported by Momo");
     }
 
@@ -272,7 +257,8 @@ public class MomoAdapter implements PaymentProviderAdapter {
                 return EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
             }
         } catch (Exception e) {
-            throw new RuntimeException("Failed to send request to MoMo", e);
+            log.error("Failed to send request to MoMo: {}", e.getMessage());
+            throw new MomoException("Failed to send request to MoMo");
         }
     }
 }

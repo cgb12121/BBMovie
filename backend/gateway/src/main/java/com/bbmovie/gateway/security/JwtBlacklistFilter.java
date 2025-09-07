@@ -20,6 +20,7 @@ import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
@@ -27,9 +28,11 @@ import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.*;
 
 import org.springframework.http.HttpStatus;
+import reactor.core.scheduler.Schedulers;
 
 import static com.bbmovie.gateway.config.RateLimiterConfig.DEFAULT_RATE_LIMITER_KEY;
 import static com.example.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX;
@@ -47,8 +50,13 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
     private final WebClient authWebClient;
     private final WebClient apiKeyWebClient;
     private final ObjectMapper objectMapper;
-    private final String apiKey;
     private final String abacEndpoint;
+
+    @Value("${gateway.config.security.api-key-header}")
+    private String apiKeyHeader;
+
+    @Value("${internal.url.auth.api-key}")
+    private String apiKey;
 
     @Autowired
     public JwtBlacklistFilter(
@@ -56,14 +64,12 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
             @Qualifier("authWebClient") @LoadBalanced WebClient authWebClient,
             @Qualifier("apiKeyWebClient") WebClient apiKeyWebClient,
             ObjectMapper objectMapper,
-            @Value("${internal.url.auth.api-key}") String apiKey,
             @Value("${internal.url.auth.abac-endpoint}") String abacEndpoint
     ) {
         this.reactiveRedis = reactiveRedis;
         this.authWebClient = authWebClient;
         this.apiKeyWebClient = apiKeyWebClient;
         this.objectMapper = objectMapper;
-        this.apiKey = apiKey;
         this.abacEndpoint = abacEndpoint;
     }
 
@@ -102,9 +108,9 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
 
     private Mono<Void> processAuthentication(ServerWebExchange exchange, GatewayFilterChain chain) {
         String token = extractJwtFromRequest(exchange);
-        String apiKey = exchange.getRequest()
+        String clientApiKey = exchange.getRequest()
                 .getHeaders()
-                .getFirst("X-Api-Key");
+                .getFirst(apiKeyHeader);
 
         if (token == null && apiKey == null) {
             log.warn("No token or API key provided for path: {}", exchange.getRequest().getPath());
@@ -114,7 +120,7 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
         }
 
         if (apiKey != null) {
-            return validateApiKey(apiKey, exchange, chain);
+            return validateApiKey(clientApiKey, exchange, chain);
         }
 
         return validateJwtToken(token, exchange, chain);
@@ -122,7 +128,7 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
 
     private Mono<Void> validateApiKey(String apiKey, ServerWebExchange exchange, GatewayFilterChain chain) {
         return apiKeyWebClient.get()
-                .header("X-Api-Key", apiKey)
+                .header(apiKeyHeader, apiKey)
                 .retrieve()
                 .bodyToMono(String.class)
                 .flatMap(status -> {
@@ -183,7 +189,8 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
                                     exchange.getResponse()
                                             .getHeaders()
                                             .set(HttpHeaders.AUTHORIZATION, newToken);
-                                    return reactiveRedis.delete(abacKey)
+                                    return reactiveRedis
+                                            .delete(abacKey)
                                             .then(chain.filter(exchange));
                                 })
                                 .onErrorResume(err -> {
@@ -214,28 +221,50 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
     }
 
     private Mono<JsonNode> parseJwtPayload(String token) {
+        if (!StringUtils.hasText(token)) {
+            return Mono.error(new IllegalArgumentException("Token must not be null or empty"));
+        }
+
         JwtType type = JwtType.getType(token);
+        if (type == null) {
+            return Mono.error(new IllegalArgumentException("Unable to determine JWT type"));
+        }
+
         String rawPayload = JwtType.getPayload(token);
+        if (!StringUtils.hasText(rawPayload)) {
+            return Mono.error(new IllegalArgumentException("Payload must not be null or empty"));
+        }
 
         if (JWS.equals(type)) {
             return Mono.fromCallable(() -> {
-                byte[] decoded = Base64.getUrlDecoder().decode(rawPayload);
-                return objectMapper.readTree(new String(decoded, StandardCharsets.UTF_8));
-            });
+                        byte[] decoded = Base64.getUrlDecoder().decode(rawPayload);
+                        return objectMapper.readTree(new String(decoded, StandardCharsets.UTF_8));
+                    })
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .onErrorMap(e -> new RuntimeException("Failed to parse JWS payload", e));
         }
 
         if (JWE.equals(type)) {
             return decodeJwePayload(token)
-                    .handle((jwePayload, sink) -> {
-                        try {
-                            sink.next(objectMapper.readTree(jwePayload));
-                        } catch (IOException e) {
-                            sink.error(new RuntimeException("Failed to parse JWE payload", e));
+                    .flatMap(jwePayload -> {
+                        if (!StringUtils.hasText(jwePayload)) {
+                            return Mono.error(new IllegalArgumentException("JWE payload is empty"));
                         }
-                    });
+                        return Mono.just(jwePayload)
+                                .<JsonNode>handle((payload, sink) -> {
+                                    try {
+                                        sink.next(objectMapper.readTree(payload));
+                                    } catch (IOException e) {
+                                        sink.error(new RuntimeException("Failed to parse JWE payload", e));
+                                    }
+                                });
+                    })
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .timeout(Duration.ofSeconds(10))
+                    .onErrorMap(e -> new RuntimeException("JWE processing failed", e));
         }
 
-        return Mono.error(new IllegalArgumentException("Invalid JWT token type: " + type));
+        return Mono.error(new IllegalArgumentException("Unsupported JWT type: " + type));
     }
 
     private Mono<String> fetchNewToken(String oldAccessToken) {
@@ -244,7 +273,7 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
         return authWebClient
                 .post()
                 .uri(abacEndpoint)
-                .header("X-API-KEY", apiKey)
+                .header(apiKeyHeader, apiKey)
                 .body(BodyInserters.fromValue(requestBody))
                 .retrieve()
                 .bodyToMono(String.class)
@@ -256,7 +285,7 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
         return authWebClient
                 .post()
                 .uri("/jwe/payload")
-                .header("X-API-KEY", apiKey)
+                .header(apiKeyHeader, apiKey)
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)

@@ -1,0 +1,15 @@
+package com.bbmovie.payment.config;
+
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+
+@Getter
+@Setter
+@Component
+@ConfigurationProperties(prefix = "payment.stripe")
+public class StripeProperties {
+    private String publishableKey;
+    private String secretKey;
+}

@@ -1,5 +1,6 @@
 package com.bbmovie.auth.controller;
 
+import com.bbmovie.auth.dto.ApiResponse;
 import com.bbmovie.auth.security.jose.config.JwkService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
@@ -34,13 +35,13 @@ public class JwkController {
 
     @GetMapping("/admin/jwks/all")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Map<String, Object> getJwks() {
-        return Map.of("keys", List.of(jwkService.getAllActiveJwks()));
+    public ApiResponse<Map<String, Object>> getJwks() {
+        return ApiResponse.success(Map.of("keys", List.of(jwkService.getAllActiveJwks())));
     }
 
     @GetMapping("/admin/jwks/active")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    public Map<String, Object> getActiveJwks() {
-        return Map.of("keys", List.of(jwkService.getJwk()));
+    public ApiResponse<Map<String, Object>> getActiveJwks() {
+        return ApiResponse.success(Map.of("keys", List.of(jwkService.getJwk())));
     }
 }
