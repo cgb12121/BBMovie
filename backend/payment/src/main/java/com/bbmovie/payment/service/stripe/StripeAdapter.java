@@ -155,7 +155,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPayment(String paymentId) {
         log.info("Querying Stripe payment with ID: {}", paymentId);
         try {
             PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentId);
@@ -186,7 +186,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public RefundResponse refundPayment(String paymentId, HttpServletRequest hsr) {
         log.info("Processing Stripe refund for paymentId: {}", paymentId);
 
         PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
@@ -204,7 +204,13 @@ public class StripeAdapter implements PaymentProviderAdapter {
             transaction.setProviderStatus(refund.getStatus());
             paymentTransactionRepository.save(transaction);
 
-            return new RefundResponse(refund.getId(), refundStatus.getPaymentStatus().getStatus());
+            return new RefundResponse(
+                refund.getId(), 
+                refundStatus.getPaymentStatus().getStatus(),
+                refund.getReason(),
+                refund.getCurrency(),
+                new BigDecimal(refund.getAmount())
+            );
         } catch (StripeException ex) {
             log.error("Failed to process Stripe refund...: {}", ex.getMessage());
             transaction.setErrorCode(ex.getCode());
@@ -213,35 +219,4 @@ public class StripeAdapter implements PaymentProviderAdapter {
             throw new StripePaymentException("Refund processing failed: " + ex.getMessage());
         }
     } 
-
-    @Override
-    public RefundResponse refundPayment(String paymentId, java.math.BigDecimal amount, String reason, HttpServletRequest httpServletRequest) {
-        log.info("Processing Stripe refund for paymentId: {} amount: {}", paymentId, amount);
-        PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
-                .orElseThrow(() -> new RuntimeException(TXN_NOT_FOUND + paymentId));
-        try {
-            java.util.Map<String, Object> params = new java.util.HashMap<>();
-            params.put("payment_intent", paymentId);
-            if (amount != null) {
-                params.put("amount", amount.multiply(java.math.BigDecimal.valueOf(100)).longValueExact());
-            }
-            if (reason != null) {
-                params.put("reason", reason);
-            }
-            Refund refund = Refund.create(params);
-            StripeTransactionStatus refundStatus = refund.getStatus().equalsIgnoreCase("succeeded")
-                    ? StripeTransactionStatus.SUCCEEDED
-                    : StripeTransactionStatus.fromStatus(refund.getStatus());
-            transaction.setStatus(PaymentStatus.REFUNDED);
-            transaction.setProviderStatus(refund.getStatus());
-            paymentTransactionRepository.save(transaction);
-            return new RefundResponse(refund.getId(), refundStatus.getPaymentStatus().getStatus());
-        } catch (StripeException ex) {
-            log.error("Failed to process Stripe refund: {}", ex.getMessage());
-            transaction.setErrorCode(ex.getCode());
-            transaction.setErrorMessage(ex.getMessage());
-            paymentTransactionRepository.save(transaction);
-            throw new StripePaymentException("Refund partially processing failed: " + ex.getMessage());
-        }
-    }
 }

@@ -9,7 +9,6 @@ import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.exception.TransactionNotFoundException;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
-import com.bbmovie.payment.exception.UnsupportedProviderException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
@@ -72,30 +71,19 @@ public class PaymentService {
         return adapter.handleWebhook(ctx);
     }
 
-    public RefundResponse refundPayment(String provider, String paymentId, HttpServletRequest hsr) {
-        PaymentProviderAdapter adapter = providers.get(provider);
+    public RefundResponse refundPayment(String paymentId, HttpServletRequest hsr) {
+        PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
+                .orElseThrow(() -> new TransactionNotFoundException("Payment not found"));
+               
+        PaymentProviderAdapter adapter = providers.get(txn.getPaymentProvider().toString().toLowerCase());
         return adapter.refundPayment(paymentId, hsr);
     }
 
-    public RefundResponse refundPayment(String provider, String paymentId, java.math.BigDecimal amount, String reason, HttpServletRequest hsr) {
-        PaymentProviderAdapter adapter = providers.get(provider);
-        return adapter.refundPayment(paymentId, amount, reason, hsr);
-    }
-
-    public Object queryPayment(String paymentId, HttpServletRequest hsr) {
+    public Object queryPayment(String paymentId) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new TransactionNotFoundException("Payment not found"));
-        String paymentProvider;
-        switch (txn.getPaymentProvider()) {
-            case VNPAY -> paymentProvider = VNPAY.getName();
-            case MOMO -> paymentProvider = MOMO.getName();
-            case ZALOPAY -> paymentProvider = ZALOPAY.getName();
-            case STRIPE -> paymentProvider = STRIPE.getName();
-            case PAYPAL -> paymentProvider = PAYPAL.getName();
-            default -> throw new UnsupportedProviderException("Payment provider not supported");
-        }
-        PaymentProviderAdapter provider = providers.get(paymentProvider);
-        return provider.queryPayment(paymentId, hsr);
+        PaymentProviderAdapter provider = providers.get(txn.getPaymentProvider().toString().toLowerCase());
+        return provider.queryPayment(paymentId);
     }
 
     // Auto-cancel unpaid orders that passed expiration time. Runs every 5 minutes.

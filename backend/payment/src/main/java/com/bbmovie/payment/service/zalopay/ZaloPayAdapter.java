@@ -303,8 +303,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                     .transactionId(null)
                     .code("INVALID")
                     .message("Missing data/mac")
-                    .providerPayloadStringJson(data)
-                    .responseToProviderStringJson(stringToJsonNode(toJsonString(Map.of(
+                    .clientResponse(data)
+                    .providerResponse(stringToJsonNode(toJsonString(Map.of(
                             returnCodeParam, -1,
                             returnMessageParam, "Missing data/mac"
                     ))))
@@ -319,8 +319,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                     .transactionId(null)
                     .code("SIGNATURE_MISMATCH")
                     .message("MAC not match")
-                    .providerPayloadStringJson(data)
-                    .responseToProviderStringJson(stringToJsonNode(toJsonString(Map.of(
+                    .clientResponse(data)
+                    .providerResponse(stringToJsonNode(toJsonString(Map.of(
                             returnCodeParam, -1,
                             returnMessageParam, "MAC not match"
                     ))))
@@ -379,8 +379,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                     .transactionId(appTransId)
                     .code(returnCode)
                     .message(success ? "SUCCESS" : "FAILED")
-                    .providerPayloadStringJson(data)
-                    .responseToProviderStringJson(stringToJsonNode(toJsonString(Map.of(
+                    .clientResponse(data)
+                    .providerResponse(stringToJsonNode(toJsonString(Map.of(
                             returnCodeParam, success ? 1 : -1,
                             returnMessageParam, success ? "OK" : "FAILED"
                     ))))
@@ -392,8 +392,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                     .transactionId(null)
                     .code("PARSE_ERROR")
                     .message("Invalid data payload")
-                    .providerPayloadStringJson(data)
-                    .responseToProviderStringJson(stringToJsonNode(toJsonString(Map.of(
+                    .clientResponse(data)
+                    .providerResponse(stringToJsonNode(toJsonString(Map.of(
                             returnCodeParam, -1,
                             returnMessageParam, "Invalid data payload"
                     ))))
@@ -410,12 +410,12 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPayment(String paymentId) {
         throw new UnsupportedOperationException("Query payment is not supported by ZaloPay");
     }
 
     @Override
-    public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public RefundResponse refundPayment(String paymentId, HttpServletRequest hsr) {
         throw new UnsupportedOperationException("Refund is not supported by ZaloPay");
     }
 

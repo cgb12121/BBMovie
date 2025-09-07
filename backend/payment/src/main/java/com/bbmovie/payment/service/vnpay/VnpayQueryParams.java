@@ -22,4 +22,5 @@ public class VnpayQueryParams {
     public static final String VNPAY_CARD_TYPE = "vnp_CardType";
     public static final String VNPAY_BANK_CODE = "vnp_BankCode";
     public static final String VNPAY_RESPONSE_CODE = "vnp_ResponseCode";
+    public static final String VNPAY_MESSAGE = "vnp_Message";
 }

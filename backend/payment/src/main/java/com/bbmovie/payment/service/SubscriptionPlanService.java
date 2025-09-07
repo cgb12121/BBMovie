@@ -1,10 +1,12 @@
 package com.bbmovie.payment.service;
 
 import com.bbmovie.payment.entity.SubscriptionPlan;
+import com.bbmovie.payment.entity.enums.BillingCycle;
 import com.bbmovie.payment.repository.SubscriptionPlanRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -26,7 +28,7 @@ public class SubscriptionPlanService {
     }
 
     @PostConstruct
-    private void initSubscriptionPlan() {
+    private void initDefaultSubscriptionPlan() {
         // Seed fixed plans if not present
         if (subscriptionPlanRepository.count() == 0) {
             List<SubscriptionPlan> plans = new ArrayList<>();
@@ -90,13 +92,14 @@ public class SubscriptionPlanService {
         return subscriptionPlanRepository.findAll();
     }
 
-    public BigDecimal quotePrice(String planName, com.bbmovie.payment.entity.enums.BillingCycle cycle, boolean student) {
-        Optional<SubscriptionPlan> planOpt = subscriptionPlanRepository.findAll().stream()
+    public BigDecimal quotePrice(String planName, BillingCycle cycle, String username) {
+        Optional<SubscriptionPlan> planOpt = subscriptionPlanRepository.findAll()
+                .stream()
                 .filter(p -> p.isActive() && p.getName().equalsIgnoreCase(planName))
                 .findFirst();
         SubscriptionPlan plan = planOpt.orElseThrow(() -> new IllegalArgumentException("Plan not found"));
         BigDecimal baseMonthly = plan.getMonthlyPrice();
-        boolean annual = cycle == com.bbmovie.payment.entity.enums.BillingCycle.ANNUAL;
+        boolean annual = cycle == BillingCycle.ANNUAL;
         BigDecimal price;
         if (annual) {
             BigDecimal annualBase = baseMonthly.multiply(BigDecimal.valueOf(12));
@@ -106,7 +109,9 @@ public class SubscriptionPlanService {
         } else {
             price = baseMonthly;
         }
-        if (student) {
+        RestTemplate restTemplate = new RestTemplate();
+        boolean isStudent = Boolean.TRUE.equals(restTemplate.getForObject("http://localhost:8080/api/v1/users/" + username, Boolean.class));
+        if (isStudent) {
             BigDecimal studentDiscount = price.multiply(BigDecimal.valueOf(plan.getStudentDiscountPercent()))
                     .divide(BigDecimal.valueOf(100), RoundingMode.HALF_UP);
             price = price.subtract(studentDiscount);

@@ -21,6 +21,9 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private String userId;
 
+    @Column(name = "ip_address", nullable = false)
+    private String ipAddressPerformPayment;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subscription_id")
     private UserSubscription subscription;

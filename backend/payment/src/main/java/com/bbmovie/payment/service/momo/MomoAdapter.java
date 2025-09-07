@@ -193,8 +193,8 @@ public class MomoAdapter implements PaymentProviderAdapter {
             ));
         }
 
-        String calculated = hmacSha256Hex(properties.getSecretKey(), rawSignature);
-        boolean match = calculated.equalsIgnoreCase(signature);
+        String calculatedSignature = hmacSha256Hex(properties.getSecretKey(), rawSignature);
+        boolean match = calculatedSignature.equalsIgnoreCase(signature);
         boolean success = match && resultCode == 0;
 
         String orderId = paymentData.get(ORDER_ID);
@@ -210,20 +210,20 @@ public class MomoAdapter implements PaymentProviderAdapter {
         return new PaymentVerificationResponse(
                 success,
                 paymentData.get(ORDER_ID),
-                null,
-                null,
+                paymentData.get(RESULT_CODE),
+                paymentData.get(MESSAGE),
                 null,
                 null
         );
     }
 
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPayment(String paymentId) {
         throw new UnsupportedOperationException("This operation is not implemented for Momo");
     }
 
     @Override
-    public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public RefundResponse refundPayment(String paymentId, HttpServletRequest hsr) {
         throw new UnsupportedOperationException("Refund is not supported by Momo");
     }
 

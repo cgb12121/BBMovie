@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SignatureException;
@@ -136,8 +137,8 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                         .transactionId(payment.getId())
                         .code("ALREADY_FINALIZED")
                         .message("Transaction is not pending")
-                        .providerPayloadStringJson(payment.getTransactions())
-                        .responseToProviderStringJson(null)
+                        .clientResponse(payment.getTransactions())
+                        .providerResponse(null)
                         .build();
             }
 
@@ -151,8 +152,8 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                     .transactionId(payment.getId())
                     .code(payment.getState())
                     .message(messageForClient)
-                    .providerPayloadStringJson(payment.getTransactions())
-                    .responseToProviderStringJson(null)
+                    .clientResponse(payment.getTransactions())
+                    .providerResponse(null)
                     .build();
         } catch (PayPalRESTException e) {
             log.error("Unable to verify PayPal payment", e);
@@ -196,7 +197,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPayment(String paymentId) {
         try {
             PaymentTransaction transaction = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                     .orElseThrow(() -> new PayPalPaymentException("Transaction not found: " + paymentId));
@@ -211,37 +212,33 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public RefundResponse refundPayment(String paymentId, HttpServletRequest hsr) {
         try {
-            Sale sale = Sale.get(getApiContext(), paymentId);
-            RefundRequest refundRequest = new RefundRequest();
-            DetailedRefund refund = sale.refund(getApiContext(), refundRequest);
-            String status = COMPLETED.getStatus().equals(refund.getState())
-                    ? PaymentStatus.SUCCEEDED.getStatus()
-                    : PaymentStatus.FAILED.getStatus();
-            return new RefundResponse(refund.getId(), status);
-        } catch (PayPalRESTException e) {
-            log.error("Unable to refund PayPal payment", e);
-            throw new PayPalPaymentException("Unable to refund PayPal payment");
-        }
-    }
+            PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
+                        .orElseThrow(() -> new PayPalPaymentException("Unable to find transaction"));
 
-    @Override
-    public RefundResponse refundPayment(String paymentId, java.math.BigDecimal amount, String reason, HttpServletRequest httpServletRequest) {
-        try {
-            Sale sale = Sale.get(getApiContext(), paymentId);
+            Sale sale = Sale.get(getApiContext(), txn.getId().toString());
+
             RefundRequest refundRequest = new RefundRequest();
-            if (amount != null) {
-                Amount amt = new Amount();
-                amt.setCurrency("USD"); // consider mapping from the original transaction
-                amt.setTotal(amount.toString());
-                refundRequest.setAmount(amt);
+
+            if (txn.getAmount() != null) {
+                Amount amount = new Amount();
+                amount.setCurrency(txn.getCurrency());
+                amount.setTotal(txn.getAmount().toString());
+                refundRequest.setAmount(amount);
             }
+
             DetailedRefund refund = sale.refund(getApiContext(), refundRequest);
             String status = COMPLETED.getStatus().equals(refund.getState())
                     ? PaymentStatus.SUCCEEDED.getStatus()
                     : PaymentStatus.FAILED.getStatus();
-            return new RefundResponse(refund.getId(), status);
+            return new RefundResponse(
+                refund.getId(), 
+                status, 
+                refund.getReasonCode(),
+                refund.getTotalRefundedAmount().getCurrency(), 
+                new BigDecimal(refund.getTotalRefundedAmount().getValue())
+            );
         } catch (PayPalRESTException e) {
             log.error("Unable to refund PayPal payment", e);
             throw new PayPalPaymentException("Unable to refund PayPal payment");

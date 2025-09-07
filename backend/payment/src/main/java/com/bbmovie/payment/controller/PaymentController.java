@@ -10,12 +10,12 @@ import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.service.PaymentService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.Map;
 
 import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.*;
@@ -27,6 +27,7 @@ public class PaymentController {
 
     private final PaymentService paymentService;
 
+    @Autowired
     public PaymentController(PaymentService paymentService) {
         this.paymentService = paymentService;
     }
@@ -73,7 +74,7 @@ public class PaymentController {
         log.info("\nReceived payment callback from ZALOPAY.\n {}", body);
         PaymentVerificationResponse verification = paymentService.handleCallback("zalopay", body, request);
         @SuppressWarnings("unchecked") // The data has been made sure to match
-        Map<String, String> providerPayload = stringToJson(verification.getResponseToProviderStringJson().toString(), Map.class);
+        Map<String, String> providerPayload = stringToJson(verification.getProviderResponse().toString(), Map.class);
         if (verification.isValid()) {
             return ResponseEntity.ok(providerPayload);
         }
@@ -115,18 +116,20 @@ public class PaymentController {
     }
 
     @PostMapping("/refund")
-    public ResponseEntity<ApiResponse<RefundResponse>> refundPayment(@RequestBody RefundRequest request, HttpServletRequest httpServletRequest) {
-        if (request.getAmount() == null || request.getAmount().equals(BigDecimal.ZERO)) {
-            RefundResponse response = paymentService.refundPayment(String.valueOf(request.getProvider()), String.valueOf(request.getPaymentId()), httpServletRequest);
-            return ResponseEntity.ok(ApiResponse.success(response));
-        }
-
-        RefundResponse response = paymentService.refundPayment(String.valueOf(request.getProvider()), String.valueOf(request.getPaymentId()), request.getAmount(), request.getReason(), httpServletRequest);
+    public ResponseEntity<ApiResponse<RefundResponse>> refundPayment(
+        @SuppressWarnings("unused") @RequestHeader("Authorization") String jwtToken, // This Will be used to pass the user id
+        @RequestBody RefundRequest request, 
+        HttpServletRequest httpServletRequest
+    ) {
+        RefundResponse response = paymentService.refundPayment(String.valueOf(request.getPaymentId()), httpServletRequest);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/query")
-    public ResponseEntity<ApiResponse<Object>> queryPaymentFromProvider(@RequestParam String id, HttpServletRequest request) {
-        return ResponseEntity.ok(ApiResponse.success(paymentService.queryPayment(id, request)));
+    public ResponseEntity<ApiResponse<Object>> queryPaymentFromProvider(
+        @SuppressWarnings("unused") @RequestHeader("Authorization") String jwtToken, // This Will be used to pass the user id
+        @RequestParam String id
+    ) {
+        return ResponseEntity.ok(ApiResponse.success(paymentService.queryPayment(id)));
     }
 }

@@ -14,6 +14,6 @@ public class PaymentVerificationResponse {
     private String transactionId;
     private String code;
     private String message;
-    private Object providerPayloadStringJson; // Use for FE
-    private Object responseToProviderStringJson; //To response provider Post Backend-to-backend callback (Zalopay)
+    private Object clientResponse; // Use for FE
+    private Object providerResponse; //To response provider Post Backend-to-backend callback
 }

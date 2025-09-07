@@ -1,15 +1,18 @@
 package com.bbmovie.payment.service.vnpay;
 
 import com.bbmovie.payment.entity.PaymentTransaction;
+import com.bbmovie.payment.exception.VNPayException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
+import org.apache.http.HttpHeaders;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.Mac;
@@ -67,21 +70,21 @@ public class VnpayProvidedFunction {
             return sb.toString();
 
         } catch (Exception ex) {
-            return "";
+            throw new VNPayException("Unable to create payment.");
         }
     }
 
     public String getIpAddress(HttpServletRequest request) {
-        String ipAdress;
+        String ipAddress;
         try {
-            ipAdress = request.getHeader("X-FORWARDED-FOR");
-            if (ipAdress == null) {
-                ipAdress = request.getLocalAddr();
+            ipAddress = request.getHeader("X-FORWARDED-FOR");
+            if (ipAddress == null) {
+                ipAddress = request.getLocalAddr();
             }
         } catch (Exception e) {
-            ipAdress = "Invalid IP:" + e.getMessage();
+            ipAddress = "Invalid IP:" + e.getMessage();
         }
-        return ipAdress;
+        return ipAddress;
     }
 
     public String createOrder(
@@ -154,10 +157,7 @@ public class VnpayProvidedFunction {
         return paymentUrl;
     }
 
-    public Map<String, String> createQueryOrder(
-            HttpServletRequest httpServletRequest, PaymentTransaction txn,
-            String tmpCode, String hashSecret
-    ) {
+    public Map<String, String> createQueryOrder(PaymentTransaction txn, String tmpCode, String hashSecret) {
         String vnpTxnRef = txn.getPaymentGatewayId();
         String transactionNo = txn.getPaymentGatewayOrderId();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -166,7 +166,7 @@ public class VnpayProvidedFunction {
         String vnpRequestId = UUID.randomUUID().toString().replace("-", "").substring(0, 32);
         String vnpVersion = "2.1.0";
         String vnpCommand = "querydr";
-        String vnpIpAddr = getIpAddress(httpServletRequest);
+        String vnpIpAddr = "127.0.0.1";
         String vnpCreateDate = formatter.format(LocalDateTime.now());
         String vnpOrderInfo = "Query transaction " + vnpTxnRef;
 
@@ -200,20 +200,20 @@ public class VnpayProvidedFunction {
 
             CloseableHttpClient client = HttpClients.createDefault();
             HttpPost post = new HttpPost(apiUrl);
-            post.setHeader("Content-Type", "application/json");
+            post.setHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
             post.setEntity(new StringEntity(json, StandardCharsets.UTF_8));
 
             try (CloseableHttpClient closeable = client; CloseableHttpResponse response = closeable.execute(post)) {
                 String responseBody = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
 
                 vpnQueryResult = mapper.readValue(responseBody, Map.class);
-                String checksum = vpnQueryResult.get("vnp_SecureHash");
-                vpnQueryResult.remove("vnp_SecureHash");
+                String checksum = vpnQueryResult.get(VNPAY_SECURE_HASH);
+                vpnQueryResult.remove(VNPAY_SECURE_HASH);
 
                 String calculatedHash = hashAllFields(vpnQueryResult, hashSecret);
                 if (!checksum.equals(calculatedHash) && checksum != null) {
-                    log.error("Invalid hash: {}", checksum);
-                    // Throw or just leave it
+                    log.error("Invalid hash when verify vnpay: {}", checksum);
+                    throw new VNPayException("Unable to verify payment");
                 }
 
                 return vpnQueryResult;

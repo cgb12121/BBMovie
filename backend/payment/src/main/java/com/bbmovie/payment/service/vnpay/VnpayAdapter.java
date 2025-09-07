@@ -28,6 +28,7 @@ import static com.bbmovie.payment.service.vnpay.VnpayQueryParams.*;
 import static com.bbmovie.payment.service.vnpay.VnpayTransactionStatus.SUCCESS;
 import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.stringToJsonNode;
 import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.toJsonString;
+import static com.bbmovie.payment.utils.RandomUtil.getRandomNumber;
 
 @Log4j2
 @Service("vnpay")
@@ -140,16 +141,16 @@ public class VnpayAdapter implements PaymentProviderAdapter {
                 .transactionId(vpnTransactionNo)
                 .code(responseCode)
                 .message(message)
-                .providerPayloadStringJson(providerData)
-                .responseToProviderStringJson("No response to VNPay")
+                .clientResponse(providerData)
+                .providerResponse("No response to VNPay")
                 .build();
     }
 
     @Override
-    public Object queryPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public Object queryPayment(String paymentId) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
-        Map<String, String> body = vnpayProvidedFunction.createQueryOrder(httpServletRequest, txn, properties.getTmnCode(), properties.getHashSecret());
+        Map<String, String> body = vnpayProvidedFunction.createQueryOrder(txn, properties.getTmnCode(), properties.getHashSecret());
         log.info("Querying VNPay payment: {}", body);
         return vnpayProvidedFunction.executeRequest(body, properties.getApiUrl(), properties.getHashSecret());
     }
@@ -158,10 +159,16 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     @Transactional
     public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
-                .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
+                .orElseThrow(() -> new VNPayException("Payment not found"));
         Map<String, String> body = vnpayProvidedFunction.createRefundOrder(httpServletRequest, txn, properties.getTmnCode(), properties.getHashSecret());
         Map<String, String> result = vnpayProvidedFunction.executeRequest(body, properties.getApiUrl(), properties.getHashSecret());
-        return new RefundResponse(result.get(VNPAY_TXN_REF_PARAM), result.get(VNPAY_RESPONSE_CODE));
+        return new RefundResponse(
+            result.get(VNPAY_TXN_REF_PARAM), 
+            result.get(VNPAY_RESPONSE_CODE),
+            result.get(VNPAY_MESSAGE),
+            txn.getCurrency(),
+            new BigDecimal(result.get(VNPAY_AMOUNT_PARAM)).divide(BigDecimal.valueOf(100), 2, RoundingMode.DOWN)
+        );
     }
 
     private PaymentTransaction createTransactionForVnpay(PaymentRequest request, String vnpTxnRef, String paymentUrl) {
@@ -179,16 +186,5 @@ public class VnpayAdapter implements PaymentProviderAdapter {
                 .ipnUrl(properties.getReturnUrl())
                 .returnUrl(paymentUrl)
                 .build();
-    }
-
-    @SuppressWarnings("squid:S2119")
-    public String getRandomNumber(int len) {
-        Random rnd = new Random();
-        String chars = "0123456789";
-        StringBuilder sb = new StringBuilder(len);
-        for (int i = 0; i < len; i++) {
-            sb.append(chars.charAt(rnd.nextInt(chars.length())));
-        }
-        return sb.toString();
     }
 }
