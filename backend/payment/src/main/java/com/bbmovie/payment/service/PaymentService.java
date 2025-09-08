@@ -53,12 +53,7 @@ public class PaymentService {
 
     public PaymentVerificationResponse handleCallback(String provider, Map<String, String> params, HttpServletRequest hsr) {
         PaymentProviderAdapter adapter = providers.get(provider);
-        PaymentVerificationResponse resp = adapter.handleCallback(params, hsr);
-        if (resp != null && resp.isValid() && resp.getTransactionId() != null) {
-            paymentTransactionRepository.findByPaymentGatewayId(resp.getTransactionId())
-                    .ifPresent(txn -> scanAndFlagRapidSuccess(txn.getUserId()));
-        }
-        return resp;
+        return adapter.handleCallback(params, hsr);
     }
 
     public PaymentVerificationResponse handleIpn(String provider, CallbackRequestContext ctx) {
@@ -96,7 +91,7 @@ public class PaymentService {
             if (txn.getStatus() == PaymentStatus.PENDING) {
                 txn.setStatus(PaymentStatus.CANCELLED);
                 txn.setCancelDate(now);
-                txn.setProviderStatus("EXPIRED_AUTO_CANCEL");
+                txn.setStatus(PaymentStatus.AUTO_CANCELLED);
             }
         }
         if (!expired.isEmpty()) {
@@ -120,26 +115,9 @@ public class PaymentService {
             };
             PaymentProviderAdapter adapter = providers.get(providerKey);
             try {
-                adapter.queryPayment(txn.getPaymentGatewayId());
+                adapter.queryPayment(txn.getProviderTransactionId());
             } catch (Exception e) {
                 log.error(e);
-            }
-        }
-    }
-
-    // Simple fraud heuristic: if multiple SUCCEEDED payments by the same user in a short window, flag a newer one.
-    public void scanAndFlagRapidSuccess(String userId) {
-        List<PaymentTransaction> recent = paymentTransactionRepository
-                .findTop100ByUserIdAndStatusOrderByTransactionDateDesc(userId, PaymentStatus.SUCCEEDED);
-        if (recent.size() < 2) return;
-        PaymentTransaction latest = recent.getFirst();
-        for (int i = 1; i < recent.size(); i++) {
-            PaymentTransaction other = recent.get(i);
-            if (latest.getTransactionDate().minusMinutes(5).isBefore(other.getTransactionDate())) {
-                latest.setFraudFlag(true);
-                latest.setFraudReason("Multiple successful payments by same user within 5 minutes");
-                paymentTransactionRepository.save(latest);
-                break;
             }
         }
     }
