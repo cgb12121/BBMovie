@@ -21,9 +21,6 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private String userId;
 
-    @Column(name = "ip_address", nullable = false)
-    private String ipAddressPerformPayment;
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subscription_id")
     private UserSubscription subscription;
@@ -41,20 +38,14 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "payment_method")
     private String paymentMethod;
 
-    @Column(name = "payment_gateway_id", columnDefinition = "TEXT")
-    private String paymentGatewayId;
-
-    @Column(name = "payment_gateway_order_id", columnDefinition = "TEXT")
-    private String paymentGatewayOrderId;
-
-    @Column(name = "provider_status", nullable = false)
-    private String providerStatus;
-
-    @Column(name = "transaction_date", nullable = false)
-    private LocalDateTime transactionDate;
+    @Column(name = "provider_transaction_id", columnDefinition = "TEXT")
+    private String providerTransactionId;
 
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
+
+    @Column(name = "transaction_date", nullable = false)
+    private LocalDateTime transactionDate;
 
     @Column(name = "cancel_date")
     private LocalDateTime cancelDate;
@@ -66,27 +57,15 @@ public class PaymentTransaction extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private PaymentStatus status;
 
-    @Column(name = "error_code")
-    private String errorCode;
+    @Column(name = "response_code")
+    private String responseCode;
 
-    @Column(name = "error_message", columnDefinition = "TEXT")
-    private String errorMessage;
-
-    @Column(name = "ipn_url", columnDefinition = "TEXT")
-    private String ipnUrl;
-
-    @Column(name = "return_url", columnDefinition = "TEXT")
-    private String returnUrl;
+    @Column(name = "response_message", columnDefinition = "TEXT")
+    private String responseMessage;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
     @Column(name = "payment_details", columnDefinition = "TEXT")
     private String paymentDetails;
-
-    @Column(name = "fraud_flag")
-    private boolean fraudFlag;
-
-    @Column(name = "fraud_reason", columnDefinition = "TEXT")
-    private String fraudReason;
 }

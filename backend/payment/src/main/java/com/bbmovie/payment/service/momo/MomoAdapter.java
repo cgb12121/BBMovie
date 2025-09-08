@@ -129,9 +129,6 @@ public class MomoAdapter implements PaymentProviderAdapter {
                     .amount(request.getAmount())
                     .currency(request.getCurrency())
                     .paymentProvider(PaymentProvider.PAYPAL)
-                    .providerStatus(status.getStatus())
-                    .returnUrl(payUrl)
-                    .paymentGatewayOrderId(orderId)
                     .build();
             paymentTransactionRepository.save(transaction);
 
@@ -142,11 +139,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
                     .build();
         } catch (Exception e) {
             log.error("Failed to process payment: {}", e.getMessage());
-            return PaymentCreationResponse.builder()
-                    .providerTransactionId(null)
-                    .serverStatus(null)
-                    .providerPaymentLink(null)
-                    .build();
+            throw new MomoException("Failed to process payment");
         }
     }
 

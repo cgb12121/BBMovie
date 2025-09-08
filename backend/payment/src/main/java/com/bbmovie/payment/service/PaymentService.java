@@ -120,7 +120,7 @@ public class PaymentService {
             };
             PaymentProviderAdapter adapter = providers.get(providerKey);
             try {
-                adapter.queryPayment(txn.getPaymentGatewayId(), null);
+                adapter.queryPayment(txn.getPaymentGatewayId());
             } catch (Exception e) {
                 log.error(e);
             }

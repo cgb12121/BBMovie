@@ -13,6 +13,7 @@ import com.bbmovie.payment.exception.PayPalPaymentException;
 import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
+import com.bbmovie.payment.service.I18nService;
 import com.paypal.api.payments.*;
 import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;
@@ -39,11 +40,13 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PayPalProperties properties;
+    private final I18nService i18nService;
 
     @Autowired
-    public PayPalAdapter(PaymentTransactionRepository paymentTransactionRepository, PayPalProperties properties) {
+    public PayPalAdapter(PaymentTransactionRepository paymentTransactionRepository, PayPalProperties properties, I18nService i18nService) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.properties = properties;
+        this.i18nService = i18nService;
     }
 
     private APIContext getApiContext() {
@@ -81,9 +84,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                     .amount(request.getAmount())
                     .currency(request.getCurrency())
                     .paymentProvider(PaymentProvider.PAYPAL)
-                    .providerStatus(status.getStatus())
-                    .returnUrl(approvalUrl)
-                    .paymentGatewayOrderId(createdPayment.getId())
+                    .providerTransactionId(createdPayment.getId())
                     .build();
             if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
                 transaction.setExpiresAt(java.time.LocalDateTime.now().plusMinutes(request.getExpiresInMinutes()));
@@ -142,8 +143,8 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                         .build();
             }
 
-            if (!transaction.getProviderStatus().equalsIgnoreCase(stateOfPayment)) {
-                transaction.setProviderStatus(stateOfPayment);
+            if (!transaction.getStatus().getStatus().equalsIgnoreCase(stateOfPayment)) {
+                transaction.setStatus(PaymentStatus.valueOf(stateOfPayment));
                 paymentTransactionRepository.save(transaction);
             }
 
@@ -202,7 +203,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             PaymentTransaction transaction = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                     .orElseThrow(() -> new PayPalPaymentException("Transaction not found: " + paymentId));
 
-            Payment payment = Payment.get(getApiContext(), transaction.getPaymentGatewayOrderId());
+            Payment payment = Payment.get(getApiContext(), transaction.getProviderTransactionId());
             log.info("Queried payment details from PayPal {}", payment.toJSON());
             return payment;
         } catch (PayPalRESTException e) {
@@ -352,17 +353,16 @@ public class PayPalAdapter implements PaymentProviderAdapter {
           ]
        }
     */
-    private static String getMessage(String stateOfPayment) {
-        String messageForClient = "";
+    private String getMessage(String stateOfPayment) {
         if (stateOfPayment.equalsIgnoreCase(COMPLETED.getStatus())) {
-            messageForClient = "The payment is completed, please check your order.";
+            return i18nService.getMessage("payment.paypal.completed");
         }
         if (stateOfPayment.equalsIgnoreCase(APPROVED.getStatus())) {
-            messageForClient = "The payment is pending, please check your order.";
+            return i18nService.getMessage("payment.paypal.pending");
         }
         if (stateOfPayment.equalsIgnoreCase(FAILED.getStatus())) {
-            messageForClient = "The payment is failed. if your balance has been deducted, please contact the admin or PayPal hotline for support.";
+            return i18nService.getMessage("payment.paypal.failed");
         }
-        return messageForClient;
+        return i18nService.getMessage("payment.paypal.unknown");
     }
 }

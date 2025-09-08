@@ -63,8 +63,8 @@ public class StripeAdapter implements PaymentProviderAdapter {
             PaymentIntent paymentIntent = PaymentIntent.create(params);
             StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
 
-            transaction.setPaymentGatewayId(paymentIntent.getId());
-            transaction.setProviderStatus(stripeStatus.getStatus());
+            transaction.setProviderTransactionId(paymentIntent.getId());
+            transaction.setStatus(PaymentStatus.valueOf(stripeStatus.getStatus()));
             transaction.setStatus(stripeStatus.getPaymentStatus());
             if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
                 transaction.setExpiresAt(LocalDateTime.now().plusMinutes(request.getExpiresInMinutes()));
@@ -81,10 +81,6 @@ public class StripeAdapter implements PaymentProviderAdapter {
                     .build();
         } catch (StripeException ex) {
             log.error("Failed to process Stripe payment: {}", ex.getMessage());
-            transaction.setStatus(PaymentStatus.FAILED);
-            transaction.setErrorCode(ex.getCode());
-            transaction.setErrorMessage(ex.getMessage());
-            paymentTransactionRepository.save(transaction);
             throw new StripePaymentException("Payment processing failed: " + ex.getMessage());
         }
     }
@@ -114,7 +110,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
                 return new PaymentVerificationResponse(false, paymentId, "ALREADY_FINALIZED", "Transaction is not pending", null, null);
             }
 
-            transaction.setProviderStatus(stripeStatus.getStatus());
+            transaction.setStatus(PaymentStatus.valueOf(stripeStatus.getStatus()));
             // Auto-cancel if expired and still unpaid
             boolean success = stripeStatus == StripeTransactionStatus.SUCCEEDED;
             if (!success && transaction.getExpiresAt() != null
@@ -122,35 +118,21 @@ public class StripeAdapter implements PaymentProviderAdapter {
                     && transaction.getStatus() == PaymentStatus.PENDING) {
                 transaction.setStatus(PaymentStatus.CANCELLED);
                 transaction.setCancelDate(LocalDateTime.now());
-                transaction.setProviderStatus("EXPIRED_AUTO_CANCEL");
+                transaction.setStatus(PaymentStatus.AUTO_CANCELLED);
             } else {
                 transaction.setStatus(stripeStatus.getPaymentStatus());
             }
             paymentTransactionRepository.save(transaction);
-            if (stripeStatus == StripeTransactionStatus.SUCCEEDED) {
-                scanAndFlagRapidSuccess(transaction.getUserId());
-            }
-
-            return new PaymentVerificationResponse(stripeStatus == StripeTransactionStatus.SUCCEEDED, paymentId, null, null, null, null);
+            return new PaymentVerificationResponse(
+                    stripeStatus == StripeTransactionStatus.SUCCEEDED,
+                    paymentId, null,
+                    null,
+                    null,
+                    null
+            );
         } catch (StripeException ex) {
             log.error("Failed to verify Stripe payment: {}", ex.getMessage());
             throw new StripePaymentException("Payment verification failed: " + ex.getMessage());
-        }
-    }
-
-    private void scanAndFlagRapidSuccess(String userId) {
-        var recent = paymentTransactionRepository
-                .findTop100ByUserIdAndStatusOrderByTransactionDateDesc(userId, PaymentStatus.SUCCEEDED);
-        if (recent.size() < 2) return;
-        var latest = recent.getFirst();
-        for (int i = 1; i < recent.size(); i++) {
-            var other = recent.get(i);
-            if (latest.getTransactionDate().minusMinutes(5).isBefore(other.getTransactionDate())) {
-                latest.setFraudFlag(true);
-                latest.setFraudReason("Multiple successful payments by same user within 5 minutes");
-                paymentTransactionRepository.save(latest);
-                break;
-            }
         }
     }
 
@@ -166,7 +148,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
 
             // Only update DB based on the provider if we haven't finalized internally
             if (transaction.getStatus() == PaymentStatus.PENDING) {
-                transaction.setProviderStatus(stripeStatus.getStatus());
+                transaction.setStatus(PaymentStatus.valueOf(stripeStatus.getStatus()));
                 transaction.setStatus(stripeStatus.getPaymentStatus());
                 paymentTransactionRepository.save(transaction);
             }
@@ -201,7 +183,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
                     : StripeTransactionStatus.fromStatus(refund.getStatus());
 
             transaction.setStatus(PaymentStatus.REFUNDED);
-            transaction.setProviderStatus(refund.getStatus());
+            transaction.setStatus(PaymentStatus.valueOf(refund.getStatus()));
             paymentTransactionRepository.save(transaction);
 
             return new RefundResponse(
@@ -213,9 +195,6 @@ public class StripeAdapter implements PaymentProviderAdapter {
             );
         } catch (StripeException ex) {
             log.error("Failed to process Stripe refund...: {}", ex.getMessage());
-            transaction.setErrorCode(ex.getCode());
-            transaction.setErrorMessage(ex.getMessage());
-            paymentTransactionRepository.save(transaction);
             throw new StripePaymentException("Refund processing failed: " + ex.getMessage());
         }
     } 

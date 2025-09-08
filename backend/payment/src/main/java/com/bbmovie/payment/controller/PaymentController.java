@@ -8,6 +8,7 @@ import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.service.PaymentService;
+import com.bbmovie.payment.service.I18nService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,10 +27,12 @@ import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.*;
 public class PaymentController {
 
     private final PaymentService paymentService;
+    private final I18nService i18nService;
 
     @Autowired
-    public PaymentController(PaymentService paymentService) {
+    public PaymentController(PaymentService paymentService, I18nService i18nService) {
         this.paymentService = paymentService;
+        this.i18nService = i18nService;
     }
 
     @PostMapping("/initiate")
@@ -45,7 +48,7 @@ public class PaymentController {
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (Exception e) {
             log.error("Error processing payment: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(ApiResponse.error("Unable to process payment"));
+            return ResponseEntity.badRequest().body(ApiResponse.error(i18nService.getMessage("payment.error.processing")));
         }
     }
 
@@ -94,7 +97,7 @@ public class PaymentController {
             }
             return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(ApiResponse.fail(verification));
         } catch (UnsupportedOperationException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(ApiResponse.error("IPN not supported by provider"));
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(ApiResponse.error(i18nService.getMessage("payment.error.ipn.unsupported")));
         }
     }
 
@@ -111,7 +114,7 @@ public class PaymentController {
             }
             return ResponseEntity.status(HttpStatus.NOT_ACCEPTABLE).body(ApiResponse.fail(verification));
         } catch (UnsupportedOperationException ex) {
-            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(ApiResponse.error("Webhook not supported by provider"));
+            return ResponseEntity.status(HttpStatus.NOT_IMPLEMENTED).body(ApiResponse.error(i18nService.getMessage("payment.error.webhook.unsupported")));
         }
     }
 
