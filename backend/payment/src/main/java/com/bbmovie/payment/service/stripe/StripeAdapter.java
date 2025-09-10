@@ -158,7 +158,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String jwtToken, String paymentId) {
+    public Object queryPayment(String userId, String paymentId) {
         log.info("Querying Stripe payment with ID: {}", paymentId);
         try {
             PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentId);
@@ -189,7 +189,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String jwtToken, String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
         log.info("Processing Stripe refund for paymentId: {}", paymentId);
 
         PaymentTransaction transaction = paymentTransactionRepository.findByProviderTransactionId(paymentId)

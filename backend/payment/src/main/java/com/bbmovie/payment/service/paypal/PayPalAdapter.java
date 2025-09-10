@@ -221,7 +221,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String jwtToken, String paymentId) {
+    public Object queryPayment(String userId, String paymentId) {
         try {
             PaymentTransaction transaction = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                     .orElseThrow(() -> new PayPalPaymentException("Transaction not found: " + paymentId));
@@ -236,7 +236,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String jwtToken, String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
         try {
             PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                         .orElseThrow(() -> new PayPalPaymentException("Unable to find transaction"));

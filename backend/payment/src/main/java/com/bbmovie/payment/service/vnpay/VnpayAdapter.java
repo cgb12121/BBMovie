@@ -195,7 +195,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String jwtToken, String paymentId) {
+    public Object queryPayment(String userId, String paymentId) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
         Map<String, String> body = vnpayProvidedFunction.createQueryOrder(txn, properties.getTmnCode(), properties.getHashSecret());
@@ -205,7 +205,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional
-    public RefundResponse refundPayment(String jwtToken, String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(TransactionNotFoundException::new);
         Map<String, String> body = vnpayProvidedFunction.createRefundOrder(hsr, txn, properties.getTmnCode(), properties.getHashSecret());

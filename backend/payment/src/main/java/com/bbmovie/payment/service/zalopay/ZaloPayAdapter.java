@@ -17,7 +17,6 @@ import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.bbmovie.payment.service.SubscriptionPlanService;
 import com.bbmovie.payment.service.PricingService;
 import com.bbmovie.payment.service.PaymentRecordService;
-import com.bbmovie.payment.utils.SimpleJwtDecoder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
@@ -141,9 +140,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional
-    public PaymentCreationResponse createPaymentRequest(String jwtToken, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
+    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
-        String userId = SimpleJwtDecoder.getUserId(jwtToken);
 
         BigDecimal amount = pricingService.calculateFinalBasePrice(
                 plan, request.billingCycle(), userId, request.voucherCode()
@@ -316,12 +314,12 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String jwtToken, String paymentId) {
+    public Object queryPayment(String userId, String paymentId) {
         throw new UnsupportedOperationException("Query payment is not supported by ZaloPay");
     }
 
     @Override
-    public RefundResponse refundPayment(String jwtToken, String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
         throw new UnsupportedOperationException("Refund is not supported by ZaloPay");
     }
 

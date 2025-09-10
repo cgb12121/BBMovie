@@ -246,12 +246,12 @@ public class MomoAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String jwtToken, String paymentId) {
+    public Object queryPayment(String userId, String paymentId) {
         throw new UnsupportedOperationException("This operation is not implemented for Momo");
     }
 
     @Override
-    public RefundResponse refundPayment(String jwtToken, String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
         throw new UnsupportedOperationException("Refund is not supported by Momo");
     }
 

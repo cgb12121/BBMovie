@@ -12,7 +12,6 @@ import com.bbmovie.payment.exception.TransactionNotFoundException;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.utils.SimpleJwtDecoder;
-import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +24,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.bbmovie.payment.entity.enums.PaymentProvider.*;
-import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
 
 @Log4j2
 @Service
