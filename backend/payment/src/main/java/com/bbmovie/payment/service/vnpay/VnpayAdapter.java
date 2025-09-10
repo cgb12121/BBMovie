@@ -1,24 +1,36 @@
 package com.bbmovie.payment.service.vnpay;
 
 import com.bbmovie.payment.config.payment.VnpayProperties;
-import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
+import com.bbmovie.payment.entity.SubscriptionPlan;
+import com.bbmovie.payment.entity.enums.BillingCycle;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
+import com.bbmovie.payment.entity.enums.SupportedCurrency;
 import com.bbmovie.payment.exception.TransactionExpiredException;
-import com.bbmovie.payment.exception.VNPayException;
+import com.bbmovie.payment.exception.TransactionNotFoundException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
+import com.bbmovie.payment.service.CurrencyConversionService;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
+import com.bbmovie.payment.service.PaymentRecordService;
+import com.bbmovie.payment.service.PricingService;
+import com.bbmovie.payment.service.PaymentNormalizer;
+import com.bbmovie.payment.service.SubscriptionPlanService;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
+import org.javamoney.moneta.Money;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.money.CurrencyUnit;
+import javax.money.MonetaryAmount;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -35,45 +47,82 @@ import static com.bbmovie.payment.utils.RandomUtil.getRandomNumber;
 public class VnpayAdapter implements PaymentProviderAdapter {
 
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final SubscriptionPlanService subscriptionPlanService;
+    private final PricingService pricingService;
+    private final PaymentRecordService paymentRecordService;
     private final VnpayProvidedFunction vnpayProvidedFunction;
     private final VnpayProperties properties;
+    private final PaymentNormalizer normalizer;
+    private final CurrencyConversionService currencyConversionService;
 
     @Autowired
     public VnpayAdapter(
             PaymentTransactionRepository paymentTransactionRepository,
+            SubscriptionPlanService subscriptionPlanService,
             VnpayProvidedFunction vnpayProvidedFunction,
-            VnpayProperties properties) {
+            VnpayProperties properties,
+            @Qualifier("vnpayNormalizer") PaymentNormalizer normalizer,
+            CurrencyConversionService currencyConversionService,
+            PricingService pricingService,
+            PaymentRecordService paymentRecordService
+    ) {
         this.paymentTransactionRepository = paymentTransactionRepository;
+        this.subscriptionPlanService = subscriptionPlanService;
         this.vnpayProvidedFunction = vnpayProvidedFunction;
         this.properties = properties;
+        this.normalizer = normalizer;
+        this.currencyConversionService = currencyConversionService;
+        this.pricingService = pricingService;
+        this.paymentRecordService = paymentRecordService;
     }
 
     @Transactional
-    public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
-        BigDecimal amountInVnd = request.getAmount();
-        String currency = request.getCurrency();
-        if (currency == null || !currency.equalsIgnoreCase("VND")) {
-            throw new VNPayException("Vnpay only support VND currency");
+    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
+        SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
+
+        BillingCycle cycle = plan.getBillingCycle();
+        if (cycle != BillingCycle.MONTHLY && cycle != BillingCycle.ANNUAL) {
+            throw new IllegalArgumentException("Unexpected billing cycle.");
         }
 
-        String amountStr = amountInVnd.multiply(BigDecimal.valueOf(100))
+        BigDecimal amountInBaseCurrency = pricingService.calculateFinalBasePrice(
+                plan,
+                cycle,
+                userId,
+                request.voucherCode()
+        );
+        BigDecimal amount = amountInBaseCurrency;
+
+        CurrencyUnit baseCurrency = plan.getBaseCurrency();
+        if (!SupportedCurrency.VND.unit().equals(baseCurrency)) {
+            MonetaryAmount basedAmount = Money.of(amountInBaseCurrency, plan.getBaseCurrency());
+            amount = currencyConversionService.convert(basedAmount, SupportedCurrency.VND.code())
+                    .getNumber()
+                    .numberValueExact(BigDecimal.class);
+        }
+
+        String amountInVnpayConvention = amount.multiply(BigDecimal.valueOf(100))
                 .setScale(0, RoundingMode.HALF_UP)
                 .toPlainString();
         String vnpTxnRef = getRandomNumber(16);
         String paymentUrl = vnpayProvidedFunction.createOrder(
-                httpServletRequest, amountStr , vnpTxnRef, "billpayment",
+                hsr, amountInVnpayConvention , vnpTxnRef, "billpayment",
                 properties.getTmnCode(), properties.getReturnUrl(), properties.getHashSecret(), properties.getPayUrl()
         );
 
-        PaymentTransaction transaction = createTransactionForVnpay(request, vnpTxnRef, paymentUrl);
-        if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
-            transaction.setExpiresAt(LocalDateTime.now().plusMinutes(request.getExpiresInMinutes()));
-        }
-        PaymentTransaction saved = paymentTransactionRepository.save(transaction);
+        PaymentTransaction transaction = paymentRecordService.createPendingTransaction(
+                userId,
+                plan,
+                amount,
+                SupportedCurrency.VND.unit(),
+                PaymentProvider.VNPAY,
+                vnpTxnRef,
+                "VNPay payment for order: " + vnpTxnRef
+        );
 
         return PaymentCreationResponse.builder()
                 .provider(PaymentProvider.VNPAY)
-                .serverTransactionId(String.valueOf(saved.getId()))
+                .serverTransactionId(String.valueOf(transaction.getId()))
                 .providerTransactionId(vnpTxnRef)
                 .serverStatus(PaymentStatus.PENDING)
                 .providerPaymentLink(paymentUrl)
@@ -105,32 +154,31 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         String calculateChecksum = vnpayProvidedFunction.hashAllFields(paymentData, properties.getHashSecret());
 
         String responseCode = paymentData.get(VNPAY_RESPONSE_CODE);
-        String message = VnpayTransactionStatus.getMessageFromCode(responseCode);
+
+        PaymentStatus.NormalizedPaymentStatus result = normalizer.normalize(responseCode);
+        PaymentStatus normalizedCode = result.status();
+        String message = result.message();
 
         boolean isValid = checkSum.equals(calculateChecksum) && SUCCESS.getCode().equals(responseCode);
 
-        paymentTransactionRepository.findByPaymentGatewayId(vnpTxnRef).ifPresent(tx -> {
+        paymentTransactionRepository.findByProviderTransactionId(vnpTxnRef).ifPresent(tx -> {
             LocalDateTime now = LocalDateTime.now();
             if (tx.getExpiresAt() != null && now.isAfter(tx.getExpiresAt())) {
                 throw new TransactionExpiredException("Payment expired");
             }
 
-            tx.setLastModifiedDate(now);
             // Only process if still pending; prevent replay from flipping canceled/refunded/succeeded
             if (tx.getStatus() != PaymentStatus.PENDING) {
                 return;
             }
 
-            if (isValid) {
-                tx.setStatus(PaymentStatus.SUCCEEDED);
-                tx.setPaymentMethod(paymentMethod);
-                tx.setPaymentGatewayOrderId(vpnTransactionNo);
-                tx.setProviderStatus(paymentData.get(VNPAY_RESPONSE_CODE));
-            } else {
-                tx.setStatus(PaymentStatus.FAILED);
-                tx.setErrorCode(responseCode);
-                tx.setErrorMessage(VnpayTransactionStatus.getMessageFromCode(responseCode));
-            }
+            tx.setPaymentMethod(paymentMethod);
+            tx.setProviderTransactionId(vpnTransactionNo);
+            tx.setResponseCode(responseCode);
+            tx.setStatus(normalizedCode);
+            tx.setResponseMessage(message);
+            tx.setLastModifiedDate(now);
+
             paymentTransactionRepository.save(tx);
         });
 
@@ -142,12 +190,12 @@ public class VnpayAdapter implements PaymentProviderAdapter {
                 .code(responseCode)
                 .message(message)
                 .clientResponse(providerData)
-                .providerResponse("No response to VNPay")
+                .providerResponse(message)
                 .build();
     }
 
     @Override
-    public Object queryPayment(String paymentId) {
+    public Object queryPayment(String jwtToken, String paymentId) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(() -> new IllegalArgumentException("Payment not found"));
         Map<String, String> body = vnpayProvidedFunction.createQueryOrder(txn, properties.getTmnCode(), properties.getHashSecret());
@@ -157,34 +205,17 @@ public class VnpayAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional
-    public RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest) {
+    public RefundResponse refundPayment(String jwtToken, String paymentId, HttpServletRequest hsr) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
-                .orElseThrow(() -> new VNPayException("Payment not found"));
-        Map<String, String> body = vnpayProvidedFunction.createRefundOrder(httpServletRequest, txn, properties.getTmnCode(), properties.getHashSecret());
+                .orElseThrow(TransactionNotFoundException::new);
+        Map<String, String> body = vnpayProvidedFunction.createRefundOrder(hsr, txn, properties.getTmnCode(), properties.getHashSecret());
         Map<String, String> result = vnpayProvidedFunction.executeRequest(body, properties.getApiUrl(), properties.getHashSecret());
         return new RefundResponse(
             result.get(VNPAY_TXN_REF_PARAM), 
             result.get(VNPAY_RESPONSE_CODE),
             result.get(VNPAY_MESSAGE),
-            txn.getCurrency(),
+            txn.getCurrency().getCurrencyCode(),
             new BigDecimal(result.get(VNPAY_AMOUNT_PARAM)).divide(BigDecimal.valueOf(100), 2, RoundingMode.DOWN)
         );
-    }
-
-    private PaymentTransaction createTransactionForVnpay(PaymentRequest request, String vnpTxnRef, String paymentUrl) {
-        return PaymentTransaction.builder()
-                .userId(request.getUserId())
-                .subscription(null)  // or set if linked to a subscription later
-                .amount(request.getAmount())
-                .currency(request.getCurrency())
-                .paymentProvider(PaymentProvider.VNPAY)
-                .paymentGatewayOrderId(vnpTxnRef) // store gateway transaction reference
-                .providerStatus("PENDING")
-                .transactionDate(LocalDateTime.now())
-                .status(PaymentStatus.PENDING)
-                .description("VNPay payment for order: " + request.getOrderId())
-                .ipnUrl(properties.getReturnUrl())
-                .returnUrl(paymentUrl)
-                .build();
     }
 }

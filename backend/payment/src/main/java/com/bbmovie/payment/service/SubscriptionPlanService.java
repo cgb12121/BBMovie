@@ -9,9 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.RoundingMode;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.math.BigDecimal;
 
 import static com.bbmovie.payment.entity.enums.BillingCycle.MONTHLY;
@@ -21,10 +19,15 @@ import static com.bbmovie.payment.entity.enums.PlanType.*;
 public class SubscriptionPlanService {
 
     private final SubscriptionPlanRepository subscriptionPlanRepository;
+    private final RestTemplate restTemplate = new RestTemplate();
 
     @Autowired
     public SubscriptionPlanService(SubscriptionPlanRepository subscriptionPlanRepository) {
         this.subscriptionPlanRepository = subscriptionPlanRepository;
+    }
+
+    public SubscriptionPlan getById(UUID id) {
+        return subscriptionPlanRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Plan not found"));
     }
 
     @PostConstruct
@@ -36,11 +39,10 @@ public class SubscriptionPlanService {
                     .name("free")
                     .planType(FREE)
                     .baseAmount(BigDecimal.ZERO)
-                    .baseCurrency("USD")
                     .billingCycle(MONTHLY)
                     .monthlyPrice(BigDecimal.ZERO)
-                    .annualDiscountPercent(0)
-                    .studentDiscountPercent(0)
+                    .annualDiscountPercent(BigDecimal.valueOf(0))
+                    .studentDiscountPercent(BigDecimal.valueOf(0))
                     .active(true)
                     .description("Free plan")
                     .features("Free")
@@ -48,12 +50,11 @@ public class SubscriptionPlanService {
             plans.add(SubscriptionPlan.builder()
                     .name("basic")
                     .planType(BASIC)
-                    .baseAmount(new BigDecimal("5.00"))
-                    .baseCurrency("USD")
+                    .baseAmount(BigDecimal.valueOf(5))
                     .billingCycle(MONTHLY)
-                    .monthlyPrice(new BigDecimal("5.00"))
-                    .annualDiscountPercent(10)
-                    .studentDiscountPercent(20)
+                    .monthlyPrice(BigDecimal.valueOf(5))
+                    .annualDiscountPercent(BigDecimal.valueOf(10))
+                    .studentDiscountPercent(BigDecimal.valueOf(20))
                     .active(true)
                     .description("Stream in SD on 1 device")
                     .features("SD,1-device")
@@ -61,12 +62,11 @@ public class SubscriptionPlanService {
             plans.add(SubscriptionPlan.builder()
                     .name("standard")
                     .planType(STANDARD)
-                    .baseAmount(new BigDecimal("10.00"))
-                    .baseCurrency("USD")
+                    .baseAmount(BigDecimal.valueOf(10))
                     .billingCycle(MONTHLY)
-                    .monthlyPrice(new BigDecimal("10.00"))
-                    .annualDiscountPercent(15)
-                    .studentDiscountPercent(25)
+                    .monthlyPrice(BigDecimal.valueOf(10))
+                    .annualDiscountPercent(BigDecimal.valueOf(15))
+                    .studentDiscountPercent(BigDecimal.valueOf(25))
                     .active(true)
                     .description("Stream in HD on 2 devices")
                     .features("HD,2-devices")
@@ -74,12 +74,11 @@ public class SubscriptionPlanService {
             plans.add(SubscriptionPlan.builder()
                     .name("premium")
                     .planType(PREMIUM)
-                    .baseAmount(new BigDecimal("15.00"))
-                    .baseCurrency("USD")
+                    .baseAmount(BigDecimal.valueOf(15))
                     .billingCycle(MONTHLY)
-                    .monthlyPrice(new BigDecimal("15.00"))
-                    .annualDiscountPercent(20)
-                    .studentDiscountPercent(30)
+                    .monthlyPrice(BigDecimal.valueOf(15))
+                    .annualDiscountPercent(BigDecimal.valueOf(20))
+                    .studentDiscountPercent(BigDecimal.valueOf(30))
                     .active(true)
                     .description("Stream in 4K on 4 devices")
                     .features("4K,4-devices")
@@ -103,16 +102,18 @@ public class SubscriptionPlanService {
         BigDecimal price;
         if (annual) {
             BigDecimal annualBase = baseMonthly.multiply(BigDecimal.valueOf(12));
-            BigDecimal annualDiscount = annualBase.multiply(BigDecimal.valueOf(plan.getAnnualDiscountPercent()))
+            BigDecimal annualDiscount = annualBase.multiply(plan.getAnnualDiscountPercent())
                     .divide(BigDecimal.valueOf(100), RoundingMode.HALF_UP);
             price = annualBase.subtract(annualDiscount);
         } else {
             price = baseMonthly;
         }
-        RestTemplate restTemplate = new RestTemplate();
-        boolean isStudent = Boolean.TRUE.equals(restTemplate.getForObject("http://localhost:8080/api/v1/users/" + username, Boolean.class));
+
+        boolean isStudent = Boolean.TRUE.equals(restTemplate.getForObject(
+                "http://localhost:8080/api/student-program/status", Boolean.class, Map.of("username", username))
+        );
         if (isStudent) {
-            BigDecimal studentDiscount = price.multiply(BigDecimal.valueOf(plan.getStudentDiscountPercent()))
+            BigDecimal studentDiscount = price.multiply(plan.getStudentDiscountPercent())
                     .divide(BigDecimal.valueOf(100), RoundingMode.HALF_UP);
             price = price.subtract(studentDiscount);
         }

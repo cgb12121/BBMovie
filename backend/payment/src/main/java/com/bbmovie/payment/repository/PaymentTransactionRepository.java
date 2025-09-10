@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Repository
 public interface PaymentTransactionRepository extends JpaRepository<PaymentTransaction, UUID> {
-    Optional<PaymentTransaction> findByPaymentGatewayId(String paymentId);
+    Optional<PaymentTransaction> findByProviderTransactionId(String providerTransactionId);
 
     List<PaymentTransaction> findByStatusAndExpiresAtBefore(PaymentStatus status, LocalDateTime cutoff);
 

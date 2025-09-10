@@ -2,14 +2,17 @@ package com.bbmovie.payment.service;
 
 import com.bbmovie.payment.config.payment.PaymentProviderProperties;
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
-import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
+import com.bbmovie.payment.exception.PaymentNotAvailableException;
 import com.bbmovie.payment.exception.TransactionNotFoundException;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
+import com.bbmovie.payment.utils.SimpleJwtDecoder;
+import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.bbmovie.payment.entity.enums.PaymentProvider.*;
+import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
 
 @Log4j2
 @Service
@@ -42,13 +46,17 @@ public class PaymentService {
         this.paymentTransactionRepository = paymentTransactionRepository;
     }
 
-    public PaymentCreationResponse createPayment(String provider, PaymentRequest request, HttpServletRequest hsr) {
-        PaymentProviderProperties.ProviderConfig toggle = properties.getProviders().get(provider);
+    public PaymentCreationResponse createPayment(String jwtToken, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
+        PaymentProviderProperties.ProviderConfig toggle = properties.getProviders().get(request.provider());
         if (toggle == null || !toggle.isEnabled()) {
-            throw new IllegalStateException(provider + " is disabled: " + (toggle != null ? toggle.getReason() : "Unknown reason"));
+            throw new PaymentNotAvailableException(request.provider() + " is disabled: " + (toggle != null ? toggle.getReason()
+                    : "Unknown reason")
+            );
         }
-        PaymentProviderAdapter adapter = providers.get(provider);
-        return adapter.createPaymentRequest(request, hsr);
+        String userId = SimpleJwtDecoder.getUserId(jwtToken);
+
+        PaymentProviderAdapter adapter = providers.get(request.provider().toLowerCase());
+        return adapter.createPaymentRequest(userId, request, hsr);
     }
 
     public PaymentVerificationResponse handleCallback(String provider, Map<String, String> params, HttpServletRequest hsr) {
@@ -66,19 +74,24 @@ public class PaymentService {
         return adapter.handleWebhook(ctx);
     }
 
-    public RefundResponse refundPayment(String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String jwtToken, String paymentId, HttpServletRequest hsr) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
-                .orElseThrow(() -> new TransactionNotFoundException("Payment not found"));
-               
+                .orElseThrow(TransactionNotFoundException::new);
+
+        String userId = SimpleJwtDecoder.getUserId(jwtToken);
+
         PaymentProviderAdapter adapter = providers.get(txn.getPaymentProvider().toString().toLowerCase());
-        return adapter.refundPayment(paymentId, hsr);
+        return adapter.refundPayment(userId, paymentId, hsr);
     }
 
-    public Object queryPayment(String paymentId) {
+    public Object queryPayment(String jwtToken, String paymentId) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
-                .orElseThrow(() -> new TransactionNotFoundException("Payment not found"));
+                .orElseThrow(TransactionNotFoundException::new);
+
+        String userId = SimpleJwtDecoder.getUserId(jwtToken);
+
         PaymentProviderAdapter provider = providers.get(txn.getPaymentProvider().toString().toLowerCase());
-        return provider.queryPayment(paymentId);
+        return provider.queryPayment(userId, paymentId);
     }
 
     // Auto-cancel unpaid orders that passed expiration time. Runs every 5 minutes.
@@ -115,7 +128,7 @@ public class PaymentService {
             };
             PaymentProviderAdapter adapter = providers.get(providerKey);
             try {
-                adapter.queryPayment(txn.getProviderTransactionId());
+                adapter.queryPayment("SYSTEM" ,txn.getProviderTransactionId());
             } catch (Exception e) {
                 log.error(e);
             }

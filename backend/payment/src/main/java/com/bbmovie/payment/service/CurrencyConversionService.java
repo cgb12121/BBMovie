@@ -1,37 +1,27 @@
 package com.bbmovie.payment.service;
 
 import lombok.extern.log4j.Log4j2;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 
-import java.math.BigDecimal;
-import java.util.Map;
+import javax.money.MonetaryAmount;
+import javax.money.convert.CurrencyConversion;
+import javax.money.convert.ExchangeRateProvider;
+import javax.money.convert.MonetaryConversions;
 
 @Log4j2
 @Service
-@SuppressWarnings("all")
 public class CurrencyConversionService {
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final ExchangeRateProvider provider;
 
-    public BigDecimal convert(String from, String to, BigDecimal amount) {
-        String url = String.format(
-                "https://api.exchangerate.host/convert?from=%s&to=%s&amount=%s",
-                from,
-                to,
-                amount.toPlainString()
-        );
+    public CurrencyConversionService() {
+        this.provider = MonetaryConversions.getExchangeRateProvider("ECB");
+    }
 
-        ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
-        log.info("Currency conversion response: {}", response);
-        if (response.getStatusCode().is2xxSuccessful()) {
-            Map body = response.getBody();
-            Object result = body.get("result");
-            if (result != null) {
-                return new BigDecimal(result.toString());
-            }
-        }
-        throw new RuntimeException("Conversion failed");
+    public MonetaryAmount convert(MonetaryAmount amount, String toCurrency) {
+        CurrencyConversion conversion = provider.getCurrencyConversion(toCurrency);
+        MonetaryAmount converted = amount.with(conversion);
+        log.info("Converted {} -> {}", amount, converted);
+        return converted;
     }
 }

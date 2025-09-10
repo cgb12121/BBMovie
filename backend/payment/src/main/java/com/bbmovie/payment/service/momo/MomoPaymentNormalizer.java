@@ -1,11 +1,11 @@
 package com.bbmovie.payment.service.momo;
 
 import com.bbmovie.payment.entity.enums.PaymentStatus;
-import com.bbmovie.payment.service.PaymentStatusNormalizer;
+import com.bbmovie.payment.service.PaymentNormalizer;
 import org.springframework.stereotype.Component;
 
 @Component("momoNormalizer")
-public class MomoPaymentStatusNormalizer implements PaymentStatusNormalizer {
+public class MomoPaymentNormalizer implements PaymentNormalizer {
     @Override
     public PaymentStatus.NormalizedPaymentStatus normalize(Object providerStatus) {
         return switch (providerStatus.toString()) {

@@ -1,7 +1,11 @@
 package com.bbmovie.payment.service.stripe;
 
 import com.bbmovie.payment.config.payment.StripeProperties;
-import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
+import com.bbmovie.payment.entity.SubscriptionPlan;
+import com.bbmovie.payment.service.SubscriptionPlanService;
+import com.bbmovie.payment.service.PricingService;
+import com.bbmovie.payment.service.PaymentRecordService;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
@@ -9,8 +13,10 @@ import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.exception.StripePaymentException;
 import com.bbmovie.payment.exception.TransactionExpiredException;
+import com.bbmovie.payment.exception.TransactionNotFoundException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
+import com.bbmovie.payment.service.PaymentNormalizer;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
@@ -23,54 +29,69 @@ import org.springframework.stereotype.Service;
 import jakarta.servlet.http.HttpServletRequest;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @Slf4j
 @Service("stripe")
 public class StripeAdapter implements PaymentProviderAdapter {
 
-    private static final String TXN_NOT_FOUND = "Transaction not found: ";
-
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final SubscriptionPlanService subscriptionPlanService;
+    private final PricingService pricingService;
+    private final PaymentRecordService paymentRecordService;
+    private final PaymentNormalizer paymentNormalizer;
 
     @Autowired
-    public StripeAdapter(PaymentTransactionRepository paymentTransactionRepository, StripeProperties properties) {
+    public StripeAdapter(
+            PaymentTransactionRepository paymentTransactionRepository,
+            PaymentNormalizer paymentNormalizer,
+            StripeProperties properties, 
+            SubscriptionPlanService subscriptionPlanService, 
+            PricingService pricingService, 
+            PaymentRecordService paymentRecordService
+    ) {
         this.paymentTransactionRepository = paymentTransactionRepository;
+        this.subscriptionPlanService = subscriptionPlanService;
+        this.paymentNormalizer = paymentNormalizer;
+        this.pricingService = pricingService;
+        this.paymentRecordService = paymentRecordService;
         Stripe.apiKey = properties.getSecretKey();
     }
 
     @Override
-    public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
-        log.info("Processing Stripe payment for order: {}", request.getOrderId());
-
-        PaymentTransaction transaction = new PaymentTransaction();
-        transaction.setUserId(request.getUserId());
-        transaction.setAmount(request.getAmount());
-        transaction.setCurrency(request.getCurrency());
-        transaction.setPaymentProvider(PaymentProvider.STRIPE);
-        transaction.setTransactionDate(LocalDateTime.now());
-        transaction.setDescription("Order " + request.getOrderId());
+    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr
+    ) {
+        SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
+        BigDecimal amountInBaseCurrency = pricingService.calculateFinalBasePrice(
+                plan,
+                request.billingCycle(),
+                userId,
+                request.voucherCode()
+        );
 
         try {
-            Map<String, Object> params = new java.util.HashMap<>();
-            params.put("amount", request.getAmount().multiply(BigDecimal.valueOf(100)).longValueExact());
-            params.put("currency", request.getCurrency());
-            params.put("description", "Order " + request.getOrderId());
+            Map<String, Object> params = new HashMap<>();
+            params.put("amount", amountInBaseCurrency.multiply(BigDecimal.valueOf(100)).longValueExact());
+            params.put("currency", plan.getBaseCurrency().getCurrencyCode());
+            params.put("description", "Subscription");
             params.put("confirmation_method", "manual");
             params.put("confirm", true);
 
             PaymentIntent paymentIntent = PaymentIntent.create(params);
             StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
 
-            transaction.setProviderTransactionId(paymentIntent.getId());
-            transaction.setStatus(PaymentStatus.valueOf(stripeStatus.getStatus()));
-            transaction.setStatus(stripeStatus.getPaymentStatus());
-            if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
-                transaction.setExpiresAt(LocalDateTime.now().plusMinutes(request.getExpiresInMinutes()));
-            }
-
-            PaymentTransaction saved = paymentTransactionRepository.save(transaction);
+            PaymentTransaction saved = paymentRecordService.createPendingTransaction(
+                    userId,
+                    plan,
+                    amountInBaseCurrency,
+                    plan.getBaseCurrency(),
+                    PaymentProvider.STRIPE,
+                    paymentIntent.getId(),
+                    "Subscription"
+            );
 
             return PaymentCreationResponse.builder()
                     .provider(PaymentProvider.STRIPE)
@@ -96,8 +117,8 @@ public class StripeAdapter implements PaymentProviderAdapter {
             PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentId);
             StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
 
-            PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
-                    .orElseThrow(() -> new StripePaymentException(TXN_NOT_FOUND + paymentId));
+            PaymentTransaction transaction = paymentTransactionRepository.findByProviderTransactionId(paymentId)
+                    .orElseThrow(TransactionNotFoundException::new);
 
             LocalDateTime now = LocalDateTime.now();
             if (transaction.getExpiresAt() != null && now.isAfter(transaction.getExpiresAt())) {
@@ -137,14 +158,14 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String paymentId) {
+    public Object queryPayment(String jwtToken, String paymentId) {
         log.info("Querying Stripe payment with ID: {}", paymentId);
         try {
             PaymentIntent paymentIntent = PaymentIntent.retrieve(paymentId);
             StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
 
-            PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
-                    .orElseThrow(() -> new StripePaymentException(TXN_NOT_FOUND + paymentId));
+            PaymentTransaction transaction = paymentTransactionRepository.findByProviderTransactionId(paymentId)
+                    .orElseThrow(TransactionNotFoundException::new);
 
             // Only update DB based on the provider if we haven't finalized internally
             if (transaction.getStatus() == PaymentStatus.PENDING) {
@@ -168,11 +189,11 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String jwtToken, String paymentId, HttpServletRequest hsr) {
         log.info("Processing Stripe refund for paymentId: {}", paymentId);
 
-        PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
-                .orElseThrow(() -> new RuntimeException(TXN_NOT_FOUND + paymentId));
+        PaymentTransaction transaction = paymentTransactionRepository.findByProviderTransactionId(paymentId)
+                .orElseThrow(TransactionNotFoundException::new);
 
         try {
             Map<String, Object> params = Map.of("payment_intent", paymentId);

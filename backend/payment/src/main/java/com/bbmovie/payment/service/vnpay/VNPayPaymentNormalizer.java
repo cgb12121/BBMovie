@@ -2,13 +2,13 @@ package com.bbmovie.payment.service.vnpay;
 
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.VNPayException;
-import com.bbmovie.payment.service.PaymentStatusNormalizer;
+import com.bbmovie.payment.service.PaymentNormalizer;
 import org.springframework.stereotype.Component;
 
 import static com.bbmovie.payment.entity.enums.PaymentStatus.*;
 
 @Component("vnpayNormalizer")
-public class VNPayPaymentStatusNormalizer implements PaymentStatusNormalizer {
+public class VNPayPaymentNormalizer implements PaymentNormalizer {
     @Override
     public PaymentStatus.NormalizedPaymentStatus normalize(Object providerStatus) {
         return switch (providerStatus.toString()) {

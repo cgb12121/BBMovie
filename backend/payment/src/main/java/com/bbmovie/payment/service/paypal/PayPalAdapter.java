@@ -3,10 +3,12 @@ package com.bbmovie.payment.service.paypal;
 import com.bbmovie.payment.config.payment.PayPalProperties;
 import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
+import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.entity.PaymentTransaction;
+import com.bbmovie.payment.entity.SubscriptionPlan;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.PayPalPaymentException;
@@ -14,9 +16,13 @@ import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.bbmovie.payment.service.I18nService;
+import com.bbmovie.payment.service.SubscriptionPlanService;
+import com.bbmovie.payment.service.PricingService;
+import com.bbmovie.payment.service.PaymentRecordService;
 import com.paypal.api.payments.*;
 import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,22 +47,43 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PayPalProperties properties;
     private final I18nService i18nService;
+    private final SubscriptionPlanService subscriptionPlanService;
+    private final PricingService pricingService;
+    private final PaymentRecordService paymentRecordService;
 
     @Autowired
-    public PayPalAdapter(PaymentTransactionRepository paymentTransactionRepository, PayPalProperties properties, I18nService i18nService) {
+    public PayPalAdapter(
+            PaymentTransactionRepository paymentTransactionRepository,
+            PayPalProperties properties, I18nService i18nService,
+            SubscriptionPlanService subscriptionPlanService,
+            PricingService pricingService,
+            PaymentRecordService paymentRecordService
+    ) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.properties = properties;
         this.i18nService = i18nService;
+        this.subscriptionPlanService = subscriptionPlanService;
+        this.pricingService = pricingService;
+        this.paymentRecordService = paymentRecordService;
     }
 
+    @PostConstruct
     private APIContext getApiContext() {
         return new APIContext(properties.getClientId(), properties.getClientSecret(), properties.getMode());
     }
 
     @Override
     @Transactional
-    public PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest) {
-        Payment payment = createPayment(request);
+    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest httpServletRequest) {
+        SubscriptionPlan plan = subscriptionPlanService.getById(java.util.UUID.fromString(request.subscriptionPlanId()));
+
+        BigDecimal amountInBaseCurrency = pricingService.calculateFinalBasePrice(
+                plan,
+                request.billingCycle(),
+                userId,
+                request.voucherCode()
+        );
+        Payment payment = createTransaction(new PaymentRequest(null, amountInBaseCurrency, plan.getBaseCurrency().getCurrencyCode(), null, null, null));
         log.info("Created PayPal payment {}", payment.toJSON());
         try {
             Payment createdPayment = payment.create(getApiContext());
@@ -78,19 +105,15 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                     ? PaymentStatus.SUCCEEDED
                     : PaymentStatus.PENDING;
 
-            PaymentTransaction transaction = PaymentTransaction.builder()
-                    .userId(request.getUserId())
-                    .subscription(null)
-                    .amount(request.getAmount())
-                    .currency(request.getCurrency())
-                    .paymentProvider(PaymentProvider.PAYPAL)
-                    .providerTransactionId(createdPayment.getId())
-                    .build();
-            if (request.getExpiresInMinutes() != null && request.getExpiresInMinutes() > 0) {
-                transaction.setExpiresAt(java.time.LocalDateTime.now().plusMinutes(request.getExpiresInMinutes()));
-            }
-            
-            PaymentTransaction saved = paymentTransactionRepository.save(transaction);
+            PaymentTransaction saved = paymentRecordService.createPendingTransaction(
+                    userId,
+                    plan,
+                    amountInBaseCurrency,
+                    plan.getBaseCurrency(),
+                    PaymentProvider.PAYPAL,
+                    createdPayment.getId(),
+                    "Subscription"
+            );
 
             return PaymentCreationResponse.builder()
                     .provider(PaymentProvider.PAYPAL)
@@ -123,7 +146,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
 
             String messageForClient = getMessage(stateOfPayment);
             
-            PaymentTransaction transaction = paymentTransactionRepository.findByPaymentGatewayId(paymentId)
+            PaymentTransaction transaction = paymentTransactionRepository.findByProviderTransactionId(paymentId)
                     .orElseThrow(() -> new PayPalPaymentException("Transaction not found: " + paymentId));
 
             LocalDateTime now = LocalDateTime.now();
@@ -198,7 +221,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public Object queryPayment(String paymentId) {
+    public Object queryPayment(String jwtToken, String paymentId) {
         try {
             PaymentTransaction transaction = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                     .orElseThrow(() -> new PayPalPaymentException("Transaction not found: " + paymentId));
@@ -213,18 +236,18 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String jwtToken, String paymentId, HttpServletRequest hsr) {
         try {
             PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                         .orElseThrow(() -> new PayPalPaymentException("Unable to find transaction"));
 
-            Sale sale = Sale.get(getApiContext(), txn.getId().toString());
+            Sale sale = Sale.get(getApiContext(), txn.getProviderTransactionId());
 
             RefundRequest refundRequest = new RefundRequest();
 
             if (txn.getAmount() != null) {
                 Amount amount = new Amount();
-                amount.setCurrency(txn.getCurrency());
+                amount.setCurrency(txn.getCurrency().getCurrencyCode());
                 amount.setTotal(txn.getAmount().toString());
                 refundRequest.setAmount(amount);
             }
@@ -246,43 +269,20 @@ public class PayPalAdapter implements PaymentProviderAdapter {
         }
     }
 
-    /*
-         Init object for request:
-         
-          {
-             "intent": The payment intent from the request,
-              "payer": {
-                  "payment_method": "paypal"
-               },
-               "transactions": [
-                  {
-                   "amount": {
-                      "currency": "[...]",
-                      "total": "[...]"
-                     },
-                    "description": "[...]"
-                   }
-                 ],
-                "redirect_urls": {
-                "return_url": "[...]",
-                "cancel_url": "[...]"
-            }
-         }
-    */
-    private Payment createPayment(PaymentRequest request) {
+    private Payment createTransaction(PaymentRequest request) {
         Amount amount = new Amount();
         amount.setCurrency(request.getCurrency());
         amount.setTotal(request.getAmount() != null ? request.getAmount().toString() : null);
 
         Transaction transaction = new Transaction();
         transaction.setAmount(amount);
-        transaction.setDescription("Order " + request.getOrderId());
+        transaction.setDescription("Subscription");
 
-        return createPayment(transaction);
+        return createTransactionDetails(transaction);
     }
 
     
-    private Payment createPayment(Transaction transaction) {
+    private Payment createTransactionDetails(Transaction transaction) {
         Payer payer = new Payer();
         payer.setPaymentMethod("paypal");
 
@@ -298,61 +298,6 @@ public class PayPalAdapter implements PaymentProviderAdapter {
         return payment;
     }
 
-    /*
-        Execute request to PayPal: Payment.create(getApiContext())
-    
-        Return object:
-        {
-          "id": A unique string identifier for the payment,
-          "intent": The payment intent from the request, 
-          "payer": {
-            "payment_method": "paypal"
-          },
-          "transactions": [
-            {
-              "related_resources": [],
-              "amount": {
-                "currency": "[...]",
-                "total": "[...]"
-              },
-              "description": "[...]"
-            }
-          ],
-          "state": "created",
-          "create_time": "[ISO 8601]",
-          "links": [
-            {
-              "href": "https://api.sandbox.paypal.com/v1/payments/payment/{id}",
-              "rel": "self",
-              "method": "GET"
-
-                 This is an API link to retrieve (GET) the current payment details from PayPal's servers.
-                 It's for your backend to check or update the payment status later.
-                 Not for the user.
-
-            },
-            {
-                "href":"https://www.sandbox.paypal.com/cgi-bin/webscr?cmd[what are these here for?]",
-                "rel":"approval_url",
-                "method":"REDIRECT"
-
-                         This is the link you should use for the user.
-                         Redirect the user to this URL (via a browser or app) to approve and complete the
-                         payment on PayPal's website.
-
-            },
-            {
-                "href":"https://api.sandbox.paypal.com/v1/payments/payment/{id}/execute",
-                "rel":"execute",
-                "method":"POST"
-
-                         This is an API link to execute (POST) the payment after user approval.
-                         Your backend calls this to finalize the transaction once the user returns from the approval page.
-                         Not for the user.
-            }
-          ]
-       }
-    */
     private String getMessage(String stateOfPayment) {
         if (stateOfPayment.equalsIgnoreCase(COMPLETED.getStatus())) {
             return i18nService.getMessage("payment.paypal.completed");

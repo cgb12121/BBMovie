@@ -1,8 +1,5 @@
 package com.bbmovie.payment.entity.enums;
 
-import lombok.Getter;
-
-@Getter
 public enum PaymentProvider {
     PAYPAL,
     VNPAY,
@@ -14,5 +11,9 @@ public enum PaymentProvider {
 
     PaymentProvider() {
         this.name = this.name().toLowerCase();
+    }
+
+    public String getName() {
+        return name.toLowerCase();
     }
 }

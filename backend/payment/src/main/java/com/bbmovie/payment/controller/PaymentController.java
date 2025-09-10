@@ -1,15 +1,17 @@
 package com.bbmovie.payment.controller;
 
 import com.bbmovie.payment.dto.*;
-import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.bbmovie.payment.dto.request.RefundRequest;
+import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
 import com.bbmovie.payment.service.PaymentService;
 import com.bbmovie.payment.service.I18nService;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.constraints.NotBlank;
+import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpMethod;
@@ -37,14 +39,11 @@ public class PaymentController {
 
     @PostMapping("/initiate")
     public ResponseEntity<ApiResponse<PaymentCreationResponse>> initiatePayment(
-            @SuppressWarnings("unused") @RequestHeader("Authorization") String jwtToken, // This Will be used to pass the user id
-            @RequestBody PaymentRequest request, HttpServletRequest httpServletRequest
+            @NotBlank @RequestHeader("Authorization") String jwtToken,
+            @RequestBody SubscriptionPaymentRequest request, HttpServletRequest hsr
     ) {
         try {
-            if (request.getExpiresInMinutes() == null) {
-                request.setExpiresInMinutes(30); // default expiry window
-            }
-            PaymentCreationResponse response = paymentService.createPayment(request.getProvider(), request, httpServletRequest);
+            PaymentCreationResponse response = paymentService.createPayment(jwtToken, request, hsr);
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (Exception e) {
             log.error("Error processing payment: {}", e.getMessage());
@@ -120,19 +119,17 @@ public class PaymentController {
 
     @PostMapping("/refund")
     public ResponseEntity<ApiResponse<RefundResponse>> refundPayment(
-        @SuppressWarnings("unused") @RequestHeader("Authorization") String jwtToken, // This Will be used to pass the user id
-        @RequestBody RefundRequest request, 
-        HttpServletRequest httpServletRequest
+        @NotBlank @RequestHeader("Authorization") String jwtToken,
+        @RequestBody RefundRequest request, HttpServletRequest hsr
     ) {
-        RefundResponse response = paymentService.refundPayment(String.valueOf(request.getPaymentId()), httpServletRequest);
+        RefundResponse response = paymentService.refundPayment(jwtToken, request.getPaymentId(), hsr);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/query")
     public ResponseEntity<ApiResponse<Object>> queryPaymentFromProvider(
-        @SuppressWarnings("unused") @RequestHeader("Authorization") String jwtToken, // This Will be used to pass the user id
-        @RequestParam String id
+            @NotBlank @RequestHeader("Authorization") String jwtToken, @RequestParam String id
     ) {
-        return ResponseEntity.ok(ApiResponse.success(paymentService.queryPayment(id)));
+        return ResponseEntity.ok(ApiResponse.success(paymentService.queryPayment(jwtToken, id)));
     }
 }

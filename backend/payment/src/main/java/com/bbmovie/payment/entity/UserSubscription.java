@@ -17,25 +17,25 @@ import java.time.LocalDateTime;
 public class UserSubscription extends BaseEntity {
 
     @Column(name = "user_id", nullable = false)
-    private String user;
+    private String userId;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_id", nullable = false)
     private SubscriptionPlan plan;
 
-    @Column(name = "start_date", nullable = false)
+    @Column(name = "start_date")
     private LocalDateTime startDate;
 
-    @Column(name = "end_date", nullable = false)
+    @Column(name = "end_date")
     private LocalDateTime endDate;
 
     @Builder.Default
     @Column(name = "is_active")
-    private boolean isActive = true;
+    private boolean isActive = false;
 
     @Builder.Default
     @Column(name = "auto_renew")
-    private boolean autoRenew = false;
+    private boolean autoRenew = true;
 
     @Column(name = "last_payment_date")
     private LocalDateTime lastPaymentDate;
@@ -47,6 +47,6 @@ public class UserSubscription extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private PaymentProvider paymentProvider;
 
-    @Column(name = "payment_gateway_id")
-    private String paymentGatewayId;
+    @Column(name = "payment_method")
+    private String paymentMethod;
 }

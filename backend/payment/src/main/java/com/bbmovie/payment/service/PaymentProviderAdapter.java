@@ -2,6 +2,7 @@ package com.bbmovie.payment.service;
 
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.bbmovie.payment.dto.request.PaymentRequest;
+import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
 import com.bbmovie.payment.dto.response.RefundResponse;
@@ -11,13 +12,13 @@ import java.util.Map;
 
 public interface PaymentProviderAdapter {
 
-    PaymentCreationResponse createPaymentRequest(PaymentRequest request, HttpServletRequest httpServletRequest);
+    PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr);
 
-    Object queryPayment(String paymentId);
+    Object queryPayment(String userId, String paymentId);
 
-    RefundResponse refundPayment(String paymentId, HttpServletRequest httpServletRequest);
+    RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr);
 
-    PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest httpServletRequest);
+    PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest hsr);
 
     /**
      * Optional: IPN-like callbacks (form/query params). Default bridges to legacy handleCallback.

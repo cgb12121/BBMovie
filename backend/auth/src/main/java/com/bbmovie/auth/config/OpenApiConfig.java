@@ -1,4 +1,4 @@
-package com.bbmovie.auth.controller.openapi;
+package com.bbmovie.auth.config;
 
 import io.swagger.v3.oas.annotations.OpenAPIDefinition;
 import io.swagger.v3.oas.annotations.enums.SecuritySchemeType;

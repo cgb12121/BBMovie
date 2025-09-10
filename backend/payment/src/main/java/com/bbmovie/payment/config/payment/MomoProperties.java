@@ -11,6 +11,8 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "payment.momo")
 public class MomoProperties {
     private String partnerCode;
+    private String storeName;
+    private String storeId;
     private String accessKey;
     private String secretKey;
     private boolean sandbox;

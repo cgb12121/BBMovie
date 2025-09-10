@@ -2,6 +2,7 @@ package com.bbmovie.payment.service.vnpay;
 
 import com.bbmovie.payment.entity.PaymentTransaction;
 import com.bbmovie.payment.exception.VNPayException;
+import com.bbmovie.payment.utils.RandomUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
@@ -18,6 +19,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.UnsupportedEncodingException;
+import java.math.BigDecimal;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
@@ -158,8 +160,8 @@ public class VnpayProvidedFunction {
     }
 
     public Map<String, String> createQueryOrder(PaymentTransaction txn, String tmpCode, String hashSecret) {
-        String vnpTxnRef = txn.getPaymentGatewayId();
-        String transactionNo = txn.getPaymentGatewayOrderId();
+        String vnpTxnRef = RandomUtil.getRandomNumber(6);
+        String transactionNo = txn.getProviderTransactionId();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
         String vnpTransactionDate = txn.getTransactionDate().format(formatter);
 
@@ -187,6 +189,44 @@ public class VnpayProvidedFunction {
         );
 
         String vnpSecureHash = hmacSHA512(hashSecret, data);
+        body.put("vnp_SecureHash", vnpSecureHash);
+
+        return body;
+    }
+
+    public Map<String, String> createRefundOrder(HttpServletRequest httpServletRequest, PaymentTransaction txn, String tmpCode, String hashSecret) {
+        String requestId = RandomUtil.getRandomNumber(6);
+        String vnpayVersion = "2.1.0";
+        String vnpCommand = "querydr";
+        String vnpIpAddr = "127.0.0.1";
+        String vnpTxnRef = txn.getProviderTransactionId();
+        String vnpTmnCode = tmpCode;
+        String vnpOrderInfo = "Refund transaction: " + vnpTxnRef;
+        BigDecimal amount = txn.getAmount().multiply(BigDecimal.valueOf(100));
+        
+        Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
+        SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");
+        String vnp_CreateDate = formatter.format(cld.getTime());
+
+        String transactionDate = formatter.format(txn.getTransactionDate());
+
+        String data = String.join("|",
+            requestId, vnpayVersion, vnpCommand, tmpCode,
+             vnpTxnRef, transactionDate, vnp_CreateDate, vnpIpAddr, vnpOrderInfo
+        );
+        String vnpSecureHash = hmacSHA512(hashSecret, data);
+
+        Map<String, String> body = new HashMap<>();
+        body.put("vnp_RequestId", requestId);
+        body.put("vnp_Version", vnpayVersion);
+        body.put("vnp_Command", vnpCommand);
+        body.put("vnp_TmnCode", tmpCode);
+        body.put("vnp_TxnRef", vnpTxnRef);
+        body.put("vnp_Amount", String.valueOf(amount));
+        body.put("vnp_OrderInfo", vnpOrderInfo);
+        body.put("vnp_TransactionDate", transactionDate);
+        body.put("vnp_CreateDate", vnp_CreateDate);
+        body.put("vnp_IpAddr", vnpIpAddr);
         body.put("vnp_SecureHash", vnpSecureHash);
 
         return body;
@@ -222,9 +262,5 @@ public class VnpayProvidedFunction {
             log.error("Failed to execute query request: {}", ex.getMessage());
             return vpnQueryResult;
         }
-    }
-
-    public Map<String, String> createRefundOrder(HttpServletRequest httpServletRequest, PaymentTransaction txn, String tmpCode, String hashSecret) {
-        throw new UnsupportedOperationException("Not supported yet.");
     }
 }

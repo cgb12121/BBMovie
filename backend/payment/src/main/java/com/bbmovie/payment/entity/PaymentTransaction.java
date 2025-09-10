@@ -3,9 +3,11 @@ package com.bbmovie.payment.entity;
 import com.bbmovie.payment.entity.base.BaseEntity;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
+import com.bbmovie.payment.service.converter.CurrencyUnitAttributeConverter;
 import jakarta.persistence.*;
 import lombok.*;
 
+import javax.money.CurrencyUnit;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -28,8 +30,9 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "amount", nullable = false)
     private BigDecimal amount;
 
-    @Column(name = "currency", nullable = false)
-    private String currency;
+    @Convert(converter = CurrencyUnitAttributeConverter.class)
+    @Column(name = "currency", nullable = false, length = 3)
+    private CurrencyUnit currency;
 
     @Column(name = "payment_provider", nullable = false)
     @Enumerated(EnumType.STRING)

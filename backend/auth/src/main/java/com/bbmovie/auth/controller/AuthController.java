@@ -64,7 +64,6 @@ public class AuthController implements AuthControllerOpenApi {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
-
     @GetMapping("/abac/new-access-token")
     public ResponseEntity<String> getNewAccessTokenForLatestAbac(@RequestHeader(value = "Authorization") String oldAccessToken) {
         return ResponseEntity.ok(refreshTokenService.refreshAccessToken(oldAccessToken));
