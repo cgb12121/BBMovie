@@ -3,9 +3,6 @@ package com.bbmovie.payment.service.zalopay;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.LinkedList;
-import java.util.List;
 
 @SuppressWarnings({"squid:S1118", "unused"})
 public final class ZaloHmacUtil {

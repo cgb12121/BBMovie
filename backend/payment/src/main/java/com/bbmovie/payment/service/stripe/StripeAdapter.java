@@ -24,6 +24,7 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,7 +48,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     @Autowired
     public StripeAdapter(
             PaymentTransactionRepository paymentTransactionRepository,
-            PaymentNormalizer paymentNormalizer,
+            @Qualifier("stripeNormalizer") PaymentNormalizer paymentNormalizer,
             StripeProperties properties, 
             SubscriptionPlanService subscriptionPlanService, 
             PricingService pricingService, 
