@@ -83,16 +83,15 @@ public class MomoAdapter implements PaymentProviderAdapter {
     public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
-        BigDecimal amountInBaseCurrency = pricingService.calculateFinalBasePrice(
+        com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
                 plan,
                 request.billingCycle(),
+                SupportedCurrency.VND.unit(),
                 userId,
+                null,
                 request.voucherCode()
         );
-
-        BigDecimal amountInVnd = currencyConversionService.convert(
-            Money.of(amountInBaseCurrency, plan.getBaseCurrency()), SupportedCurrency.VND.code()
-        ).getNumber().numberValue(BigDecimal.class);
+        BigDecimal amountInVnd = breakdown.finalPrice();
 
         String orderId = "Partner_Transaction_ID_" + System.currentTimeMillis();
         String requestId = "Request_ID_" + System.currentTimeMillis();
@@ -123,7 +122,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
 
         String rawSignature = buildSignatureString(Map.of(
                 ACCESS_KEY, properties.getAccessKey(),
-                AMOUNT, String.valueOf(amountInBaseCurrency.longValue()),
+                AMOUNT, String.valueOf(amountInVnd.longValue()),
                 EXTRA_DATA, extraData,
                 IPN_URL, properties.getIpnUrl(),
                 ORDER_ID, orderId,
@@ -159,7 +158,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
             PaymentTransaction transaction = paymentRecordService.createPendingTransaction(
                     userId,
                     plan,
-                    amountInBaseCurrency,
+                    breakdown.finalPrice(),
                     plan.getBaseCurrency(),
                     PaymentProvider.MOMO,
                     orderId,

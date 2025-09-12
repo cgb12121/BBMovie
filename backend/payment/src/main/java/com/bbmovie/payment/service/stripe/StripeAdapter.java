@@ -66,12 +66,15 @@ public class StripeAdapter implements PaymentProviderAdapter {
     public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr
     ) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
-        BigDecimal amountInBaseCurrency = pricingService.calculateFinalBasePrice(
+        com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
                 plan,
                 request.billingCycle(),
+                plan.getBaseCurrency(),
                 userId,
+                null,
                 request.voucherCode()
         );
+        BigDecimal amountInBaseCurrency = breakdown.finalPrice();
 
         try {
             Map<String, Object> params = new HashMap<>();

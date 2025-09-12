@@ -202,7 +202,7 @@ public class VnpayProvidedFunction {
         String vnpTxnRef = txn.getProviderTransactionId();
         String vnpTmnCode = tmpCode;
         String vnpOrderInfo = "Refund transaction: " + vnpTxnRef;
-        BigDecimal amount = txn.getAmount().multiply(BigDecimal.valueOf(100));
+        BigDecimal amount = txn.getBaseAmount().multiply(BigDecimal.valueOf(100));
         
         Calendar cld = Calendar.getInstance(TimeZone.getTimeZone("Etc/GMT+7"));
         SimpleDateFormat formatter = new SimpleDateFormat("yyyyMMddHHmmss");

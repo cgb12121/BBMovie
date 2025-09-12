@@ -28,7 +28,19 @@ public class PaymentTransaction extends BaseEntity {
     private UserSubscription subscription;
 
     @Column(name = "amount", nullable = false)
-    private BigDecimal amount;
+    private BigDecimal baseAmount;
+
+    @Column(name = "cycle_discount")
+    private BigDecimal cycleDiscount;
+
+    @Column(name = "campaign_discount")
+    private BigDecimal campaignDiscount;
+
+    @Column(name = "voucher_discount")
+    private BigDecimal voucherDiscount;
+
+    @Column(name = "tax_amount")
+    private BigDecimal taxAmount;
 
     @Convert(converter = CurrencyUnitAttributeConverter.class)
     @Column(name = "currency", nullable = false, length = 3)
@@ -37,6 +49,24 @@ public class PaymentTransaction extends BaseEntity {
     @Column(name = "payment_provider", nullable = false)
     @Enumerated(EnumType.STRING)
     private PaymentProvider paymentProvider;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "voucher_id")
+    private Voucher appliedVoucher;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "campaign_id")
+    private DiscountCampaign appliedCampaign;
+
+    // Snapshots (to preserve audit trail even if voucher/campaign is deleted/changed)
+    @Column(name = "voucher_code_snapshot")
+    private String voucherCodeSnapshot;
+
+    @Column(name = "campaign_name_snapshot")
+    private String campaignNameSnapshot;
+
+    @Column(name = "discount_percent_snapshot")
+    private BigDecimal discountPercentSnapshot;
 
     @Column(name = "payment_method")
     private String paymentMethod;

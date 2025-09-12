@@ -1,5 +1,6 @@
 package com.bbmovie.payment.service;
 
+import com.bbmovie.payment.dto.SubscriptionPlanView;
 import com.bbmovie.payment.entity.SubscriptionPlan;
 import com.bbmovie.payment.entity.enums.BillingCycle;
 import com.bbmovie.payment.repository.SubscriptionPlanRepository;
@@ -27,7 +28,8 @@ public class SubscriptionPlanService {
     }
 
     public SubscriptionPlan getById(UUID id) {
-        return subscriptionPlanRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Plan not found"));
+        return subscriptionPlanRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
     }
 
     @PostConstruct
@@ -87,10 +89,6 @@ public class SubscriptionPlanService {
         }
     }
 
-    public List<SubscriptionPlan> listActive() {
-        return subscriptionPlanRepository.findAll();
-    }
-
     public BigDecimal quotePrice(String planName, BillingCycle cycle, String username) {
         Optional<SubscriptionPlan> planOpt = subscriptionPlanRepository.findAll()
                 .stream()
@@ -118,5 +116,38 @@ public class SubscriptionPlanService {
             price = price.subtract(studentDiscount);
         }
         return price.max(BigDecimal.ZERO);
+    }
+
+    public List<SubscriptionPlanView> listActivePlans() {
+        return subscriptionPlanRepository.findAll()
+                .stream()
+                .filter(SubscriptionPlan::isActive)
+                .map(this::mapToView)
+                .toList();
+    }
+
+    private SubscriptionPlanView mapToView(SubscriptionPlan plan) {
+        BigDecimal monthlyPrice = plan.getMonthlyPrice();
+
+        // Annual values
+        BigDecimal annualOriginal = monthlyPrice.multiply(BigDecimal.valueOf(12));
+        BigDecimal discountAmount = annualOriginal
+                .multiply(plan.getAnnualDiscountPercent())
+                .divide(BigDecimal.valueOf(100), RoundingMode.HALF_UP);
+        BigDecimal annualFinal = annualOriginal.subtract(discountAmount);
+
+        return SubscriptionPlanView.builder()
+                .id(plan.getId())
+                .name(plan.getName())
+                .planType(plan.getPlanType())
+                .monthlyPrice(monthlyPrice)
+                .annualOriginalPrice(annualOriginal)
+                .annualDiscountPercent(plan.getAnnualDiscountPercent())
+                .annualDiscountAmount(discountAmount)
+                .annualFinalPrice(annualFinal)
+                .description(plan.getDescription())
+                .features(plan.getFeatures())
+                .currency(plan.getBaseCurrency())
+                .build();
     }
 }

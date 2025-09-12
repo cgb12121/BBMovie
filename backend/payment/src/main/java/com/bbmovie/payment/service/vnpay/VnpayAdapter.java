@@ -85,21 +85,15 @@ public class VnpayAdapter implements PaymentProviderAdapter {
             throw new IllegalArgumentException("Unexpected billing cycle.");
         }
 
-        BigDecimal amountInBaseCurrency = pricingService.calculateFinalBasePrice(
+        com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
                 plan,
                 cycle,
+                SupportedCurrency.VND.unit(),
                 userId,
+                null,
                 request.voucherCode()
         );
-        BigDecimal amount = amountInBaseCurrency;
-
-        CurrencyUnit baseCurrency = plan.getBaseCurrency();
-        if (!SupportedCurrency.VND.unit().equals(baseCurrency)) {
-            MonetaryAmount basedAmount = Money.of(amountInBaseCurrency, plan.getBaseCurrency());
-            amount = currencyConversionService.convert(basedAmount, SupportedCurrency.VND.code())
-                    .getNumber()
-                    .numberValueExact(BigDecimal.class);
-        }
+        BigDecimal amount = breakdown.finalPrice();
 
         String amountInVnpayConvention = amount.multiply(BigDecimal.valueOf(100))
                 .setScale(0, RoundingMode.HALF_UP)

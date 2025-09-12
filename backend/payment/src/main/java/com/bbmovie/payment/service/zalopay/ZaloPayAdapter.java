@@ -143,9 +143,10 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
-        BigDecimal amount = pricingService.calculateFinalBasePrice(
-                plan, request.billingCycle(), userId, request.voucherCode()
+        com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
+                plan, request.billingCycle(), SupportedCurrency.VND.unit(), userId, null, request.voucherCode()
         );
+        BigDecimal amount = breakdown.finalPrice();
 
         long appTime = System.currentTimeMillis();
         String appTransId = generateAppTransId();

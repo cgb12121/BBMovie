@@ -77,13 +77,16 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest httpServletRequest) {
         SubscriptionPlan plan = subscriptionPlanService.getById(java.util.UUID.fromString(request.subscriptionPlanId()));
 
-        BigDecimal amountInBaseCurrency = pricingService.calculateFinalBasePrice(
+        com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
                 plan,
                 request.billingCycle(),
+                plan.getBaseCurrency(),
                 userId,
+                null,
                 request.voucherCode()
         );
-        Payment payment = createTransaction(new PaymentRequest(null, amountInBaseCurrency, plan.getBaseCurrency().getCurrencyCode(), null, null, null));
+        BigDecimal finalAmount = breakdown.finalPrice();
+        Payment payment = createTransaction(new PaymentRequest(null, finalAmount, plan.getBaseCurrency().getCurrencyCode(), null, null, null));
         log.info("Created PayPal payment {}", payment.toJSON());
         try {
             Payment createdPayment = payment.create(getApiContext());
@@ -108,7 +111,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             PaymentTransaction saved = paymentRecordService.createPendingTransaction(
                     userId,
                     plan,
-                    amountInBaseCurrency,
+                    finalAmount,
                     plan.getBaseCurrency(),
                     PaymentProvider.PAYPAL,
                     createdPayment.getId(),
@@ -245,10 +248,10 @@ public class PayPalAdapter implements PaymentProviderAdapter {
 
             RefundRequest refundRequest = new RefundRequest();
 
-            if (txn.getAmount() != null) {
+            if (txn.getBaseAmount() != null) {
                 Amount amount = new Amount();
                 amount.setCurrency(txn.getCurrency().getCurrencyCode());
-                amount.setTotal(txn.getAmount().toString());
+                amount.setTotal(txn.getBaseAmount().toString());
                 refundRequest.setAmount(amount);
             }
 

@@ -35,7 +35,7 @@ public class PaymentRecordService {
         PaymentTransaction txn = PaymentTransaction.builder()
                 .userId(userId)
                 .subscription(subscription)
-                .amount(amount)
+                .baseAmount(amount)
                 .currency(currency)
                 .paymentProvider(provider)
                 .providerTransactionId(providerTransactionId)

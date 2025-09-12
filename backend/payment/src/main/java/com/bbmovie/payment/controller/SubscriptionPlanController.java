@@ -1,6 +1,6 @@
 package com.bbmovie.payment.controller;
 
-import com.bbmovie.payment.entity.SubscriptionPlan;
+import com.bbmovie.payment.dto.SubscriptionPlanView;
 import com.bbmovie.payment.entity.enums.BillingCycle;
 import com.bbmovie.payment.service.SubscriptionPlanService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +22,8 @@ public class SubscriptionPlanController {
     }
 
     @GetMapping("/plans")
-    public List<SubscriptionPlan> listPlans() {
-        return subscriptionPlanService.listActive();
+    public List<SubscriptionPlanView> listPlans() {
+        return subscriptionPlanService.listActivePlans();
     }
 
     @GetMapping("/")
