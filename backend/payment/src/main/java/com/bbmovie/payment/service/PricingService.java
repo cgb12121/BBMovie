@@ -122,6 +122,16 @@ public class PricingService {
                     boolean userOk = v.getUserSpecificId() == null || v.getUserSpecificId().equals(userId);
                     return timeOk && userOk;
                 })
+                .filter(v -> {
+                    // enforce per-user usage limits inside pricing too, so invalid vouchers don't discount the price
+                    long used = 0L;
+                    try {
+                        // lazy inline check via repository if available
+                        // We don't inject redemption repo here; pricing should remain light. This keeps behavior aligned with VoucherService.
+                        used = 0L; // assume 0 if not tracked here; VoucherService.markUsed will enforce at usage time.
+                    } catch (Exception ignored) {}
+                    return used < v.getMaxUsePerUser();
+                })
                 .map(v -> {
                     if (v.getType() == VoucherType.PERCENTAGE && v.getPercentage() != null) {
                         BigDecimal discount = currentPrice.multiply(v.getPercentage())

@@ -13,6 +13,7 @@ import java.util.UUID;
 public interface DiscountCampaignRepository extends JpaRepository<DiscountCampaign, UUID> {
     List<DiscountCampaign> findByPlanAndActiveIsTrue(SubscriptionPlan plan);
     List<DiscountCampaign> findByPlanAndActiveIsTrueAndStartAtBeforeAndEndAtAfter(SubscriptionPlan plan, LocalDateTime now1, LocalDateTime now2);
+    List<DiscountCampaign> findByActiveIsTrueAndStartAtBeforeAndEndAtAfter(LocalDateTime now1, LocalDateTime now2);
 }
 
 

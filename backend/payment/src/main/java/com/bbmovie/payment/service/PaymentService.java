@@ -47,9 +47,7 @@ public class PaymentService {
     public PaymentCreationResponse createPayment(String jwtToken, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         PaymentProviderProperties.ProviderConfig toggle = properties.getProviders().get(request.provider());
         if (toggle == null || !toggle.isEnabled()) {
-            throw new PaymentNotAvailableException(request.provider() + " is disabled: " + (toggle != null ? toggle.getReason()
-                    : "Unknown reason")
-            );
+            throw new PaymentNotAvailableException(request.provider() + " is disabled: " + (toggle != null ? toggle.getReason() : "Unknown reason"));
         }
         String userId = SimpleJwtDecoder.getUserId(jwtToken);
 

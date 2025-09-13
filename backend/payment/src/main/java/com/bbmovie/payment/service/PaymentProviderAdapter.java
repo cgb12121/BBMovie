@@ -20,9 +20,6 @@ public interface PaymentProviderAdapter {
 
     PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest hsr);
 
-    /**
-     * Optional: IPN-like callbacks (form/query params). Default bridges to legacy handleCallback.
-     */
     default PaymentVerificationResponse handleIpn(CallbackRequestContext ctx) {
         Map<String, String> params = (ctx.getFormParams() != null && !ctx.getFormParams().isEmpty())
                 ? ctx.getFormParams()
@@ -30,9 +27,6 @@ public interface PaymentProviderAdapter {
         return this.handleCallback(params, ctx.getHttpServletRequest());
     }
 
-    /**
-     * Optional: Webhook callbacks (raw body and headers). Default unsupported.
-     */
     default PaymentVerificationResponse handleWebhook(CallbackRequestContext ctx) {
         throw new UnsupportedOperationException("Webhook not supported by this provider");
     }

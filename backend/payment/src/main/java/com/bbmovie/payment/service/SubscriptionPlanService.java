@@ -27,11 +27,6 @@ public class SubscriptionPlanService {
         this.subscriptionPlanRepository = subscriptionPlanRepository;
     }
 
-    public SubscriptionPlan getById(UUID id) {
-        return subscriptionPlanRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
-    }
-
     @PostConstruct
     private void initDefaultSubscriptionPlan() {
         // Seed fixed plans if not present
@@ -87,6 +82,46 @@ public class SubscriptionPlanService {
                     .build());
             subscriptionPlanRepository.saveAll(plans);
         }
+    }
+
+    public SubscriptionPlan getById(UUID id) {
+        return subscriptionPlanRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found..."));
+    }
+
+    public void createPlan(SubscriptionPlan plan) {
+        subscriptionPlanRepository.save(plan);
+    }
+
+    //request update dto missing
+    public void updatePlan(UUID id) {
+        SubscriptionPlan subscriptionPlan = subscriptionPlanRepository.findById(id)
+                .orElseThrow();
+        subscriptionPlanRepository.save(subscriptionPlan);
+    }
+
+    public void  activePlan(UUID id) {
+        SubscriptionPlan subscriptionPlan = subscriptionPlanRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found..."));
+        if (!subscriptionPlan.isActive()) {
+            subscriptionPlan.setActive(true);
+            subscriptionPlanRepository.save(subscriptionPlan);
+        }
+        throw new IllegalArgumentException("Plan is already active");
+    }
+
+    public void inactivePlan(UUID id) {
+        SubscriptionPlan subscriptionPlan = subscriptionPlanRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Plan not found"));
+        if (subscriptionPlan.isActive()) {
+            subscriptionPlan.setActive(false);
+            subscriptionPlanRepository.save(subscriptionPlan);
+        }
+        throw new IllegalArgumentException("Plan is already inactive");
+    }
+
+    public void deleteById(UUID id) {
+        subscriptionPlanRepository.deleteById(id);
     }
 
     public BigDecimal quotePrice(String planName, BillingCycle cycle, String username) {
