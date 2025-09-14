@@ -5,6 +5,8 @@ import com.bbmovie.payment.dto.request.DiscountCampaignUpdateRequest;
 import com.bbmovie.payment.dto.response.DiscountCampaignResponse;
 import com.bbmovie.payment.entity.DiscountCampaign;
 import com.bbmovie.payment.entity.SubscriptionPlan;
+import com.bbmovie.payment.exception.CampaignNotFoundException;
+import com.bbmovie.payment.exception.SubscriptionPlanNotFoundException;
 import com.bbmovie.payment.repository.DiscountCampaignRepository;
 import com.bbmovie.payment.repository.SubscriptionPlanRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +16,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class DiscountCampaignService {
@@ -34,7 +35,7 @@ public class DiscountCampaignService {
     @Transactional
     public DiscountCampaignResponse create(DiscountCampaignCreateRequest request) {
         SubscriptionPlan plan = planRepository.findById(UUID.fromString(request.planId()))
-                .orElseThrow(() -> new IllegalArgumentException("Subscription plan not found"));
+                .orElseThrow(SubscriptionPlanNotFoundException::new);
 
         DiscountCampaign entity = DiscountCampaign.builder()
                 .name(request.name())
@@ -52,9 +53,9 @@ public class DiscountCampaignService {
     @Transactional
     public DiscountCampaignResponse update(UUID id, DiscountCampaignUpdateRequest request) {
         DiscountCampaign entity = campaignRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+                .orElseThrow(CampaignNotFoundException::new);
         SubscriptionPlan plan = planRepository.findById(UUID.fromString(request.planId()))
-                .orElseThrow(() -> new IllegalArgumentException("Subscription plan not found"));
+                .orElseThrow(SubscriptionPlanNotFoundException::new);
 
         entity.setName(request.name());
         entity.setPlan(plan);
@@ -71,20 +72,23 @@ public class DiscountCampaignService {
     public DiscountCampaignResponse get(UUID id) {
         return campaignRepository.findById(id)
                 .map(this::toResponse)
-                .orElseThrow(() -> new IllegalArgumentException("Campaign not found"));
+                .orElseThrow(CampaignNotFoundException::new);
     }
 
     @Transactional
     public void delete(UUID id) {
         if (!campaignRepository.existsById(id)) {
-            throw new IllegalArgumentException("Campaign not found");
+            throw new CampaignNotFoundException();
         }
         campaignRepository.deleteById(id);
     }
 
     @Transactional(readOnly = true)
     public List<DiscountCampaignResponse> listAll() {
-        return campaignRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+        return campaignRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional(readOnly = true)
@@ -100,7 +104,7 @@ public class DiscountCampaignService {
     @Transactional(readOnly = true)
     public List<DiscountCampaignResponse> listActiveNowByPlan(UUID planId) {
         SubscriptionPlan plan = planRepository.findById(planId)
-                .orElseThrow(() -> new IllegalArgumentException("Subscription plan not found"));
+                .orElseThrow(SubscriptionPlanNotFoundException::new);
         LocalDateTime now = LocalDateTime.now();
         return campaignRepository
                 .findByPlanAndActiveIsTrueAndStartAtBeforeAndEndAtAfter(plan, now, now)

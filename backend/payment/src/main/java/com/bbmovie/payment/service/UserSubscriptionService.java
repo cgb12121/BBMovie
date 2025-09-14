@@ -9,6 +9,7 @@ import com.bbmovie.payment.entity.SubscriptionPlan;
 import com.bbmovie.payment.entity.UserSubscription;
 import com.bbmovie.payment.repository.SubscriptionPlanRepository;
 import com.bbmovie.payment.repository.UserSubscriptionRepository;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -17,8 +18,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
+@Log4j2
 @Service
 public class UserSubscriptionService {
 
@@ -32,11 +33,18 @@ public class UserSubscriptionService {
         this.planRepository = planRepository;
     }
 
+    @Transactional
+    public void processDueSubscriptions() {
+        log.info("Processing due subscriptions...");
+    }
+
     // USER operations
     @Transactional(readOnly = true)
     public List<UserSubscriptionResponse> mySubscriptions(String userId) {
         return userSubscriptionRepository.findByUserId(userId)
-                .stream().map(this::toResponse).collect(Collectors.toList());
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     @Transactional
@@ -53,7 +61,7 @@ public class UserSubscriptionService {
             sub.setActive(false);
             sub.setEndDate(LocalDateTime.now());
         } else {
-            // cancel at period end: keep active until endDate
+            // cancel at the period end: keep active until endDate
             sub.setAutoRenew(false);
         }
         return toResponse(userSubscriptionRepository.save(sub));

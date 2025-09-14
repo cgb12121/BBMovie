@@ -6,16 +6,17 @@ import com.bbmovie.payment.dto.response.VoucherResponse;
 import com.bbmovie.payment.entity.Voucher;
 import com.bbmovie.payment.entity.VoucherRedemption;
 import com.bbmovie.payment.entity.enums.VoucherType;
+import com.bbmovie.payment.exception.VoucherNotFoundException;
 import com.bbmovie.payment.repository.VoucherRedemptionRepository;
 import com.bbmovie.payment.repository.VoucherRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class VoucherService {
@@ -52,7 +53,8 @@ public class VoucherService {
     @Transactional
     public VoucherResponse update(UUID id, VoucherUpdateRequest req) {
         validate(req.type(), req.percentage(), req.amount());
-        Voucher v = voucherRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("Voucher not found"));
+        Voucher v = voucherRepository.findById(id)
+                .orElseThrow(VoucherNotFoundException::new);
         v.setCode(req.code());
         v.setType(req.type());
         v.setPercentage(req.percentage());
@@ -70,7 +72,7 @@ public class VoucherService {
     @Transactional
     public void delete(UUID id) {
         if (!voucherRepository.existsById(id)) {
-            throw new IllegalArgumentException("Voucher not found");
+            throw new VoucherNotFoundException();
         }
         voucherRepository.deleteById(id);
     }
@@ -78,19 +80,22 @@ public class VoucherService {
     @Transactional(readOnly = true)
     public VoucherResponse get(UUID id) {
         return voucherRepository.findById(id).map(this::toResponse)
-                .orElseThrow(() -> new IllegalArgumentException("Voucher not found"));
+                .orElseThrow(VoucherNotFoundException::new);
     }
 
     @Transactional(readOnly = true)
     public List<VoucherResponse> listAll() {
-        return voucherRepository.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+        return voucherRepository.findAll()
+                .stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     // User
     @Transactional(readOnly = true)
     public VoucherResponse check(String code, String userId) {
         Voucher v = voucherRepository.findByCodeIgnoreCase(code)
-                .orElseThrow(() -> new IllegalArgumentException("Voucher not found"));
+                .orElseThrow(VoucherNotFoundException::new);
         validateUsabilityForUser(v, userId);
         return toResponse(v);
     }
@@ -98,11 +103,16 @@ public class VoucherService {
     @Transactional
     public void markUsed(String code, String userId) {
         Voucher v = voucherRepository.findByCodeIgnoreCase(code)
-                .orElseThrow(() -> new IllegalArgumentException("Voucher not found"));
+                .orElseThrow(VoucherNotFoundException::new);
         validateUsabilityForUser(v, userId);
 
         VoucherRedemption red = redemptionRepository.findByVoucherAndUserId(v, userId)
-                .orElseGet(() -> VoucherRedemption.builder().voucher(v).userId(userId).usedCount(0).build());
+                .orElseGet(() -> VoucherRedemption.builder()
+                        .voucher(v)
+                        .userId(userId)
+                        .usedCount(0)
+                        .build()
+                );
         if (red.getId() == null) {
             red = redemptionRepository.save(red);
         }
@@ -114,26 +124,25 @@ public class VoucherService {
     }
 
     @Transactional(readOnly = true)
-    public java.util.List<VoucherResponse> listAvailableForUser(String userId) {
+    public List<VoucherResponse> listAvailableForUser(String userId) {
         return voucherRepository.findAll().stream()
                 .filter(Voucher::isActive)
                 .filter(v -> v.getUserSpecificId() == null || v.getUserSpecificId().equals(userId))
                 .filter(v -> {
-                    java.time.LocalDateTime now = java.time.LocalDateTime.now();
-                    return v.isPermanent() ||
-                            (v.getStartAt() == null || !now.isBefore(v.getStartAt())) &&
-                                    (v.getEndAt() == null || !now.isAfter(v.getEndAt()));
+                    LocalDateTime now = LocalDateTime.now();
+                    return v.isPermanent()
+                            || (v.getStartAt() == null || !now.isBefore(v.getStartAt())) && (v.getEndAt() == null || !now.isAfter(v.getEndAt()));
                 })
                 .filter(v -> redemptionRepository.countByVoucherAndUserId(v, userId) < v.getMaxUsePerUser())
                 .map(this::toResponse)
-                .collect(java.util.stream.Collectors.toList());
+                .toList();
     }
 
-    private void validate(VoucherType type, java.math.BigDecimal percentage, java.math.BigDecimal amount) {
+    private void validate(VoucherType type, BigDecimal percentage, BigDecimal amount) {
         if (type == VoucherType.PERCENTAGE) {
             if (percentage == null) throw new IllegalArgumentException("percentage required for PERCENTAGE type");
-        } else if (type == VoucherType.FIXED_AMOUNT) {
-            if (amount == null) throw new IllegalArgumentException("amount required for FIXED_AMOUNT type");
+        } else if (type == VoucherType.FIXED_AMOUNT && amount == null) {
+            throw new IllegalArgumentException("amount required for FIXED_AMOUNT type");
         }
     }
 
