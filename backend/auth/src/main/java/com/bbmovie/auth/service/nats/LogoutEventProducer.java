@@ -1,10 +1,10 @@
-package com.bbmovie.auth.service.kafka;
+package com.bbmovie.auth.service.nats;
 
-import com.bbmovie.auth.config.KafkaTopicConfig;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
+import io.nats.client.Connection;
+import io.nats.client.JetStream;
 
 /**
  * This class is responsible for producing logout event messages and sending them to a Kafka topic.
@@ -23,11 +23,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class LogoutEventProducer {
 
-    private final KafkaTemplate<String, Object> kafkaTemplate;
+    private final JetStream jetStream;
 
     @Autowired
-    public LogoutEventProducer(KafkaTemplate<String, Object> kafkaTemplate) {
-        this.kafkaTemplate = kafkaTemplate;
+    public LogoutEventProducer(Connection nats) throws java.io.IOException {
+        this.jetStream = nats.jetStream();
     }
 
     /**
@@ -37,10 +37,11 @@ public class LogoutEventProducer {
      */
     public void send(String key) {
         try {
-            kafkaTemplate.send(KafkaTopicConfig.LOGOUT_TOPIC, key);
-            log.info("Sent logout event to gateway with key for cache: {}", key);
+            byte[] data = key.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            jetStream.publish("auth.logout", data);
+            log.info("Published logout event to auth.logout with key for cache: {}", key);
         } catch (Exception e) {
-            log.error("Failed to send logout event to gateway with key for cache: {}", key, e);
+            log.error("Failed to publish logout event with key: {}", key, e);
         }
     }
 }

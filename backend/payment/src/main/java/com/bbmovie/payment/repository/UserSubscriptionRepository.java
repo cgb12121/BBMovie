@@ -17,6 +17,8 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
 
     @Query("select count(u) from UserSubscription u where u.isActive = true and u.endDate < ?1")
     long countActiveButPastEnd(LocalDateTime now);
+
+    List<com.bbmovie.payment.entity.UserSubscription> findByIsActiveTrueAndAutoRenewTrueAndNextPaymentDateBetween(LocalDateTime start, LocalDateTime end);
 }
 
 

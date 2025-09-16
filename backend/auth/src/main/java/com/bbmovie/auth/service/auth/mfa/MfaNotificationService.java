@@ -1,6 +1,6 @@
 package com.bbmovie.auth.service.auth.mfa;
 
-import com.bbmovie.auth.service.kafka.TotpProducer;
+import com.bbmovie.auth.service.nats.TotpProducer;
 import com.example.common.enums.NotificationType;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;

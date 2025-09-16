@@ -1,4 +1,4 @@
-package com.bbmovie.payment.service.messaging;
+package com.bbmovie.payment.service.event.messaging;
 
 import com.example.common.dtos.nats.PaymentEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;

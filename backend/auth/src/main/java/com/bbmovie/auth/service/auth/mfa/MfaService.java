@@ -6,7 +6,7 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.repository.UserRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
-import com.bbmovie.auth.service.kafka.TotpProducer;
+import com.bbmovie.auth.service.nats.TotpProducer;
 import com.example.common.enums.NotificationType;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
