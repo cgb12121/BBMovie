@@ -10,7 +10,7 @@ import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.StudentProfileRepository;
 import com.bbmovie.auth.repository.UserRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
-import com.example.common.dtos.kafka.UploadMetadata;
+import com.example.common.dtos.nats.UploadMetadata;
 import com.example.common.enums.EntityType;
 import com.example.common.enums.Storage;
 import com.fasterxml.jackson.databind.ObjectMapper;

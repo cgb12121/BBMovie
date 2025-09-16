@@ -2,11 +2,11 @@ package com.bbmovie.fileservice.service.upload;
 
 import com.bbmovie.fileservice.entity.TempFileRecord;
 import com.bbmovie.fileservice.repository.TempFileRecordRepository;
-import com.bbmovie.fileservice.service.kafka.ReactiveFileUploadEventPublisher;
+import com.bbmovie.fileservice.service.nats.ReactiveFileUploadEventPublisher;
 import com.bbmovie.fileservice.service.storage.FileStorageStrategyFactory;
 import com.bbmovie.fileservice.service.storage.StorageStrategy;
-import com.example.common.dtos.kafka.FileUploadEvent;
-import com.example.common.dtos.kafka.UploadMetadata;
+import com.example.common.dtos.nats.FileUploadEvent;
+import com.example.common.dtos.nats.UploadMetadata;
 import com.example.common.enums.Storage;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.io.FilenameUtils;

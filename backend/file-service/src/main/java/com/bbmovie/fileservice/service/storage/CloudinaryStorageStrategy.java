@@ -1,7 +1,7 @@
 package com.bbmovie.fileservice.service.storage;
 
 import com.cloudinary.Cloudinary;
-import com.example.common.dtos.kafka.FileUploadResult;
+import com.example.common.dtos.nats.FileUploadResult;
 import com.example.common.enums.Storage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;

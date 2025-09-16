@@ -1,9 +1,9 @@
 package com.bbmovie.fileservice.utils;
 
 import com.bbmovie.fileservice.entity.TempFileRecord;
-import com.example.common.dtos.kafka.FileUploadEvent;
-import com.example.common.dtos.kafka.FileUploadResult;
-import com.example.common.dtos.kafka.UploadMetadata;
+import com.example.common.dtos.nats.FileUploadEvent;
+import com.example.common.dtos.nats.FileUploadResult;
+import com.example.common.dtos.nats.UploadMetadata;
 import org.springframework.lang.NonNull;
 
 import java.nio.file.Path;

@@ -1,6 +1,6 @@
 package com.bbmovie.fileservice.service.storage;
 
-import com.example.common.dtos.kafka.FileUploadResult;
+import com.example.common.dtos.nats.FileUploadResult;
 import org.springframework.http.codec.multipart.FilePart;
 import reactor.core.publisher.Mono;
 

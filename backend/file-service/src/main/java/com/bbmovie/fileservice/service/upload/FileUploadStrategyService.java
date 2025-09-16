@@ -1,6 +1,6 @@
 package com.bbmovie.fileservice.service.upload;
 
-import com.example.common.dtos.kafka.UploadMetadata;
+import com.example.common.dtos.nats.UploadMetadata;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.security.core.Authentication;

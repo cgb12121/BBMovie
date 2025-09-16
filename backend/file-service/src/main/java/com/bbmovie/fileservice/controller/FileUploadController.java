@@ -3,7 +3,7 @@ package com.bbmovie.fileservice.controller;
 import com.bbmovie.fileservice.service.upload.FileUploadStrategyService;
 import com.bbmovie.fileservice.service.upload.LocalDiskUploadService;
 import com.bbmovie.fileservice.service.upload.UploadStrategyServiceFactory;
-import com.example.common.dtos.kafka.UploadMetadata;
+import com.example.common.dtos.nats.UploadMetadata;
 import jakarta.validation.Valid;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;

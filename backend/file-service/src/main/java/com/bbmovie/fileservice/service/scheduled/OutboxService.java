@@ -2,8 +2,8 @@ package com.bbmovie.fileservice.service.scheduled;
 
 import com.bbmovie.fileservice.entity.cdc.OutboxStatus;
 import com.bbmovie.fileservice.repository.OutboxEventRepository;
-import com.bbmovie.fileservice.service.kafka.ReactiveKafkaProducer;
-import com.example.common.dtos.kafka.FileUploadEvent;
+import com.bbmovie.fileservice.service.nats.ReactiveNatsProducer;
+import com.example.common.dtos.nats.FileUploadEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,17 +19,17 @@ import java.time.LocalDateTime;
 public class OutboxService {
 
     private final OutboxEventRepository outboxEventRepository;
-    private final ReactiveKafkaProducer reactiveKafkaProducer;
+    private final ReactiveNatsProducer reactiveNatsProducer;
     private final ObjectMapper objectMapper;
 
     @Autowired
     public OutboxService(
             OutboxEventRepository outboxEventRepository,
-            ReactiveKafkaProducer reactiveKafkaProducer,
+            ReactiveNatsProducer reactiveNatsProducer,
             ObjectMapper objectMapper
     ) {
         this.outboxEventRepository = outboxEventRepository;
-        this.reactiveKafkaProducer = reactiveKafkaProducer;
+        this.reactiveNatsProducer = reactiveNatsProducer;
         this.objectMapper = objectMapper;
     }
 
@@ -46,7 +46,7 @@ public class OutboxService {
                             .flatMap(evt -> {
                                 try {
                                     FileUploadEvent uploadEvent = objectMapper.readValue(evt.getPayload(), FileUploadEvent.class);
-                                    return reactiveKafkaProducer.send("upload-events", evt.getAggregateId(), uploadEvent)
+                                    return reactiveNatsProducer.send("upload.events", evt.getAggregateId(), uploadEvent)
                                             .doOnSuccess(v -> {
                                                 evt.setStatus(OutboxStatus.SENT);
                                                 evt.setSentAt(LocalDateTime.now());
