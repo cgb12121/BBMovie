@@ -19,6 +19,7 @@ import Watchlist from '../pages/Watchlist';
 import PasswordReset from '../pages/PasswordReset';
 import Movies from '../pages/Movies';
 import NotFound from '../pages/NotFound';
+import Subscriptions from '../pages/Subscriptions';
 
 const AppRoutes: React.FC = () => {
   return (
@@ -39,6 +40,7 @@ const AppRoutes: React.FC = () => {
           <Route path="categories/:id" element={<CategoryDetail />} />
           <Route path="search" element={<SearchResults />} />
           <Route path="watchlist" element={<PrivateRoute><Watchlist /></PrivateRoute>} />
+          <Route path="subscriptions" element={<PrivateRoute><Subscriptions /></PrivateRoute>} />
           <Route path="profile" element={<PrivateRoute><Profile /></PrivateRoute>} />
           <Route path="devices" element={<PrivateRoute><DeviceManagement /></PrivateRoute>} />
           

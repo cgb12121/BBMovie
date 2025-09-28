@@ -1,6 +1,8 @@
 package com.bbmovie.payment.service.payment.provider.momo;
 
 import com.bbmovie.payment.config.payment.MomoProperties;
+import com.bbmovie.payment.dto.PaymentCreatedEvent;
+import com.bbmovie.payment.dto.PricingBreakdown;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -11,13 +13,17 @@ import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.entity.enums.SupportedCurrency;
 import com.bbmovie.payment.exception.MomoException;
+import com.bbmovie.payment.exception.PaymentCacheException;
 import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
-import com.bbmovie.payment.service.payment.CurrencyConversionService;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.bbmovie.payment.service.SubscriptionPlanService;
+import com.bbmovie.payment.service.cache.RedisService;
+import com.bbmovie.payment.service.nats.PaymentEventProducer;
 import com.bbmovie.payment.service.payment.PricingService;
 import com.bbmovie.payment.service.PaymentRecordService;
+import com.bbmovie.payment.service.i18n.PaymentI18nService;
+import com.example.common.utils.IpAddressUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +37,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -43,9 +50,6 @@ import java.util.Base64;
 
 import static com.bbmovie.payment.service.payment.provider.momo.MomoParams.*;
 
-/**
- * MOMO banned the developer account
- */
 @Slf4j
 @Service("momo")
 public class MomoAdapter implements PaymentProviderAdapter {
@@ -54,9 +58,11 @@ public class MomoAdapter implements PaymentProviderAdapter {
     private final SubscriptionPlanService subscriptionPlanService;
     private final PricingService pricingService;
     private final PaymentRecordService paymentRecordService;
+    private final PaymentI18nService paymentI18nService;
     private final ObjectMapper objectMapper;
     private final MomoProperties properties;
-    private final CurrencyConversionService currencyConversionService;
+    private final RedisService redisService;
+    private final PaymentEventProducer paymentEventProducer;
 
     @Autowired
     public MomoAdapter(
@@ -66,7 +72,9 @@ public class MomoAdapter implements PaymentProviderAdapter {
             MomoProperties properties,
             PricingService pricingService,
             PaymentRecordService paymentRecordService,
-            CurrencyConversionService currencyConversionService
+            PaymentI18nService paymentI18nService,
+            RedisService redisService,
+            PaymentEventProducer paymentEventProducer
     ) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.subscriptionPlanService = subscriptionPlanService;
@@ -74,20 +82,19 @@ public class MomoAdapter implements PaymentProviderAdapter {
         this.objectMapper = objectMapper;
         this.pricingService = pricingService;
         this.paymentRecordService = paymentRecordService;
-        this.currencyConversionService = currencyConversionService;
+        this.paymentI18nService = paymentI18nService;
+        this.redisService = redisService;
+        this.paymentEventProducer = paymentEventProducer;
     }
 
     @Override
+    @Transactional(noRollbackFor = PaymentCacheException.class)
     public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
-        com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
-                plan,
-                request.billingCycle(),
-                SupportedCurrency.VND.unit(),
-                userId,
-                null,
-                request.voucherCode()
+        PricingBreakdown breakdown = pricingService.calculate(
+                plan, request.billingCycle(), SupportedCurrency.VND.unit(),
+                userId, IpAddressUtils.getClientIp(hsr), request.voucherCode()
         );
         BigDecimal amountInVnd = breakdown.finalPrice();
 
@@ -153,18 +160,17 @@ public class MomoAdapter implements PaymentProviderAdapter {
             PaymentStatus status = (resultCode == 0)
                     ? PaymentStatus.PENDING
                     : PaymentStatus.FAILED;
-            PaymentTransaction transaction = paymentRecordService.createPendingTransaction(
-                    userId,
-                    plan,
-                    breakdown.finalPrice(),
-                    plan.getBaseCurrency(),
-                    PaymentProvider.MOMO,
-                    orderId,
-                    orderInfo
+
+            PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
+                    userId, plan, breakdown.finalPrice(), SupportedCurrency.VND.unit(),
+                    PaymentProvider.MOMO, orderId, orderInfo
             );
 
+            PaymentTransaction transaction = paymentRecordService.createPendingTransaction(paymentCreatedEvent);
+            redisService.cache(paymentCreatedEvent);
+
             return PaymentCreationResponse.builder()
-                    .provider(PaymentProvider.PAYPAL)
+                    .provider(PaymentProvider.MOMO)
                     .serverTransactionId(String.valueOf(transaction.getId()))
                     .providerTransactionId(orderId)
                     .serverStatus(status)
@@ -183,7 +189,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
                 .map(Integer::parseInt)
                 .orElse(null);
         if (signature == null || signature.isBlank() || resultCode == null) {
-            return new PaymentVerificationResponse(false, null, null, null, null, null);
+            throw new MomoException("Missing signature or result code");
         }
 
         boolean isIpn = paymentData.containsKey(TRANS_ID);
@@ -232,11 +238,16 @@ public class MomoAdapter implements PaymentProviderAdapter {
             throw new TransactionExpiredException("Payment expired");
         }
 
+        String message = paymentI18nService.messageFor(PaymentProvider.MOMO,
+                success ? "SUCCESS" : String.valueOf(resultCode));
+
+        paymentEventProducer.publishSubscriptionSuccessEvent();
+
         return new PaymentVerificationResponse(
                 success,
                 paymentData.get(ORDER_ID),
-                paymentData.get(RESULT_CODE),
-                paymentData.get(MESSAGE),
+                String.valueOf(resultCode),
+                message,
                 null,
                 null
         );
@@ -249,6 +260,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
 
     @Override
     public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
+        paymentEventProducer.publishSubscriptionCancelEvent();
         throw new UnsupportedOperationException("Refund is not supported by Momo");
     }
 

@@ -22,9 +22,7 @@ public class TaxServiceImpl implements TaxService {
     }
 
     @Override
-    public BigDecimal calculate(TaxRateRequest request) {
-        // For now, calculation equals the effective tax rate percentage resolved from the API
-        // Consumers compute the tax amount as price * (percent / 100)
-        return taxRate(request);
+    public BigDecimal calculate() {
+        throw new UnsupportedOperationException("Not yet implemented");
     }
 }

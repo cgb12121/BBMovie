@@ -1,6 +1,7 @@
 package com.bbmovie.payment.service.payment.provider.zalopay;
 
 import com.bbmovie.payment.config.payment.ZaloPayProperties;
+import com.bbmovie.payment.dto.PaymentCreatedEvent;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -10,11 +11,14 @@ import com.bbmovie.payment.entity.SubscriptionPlan;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.entity.enums.SupportedCurrency;
+import com.bbmovie.payment.exception.PaymentCacheException;
 import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.exception.ZalopayException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.bbmovie.payment.service.SubscriptionPlanService;
+import com.bbmovie.payment.service.cache.RedisService;
+import com.bbmovie.payment.service.nats.PaymentEventProducer;
 import com.bbmovie.payment.service.payment.PricingService;
 import com.bbmovie.payment.service.PaymentRecordService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -122,6 +126,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     private final PricingService pricingService;
     private final PaymentRecordService paymentRecordService;
     private final ZaloPayProperties properties;
+    private final RedisService redisService;
+    private final PaymentEventProducer paymentEventProducer;
 
     @Autowired
     public ZaloPayAdapter(
@@ -129,17 +135,21 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             SubscriptionPlanService subscriptionPlanService,
             PricingService pricingService,
             PaymentRecordService paymentRecordService,
-            ZaloPayProperties properties
+            ZaloPayProperties properties,
+            RedisService redisService,
+            PaymentEventProducer paymentEventProducer
     ) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.subscriptionPlanService = subscriptionPlanService;
         this.pricingService = pricingService;
         this.paymentRecordService = paymentRecordService;
         this.properties = properties;
+        this.redisService = redisService;
+        this.paymentEventProducer = paymentEventProducer;
     }
 
     @Override
-    @Transactional
+    @Transactional(noRollbackFor = PaymentCacheException.class)
     public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
@@ -226,15 +236,13 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                 log.info("Failed to create order, return code: {}", returnCode);
             }
 
-            PaymentTransaction saved = paymentRecordService.createPendingTransaction(
-                    userId,
-                    plan,
-                    amount,
-                    SupportedCurrency.VND.unit(),
-                    PaymentProvider.ZALOPAY,
-                    appTransId,
-                    "ZaloPay subscription"
+            PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
+                    userId, plan, amount, SupportedCurrency.VND.unit(),
+                    PaymentProvider.ZALOPAY, appTransId, "ZaloPay subscription"
             );
+
+            PaymentTransaction saved = paymentRecordService.createPendingTransaction(paymentCreatedEvent);
+            redisService.cache(paymentCreatedEvent);
 
             return PaymentCreationResponse.builder()
                     .provider(PaymentProvider.ZALOPAY)
@@ -287,6 +295,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                 updateTransaction(appTransId, returnCode, success);
             }
 
+            paymentEventProducer.publishSubscriptionSuccessEvent();
+
             return PaymentVerificationResponse.builder()
                     .isValid(success)
                     .transactionId(appTransId)
@@ -321,6 +331,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Override
     public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
+        paymentEventProducer.publishSubscriptionCancelEvent();
         throw new UnsupportedOperationException("Refund is not supported by ZaloPay");
     }
 

@@ -7,7 +7,11 @@ import {
     UserAgentResponse
 } from '../types/auth';
 // axios is imported via api; no direct axios usage here
-import { getAccessToken as getStoredAccessToken } from '../utils/AccessTokenUtil';
+import {
+    decodeAccessTokenPayload,
+    getAccessToken as getStoredAccessToken,
+    isTokenExpired
+} from '../utils/AccessTokenUtil';
 import { store } from '../redux/store';
 import { logout as logoutAction } from '../redux/authSlice';
 import mfaService from './mfaService';
@@ -28,6 +32,7 @@ class AuthService {
     private refreshAccessTokenPromise: Promise<ApiResponse<AccessTokenResponse>> | null = null;
     private refreshAccessTokenAbacPromise: Promise<string> | null = null;
     private currentDeviceInfo: UserAgentResponse | null = null;
+    private tokenExpiryTimer: number | null = null;
 
     private constructor() {
         this.accessToken = localStorage.getItem('accessToken');
@@ -35,6 +40,14 @@ class AuthService {
         if (storedDeviceInfo) {
             this.currentDeviceInfo = JSON.parse(storedDeviceInfo);
         }
+
+        if (this.accessToken) {
+            this.scheduleTokenCleanup(this.accessToken);
+            if (isTokenExpired(this.accessToken)) {
+                this.forceLogoutClientSide();
+            }
+        }
+
         this.setupAxiosInterceptors();
     }
 
@@ -136,6 +149,8 @@ class AuthService {
         } catch {
             // no-op
         }
+
+        this.scheduleTokenCleanup(accessToken);
     }
 
     private setDeviceInfo(deviceInfo: UserAgentResponse) {
@@ -213,10 +228,17 @@ class AuthService {
         return user?.roles?.includes(role) ?? false;
     }
 
-    async logoutDevice(deviceId: string): Promise<void> {
+    async logoutDevice(deviceName: string, ipAddress: string): Promise<void> {
         await api.post(
-            '/api/auth/logout-device',
-            { deviceId },
+            '/api/device/v1/sessions/revoke',
+            {
+                devices: [
+                    {
+                        deviceName,
+                        ip: ipAddress
+                    }
+                ]
+            },
             {
                 headers: this.getHeaders()
             }
@@ -282,6 +304,12 @@ class AuthService {
     }
 
     private forceLogoutClientSide(): void {
+        // Clear timers
+        if (this.tokenExpiryTimer) {
+            window.clearTimeout(this.tokenExpiryTimer);
+            this.tokenExpiryTimer = null;
+        }
+
         // Clear in-memory state
         this.accessToken = null;
         this.currentDeviceInfo = null;
@@ -348,6 +376,32 @@ class AuthService {
             throw error;
         }
     };
+
+    private scheduleTokenCleanup(accessToken: string): void {
+        if (this.tokenExpiryTimer) {
+            window.clearTimeout(this.tokenExpiryTimer);
+            this.tokenExpiryTimer = null;
+        }
+
+        const payload = decodeAccessTokenPayload(accessToken);
+        const exp = payload?.exp;
+        if (!exp || typeof exp !== 'number') {
+            return;
+        }
+
+        const expirationTime = exp * 1000;
+        const now = Date.now();
+        const timeUntilExpiry = expirationTime - now;
+
+        if (timeUntilExpiry <= 0) {
+            this.forceLogoutClientSide();
+            return;
+        }
+
+        this.tokenExpiryTimer = window.setTimeout(() => {
+            this.forceLogoutClientSide();
+        }, timeUntilExpiry);
+    }
 }
 
 export default AuthService.getInstance();

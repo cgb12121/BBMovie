@@ -41,6 +41,28 @@ public class FileStreamingController {
         );
     }
 
+    @GetMapping(value = "/local/image")
+    public Mono<ResponseEntity<Flux<DataBuffer>>> streamLocalImage(
+            @RequestParam("name") String nameWithoutExtension,
+            @RequestParam(value = "ext", required = false, defaultValue = "webp") String extension
+    ) {
+        return streamingService.streamLocalImage(
+                nameWithoutExtension,
+                extension,
+                DefaultDataBufferFactory.sharedInstance
+        );
+    }
+
+    @GetMapping(value = "/cloud/image")
+    public Mono<ResponseEntity<Flux<DataBuffer>>> streamCloudinaryImage(
+            @RequestParam("pid") String privateId,
+            @RequestParam(value = "w", required = false) Integer width,
+            @RequestParam(value = "h", required = false) Integer height,
+            @RequestParam(value = "fmt", required = false) String format
+    ) {
+        return streamingService.streamCloudinaryImage(privateId, width, height, format);
+    }
+
     // Cloudinary video through privateId
     @GetMapping(value = "/cloud/video", produces = MediaType.APPLICATION_OCTET_STREAM_VALUE)
     public Mono<ResponseEntity<Flux<DataBuffer>>> streamCloudinary(

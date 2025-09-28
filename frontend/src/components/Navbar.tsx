@@ -49,6 +49,8 @@ const Navbar: React.FC = () => {
         )}
         {isAuthenticated && (
           <>
+            <NavLink to="/watchlist">Watchlist</NavLink>
+            <NavLink to="/subscriptions">Subscriptions</NavLink>
             <NavLink to="/upload" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <CloudUpload /> File Upload
             </NavLink>

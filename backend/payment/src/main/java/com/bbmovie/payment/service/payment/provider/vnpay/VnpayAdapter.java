@@ -1,6 +1,8 @@
 package com.bbmovie.payment.service.payment.provider.vnpay;
 
 import com.bbmovie.payment.config.payment.VnpayProperties;
+import com.bbmovie.payment.dto.PaymentCreatedEvent;
+import com.bbmovie.payment.dto.PricingBreakdown;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -11,15 +13,18 @@ import com.bbmovie.payment.entity.enums.BillingCycle;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.entity.enums.SupportedCurrency;
+import com.bbmovie.payment.exception.PaymentCacheException;
 import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.exception.TransactionNotFoundException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
-import com.bbmovie.payment.service.payment.CurrencyConversionService;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.bbmovie.payment.service.PaymentRecordService;
+import com.bbmovie.payment.service.cache.RedisService;
+import com.bbmovie.payment.service.nats.PaymentEventProducer;
 import com.bbmovie.payment.service.payment.PricingService;
 import com.bbmovie.payment.service.PaymentNormalizer;
 import com.bbmovie.payment.service.SubscriptionPlanService;
+import com.example.common.utils.IpAddressUtils;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.log4j.Log4j2;
@@ -50,7 +55,8 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     private final VnpayProvidedFunction vnpayProvidedFunction;
     private final VnpayProperties properties;
     private final PaymentNormalizer normalizer;
-    private final CurrencyConversionService currencyConversionService;
+    private final RedisService redisService;
+    private final PaymentEventProducer paymentEventProducer;
 
     @Autowired
     public VnpayAdapter(
@@ -59,21 +65,23 @@ public class VnpayAdapter implements PaymentProviderAdapter {
             VnpayProvidedFunction vnpayProvidedFunction,
             VnpayProperties properties,
             @Qualifier("vnpayNormalizer") PaymentNormalizer normalizer,
-            CurrencyConversionService currencyConversionService,
             PricingService pricingService,
-            PaymentRecordService paymentRecordService
+            PaymentRecordService paymentRecordService,
+            RedisService redisService,
+            PaymentEventProducer paymentEventProducer
     ) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.subscriptionPlanService = subscriptionPlanService;
         this.vnpayProvidedFunction = vnpayProvidedFunction;
         this.properties = properties;
         this.normalizer = normalizer;
-        this.currencyConversionService = currencyConversionService;
         this.pricingService = pricingService;
         this.paymentRecordService = paymentRecordService;
+        this.redisService = redisService;
+        this.paymentEventProducer = paymentEventProducer;
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = PaymentCacheException.class)
     public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
@@ -82,13 +90,9 @@ public class VnpayAdapter implements PaymentProviderAdapter {
             throw new IllegalArgumentException("Unexpected billing cycle.");
         }
 
-        com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
-                plan,
-                cycle,
-                SupportedCurrency.VND.unit(),
-                userId,
-                null,
-                request.voucherCode()
+        PricingBreakdown breakdown = pricingService.calculate(
+                plan, cycle, SupportedCurrency.VND.unit(),
+                userId, IpAddressUtils.getClientIp(hsr), request.voucherCode()
         );
         BigDecimal amount = breakdown.finalPrice();
 
@@ -101,15 +105,13 @@ public class VnpayAdapter implements PaymentProviderAdapter {
                 properties.getTmnCode(), properties.getReturnUrl(), properties.getHashSecret(), properties.getPayUrl()
         );
 
-        PaymentTransaction transaction = paymentRecordService.createPendingTransaction(
-                userId,
-                plan,
-                amount,
-                SupportedCurrency.VND.unit(),
-                PaymentProvider.VNPAY,
-                vnpTxnRef,
-                "VNPay payment for order: " + vnpTxnRef
+        PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
+                userId, plan, amount, SupportedCurrency.VND.unit(),
+                PaymentProvider.VNPAY, vnpTxnRef, "VNPay payment for order: " + vnpTxnRef
         );
+
+        PaymentTransaction transaction = paymentRecordService.createPendingTransaction(paymentCreatedEvent);
+        redisService.cache(paymentCreatedEvent);
 
         return PaymentCreationResponse.builder()
                 .provider(PaymentProvider.VNPAY)
@@ -174,6 +176,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         });
 
         JsonNode providerData = stringToJsonNode(toJsonString(paymentData));
+        paymentEventProducer.publishSubscriptionSuccessEvent();
 
         return PaymentVerificationResponse.builder()
                 .isValid(isValid)
@@ -201,6 +204,9 @@ public class VnpayAdapter implements PaymentProviderAdapter {
                 .orElseThrow(TransactionNotFoundException::new);
         Map<String, String> body = vnpayProvidedFunction.createRefundOrder(hsr, txn, properties.getTmnCode(), properties.getHashSecret());
         Map<String, String> result = vnpayProvidedFunction.executeRequest(body, properties.getApiUrl(), properties.getHashSecret());
+
+       paymentEventProducer.publishSubscriptionCancelEvent();
+
         return new RefundResponse(
             result.get(VNPAY_TXN_REF_PARAM), 
             result.get(VNPAY_RESPONSE_CODE),

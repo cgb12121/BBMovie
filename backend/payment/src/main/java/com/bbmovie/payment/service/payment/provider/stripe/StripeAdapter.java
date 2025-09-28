@@ -1,9 +1,14 @@
 package com.bbmovie.payment.service.payment.provider.stripe;
 
 import com.bbmovie.payment.config.payment.StripeProperties;
+import com.bbmovie.payment.dto.PaymentCreatedEvent;
+import com.bbmovie.payment.dto.PricingBreakdown;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.entity.SubscriptionPlan;
+import com.bbmovie.payment.exception.PaymentCacheException;
 import com.bbmovie.payment.service.SubscriptionPlanService;
+import com.bbmovie.payment.service.cache.RedisService;
+import com.bbmovie.payment.service.nats.PaymentEventProducer;
 import com.bbmovie.payment.service.payment.PricingService;
 import com.bbmovie.payment.service.PaymentRecordService;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
@@ -16,7 +21,7 @@ import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.exception.TransactionNotFoundException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
-import com.bbmovie.payment.service.PaymentNormalizer;
+import com.bbmovie.payment.service.i18n.PaymentI18nService;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.stripe.Stripe;
 import com.stripe.exception.StripeException;
@@ -24,10 +29,11 @@ import com.stripe.model.PaymentIntent;
 import com.stripe.model.Refund;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -43,30 +49,37 @@ public class StripeAdapter implements PaymentProviderAdapter {
     private final SubscriptionPlanService subscriptionPlanService;
     private final PricingService pricingService;
     private final PaymentRecordService paymentRecordService;
-    private final PaymentNormalizer paymentNormalizer;
+    private final PaymentI18nService paymentI18nService;
+    private final RedisService redisService;
+    private final PaymentEventProducer paymentEventProducer;
 
     @Autowired
     public StripeAdapter(
             PaymentTransactionRepository paymentTransactionRepository,
-            @Qualifier("stripeNormalizer") PaymentNormalizer paymentNormalizer,
-            StripeProperties properties, 
-            SubscriptionPlanService subscriptionPlanService, 
-            PricingService pricingService, 
-            PaymentRecordService paymentRecordService
+            PaymentI18nService paymentI18nService,
+            StripeProperties properties,
+            SubscriptionPlanService subscriptionPlanService,
+            PricingService pricingService,
+            PaymentRecordService paymentRecordService,
+            RedisService redisService,
+            PaymentEventProducer paymentEventProducer
     ) {
+        Stripe.apiKey = properties.getSecretKey();
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.subscriptionPlanService = subscriptionPlanService;
-        this.paymentNormalizer = paymentNormalizer;
+        this.paymentI18nService = paymentI18nService;
         this.pricingService = pricingService;
         this.paymentRecordService = paymentRecordService;
-        Stripe.apiKey = properties.getSecretKey();
+        this.paymentEventProducer = paymentEventProducer;
+        this.redisService = redisService;
     }
 
     @Override
+    @Transactional(noRollbackFor = PaymentCacheException.class)
     public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr
     ) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
-        com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
+        PricingBreakdown breakdown = pricingService.calculate(
                 plan,
                 request.billingCycle(),
                 plan.getBaseCurrency(),
@@ -87,15 +100,13 @@ public class StripeAdapter implements PaymentProviderAdapter {
             PaymentIntent paymentIntent = PaymentIntent.create(params);
             StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
 
-            PaymentTransaction saved = paymentRecordService.createPendingTransaction(
-                    userId,
-                    plan,
-                    amountInBaseCurrency,
-                    plan.getBaseCurrency(),
-                    PaymentProvider.STRIPE,
-                    paymentIntent.getId(),
-                    "Subscription"
+            PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
+                    userId, plan, amountInBaseCurrency, plan.getBaseCurrency(),
+                    PaymentProvider.STRIPE, paymentIntent.getId(), "Subscription"
             );
+
+            PaymentTransaction saved = paymentRecordService.createPendingTransaction(paymentCreatedEvent);
+            redisService.cache(paymentCreatedEvent);
 
             return PaymentCreationResponse.builder()
                     .provider(PaymentProvider.STRIPE)
@@ -148,10 +159,14 @@ public class StripeAdapter implements PaymentProviderAdapter {
                 transaction.setStatus(stripeStatus.getPaymentStatus());
             }
             paymentTransactionRepository.save(transaction);
+            String message = paymentI18nService.messageFor(PaymentProvider.STRIPE, stripeStatus.getStatus());
+
+            paymentEventProducer.publishSubscriptionSuccessEvent();
+
             return new PaymentVerificationResponse(
                     stripeStatus == StripeTransactionStatus.SUCCEEDED,
-                    paymentId, null,
-                    null,
+                    paymentId, stripeStatus.getStatus(),
+                    message,
                     null,
                     null
             );
@@ -178,11 +193,12 @@ public class StripeAdapter implements PaymentProviderAdapter {
                 paymentTransactionRepository.save(transaction);
             }
 
+            String message = paymentI18nService.messageFor(PaymentProvider.STRIPE, stripeStatus.getStatus());
             return new PaymentVerificationResponse(
                     stripeStatus == StripeTransactionStatus.SUCCEEDED,
                     paymentId,
                     paymentIntent.getDescription(),
-                    paymentIntent.getAmount().toString(),
+                    message,
                     paymentIntent.getCurrency(),
                     stripeStatus.getStatus()
             );
@@ -210,6 +226,8 @@ public class StripeAdapter implements PaymentProviderAdapter {
             transaction.setStatus(PaymentStatus.REFUNDED);
             transaction.setStatus(PaymentStatus.valueOf(refund.getStatus()));
             paymentTransactionRepository.save(transaction);
+
+            paymentEventProducer.publishSubscriptionCancelEvent();
 
             return new RefundResponse(
                 refund.getId(), 

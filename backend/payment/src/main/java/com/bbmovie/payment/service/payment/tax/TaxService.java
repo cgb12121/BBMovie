@@ -6,5 +6,5 @@ import java.math.BigDecimal;
 public interface TaxService {
     BigDecimal taxRate(TaxRateRequest request);
 
-    BigDecimal calculate(TaxRateRequest request);
+    BigDecimal calculate();
 }

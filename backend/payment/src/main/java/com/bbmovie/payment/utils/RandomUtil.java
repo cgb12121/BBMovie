@@ -4,6 +4,9 @@ import java.security.SecureRandom;
 import java.util.Random;
 
 public class RandomUtil {
+
+    private RandomUtil() {
+    }
      
      private static final Random RANDOM = new SecureRandom();
 

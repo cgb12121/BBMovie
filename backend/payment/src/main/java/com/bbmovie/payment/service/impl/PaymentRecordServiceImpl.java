@@ -1,17 +1,14 @@
 package com.bbmovie.payment.service.impl;
 
+import com.bbmovie.payment.dto.PaymentCreatedEvent;
 import com.bbmovie.payment.entity.PaymentTransaction;
-import com.bbmovie.payment.entity.SubscriptionPlan;
 import com.bbmovie.payment.entity.UserSubscription;
-import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
 import com.bbmovie.payment.service.PaymentRecordService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import javax.money.CurrencyUnit;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Service
@@ -25,26 +22,23 @@ public class PaymentRecordServiceImpl implements PaymentRecordService {
     }
 
     @Override
-    public PaymentTransaction createPendingTransaction(
-            String userId, SubscriptionPlan plan, BigDecimal amount, CurrencyUnit currency,
-            PaymentProvider provider, String providerTransactionId, String description
-    ) {
+    public PaymentTransaction createPendingTransaction(PaymentCreatedEvent event) {
         UserSubscription subscription = UserSubscription.builder()
-                .userId(userId)
-                .plan(plan)
+                .userId(event.userId())
+                .plan(event.plan())
                 .build();
 
         PaymentTransaction txn = PaymentTransaction.builder()
-                .userId(userId)
+                .userId(event.userId())
                 .subscription(subscription)
-                .baseAmount(amount)
-                .currency(currency)
-                .paymentProvider(provider)
-                .providerTransactionId(providerTransactionId)
+                .baseAmount(event.amount())
+                .currency(event.currency())
+                .paymentProvider(event.provider())
+                .providerTransactionId(event.providerTransactionId())
                 .transactionDate(LocalDateTime.now())
                 .status(PaymentStatus.PENDING)
-                .description(description)
-                .expiresAt(LocalDateTime.now().plusMinutes(30))
+                .description(event.description())
+                .expiresAt(event.expiresAt())
                 .build();
         return paymentTransactionRepository.save(txn);
     }

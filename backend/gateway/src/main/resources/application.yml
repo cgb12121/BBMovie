@@ -67,6 +67,42 @@ spring:
                   args:
                     regexp: /api/(users|payments)(?<remaining>/.*)
                     replacement: /$1${remaining}
+            - id: payment_route
+              uri: lb://payment-service
+              predicates:
+                - Path=/api/payment/**
+              filters:
+                - name: RewritePath
+                  args:
+                    regexp: /api/payment(?<remaining>/.*)
+                    replacement: /api/payment${remaining}
+            - id: subscription_route
+              uri: lb://payment-service
+              predicates:
+                - Path=/api/subscription/**,/api/v1/subscription/**
+              filters:
+                - name: RewritePath
+                  args:
+                    regexp: /api/(subscription|v1/subscription)(?<remaining>/.*)
+                    replacement: /api/$1${remaining}
+            - id: search_route
+              uri: lb://bbmovie-search
+              predicates:
+                - Path=/api/search/**
+              filters:
+                - name: RewritePath
+                  args:
+                    regexp: /api/search(?<remaining>/.*)
+                    replacement: /search${remaining}
+            - id: watchlist_route
+              uri: lb://watchlist-quarkus
+              predicates:
+                - Path=/api/watchlist/**
+              filters:
+                - name: RewritePath
+                  args:
+                    regexp: /api/watchlist(?<remaining>/.*)
+                    replacement: /api/watchlist${remaining}
           httpclient:
             response-timeout: 5s
             connect-timeout: 5000
@@ -75,7 +111,7 @@ spring:
               args:
                 retries: 3
                 statuses: BAD_GATEWAY
-                methods: GET, POST
+                methods: GET, POST, PUT, DELETE
                 backoff:
                   firstBackoff: 1s
                   maxBackoff: 5s

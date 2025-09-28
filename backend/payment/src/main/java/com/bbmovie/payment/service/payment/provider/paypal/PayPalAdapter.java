@@ -1,6 +1,8 @@
 package com.bbmovie.payment.service.payment.provider.paypal;
 
 import com.bbmovie.payment.config.payment.PayPalProperties;
+import com.bbmovie.payment.dto.PaymentCreatedEvent;
+import com.bbmovie.payment.dto.PricingBreakdown;
 import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
@@ -12,13 +14,17 @@ import com.bbmovie.payment.entity.SubscriptionPlan;
 import com.bbmovie.payment.entity.enums.PaymentProvider;
 import com.bbmovie.payment.entity.enums.PaymentStatus;
 import com.bbmovie.payment.exception.PayPalPaymentException;
+import com.bbmovie.payment.exception.PaymentCacheException;
 import com.bbmovie.payment.exception.TransactionExpiredException;
 import com.bbmovie.payment.repository.PaymentTransactionRepository;
-import com.bbmovie.payment.service.I18nService;
+import com.bbmovie.payment.service.cache.RedisService;
+import com.bbmovie.payment.service.i18n.PaymentI18nService;
 import com.bbmovie.payment.service.PaymentProviderAdapter;
 import com.bbmovie.payment.service.SubscriptionPlanService;
+import com.bbmovie.payment.service.nats.PaymentEventProducer;
 import com.bbmovie.payment.service.payment.PricingService;
 import com.bbmovie.payment.service.PaymentRecordService;
+import com.example.common.utils.IpAddressUtils;
 import com.paypal.api.payments.*;
 import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;
@@ -46,25 +52,31 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PayPalProperties properties;
-    private final I18nService i18nService;
+    private final PaymentI18nService paymentI18nService;
     private final SubscriptionPlanService subscriptionPlanService;
     private final PricingService pricingService;
     private final PaymentRecordService paymentRecordService;
+    private final RedisService redisService;
+    private final PaymentEventProducer paymentEventProducer;
 
     @Autowired
     public PayPalAdapter(
             PaymentTransactionRepository paymentTransactionRepository,
-            PayPalProperties properties, I18nService i18nService,
+            PayPalProperties properties, PaymentI18nService paymentI18nService,
             SubscriptionPlanService subscriptionPlanService,
             PricingService pricingService,
-            PaymentRecordService paymentRecordService
+            PaymentRecordService paymentRecordService,
+            RedisService redisService,
+            PaymentEventProducer paymentEventProducer
     ) {
         this.paymentTransactionRepository = paymentTransactionRepository;
         this.properties = properties;
-        this.i18nService = i18nService;
+        this.paymentI18nService = paymentI18nService;
         this.subscriptionPlanService = subscriptionPlanService;
         this.pricingService = pricingService;
         this.paymentRecordService = paymentRecordService;
+        this.redisService = redisService;
+        this.paymentEventProducer = paymentEventProducer;
     }
 
     @PostConstruct
@@ -73,20 +85,28 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    @Transactional
-    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest httpServletRequest) {
-        SubscriptionPlan plan = subscriptionPlanService.getById(java.util.UUID.fromString(request.subscriptionPlanId()));
+    @Transactional(noRollbackFor = PaymentCacheException.class)
+    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
+        SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
-        com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
-                plan,
-                request.billingCycle(),
-                plan.getBaseCurrency(),
-                userId,
-                null,
-                request.voucherCode()
+        PricingBreakdown breakdown = pricingService.calculate(
+                plan, request.billingCycle(), plan.getBaseCurrency(),
+                userId, IpAddressUtils.getClientIp(hsr), request.voucherCode()
         );
         BigDecimal finalAmount = breakdown.finalPrice();
-        Payment payment = createTransaction(new PaymentRequest(null, finalAmount, plan.getBaseCurrency().getCurrencyCode(), null, null, null));
+        Payment payment = createTransaction(PaymentRequest.builder()
+                .provider(PaymentProvider.PAYPAL.getName())
+                .amount(finalAmount)
+                .currency(plan.getBaseCurrency().getCurrencyCode())
+                .userId(userId)
+                .build()
+        );
+        PaymentRequest.builder()
+                .provider(PaymentProvider.PAYPAL.getName())
+                .amount(finalAmount)
+                .currency(plan.getBaseCurrency().getCurrencyCode())
+                .userId(userId)
+                .build();
         log.info("Created PayPal payment {}", payment.toJSON());
         try {
             Payment createdPayment = payment.create(getApiContext());
@@ -108,15 +128,13 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                     ? PaymentStatus.SUCCEEDED
                     : PaymentStatus.PENDING;
 
-            PaymentTransaction saved = paymentRecordService.createPendingTransaction(
-                    userId,
-                    plan,
-                    finalAmount,
-                    plan.getBaseCurrency(),
-                    PaymentProvider.PAYPAL,
-                    createdPayment.getId(),
-                    "Subscription"
+            PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
+                    userId, plan, finalAmount, plan.getBaseCurrency(),
+                    PaymentProvider.PAYPAL, createdPayment.getId(), "Subscription"
             );
+
+            PaymentTransaction saved = paymentRecordService.createPendingTransaction(paymentCreatedEvent);
+            redisService.cache(paymentCreatedEvent);
 
             return PaymentCreationResponse.builder()
                     .provider(PaymentProvider.PAYPAL)
@@ -147,7 +165,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             String stateOfPayment = payment.getState();
             boolean success = stateOfPayment.equalsIgnoreCase(COMPLETED.getStatus());
 
-            String messageForClient = getMessage(stateOfPayment);
+            String messageForClient = paymentI18nService.messageFor(PaymentProvider.PAYPAL, stateOfPayment);
             
             PaymentTransaction transaction = paymentTransactionRepository.findByProviderTransactionId(paymentId)
                     .orElseThrow(() -> new PayPalPaymentException("Transaction not found: " + paymentId));
@@ -158,7 +176,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             }
 
             // Reject replays: only allow update when still pending
-            if (transaction.getStatus() != com.bbmovie.payment.entity.enums.PaymentStatus.PENDING) {
+            if (transaction.getStatus() != PaymentStatus.PENDING) {
                 return PaymentVerificationResponse.builder()
                         .isValid(false)
                         .transactionId(payment.getId())
@@ -201,14 +219,15 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                 log.info("Got webhook event {}", event.toJSON());
             }
 
+            paymentEventProducer.publishSubscriptionSuccessEvent();
             return new PaymentVerificationResponse(
                     isValid,
                     event != null ? event.getId() : null,
                     event != null ? event.getEventType() : null,
                     event != null ? event.getSummary() : "Invalid webhook signature",
                     ctx.getRawBody(),
-                    null);
-
+                    null
+            );
         } catch (PayPalRESTException e) {
             log.error("Error validating PayPal webhook", e);
             return new PaymentVerificationResponse(
@@ -217,7 +236,8 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                     null,
                     e.getMessage(),
                     ctx.getRawBody(),
-                    null);
+                    null
+            );
         } catch (NoSuchAlgorithmException | SignatureException | InvalidKeyException e) {
             throw new PayPalPaymentException("Webhook signature validation error");
         }
@@ -259,6 +279,9 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             String status = COMPLETED.getStatus().equals(refund.getState())
                     ? PaymentStatus.SUCCEEDED.getStatus()
                     : PaymentStatus.FAILED.getStatus();
+
+            paymentEventProducer.publishSubscriptionCancelEvent();
+
             return new RefundResponse(
                 refund.getId(), 
                 status, 
@@ -275,7 +298,10 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     private Payment createTransaction(PaymentRequest request) {
         Amount amount = new Amount();
         amount.setCurrency(request.getCurrency());
-        amount.setTotal(request.getAmount() != null ? request.getAmount().toString() : null);
+        amount.setTotal(request.getAmount() != null
+                ? request.getAmount().toString()
+                : null
+        );
 
         Transaction transaction = new Transaction();
         transaction.setAmount(amount);
@@ -299,18 +325,5 @@ public class PayPalAdapter implements PaymentProviderAdapter {
         payment.setTransactions(Collections.singletonList(transaction));
         payment.setRedirectUrls(redirectUrls);
         return payment;
-    }
-
-    private String getMessage(String stateOfPayment) {
-        if (stateOfPayment.equalsIgnoreCase(COMPLETED.getStatus())) {
-            return i18nService.getMessage("payment.paypal.completed");
-        }
-        if (stateOfPayment.equalsIgnoreCase(APPROVED.getStatus())) {
-            return i18nService.getMessage("payment.paypal.pending");
-        }
-        if (stateOfPayment.equalsIgnoreCase(FAILED.getStatus())) {
-            return i18nService.getMessage("payment.paypal.failed");
-        }
-        return i18nService.getMessage("payment.paypal.unknown");
     }
 }

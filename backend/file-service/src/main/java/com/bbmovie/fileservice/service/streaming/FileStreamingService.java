@@ -2,6 +2,7 @@ package com.bbmovie.fileservice.service.streaming;
 
 import com.bbmovie.fileservice.constraints.ResolutionConstraints;
 import com.bbmovie.fileservice.service.ffmpeg.FFmpegVideoMetadata;
+import com.bbmovie.fileservice.service.ffmpeg.ImageExtension;
 import com.bbmovie.fileservice.service.ffmpeg.VideoMetadataService;
 import com.bbmovie.fileservice.utils.PrivateIdCodec;
 import com.cloudinary.AuthToken;
@@ -16,6 +17,7 @@ import org.springframework.core.io.buffer.DataBufferFactory;
 import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.MediaTypeFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.stereotype.Service;
@@ -33,7 +35,9 @@ import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
 import java.util.Base64;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -59,6 +63,9 @@ public class FileStreamingService {
             .duration(600) // seconds
             .startTime(System.currentTimeMillis() / 1000L);
 
+    private static final MediaType MEDIA_TYPE_IMAGE_WEBP = MediaType.valueOf("image/webp");
+    private static final MediaType MEDIA_TYPE_IMAGE_BMP = MediaType.valueOf("image/bmp");
+
     public Mono<ResponseEntity<Flux<DataBuffer>>> streamLocalVideo(
             String baseName, String extension, String resolution,
             Integer fromSeconds, Integer toSeconds, DataBufferFactory bufferFactory
@@ -80,6 +87,35 @@ public class FileStreamingService {
                     log.info("Metadata: {}", metadata);
                     return createFileStreamingResponse(filePath, metadata, fromSeconds, toSeconds, bufferFactory);
                 });
+    }
+
+    public Mono<ResponseEntity<Flux<DataBuffer>>> streamLocalImage(
+            String baseName,
+            String extension,
+            DataBufferFactory bufferFactory
+    ) {
+        return Mono.fromCallable(() -> resolveLocalImagePath(baseName, extension))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMap(resolved -> Mono.fromCallable(() -> validateLocalImagePath(resolved.path()))
+                        .flatMap(contentLength -> {
+                            MediaType mediaType = resolveImageMediaType(resolved.extension(), resolved.path().getFileName().toString());
+                            Flux<DataBuffer> body = DataBufferUtils.read(resolved.path(), bufferFactory, 16 * 1024);
+                            return Mono.just(ResponseEntity.ok()
+                                    .contentType(mediaType)
+                                    .contentLength(contentLength)
+                                    .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                                    .body(body));
+                        }));
+    }
+
+    private long validateLocalImagePath(Path filePath) throws IOException {
+        if (!filePath.startsWith(Paths.get(localUploadDir))) {
+            throw new SecurityException("Invalid file path");
+        }
+        if (!Files.exists(filePath)) {
+            throw new IllegalArgumentException("Image not found");
+        }
+        return Files.size(filePath);
     }
 
     private Mono<ResponseEntity<Flux<DataBuffer>>> createFileStreamingResponse(
@@ -161,6 +197,67 @@ public class FileStreamingService {
                 .body(body));
     }
 
+    public Mono<ResponseEntity<Flux<DataBuffer>>> streamCloudinaryImage(
+            String privateId,
+            Integer width,
+            Integer height,
+            String format
+    ) {
+        String publicId = PrivateIdCodec.decode(privateId, privateIdSecret);
+
+        Transformation<?> transformation = new Transformation<>();
+        if (width != null) {
+            if (width <= 0) {
+                return Mono.error(new IllegalArgumentException("Width must be positive"));
+            }
+            transformation.width(width);
+        }
+        if (height != null) {
+            if (height <= 0) {
+                return Mono.error(new IllegalArgumentException("Height must be positive"));
+            }
+            transformation.height(height);
+        }
+        if ((width != null && width > 0) || (height != null && height > 0)) {
+            transformation.crop("fill");
+        }
+
+        String normalizedFormat = normalizeImageExtension(format, null);
+        if (normalizedFormat != null) {
+            transformation.fetchFormat(normalizedFormat);
+        }
+
+        String signedUrl = cloudinary.url()
+                .secure(true)
+                .type("authenticated")
+                .resourceType("image")
+                .publicId(publicId)
+                .authToken(token)
+                .transformation(transformation)
+                .generate();
+
+        return webClient.get()
+                .uri(signedUrl)
+                .exchangeToMono(response -> {
+                    if (response.statusCode().isError()) {
+                        return response.createException().flatMap(Mono::error);
+                    }
+
+                    MediaType mediaType = response.headers().contentType().orElse(MediaType.APPLICATION_OCTET_STREAM);
+                    long contentLength = response.headers().asHttpHeaders().getContentLength();
+
+                    Flux<DataBuffer> body = response.bodyToFlux(DataBuffer.class)
+                            .timeout(Duration.ofMinutes(5));
+
+                    ResponseEntity.BodyBuilder builder = ResponseEntity.ok()
+                            .contentType(mediaType);
+                    if (contentLength >= 0) {
+                        builder.contentLength(contentLength);
+                    }
+                    return Mono.just(builder.body(body));
+                });
+    }
+
     public Flux<ServerSentEvent<String>> streamLocalVideoSse(
             String baseName, String extension, String resolution,
             Integer fromSeconds, Integer toSeconds, DataBufferFactory bufferFactory
@@ -198,6 +295,38 @@ public class FileStreamingService {
                 : sanitizedBase + "." + ext;
     }
 
+    private String buildLocalImageFileName(String baseName, String extension) {
+        String sanitizedBase = sanitizeBase(baseName);
+        return sanitizedBase + "." + extension;
+    }
+
+    private record ResolvedLocalImage(Path path, String extension) {}
+
+    private ResolvedLocalImage resolveLocalImagePath(String baseName, String extension) {
+        String sanitizedBase = sanitizeBase(baseName);
+        List<String> candidates;
+        if (StringUtils.hasText(extension)) {
+            candidates = List.of(normalizeImageExtension(extension, null));
+        } else {
+            candidates = ImageExtension.getAllowedExtensions().stream()
+                    .map(ImageExtension::getExtension)
+                    .toList();
+        }
+
+        Path uploadRoot = Paths.get(localUploadDir);
+        for (String candidate : candidates) {
+            if (candidate == null) {
+                continue;
+            }
+            Path filePath = uploadRoot.resolve(buildLocalImageFileName(sanitizedBase, candidate)).normalize();
+            if (Files.exists(filePath)) {
+                return new ResolvedLocalImage(filePath, candidate);
+            }
+        }
+
+        throw new IllegalArgumentException("Image not found");
+    }
+
     private String resolveResolutionSuffix(String desired) {
         if (!StringUtils.hasText(desired)) return null;
         List<String> allowed = List.of(
@@ -217,6 +346,43 @@ public class FileStreamingService {
     private String sanitizeBase(String base) {
         return FilenameUtils.getBaseName(base)
                 .replaceAll("[^a-zA-Z0-9-_]", "_");
+    }
+
+    private static final Map<String, String> IMAGE_EXTENSION_ALIASES = createImageExtensionAliases();
+
+    private static Map<String, String> createImageExtensionAliases() {
+        Map<String, String> aliases = new LinkedHashMap<>();
+        aliases.put("jpeg", "jpg");
+        return aliases;
+    }
+
+    private String normalizeImageExtension(String extension, String defaultExtension) {
+        if (!StringUtils.hasText(extension)) {
+            return defaultExtension;
+        }
+
+        String normalized = extension.toLowerCase();
+        normalized = IMAGE_EXTENSION_ALIASES.getOrDefault(normalized, normalized);
+        boolean allowed = ImageExtension.getAllowedExtensions().stream()
+                .map(ImageExtension::getExtension)
+                .anyMatch(normalized::equals);
+
+        if (!allowed) {
+            throw new IllegalArgumentException("Unsupported image extension: " + extension);
+        }
+
+        return normalized;
+    }
+
+    private MediaType resolveImageMediaType(String extension, String fileName) {
+        return MediaTypeFactory.getMediaType(fileName)
+                .orElseGet(() -> switch (extension) {
+                    case "jpg", "jpeg" -> MediaType.IMAGE_JPEG;
+                    case "png" -> MediaType.IMAGE_PNG;
+                    case "webp" -> MEDIA_TYPE_IMAGE_WEBP;
+                    case "bmp" -> MEDIA_TYPE_IMAGE_BMP;
+                    default -> MediaType.APPLICATION_OCTET_STREAM;
+                });
     }
 
     private Transformation<?> buildTransformation(String resolution, Integer from, Integer to) {

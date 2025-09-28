@@ -1,7 +1,6 @@
 package com.bbmovie.payment.service;
 
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
-import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;

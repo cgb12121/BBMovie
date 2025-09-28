@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Typography, Card, Row, Col, Spin, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
+import { Typography, Spin, Row, Col, Card, Empty, Result, Button } from 'antd';
 import styled from 'styled-components';
 import api from '../services/api';
 
-const { Title } = Typography;
+const { Title, Paragraph } = Typography;
 
 const CategoryDetailContainer = styled.div`
     padding: 2rem;
@@ -14,16 +14,11 @@ const CategoryDetailContainer = styled.div`
 
 const MovieCard = styled(Card)`
     height: 100%;
-    cursor: pointer;
     transition: transform 0.2s;
     
     &:hover {
         transform: translateY(-5px);
     }
-`;
-
-const MoviesGrid = styled(Row)`
-    margin-top: 2rem;
 `;
 
 interface Category {
@@ -35,41 +30,42 @@ interface Category {
 interface Movie {
     id: number;
     title: string;
-    rating: number;
-    posterUrl: string;
+    description?: string;
+    posterUrl?: string;
 }
 
 const CategoryDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const [loading, setLoading] = useState(true);
     const [category, setCategory] = useState<Category | null>(null);
     const [movies, setMovies] = useState<Movie[]>([]);
-    const navigate = useNavigate();
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    const fetchCategoryDetails = async () => {
+        if (!id) return;
+        try {
+            setLoading(true);
+            setError(null);
+            const [categoryResponse, moviesResponse] = await Promise.all([
+                api.get(`/api/categories/${id}`),
+                api.get(`/api/categories/${id}/movies`)
+            ]);
+            setCategory(categoryResponse.data);
+            setMovies(Array.isArray(moviesResponse.data) ? moviesResponse.data : []);
+        } catch (err) {
+            console.error('Failed to fetch category details', err);
+            setError('We could not load this category at the moment. Please try again later.');
+            setCategory(null);
+            setMovies([]);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        const fetchCategory = async () => {
-            try {
-                setLoading(true);
-                const [categoryResponse, moviesResponse] = await Promise.all([
-                    api.get(`/categories/${id}`),
-                    api.get(`/categories/${id}/movies`)
-                ]);
-                setCategory(categoryResponse.data);
-                setMovies(moviesResponse.data);
-            } catch (error) {
-                message.error('Failed to fetch category details');
-                console.error('Error fetching category:', error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
-        fetchCategory();
+        fetchCategoryDetails();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
-
-    const handleMovieClick = (movieId: number) => {
-        navigate(`/movies/${movieId}`);
-    };
 
     if (loading) {
         return (
@@ -79,41 +75,57 @@ const CategoryDetail: React.FC = () => {
         );
     }
 
+    if (error) {
+        return (
+            <CategoryDetailContainer>
+                <Result
+                    status="warning"
+                    title="Category unavailable"
+                    subTitle={error}
+                    extra={
+                        <Button type="primary" onClick={fetchCategoryDetails}>
+                            Retry
+                        </Button>
+                    }
+                />
+            </CategoryDetailContainer>
+        );
+    }
+
     if (!category) {
         return (
-            <div style={{ textAlign: 'center', padding: '2rem' }}>
-                <Title level={4}>Category not found</Title>
-            </div>
+            <CategoryDetailContainer>
+                <Empty description="Category not found" />
+            </CategoryDetailContainer>
         );
     }
 
     return (
         <CategoryDetailContainer>
             <Title level={2}>{category.name}</Title>
-            <Title level={4} type="secondary">{category.description}</Title>
-            
-            <MoviesGrid gutter={[16, 16]}>
-                {movies.length > 0 ? (
+            <Paragraph>{category.description}</Paragraph>
+
+            <Row gutter={[16, 16]} style={{ marginTop: '2rem' }}>
+                {movies.length === 0 ? (
+                    <Col span={24} style={{ textAlign: 'center' }}>
+                        <Empty description="No movies in this category" />
+                    </Col>
+                ) : (
                     movies.map(movie => (
                         <Col xs={24} sm={12} md={8} lg={6} key={movie.id}>
                             <MovieCard
                                 hoverable
-                                onClick={() => handleMovieClick(movie.id)}
-                                cover={<img alt={movie.title} src={movie.posterUrl} />}
+                                cover={movie.posterUrl ? <img alt={movie.title} src={movie.posterUrl} /> : undefined}
                             >
                                 <Card.Meta
                                     title={movie.title}
-                                    description={`Rating: ${movie.rating}/10`}
+                                    description={movie.description}
                                 />
                             </MovieCard>
                         </Col>
                     ))
-                ) : (
-                    <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                        <Title level={4}>No movies in this category</Title>
-                    </Col>
                 )}
-            </MoviesGrid>
+            </Row>
         </CategoryDetailContainer>
     );
 };

@@ -1,4 +1,5 @@
 import { UploadMetadata } from '../types/fileUpload';
+import api from './api';
 
 export interface FileUploadProgress {
   progress: number;
@@ -15,7 +16,7 @@ export interface FileUploadResponse {
 
 class FileService {
 
-  private readonly baseUrl = 'http://localhost:8080';
+  private readonly baseUrl = process.env.REACT_APP_API_GATEWAY_URL ?? 'http://localhost:8765';
 
   /**
    * Upload a single file with real-time progress tracking
@@ -75,7 +76,12 @@ class FileService {
       });
 
       // Open and send request
-      xhr.open('POST', `${this.baseUrl}/file/upload/v1`);
+      xhr.open('POST', `${this.baseUrl}/api/file/upload/v1`);
+      xhr.withCredentials = true;
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
       xhr.send(formData);
     });
   }
@@ -150,7 +156,12 @@ class FileService {
       });
 
       // Open and send request
-      xhr.open('POST', `${this.baseUrl}/file/upload/v2`);
+      xhr.open('POST', `${this.baseUrl}/api/file/upload/v2`);
+      xhr.withCredentials = true;
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+      }
       xhr.send(formData);
     });
   }
@@ -167,9 +178,10 @@ class FileService {
     formData.append('file', file);
     formData.append('metadata', JSON.stringify(metadata));
 
-    const response = await fetch(`${this.baseUrl}/file/upload/v1`, {
+    const response = await fetch(`${this.baseUrl}/api/file/upload/v1`, {
       method: 'POST',
       body: formData,
+      credentials: 'include'
       // Don't set Content-Type header, let browser set it with boundary
     });
 
@@ -192,9 +204,10 @@ class FileService {
     formData.append('file', file);
     formData.append('metadata', JSON.stringify(metadata));
 
-    const response = await fetch(`${this.baseUrl}/file/upload/test`, {
+    const response = await fetch(`${this.baseUrl}/api/file/upload/test`, {
       method: 'POST',
       body: formData,
+      credentials: 'include'
     });
 
     if (!response.ok) {

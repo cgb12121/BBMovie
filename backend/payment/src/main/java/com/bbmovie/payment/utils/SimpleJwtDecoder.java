@@ -15,8 +15,10 @@ import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
 import static com.example.common.entity.JoseConstraint.JwtType.JWE;
 import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
-@SuppressWarnings("squid:S1118")
 public class SimpleJwtDecoder {
+
+    private SimpleJwtDecoder() {
+    }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final RestTemplate REST_TEMPLATE = new RestTemplate();

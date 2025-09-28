@@ -9,8 +9,10 @@ import org.springframework.http.HttpMethod;
 
 import java.util.Map;
 
-@SuppressWarnings("squid:S1118")
 public final class PaymentProviderPayloadUtil {
+
+    private PaymentProviderPayloadUtil() {
+    }
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
 

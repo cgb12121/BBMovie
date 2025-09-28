@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Typography, Tabs, Card, Row, Col, Spin } from 'antd';
+import { Typography, Tabs, Card, Row, Col, Spin, Empty, Result, Button } from 'antd';
 import styled from 'styled-components';
 import api from '../services/api';
 
@@ -27,59 +27,66 @@ const ResultCard = styled(Card)`
     }
 `;
 
-interface Movie {
-    id: number;
+type Movie = {
+    id: string;
     title: string;
-    posterUrl: string;
-    rating: number;
-}
+    description?: string;
+    posterUrl?: string;
+    rating?: number;
+};
 
-interface Category {
-    id: number;
-    name: string;
-    image: string;
-}
+type SearchState<T> = {
+    data: T[];
+    loading: boolean;
+    error: string | null;
+};
 
 const SearchResults: React.FC = () => {
     const location = useLocation();
-    const [activeTab, setActiveTab] = useState('movies');
-    const [loading, setLoading] = useState(false);
-    const [movies, setMovies] = useState<Movie[]>([]);
-    const [categories, setCategories] = useState<Category[]>([]);
+    const [activeTab, setActiveTab] = useState<'movies'>('movies');
+    const [moviesState, setMoviesState] = useState<SearchState<Movie>>({
+        data: [],
+        loading: false,
+        error: null
+    });
 
-    const searchQuery = new URLSearchParams(location.search).get('q') ?? '';
+    const searchQuery = new URLSearchParams(location.search).get('query') ?? '';
 
     useEffect(() => {
         if (searchQuery) {
-            handleSearch();
+            fetchMovies();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [searchQuery, activeTab]);
 
-    const handleSearch = async () => {
-        if (!searchQuery.trim()) return;
+    const fetchMovies = async () => {
+        if (!searchQuery.trim()) {
+            setMoviesState({ data: [], loading: false, error: null });
+            return;
+        }
 
-        setLoading(true);
+        setMoviesState(prev => ({ ...prev, loading: true, error: null }));
         try {
-            if (activeTab === 'movies') {
-                const response = await api.get('/movies/search', {
-                    params: { query: searchQuery }
-                });
-                setMovies(response.data);
-            } else {
-                const response = await api.get('/categories/search', {
-                    params: { query: searchQuery }
-                });
-                setCategories(response.data);
-            }
+            const response = await api.get('/api/search/similar-search', {
+                params: { query: searchQuery }
+            });
+            setMoviesState({
+                data: Array.isArray(response.data) ? response.data : [],
+                loading: false,
+                error: null
+            });
         } catch (error) {
-            console.error('Error searching:', error);
-        } finally {
-            setLoading(false);
+            console.error('Error searching movies:', error);
+            setMoviesState({
+                data: [],
+                loading: false,
+                error: 'We could not load search results. Please try again.'
+            });
         }
     };
 
     const renderMovies = () => {
-        if (loading) {
+        if (moviesState.loading) {
             return (
                 <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
                     <Spin size="large" />
@@ -87,53 +94,43 @@ const SearchResults: React.FC = () => {
             );
         }
 
-        if (movies.length === 0) {
+        if (moviesState.error) {
             return (
-                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                    <Title level={4}>No movies found</Title>
+                <Col span={24}>
+                    <Result
+                        status="warning"
+                        title="Unable to fetch movies"
+                        subTitle={moviesState.error}
+                        extra={
+                            <Button type="primary" onClick={fetchMovies}>
+                                Retry
+                            </Button>
+                        }
+                    />
                 </Col>
             );
         }
 
-        return movies.map(movie => (
+        if (moviesState.data.length === 0) {
+            return (
+                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
+                    <Empty description="No movies found" />
+                </Col>
+            );
+        }
+
+        return moviesState.data.map(movie => (
             <Col xs={24} sm={12} md={8} lg={6} key={movie.id}>
                 <ResultCard
                     hoverable
-                    cover={<img alt={movie.title} src={movie.posterUrl} />}
+                    cover={movie.posterUrl ? <img alt={movie.title} src={movie.posterUrl} /> : undefined}
                 >
                     <Card.Meta
                         title={movie.title}
-                        description={`Rating: ${movie.rating}/10`}
+                        description={
+                            movie.description || (typeof movie.rating === 'number' ? `Rating: ${movie.rating}/10` : null)
+                        }
                     />
-                </ResultCard>
-            </Col>
-        ));
-    };
-
-    const renderCategories = () => {
-        if (loading) {
-            return (
-                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                    <Spin size="large" />
-                </Col>
-            );
-        }
-
-        if (categories.length === 0) {
-            return (
-                <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                    <Title level={4}>No categories found</Title>
-                </Col>
-            );
-        }
-
-        return categories.map(category => (
-            <Col xs={24} sm={12} md={8} key={category.id}>
-                <ResultCard
-                    hoverable
-                    cover={<img alt={category.name} src={category.image} />}
-                >
-                    <Card.Meta title={category.name} />
                 </ResultCard>
             </Col>
         ));
@@ -142,17 +139,10 @@ const SearchResults: React.FC = () => {
     return (
         <SearchContainer>
             <Title level={2}>Search Results for "{searchQuery}"</Title>
-            
-            <Tabs activeKey={activeTab} onChange={setActiveTab}>
+            <Tabs activeKey={activeTab} onChange={(key) => setActiveTab(key as 'movies')}>
                 <TabPane tab="Movies" key="movies">
                     <ResultsGrid gutter={[16, 16]}>
                         {renderMovies()}
-                    </ResultsGrid>
-                </TabPane>
-                
-                <TabPane tab="Categories" key="categories">
-                    <ResultsGrid gutter={[16, 16]}>
-                        {renderCategories()}
                     </ResultsGrid>
                 </TabPane>
             </Tabs>

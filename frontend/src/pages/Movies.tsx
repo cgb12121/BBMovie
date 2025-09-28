@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Row, Col, Card, Typography, Spin } from 'antd';
+import { Row, Col, Card, Typography, Spin, Empty, Result, Button, Space } from 'antd';
 import styled from 'styled-components';
 import api from '../services/api';
 
@@ -48,6 +48,7 @@ interface Movie {
 const Movies: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [movies, setMovies] = useState<Movie[]>([]);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         fetchMovies();
@@ -56,10 +57,13 @@ const Movies: React.FC = () => {
     const fetchMovies = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/movies');
-            setMovies(response.data);
-        } catch (error) {
-            console.error('Error fetching movies:', error);
+            setError(null);
+            const response = await api.get('/api/movies');
+            setMovies(response.data ?? []);
+        } catch (err) {
+            console.error('Error fetching movies:', err);
+            setError('We could not load movies right now. Please try again shortly.');
+            setMovies([]);
         } finally {
             setLoading(false);
         }
@@ -74,10 +78,27 @@ const Movies: React.FC = () => {
             );
         }
 
+        if (error) {
+            return (
+                <Col span={24}>
+                    <Result
+                        status="warning"
+                        title="Unable to fetch movies"
+                        subTitle={error}
+                        extra={
+                            <Button type="primary" onClick={fetchMovies}>
+                                Retry
+                            </Button>
+                        }
+                    />
+                </Col>
+            );
+        }
+
         if (movies.length === 0) {
             return (
                 <Col span={24} style={{ textAlign: 'center', padding: '2rem' }}>
-                    <Title level={4}>No movies found</Title>
+                    <Empty description="No movies available" />
                 </Col>
             );
         }
@@ -99,12 +120,25 @@ const Movies: React.FC = () => {
 
     return (
         <MoviesContainer>
-            <Title level={2}>Movies</Title>
+            <SpaceBetweenHeader>
+                <Title level={2}>Movies</Title>
+                {!loading && !error && (
+                    <Button type="link" onClick={fetchMovies}>
+                        Refresh
+                    </Button>
+                )}
+            </SpaceBetweenHeader>
             <MoviesGrid gutter={[16, 16]}>
                 {renderMoviesList()}
             </MoviesGrid>
         </MoviesContainer>
     );
 };
+
+const SpaceBetweenHeader = styled.div`
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+`;
 
 export default Movies;

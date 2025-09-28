@@ -1,5 +1,24 @@
 package com.bbmovie.payment.dto;
 
-import java.time.Instant;
+import com.bbmovie.payment.entity.SubscriptionPlan;
+import com.bbmovie.payment.entity.enums.PaymentProvider;
 
-public record PaymentCreatedEvent(String orderId, Instant expiresAt) {}
+import javax.money.CurrencyUnit;
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.time.LocalDateTime;
+
+public record PaymentCreatedEvent(
+        String userId,
+        SubscriptionPlan plan,
+        BigDecimal amount,
+        CurrencyUnit currency,
+        PaymentProvider provider,
+        String providerTransactionId,
+        String description,
+        LocalDateTime expiresAt
+) {
+    public PaymentCreatedEvent(String userId, SubscriptionPlan plan, BigDecimal amount, CurrencyUnit currency, PaymentProvider provider, String providerTransactionId, String description) {
+        this(userId, plan, amount, currency, provider, providerTransactionId, description, LocalDateTime.now().plus(Duration.ofMinutes(15)));
+    }
+}
