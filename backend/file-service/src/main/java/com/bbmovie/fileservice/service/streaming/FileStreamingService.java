@@ -34,11 +34,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.util.Base64;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicLong;
 
 @Log4j2
@@ -218,11 +214,11 @@ public class FileStreamingService {
             }
             transformation.height(height);
         }
-        if ((width != null && width > 0) || (height != null && height > 0)) {
+        if (width != null || height != null) {
             transformation.crop("fill");
         }
 
-        String normalizedFormat = normalizeImageExtension(format, null);
+        String normalizedFormat = normalizeImageExtension(format);
         if (normalizedFormat != null) {
             transformation.fetchFormat(normalizedFormat);
         }
@@ -306,7 +302,7 @@ public class FileStreamingService {
         String sanitizedBase = sanitizeBase(baseName);
         List<String> candidates;
         if (StringUtils.hasText(extension)) {
-            candidates = List.of(normalizeImageExtension(extension, null));
+            candidates = List.of(Objects.requireNonNull(normalizeImageExtension(extension)));
         } else {
             candidates = ImageExtension.getAllowedExtensions().stream()
                     .map(ImageExtension::getExtension)
@@ -356,9 +352,9 @@ public class FileStreamingService {
         return aliases;
     }
 
-    private String normalizeImageExtension(String extension, String defaultExtension) {
+    private String normalizeImageExtension(String extension) {
         if (!StringUtils.hasText(extension)) {
-            return defaultExtension;
+            return null;
         }
 
         String normalized = extension.toLowerCase();

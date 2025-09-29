@@ -10,6 +10,12 @@ spring:
               enabled: true
               lower-case-service-id: true
           routes:
+            - id: oauth2_login_route
+              uri: lb://auth
+              predicates:
+                - Path=/oauth2/**
+              metadata:
+                public: true
             - id: auth_route
               uri: lb://auth
               predicates:
@@ -117,6 +123,13 @@ spring:
                   maxBackoff: 5s
                   factor: 2
                   basedOnPreviousValue: true
+          globalcors:
+            cors-configurations:
+              '[/**]':
+                  allowedOrigins: "http://localhost:3000"
+                  allowedMethods: "*"
+                  allowedHeaders: "*"
+                  allowCredentials: true
   data:
     redis:
       host: localhost
@@ -140,9 +153,6 @@ internal:
       abac-endpoint: /auth/abac/new-access-token
 
 
-app:
-  frontend:
-    url: http://localhost:3000
 gateway:
   config:
     security:

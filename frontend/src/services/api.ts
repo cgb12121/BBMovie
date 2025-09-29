@@ -63,19 +63,19 @@ api.interceptors.request.use(
     }
 );
 
-api.interceptors.request.use(
-    (config) => {
-        const token = getCookie('XSRF-TOKEN');
-        if (token) {
-            config.headers = config.headers ?? {};
-            config.headers['X-XSRF-TOKEN'] = token;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(new Error(error));
-    }
-);
+// api.interceptors.request.use(
+//     (config) => {
+//         const token = getCookie('XSRF-TOKEN');
+//         if (token) {
+//             config.headers = config.headers ?? {};
+//             config.headers['X-XSRF-TOKEN'] = token;
+//         }
+//         return config;
+//     },
+//     (error) => {
+//         return Promise.reject(new Error(error));
+//     }
+// );
 
 function getCookie(name: string): string | null {
     const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));

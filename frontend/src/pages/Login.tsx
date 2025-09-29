@@ -51,7 +51,7 @@ interface LoginFormData {
   // remember?: boolean
 }
 
-const OAUTH_BASE_URL = "http://localhost:8080/oauth2/authorization"
+const OAUTH_BASE_URL = "http://localhost:8765/oauth2/authorization"
 
 const Login: React.FC = () => {
   const [form] = Form.useForm<LoginFormData>();
@@ -107,6 +107,7 @@ const Login: React.FC = () => {
       const { data } = await api.post("/api/auth/login", values)
       onLoginSuccess(data.data)
     } catch (err: any) {
+      console.error(err);
       const msg = err?.response?.data?.message ?? "Login failed. Please check your credentials."
       setError(msg)
     } finally {
