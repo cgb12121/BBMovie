@@ -85,14 +85,13 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
      * @param response the HTTP response to be sent back to the client
      * @param authentication the authentication object containing details about the successful authentication
      * @throws IOException if an input or output exception occurs
-     * @throws ServletException if a servlet exception occurs during request processing
      */
     @Override
     public void onAuthenticationSuccess(
             HttpServletRequest request,
             HttpServletResponse response,
             Authentication authentication
-    ) throws IOException, ServletException {
+    ) throws IOException {
         OAuth2AuthenticationToken oAuth2Token = (OAuth2AuthenticationToken) authentication;
         String provider = oAuth2Token.getAuthorizedClientRegistrationId();
         OAuth2UserInfoStrategy strategy = strategyFactory.getStrategy(provider);
@@ -112,10 +111,11 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
         addAccessTokenToCookie(response, accessToken);
 
         String redirectUrl = frontendUrl + "/login?status=success&message=" +
-                URLEncoder.encode("login via oauth2 success", StandardCharsets.UTF_8);
+                URLEncoder.encode("oauth2", StandardCharsets.UTF_8);
         setAlwaysUseDefaultTargetUrl(true);
         setDefaultTargetUrl(redirectUrl);
-        super.onAuthenticationSuccess(request, response, authentication);
+
+        response.sendRedirect(redirectUrl);
     }
 
     /**

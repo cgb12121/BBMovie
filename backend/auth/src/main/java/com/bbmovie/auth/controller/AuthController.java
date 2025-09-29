@@ -55,12 +55,12 @@ public class AuthController implements AuthControllerOpenApi {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<LoginResponse>> login(
             @Valid @RequestBody LoginRequest loginRequest,
-            HttpServletRequest request,
+            HttpServletRequest hsr,
             BindingResult bindingResult
     ) {
         ResponseEntity<ApiResponse<LoginResponse>> errorResponse = ValidationHandler.handleBindingErrors(bindingResult);
         if (errorResponse != null) return errorResponse;
-        LoginResponse response = authService.login(loginRequest, request);
+        LoginResponse response = authService.login(loginRequest, hsr);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
@@ -70,18 +70,12 @@ public class AuthController implements AuthControllerOpenApi {
     }
 
     @PostMapping("/v2/access-token")
-    public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessTokenV1(
-            @RequestHeader(value = "Authorization") String oldBearerToken
-    ) {
-        String oldAccessToken;
+    public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessTokenV1(@RequestHeader(value = "Authorization") String oldBearerToken) {
+        String oldAccessToken = oldBearerToken;
         if (oldBearerToken.startsWith("Bearer ")) {
             oldAccessToken = oldBearerToken.substring(7);
-        } else {
-            oldAccessToken = oldBearerToken;
         }
-        return ResponseEntity.ok(ApiResponse.success(
-                new AccessTokenResponse(refreshTokenService.refreshAccessToken(oldAccessToken)))
-        );
+        return ResponseEntity.ok(ApiResponse.success(new AccessTokenResponse(refreshTokenService.refreshAccessToken(oldAccessToken))));
     }
 
     @PostMapping("/v2/logout")
@@ -118,6 +112,7 @@ public class AuthController implements AuthControllerOpenApi {
         return ResponseEntity.ok(ApiResponse.success("Verification email has been resent. Please check your email."));
     }
 
+    //TODO: change UserDetails => jwt (user must log in to change password)
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<Void>> changePassword(
             @Valid @RequestBody ChangePasswordRequest request,
@@ -155,16 +150,16 @@ public class AuthController implements AuthControllerOpenApi {
 
     @GetMapping("/oauth2-callback")
     public ResponseEntity<ApiResponse<LoginResponse>> getCurrentUserFromOAuth2(
-            @AuthenticationPrincipal UserDetails userDetails,
-            HttpServletRequest request
+            @RequestHeader("Authorization") UserDetails userDetails,
+            HttpServletRequest hsr
     ) {
-        LoginResponse loginResponse = authService.getLoginResponseFromOAuth2Login(userDetails, request);
+        LoginResponse loginResponse = authService.getLoginResponseFromOAuth2Login(userDetails, hsr);
         return ResponseEntity.ok(ApiResponse.success(loginResponse));
     }
 
     @GetMapping("/user-agent")
-    public ResponseEntity<ApiResponse<UserAgentResponse>> getUserAgent(HttpServletRequest request) {
-        UserAgentResponse userAgentResponse = authService.getUserDeviceInformation(request);
+    public ResponseEntity<ApiResponse<UserAgentResponse>> getUserAgent(HttpServletRequest hsr) {
+        UserAgentResponse userAgentResponse = authService.getUserDeviceInformation(hsr);
         return ResponseEntity.ok(ApiResponse.success(userAgentResponse));
     }
 
