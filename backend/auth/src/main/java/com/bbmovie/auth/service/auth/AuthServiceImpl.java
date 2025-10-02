@@ -119,6 +119,8 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public LoginResponse login(LoginRequest loginRequest, HttpServletRequest request) {
+        log.info("Login request received for email: {}, {}", loginRequest, request);
+
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
 
@@ -191,19 +193,12 @@ public class AuthServiceImpl implements AuthService {
      */
     @Override
     public LoginResponse getLoginResponseFromOAuth2Login(UserDetails userDetails, HttpServletRequest request) {
-        Cookie accessTokenCookie = WebUtils.getCookie(request, "accessToken");
-        if (accessTokenCookie == null) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Access token cookie is missing");
-        }
-        String accessToken = accessTokenCookie.getValue();
         UserResponse userResponse = loadAuthenticatedUserInformation(userDetails.getUsername());
-        AuthResponse authResponse = createAuthResponse(
-                new TokenPair(accessToken, null),
-                User.builder()
-                        .email(userResponse.getEmail())
-                        .role(Role.USER)
-                        .build()
-        );
+        AuthResponse authResponse = AuthResponse.builder()
+                .accessToken(null)
+                .email(userResponse.getEmail())
+                .role(Role.USER)
+                .build();
         return LoginResponse.fromUserAndAuthResponse(userResponse, authResponse);
     }
 
@@ -727,11 +722,11 @@ public class AuthServiceImpl implements AuthService {
                 .email(request.getEmail())
                 .displayedUsername(request.getUsername())
                 .password(passwordEncoder.encode(request.getPassword()))
-                .phoneNumber(request.getPhoneNumber())
+//                .phoneNumber(request.getPhoneNumber())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())
-                .age(request.getAge())
-                .region(request.getRegion())
+//                .age(request.getAge())
+//                .region(request.getRegion())
                 .role(Role.USER)
                 .authProvider(AuthProvider.LOCAL)
                 .isEnabled(false)

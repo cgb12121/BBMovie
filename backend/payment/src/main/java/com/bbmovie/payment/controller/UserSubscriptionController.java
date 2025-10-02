@@ -31,17 +31,21 @@ public class UserSubscriptionController {
     }
 
     @PostMapping("/{id}/auto-renew")
-    public ApiResponse<UserSubscriptionResponse> toggleAutoRenew(@PathVariable("id") UUID id,
-                                                                 @RequestHeader("Authorization") String bearer,
-                                                                 @Valid @RequestBody ToggleAutoRenewRequest req) {
+    public ApiResponse<UserSubscriptionResponse> toggleAutoRenew(
+            @PathVariable("id") UUID id,
+            @RequestHeader("Authorization") String bearer,
+            @Valid @RequestBody ToggleAutoRenewRequest req
+    ) {
         String userId = SimpleJwtDecoder.getUserId(bearer);
         return ApiResponse.success(userSubscriptionService.toggleAutoRenew(id, userId, req));
     }
 
     @PostMapping("/{id}/cancel")
-    public ApiResponse<UserSubscriptionResponse> cancel(@PathVariable("id") UUID id,
-                                                        @RequestHeader("Authorization") String bearer,
-                                                        @Valid @RequestBody CancelSubscriptionRequest req) {
+    public ApiResponse<UserSubscriptionResponse> cancel(
+            @PathVariable("id") UUID id,
+            @RequestHeader("Authorization") String bearer,
+            @Valid @RequestBody CancelSubscriptionRequest req
+    ) {
         String userId = SimpleJwtDecoder.getUserId(bearer);
         return ApiResponse.success(userSubscriptionService.cancel(id, userId, req));
     }

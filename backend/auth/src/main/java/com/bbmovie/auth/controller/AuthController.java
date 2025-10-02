@@ -150,7 +150,7 @@ public class AuthController implements AuthControllerOpenApi {
 
     @GetMapping("/oauth2-callback")
     public ResponseEntity<ApiResponse<LoginResponse>> getCurrentUserFromOAuth2(
-            @RequestHeader("Authorization") UserDetails userDetails,
+            @AuthenticationPrincipal UserDetails userDetails,
             HttpServletRequest hsr
     ) {
         LoginResponse loginResponse = authService.getLoginResponseFromOAuth2Login(userDetails, hsr);

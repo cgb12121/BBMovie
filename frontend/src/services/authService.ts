@@ -59,20 +59,11 @@ class AuthService {
     }
 
     private setupAxiosInterceptors() {
-        api.interceptors.request.use(
-            (config) => {
-                const token = this.accessToken || getStoredAccessToken();
-                if (token) {
-                    config.headers.Authorization = `Bearer ${token}`;
-                }
-                return config;
-            },
-            (error) => {
-                throw (error instanceof Error ? error : new Error(String(error)));
-            }
-        );
+        if ((api.interceptors.response as any)._bbmovieAuthResponse) {
+            return;
+        }
 
-        api.interceptors.response.use(
+        const responseInterceptor = api.interceptors.response.use(
             (response) => response,
             async (error) => {
                 const originalRequest = error.config || {};
@@ -122,6 +113,8 @@ class AuthService {
                 throw (error instanceof Error ? error : new Error(String(error)));
             }
         );
+
+        (api.interceptors.response as any)._bbmovieAuthResponse = responseInterceptor;
     }
 
     private getHeaders(): Record<string, string> {

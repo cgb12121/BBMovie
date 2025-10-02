@@ -150,7 +150,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional(noRollbackFor = PaymentCacheException.class)
-    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
+    public PaymentCreationResponse createPaymentRequest(String userId, String userEmail, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
         com.bbmovie.payment.dto.PricingBreakdown breakdown = pricingService.calculate(
@@ -237,7 +237,7 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
             }
 
             PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
-                    userId, plan, amount, SupportedCurrency.VND.unit(),
+                    userId, userEmail, plan, amount, SupportedCurrency.VND.unit(),
                     PaymentProvider.ZALOPAY, appTransId, "ZaloPay subscription"
             );
 
@@ -295,7 +295,8 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                 updateTransaction(appTransId, returnCode, success);
             }
 
-            paymentEventProducer.publishSubscriptionSuccessEvent();
+            //TODO: finish
+            paymentEventProducer.publishSubscriptionSuccessEvent(null);
 
             return PaymentVerificationResponse.builder()
                     .isValid(success)
@@ -330,8 +331,9 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
-        paymentEventProducer.publishSubscriptionCancelEvent();
+    public RefundResponse refundPayment(String userId, String userEmail, String paymentId, HttpServletRequest hsr) {
+        //TODO: finish
+        paymentEventProducer.publishSubscriptionCancelEvent(null);
         throw new UnsupportedOperationException("Refund is not supported by ZaloPay");
     }
 

@@ -14,5 +14,3 @@ public class NatsConfig {
         return Nats.connect("nats://localhost:4222");
     }
 }
-
-

@@ -12,12 +12,12 @@ import java.util.Map;
 @Service
 public class PaymentI18nService {
      
-    private final I18nService i18n;
+    private final I18nService i18nService;
     private final Map<String, PaymentNormalizer> paymentNormalizers;
 
     @Autowired
-    public PaymentI18nService(I18nService i18n, Map<String, PaymentNormalizer> paymentNormalizers) {
-        this.i18n = i18n;
+    public PaymentI18nService(I18nService i18nService, Map<String, PaymentNormalizer> paymentNormalizers) {
+        this.i18nService = i18nService;
         this.paymentNormalizers = paymentNormalizers;
     }
 
@@ -37,6 +37,6 @@ public class PaymentI18nService {
             case FAILED, CANCELLED, AUTO_CANCELLED, REFUNDED -> "failed";
         };
         String key = "payment." + provider.getName() + "." + statusKey;
-        return i18n.getMessage(key);
+        return i18nService.getMessage(key);
     }
 }

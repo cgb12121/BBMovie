@@ -76,7 +76,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional(noRollbackFor = PaymentCacheException.class)
-    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr
+    public PaymentCreationResponse createPaymentRequest(String userId, String userEmail, SubscriptionPaymentRequest request, HttpServletRequest hsr
     ) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
         PricingBreakdown breakdown = pricingService.calculate(
@@ -101,7 +101,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
             StripeTransactionStatus stripeStatus = StripeTransactionStatus.fromStatus(paymentIntent.getStatus());
 
             PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
-                    userId, plan, amountInBaseCurrency, plan.getBaseCurrency(),
+                    userId, userEmail, plan, amountInBaseCurrency, plan.getBaseCurrency(),
                     PaymentProvider.STRIPE, paymentIntent.getId(), "Subscription"
             );
 
@@ -161,7 +161,8 @@ public class StripeAdapter implements PaymentProviderAdapter {
             paymentTransactionRepository.save(transaction);
             String message = paymentI18nService.messageFor(PaymentProvider.STRIPE, stripeStatus.getStatus());
 
-            paymentEventProducer.publishSubscriptionSuccessEvent();
+            //TODO: finish
+            paymentEventProducer.publishSubscriptionSuccessEvent(null);
 
             return new PaymentVerificationResponse(
                     stripeStatus == StripeTransactionStatus.SUCCEEDED,
@@ -209,7 +210,7 @@ public class StripeAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String userId, String userEmail, String paymentId, HttpServletRequest hsr) {
         log.info("Processing Stripe refund for paymentId: {}", paymentId);
 
         PaymentTransaction transaction = paymentTransactionRepository.findByProviderTransactionId(paymentId)
@@ -227,7 +228,8 @@ public class StripeAdapter implements PaymentProviderAdapter {
             transaction.setStatus(PaymentStatus.valueOf(refund.getStatus()));
             paymentTransactionRepository.save(transaction);
 
-            paymentEventProducer.publishSubscriptionCancelEvent();
+            //TODO: finish
+            paymentEventProducer.publishSubscriptionCancelEvent(null);
 
             return new RefundResponse(
                 refund.getId(), 

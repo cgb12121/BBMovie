@@ -29,12 +29,12 @@ public class EmailServiceFactory {
         this.strategies = strategyMap;
         this.defaultStrategy = strategyMap.getOrDefault(defaultStrategyName,
                 strategyMap.values().stream().findFirst().orElseThrow(() ->
-                        new IllegalArgumentException("No default email strategy found")));
+                        new IllegalArgumentException("No default email strategy found"))
+        );
         if (!isRotationEnabled) {
             this.rotationOrder = List.of(defaultStrategyName);
         } else {
             this.rotationOrder = Arrays.asList(rotationOrder.split(","));
-
         }
     }
 

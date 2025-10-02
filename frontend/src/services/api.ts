@@ -26,6 +26,25 @@ function getBaseUrlForPath(url?: string): string | undefined {
     return override || process.env.REACT_APP_API_GATEWAY_URL || 'http://localhost:8765';
 }
 
+function appendDeviceHeaders(headers: Record<string, unknown>): void {
+    try {
+        const stored = localStorage.getItem('userAgent');
+        if (!stored) return;
+        const userAgent = JSON.parse(stored ?? '{}');
+        headers['X-DEVICE-NAME'] = userAgent?.deviceName ?? '';
+        headers['X-DEVICE-OS'] = userAgent?.deviceOs ?? '';
+        headers['X-DEVICE-IP-ADDRESS'] = userAgent?.deviceIpAddress ?? '';
+        headers['X-BROWSER'] = userAgent?.browser ?? '';
+        headers['X-BROWSER-VERSION'] = userAgent?.browserVersion ?? '';
+    } catch {
+        headers['X-DEVICE-NAME'] ??= '';
+        headers['X-DEVICE-OS'] ??= '';
+        headers['X-DEVICE-IP-ADDRESS'] ??= '';
+        headers['X-BROWSER'] ??= '';
+        headers['X-BROWSER-VERSION'] ??= '';
+    }
+}
+
 api.interceptors.request.use(
     (config) => {
         const baseURL = getBaseUrlForPath(config.url);
@@ -33,29 +52,17 @@ api.interceptors.request.use(
             config.baseURL = baseURL;
         }
 
-        const token = getAccessToken();
-        if (token) {
-            config.headers = config.headers ?? {};
-            config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-    },
-    (error) => {
-        return Promise.reject(new Error(error));
-    }
-);
+        config.headers = config.headers ?? {};
 
-api.interceptors.request.use(
-    (config) => {
-        const userAgent = JSON.parse(localStorage.getItem("userAgent") ?? '{}');
-        if (userAgent) {
-            config.headers = config.headers ?? {};
-            config.headers['X-DEVICE-NAME'] = userAgent.deviceName ?? '';
-            config.headers['X-DEVICE-OS'] = userAgent.deviceOs ?? '';
-            config.headers['X-DEVICE-IP-ADDRESS'] = userAgent.deviceIpAddress ?? '';
-            config.headers['X-BROWSER'] = userAgent.browser ?? '';
-            config.headers['X-BROWSER-VERSION'] = userAgent.browserVersion ?? '';
+        if (!config.headers.Authorization) {
+            const token = getAccessToken();
+            if (token) {
+                config.headers.Authorization = `Bearer ${token}`;
+            }
         }
+
+        appendDeviceHeaders(config.headers);
+
         return config;
     },
     (error) => {

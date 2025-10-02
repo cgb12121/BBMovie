@@ -114,7 +114,7 @@ public class SecurityConfig {
                         log.error(exception.getMessage(), exception);
                         response.sendRedirect(
                                 "http://localhost:3000/login?status=error&message=" +
-                                URLEncoder.encode("login via oauth2 failed", StandardCharsets.UTF_8)
+                                URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8)
                         );
                     })
                     .authorizationEndpoint(authorization -> authorization

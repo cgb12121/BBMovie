@@ -89,7 +89,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional(noRollbackFor = PaymentCacheException.class)
-    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
+    public PaymentCreationResponse createPaymentRequest(String userId, String userEmail, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
         PricingBreakdown breakdown = pricingService.calculate(
@@ -162,7 +162,7 @@ public class MomoAdapter implements PaymentProviderAdapter {
                     : PaymentStatus.FAILED;
 
             PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
-                    userId, plan, breakdown.finalPrice(), SupportedCurrency.VND.unit(),
+                    userId, userEmail, plan, breakdown.finalPrice(), SupportedCurrency.VND.unit(),
                     PaymentProvider.MOMO, orderId, orderInfo
             );
 
@@ -241,7 +241,8 @@ public class MomoAdapter implements PaymentProviderAdapter {
         String message = paymentI18nService.messageFor(PaymentProvider.MOMO,
                 success ? "SUCCESS" : String.valueOf(resultCode));
 
-        paymentEventProducer.publishSubscriptionSuccessEvent();
+        //TODO: finish
+        paymentEventProducer.publishSubscriptionSuccessEvent(null);
 
         return new PaymentVerificationResponse(
                 success,
@@ -259,8 +260,8 @@ public class MomoAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
-        paymentEventProducer.publishSubscriptionCancelEvent();
+    public RefundResponse refundPayment(String userId, String userEmail, String paymentId, HttpServletRequest hsr) {
+        paymentEventProducer.publishSubscriptionCancelEvent(null);
         throw new UnsupportedOperationException("Refund is not supported by Momo");
     }
 

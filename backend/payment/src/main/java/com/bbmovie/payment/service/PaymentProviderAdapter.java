@@ -11,11 +11,11 @@ import java.util.Map;
 
 public interface PaymentProviderAdapter {
 
-    PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr);
+    PaymentCreationResponse createPaymentRequest(String userId, String userEmail, SubscriptionPaymentRequest request, HttpServletRequest hsr);
 
     Object queryPayment(String userId, String paymentId);
 
-    RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr);
+    RefundResponse refundPayment(String userId, String userEmail, String paymentId, HttpServletRequest hsr);
 
     PaymentVerificationResponse handleCallback(Map<String, String> paymentData, HttpServletRequest hsr);
 

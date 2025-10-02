@@ -22,10 +22,10 @@ public class RegisterRequest {
     @NotBlank(message = "Confirm password is required")
     private String confirmPassword;
 
-    @Schema(description = "User's phone number", example = "[phone_number]", minLength = 8, maxLength = 15)
-    @NotBlank(message = "Phone number is required")
-    @Size(min = 8, max = 15, message = "Phone number must be between 10 and 15 characters")
-    private String phoneNumber;
+//    @Schema(description = "User's phone number", example = "[phone_number]", minLength = 8, maxLength = 15)
+//    @NotBlank(message = "Phone number is required")
+//    @Size(min = 8, max = 15, message = "Phone number must be between 10 and 15 characters")
+//    private String phoneNumber;
 
     @Schema(description = "Unique username", example = "[username]", minLength = 3, maxLength = 20)
     @NotBlank(message = "Username is required")
@@ -42,13 +42,14 @@ public class RegisterRequest {
     @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
     private String lastName;
 
-    @Schema(description = "User's age", example = "25", minimum = "1", maximum = "150")
-    @NotNull(message = "Age is required")
-    @Max(value = 150, message = "Age must be between 1 and 150")
-    @Min(value = 1, message = "Age must be between 1 and 150")
-    private int age;
-
-    @Schema(description = "User's region", example = "US")
-    @NotNull(message = "Region is required")
-    private Region region;
+    //TODO: update thes on the frontend side
+//    @Schema(description = "User's age", example = "25", minimum = "1", maximum = "150")
+//    @NotNull(message = "Age is required")
+//    @Max(value = 150, message = "Age must be between 1 and 150")
+//    @Min(value = 1, message = "Age must be between 1 and 150")
+//    private int age;
+//
+//    @Schema(description = "User's region", example = "US")
+//    @NotNull(message = "Region is required")
+//    private Region region;
 }

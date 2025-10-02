@@ -19,6 +19,9 @@ public class UserSubscription extends BaseEntity {
     @Column(name = "user_id", nullable = false)
     private String userId;
 
+    @Column(name = "user_email", nullable = false)
+    private String userEmail;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "plan_id", nullable = false)
     private SubscriptionPlan plan;

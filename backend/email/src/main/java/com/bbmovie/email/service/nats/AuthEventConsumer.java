@@ -1,54 +1,97 @@
 package com.bbmovie.email.service.nats;
 
+import com.bbmovie.email.config.NatsConfig;
+import com.bbmovie.email.dto.event.NatsConnectionEvent;
+import com.bbmovie.email.exception.CustomEmailException;
 import com.bbmovie.email.service.email.EmailService;
 import com.bbmovie.email.service.email.EmailServiceFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.nats.client.*;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.time.ZonedDateTime;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
 
 @Log4j2
 @Service
 public class AuthEventConsumer {
 
-    @Autowired
-    public AuthEventConsumer(Connection nats, ObjectMapper objectMapper, EmailServiceFactory emailServiceFactory) throws Exception {
-        JetStream js = nats.jetStream();
+    private final Semaphore limit = new Semaphore(100);
+    private final ExecutorService emailExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
-        // Durable consumers are configured in NatsConfig for stream binding
-        Dispatcher dispatcher = nats.createDispatcher(msg -> {
+    private final Connection nats;
+    private final ObjectMapper objectMapper;
+    private final EmailServiceFactory emailServiceFactory;
+
+    @Autowired
+    public AuthEventConsumer(NatsConfig.NatsConnectionFactory natsConnectionFactory, ObjectMapper objectMapper, EmailServiceFactory emailServiceFactory) {
+        this.nats = natsConnectionFactory.getConnection();
+        this.objectMapper = objectMapper;
+        this.emailServiceFactory = emailServiceFactory;
+    }
+
+    @EventListener
+    public void onNatsConnection(NatsConnectionEvent event) {
+        if (event.type() == ConnectionListener.Events.CONNECTED || event.type() == ConnectionListener.Events.RECONNECTED) {
+            log.info("NATS connected/reconnected, (re)subscribing…");
+            setupAuthServiceEventSubscriptions();
+        }
+    }
+
+    private void setupAuthServiceEventSubscriptions() {
+        Dispatcher dispatcher = this.nats.createDispatcher(msg -> {
             try {
                 String subject = msg.getSubject();
-                Map event = objectMapper.readValue(msg.getData(), Map.class);
-                handle(subject, event, emailServiceFactory);
+                @SuppressWarnings("unchecked")
+                Map<String, String> event = objectMapper.readValue(msg.getData(), Map.class);
+
+                // ack immediately after taking data to avoid redelivery
+                msg.ack();
+
+                emailExecutor.submit(() -> {
+                    try {
+                        limit.acquire();
+                        handle(subject, event, emailServiceFactory);
+                    } catch (Exception e) {
+                        log.error("Error while processing email for subject {}", subject, e);
+                    } finally {
+                        limit.release();
+                    }
+                });
+
+            } catch (CustomEmailException e) {
+                log.error("Business failure sending email, acking anyway", e);
                 msg.ack();
             } catch (Exception e) {
-                log.error("Failed to process auth event", e);
+                log.error("Critical failure, requesting redelivery", e);
                 msg.nak();
             }
         });
 
         dispatcher.subscribe("auth.>");
+        log.info("Subscribed to auth.* events");
     }
 
     private void handle(String subject, Map<String, String> event, EmailServiceFactory factory) {
         EmailService email = factory.getRotationStrategies().getFirst();
-        try {
-            switch (subject) {
-                case "auth.registration" -> email.sendVerificationEmail(event.get("email"), event.get("token"));
-                case "auth.forgot_password" -> email.sendForgotPasswordEmail(event.get("email"), event.get("token"));
-                case "auth.changed_password" -> email.notifyChangedPassword(event.get("email"), ZonedDateTime.parse(event.get("timeChangedPassword")));
-                case "auth.otp" -> log.info("OTP event for {} received", event.get("phone"));
-                default -> log.warn("Unhandled auth subject: {}", subject);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        switch (subject) {
+            case "auth.registration" ->
+                    email.sendVerificationEmail(event.get("email"), event.get("token"));
+            case "auth.forgot_password" ->
+                    email.sendForgotPasswordEmail(event.get("email"), event.get("token"));
+            case "auth.changed_password" ->
+                    email.notifyChangedPassword(
+                            event.get("email"),
+                            ZonedDateTime.parse(event.get("timeChangedPassword"))
+                    );
+            case "auth.otp" -> log.info("OTP event for {} received", event.get("phone"));
+            default -> log.warn("Unhandled auth subject: {}", subject);
         }
     }
 }
-
-

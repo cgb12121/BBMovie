@@ -25,6 +25,7 @@ public class PaymentRecordServiceImpl implements PaymentRecordService {
     public PaymentTransaction createPendingTransaction(PaymentCreatedEvent event) {
         UserSubscription subscription = UserSubscription.builder()
                 .userId(event.userId())
+                .userEmail(event.userEmail())
                 .plan(event.plan())
                 .build();
 

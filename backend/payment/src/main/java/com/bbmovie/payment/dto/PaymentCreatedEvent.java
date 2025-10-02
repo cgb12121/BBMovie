@@ -10,6 +10,7 @@ import java.time.LocalDateTime;
 
 public record PaymentCreatedEvent(
         String userId,
+        String userEmail,
         SubscriptionPlan plan,
         BigDecimal amount,
         CurrencyUnit currency,
@@ -18,7 +19,26 @@ public record PaymentCreatedEvent(
         String description,
         LocalDateTime expiresAt
 ) {
-    public PaymentCreatedEvent(String userId, SubscriptionPlan plan, BigDecimal amount, CurrencyUnit currency, PaymentProvider provider, String providerTransactionId, String description) {
-        this(userId, plan, amount, currency, provider, providerTransactionId, description, LocalDateTime.now().plus(Duration.ofMinutes(15)));
+    public PaymentCreatedEvent(
+            String userId,
+            String userEmail,
+            SubscriptionPlan plan,
+            BigDecimal amount,
+            CurrencyUnit currency,
+            PaymentProvider provider,
+            String providerTransactionId,
+            String description
+    ) {
+        this(
+                userId,
+                userEmail,
+                plan,
+                amount,
+                currency,
+                provider,
+                providerTransactionId,
+                description,
+                LocalDateTime.now().plus(Duration.ofMinutes(15))
+        );
     }
 }

@@ -1,8 +1,7 @@
 package com.bbmovie.payment.service.nats;
 
-import com.bbmovie.payment.dto.PaymentCreatedEvent;
+import com.bbmovie.payment.config.NatsConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.nats.client.Connection;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.api.PublishAck;
 import io.nats.client.JetStream;
@@ -20,8 +19,8 @@ public class PaymentEventProducerImpl implements PaymentEventProducer {
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public PaymentEventProducerImpl(Connection nats, ObjectMapper objectMapper) throws IOException {
-        this.jetStream = nats.jetStream();
+    public PaymentEventProducerImpl(NatsConfig.NatsConnectionFactory natsConnectionFactory, ObjectMapper objectMapper) throws IOException {
+        this.jetStream = natsConnectionFactory.getConnection().jetStream();
         this.objectMapper = objectMapper;
     }
 
@@ -39,17 +38,17 @@ public class PaymentEventProducerImpl implements PaymentEventProducer {
     }
 
     @Override
-    public void publishSubscriptionSuccessEvent() {
-
+    public <T> void publishSubscriptionSuccessEvent(T data) {
+        publish("payment.subscription.success", data);
     }
 
     @Override
-    public void publishSubscriptionCancelEvent() {
-
+    public <T> void publishSubscriptionCancelEvent(T data) {
+        publish("payment.subscription.cancel", data);
     }
 
     @Override
-    public void publishSubscriptionRenewEvent() {
-
+    public <T> void publishSubscriptionRenewEvent(T data) {
+        publish("payment.subscription.renew", data);
     }
 }

@@ -82,7 +82,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
     }
 
     @Transactional(noRollbackFor = PaymentCacheException.class)
-    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
+    public PaymentCreationResponse createPaymentRequest(String userId, String userEmail, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
         BillingCycle cycle = plan.getBillingCycle();
@@ -106,7 +106,7 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         );
 
         PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
-                userId, plan, amount, SupportedCurrency.VND.unit(),
+                userId, userEmail, plan, amount, SupportedCurrency.VND.unit(),
                 PaymentProvider.VNPAY, vnpTxnRef, "VNPay payment for order: " + vnpTxnRef
         );
 
@@ -176,7 +176,8 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         });
 
         JsonNode providerData = stringToJsonNode(toJsonString(paymentData));
-        paymentEventProducer.publishSubscriptionSuccessEvent();
+        //TODO: finish
+        paymentEventProducer.publishSubscriptionSuccessEvent(null);
 
         return PaymentVerificationResponse.builder()
                 .isValid(isValid)
@@ -199,13 +200,14 @@ public class VnpayAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional
-    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String userId, String userEmail, String paymentId, HttpServletRequest hsr) {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(TransactionNotFoundException::new);
         Map<String, String> body = vnpayProvidedFunction.createRefundOrder(hsr, txn, properties.getTmnCode(), properties.getHashSecret());
         Map<String, String> result = vnpayProvidedFunction.executeRequest(body, properties.getApiUrl(), properties.getHashSecret());
 
-       paymentEventProducer.publishSubscriptionCancelEvent();
+        //TODO: finish
+        paymentEventProducer.publishSubscriptionCancelEvent(null);
 
         return new RefundResponse(
             result.get(VNPAY_TXN_REF_PARAM), 

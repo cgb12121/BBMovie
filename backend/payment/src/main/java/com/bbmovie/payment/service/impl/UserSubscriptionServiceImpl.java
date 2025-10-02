@@ -97,6 +97,7 @@ public class UserSubscriptionServiceImpl implements UserSubscriptionService {
         sub.setNextPaymentDate(req.nextPaymentDate());
         sub.setPaymentProvider(req.paymentProvider());
         sub.setPaymentMethod(req.paymentMethod());
+
         return toResponse(userSubscriptionRepository.save(sub));
     }
 

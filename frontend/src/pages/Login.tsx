@@ -64,6 +64,7 @@ const Login: React.FC = () => {
   const [error, setError] = useState<string | null>(null)
   const [notificationVisible, setNotificationVisible] = useState(false)
   const [socialLoading, setSocialLoading] = useState<string | null>(null)
+  const [hasHandledOAuthRedirect, setHasHandledOAuthRedirect] = useState(false)
 
   const query = new URLSearchParams(location.search)
   const status = query.get("status")
@@ -77,27 +78,38 @@ const Login: React.FC = () => {
 
   // Handle OAuth2 redirect and fetch user data
   useEffect(() => {
-    if (status === "success" && messageFromQuery === "oauth2") {
-      setNotificationVisible(true);
-      // Fetch user data after OAuth2 success
-      const fetchUserData = async () => {
-        try {
-          const { data } = await api.get("/api/auth/oauth2-callback");
-          console.log(data);
-          onLoginSuccess(data.data);
-        } catch (err: any) {
-          console.error("Failed to fetch user data:", err);
-          setError("Failed to load user data after OAuth2 login.");
-        }
-      };
-      fetchUserData();
-      const timer = setTimeout(() => {
+    const isOAuthSuccess = status === "success" && (messageFromQuery?.includes("oauth2") ?? true);
+    if (!isOAuthSuccess || hasHandledOAuthRedirect) return;
+
+    setHasHandledOAuthRedirect(true);
+    setNotificationVisible(true);
+
+    let isSubscribed = true;
+    const fetchUserData = async () => {
+      try {
+        const { data } = await api.get("/api/auth/oauth2-callback");
+        if (!isSubscribed) return;
+        onLoginSuccess(data.data);
+      } catch (err: any) {
+        if (!isSubscribed) return;
+        console.error("Failed to fetch user data:", err);
+        setError("Failed to load user data after OAuth2 login.");
         setNotificationVisible(false);
-        navigate("/", { replace: true }); // Redirect to home after success
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [status, messageFromQuery, navigate, dispatch]);
+      }
+    };
+
+    fetchUserData();
+    const timer = window.setTimeout(() => {
+      if (!isSubscribed) return;
+      setNotificationVisible(false);
+      navigate("/", { replace: true });
+    }, 5000);
+
+    return () => {
+      isSubscribed = false;
+      window.clearTimeout(timer);
+    };
+  }, [status, messageFromQuery, hasHandledOAuthRedirect, navigate]);
   
   const onFinish = async (values: LoginFormData) => {
     setLoading(true)

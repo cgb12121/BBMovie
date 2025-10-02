@@ -3,9 +3,9 @@ package com.bbmovie.payment.service.nats;
 public interface PaymentEventProducer {
     <T> void publish(String subject, T event);
 
-    void publishSubscriptionSuccessEvent();
+    <T> void publishSubscriptionSuccessEvent(T data);
 
-    void publishSubscriptionCancelEvent();
+    <T> void publishSubscriptionCancelEvent(T data);
 
-    void publishSubscriptionRenewEvent();
+    <T> void publishSubscriptionRenewEvent(T data);
 }

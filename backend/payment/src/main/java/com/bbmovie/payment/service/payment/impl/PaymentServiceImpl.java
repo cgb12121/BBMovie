@@ -2,6 +2,7 @@ package com.bbmovie.payment.service.payment.impl;
 
 import com.bbmovie.payment.config.payment.PaymentProviderProperties;
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
+import com.bbmovie.payment.dto.request.JwtDecodeResult;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -52,10 +53,10 @@ public class PaymentServiceImpl implements PaymentService {
         if (toggle == null || !toggle.isEnabled()) {
             throw new PaymentNotAvailableException(request.provider() + " is disabled: " + (toggle != null ? toggle.getReason() : "Unknown reason"));
         }
-        String userId = SimpleJwtDecoder.getUserId(jwtToken);
+        JwtDecodeResult result = SimpleJwtDecoder.getUserIdAndEmail(jwtToken);
 
         PaymentProviderAdapter adapter = providers.get(request.provider().toLowerCase());
-        return adapter.createPaymentRequest(userId, request, hsr);
+        return adapter.createPaymentRequest(result.userId(), result.userEmail(), request, hsr);
     }
 
     @Override
@@ -81,10 +82,10 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(TransactionNotFoundException::new);
 
-        String userId = SimpleJwtDecoder.getUserId(jwtToken);
+        JwtDecodeResult result = SimpleJwtDecoder.getUserIdAndEmail(jwtToken);
 
         PaymentProviderAdapter adapter = providers.get(txn.getPaymentProvider().toString().toLowerCase());
-        return adapter.refundPayment(userId, paymentId, hsr);
+        return adapter.refundPayment(result.userId(), result.userEmail(), paymentId, hsr);
     }
 
     @Override
@@ -92,10 +93,10 @@ public class PaymentServiceImpl implements PaymentService {
         PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                 .orElseThrow(TransactionNotFoundException::new);
 
-        String userId = SimpleJwtDecoder.getUserId(jwtToken);
+        JwtDecodeResult result = SimpleJwtDecoder.getUserIdAndEmail(jwtToken);
 
         PaymentProviderAdapter provider = providers.get(txn.getPaymentProvider().toString().toLowerCase());
-        return provider.queryPayment(userId, paymentId);
+        return provider.queryPayment(result.userId(), paymentId);
     }
 
     // Auto-cancel unpaid orders that passed expiration time. Runs every 5 minutes.

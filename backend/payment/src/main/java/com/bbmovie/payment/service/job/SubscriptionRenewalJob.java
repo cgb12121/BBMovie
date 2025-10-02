@@ -1,14 +1,15 @@
 package com.bbmovie.payment.service.job;
 
+import com.bbmovie.payment.config.NatsConfig;
 import com.bbmovie.payment.service.UserSubscriptionService;
 import com.bbmovie.payment.repository.UserSubscriptionRepository;
 import com.bbmovie.payment.entity.UserSubscription;
 import com.example.common.dtos.nats.SubscriptionEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.nats.client.Connection;
 import io.nats.client.JetStream;
 import lombok.extern.log4j.Log4j2;
 
+import java.io.IOException;
 import java.time.LocalDateTime;
 
 import org.quartz.Job;
@@ -29,16 +30,15 @@ public class SubscriptionRenewalJob implements Job {
     public SubscriptionRenewalJob(
             UserSubscriptionService userSubscriptionService,
             UserSubscriptionRepository userSubscriptionRepository,
-            Connection nats,
+            NatsConfig.NatsConnectionFactory nats,
             ObjectMapper objectMapper
-    ) throws java.io.IOException {
+    ) throws IOException {
         this.userSubscriptionService = userSubscriptionService;
         this.userSubscriptionRepository = userSubscriptionRepository;
-        this.js = nats.jetStream();
+        this.js = nats.getConnection().jetStream();
         this.objectMapper = objectMapper;
     }
 
-    //TODO: implement
     @Override
     public void execute(JobExecutionContext context) {
         log.info("Running subscription renewal job..., {}", context.getJobDetail());
@@ -47,14 +47,18 @@ public class SubscriptionRenewalJob implements Job {
         // Notify upcoming renewals (next 3 days)
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime in3Days = now.plusDays(3);
-        for (UserSubscription sub : userSubscriptionRepository
-                .findByIsActiveTrueAndAutoRenewTrueAndNextPaymentDateBetween(now, in3Days)) {
+        for (UserSubscription sub : userSubscriptionRepository.findByIsActiveTrueAndAutoRenewTrueAndNextPaymentDateBetween(now, in3Days)) {
             try {
-                SubscriptionEvent event = new SubscriptionEvent("RENEWAL_UPCOMING", sub.getUserId(), null,
-                        sub.getPlan() != null ? sub.getPlan().getName() : null,
-                        sub.getNextPaymentDate());
+                SubscriptionEvent event = new SubscriptionEvent(
+                        sub.getUserId(),
+                        sub.getUserEmail(),
+                        sub.getPlan() != null
+                                ? sub.getPlan().getName()
+                                : null,
+                        sub.getNextPaymentDate()
+                );
                 byte[] payload = objectMapper.writeValueAsBytes(event);
-                js.publish("payments.subscription.renewal_upcoming", payload);
+                js.publish("payments.subscription.renewal.upcoming", payload);
             } catch (Exception e) {
                 log.error("Failed to publish renewal upcoming event for sub {}", sub.getId(), e);
             }

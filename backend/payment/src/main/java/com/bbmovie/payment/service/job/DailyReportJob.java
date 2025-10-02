@@ -1,5 +1,6 @@
 package com.bbmovie.payment.service.job;
 
+import com.bbmovie.payment.config.NatsConfig;
 import com.example.common.dtos.nats.PaymentEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.nats.client.JetStream;
@@ -21,8 +22,8 @@ public class DailyReportJob implements Job {
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public DailyReportJob(Connection nats, ObjectMapper objectMapper) throws IOException {
-        this.js = nats.jetStream();
+    public DailyReportJob(NatsConfig.NatsConnectionFactory natsConnectionFactory, ObjectMapper objectMapper) throws IOException {
+        this.js = natsConnectionFactory.getConnection().jetStream();
         this.objectMapper = objectMapper;
     }
 
@@ -31,8 +32,8 @@ public class DailyReportJob implements Job {
         log.info("Running daily report job..., {}", context.getJobDetail());
         try {
             // For a demo, send a simple report event. Replace it with a real aggregation payload.
-            String reportJson = "{\"type\":\"payment.daily.report\",\"status\":\"OK\"}";
-            js.publish("payment.report.daily", reportJson.getBytes(StandardCharsets.UTF_8));
+            byte[] reportJson = objectMapper.writeValueAsBytes("{\"type\":\"payment.daily.report\",\"status\":\"OK\"}");
+            js.publish("payment.report.daily", reportJson);
         } catch (Exception e) {
             log.error("Failed to publish daily report", e);
         }

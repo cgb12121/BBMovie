@@ -86,7 +86,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
 
     @Override
     @Transactional(noRollbackFor = PaymentCacheException.class)
-    public PaymentCreationResponse createPaymentRequest(String userId, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
+    public PaymentCreationResponse createPaymentRequest(String userId, String userEmail, SubscriptionPaymentRequest request, HttpServletRequest hsr) {
         SubscriptionPlan plan = subscriptionPlanService.getById(UUID.fromString(request.subscriptionPlanId()));
 
         PricingBreakdown breakdown = pricingService.calculate(
@@ -129,7 +129,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                     : PaymentStatus.PENDING;
 
             PaymentCreatedEvent paymentCreatedEvent = new PaymentCreatedEvent(
-                    userId, plan, finalAmount, plan.getBaseCurrency(),
+                    userId, userEmail, plan, finalAmount, plan.getBaseCurrency(),
                     PaymentProvider.PAYPAL, createdPayment.getId(), "Subscription"
             );
 
@@ -218,8 +218,8 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                 event = Event.get(apiContext, ctx.getRawBody());
                 log.info("Got webhook event {}", event.toJSON());
             }
-
-            paymentEventProducer.publishSubscriptionSuccessEvent();
+            //TODO: finish
+            paymentEventProducer.publishSubscriptionSuccessEvent(null);
             return new PaymentVerificationResponse(
                     isValid,
                     event != null ? event.getId() : null,
@@ -259,7 +259,7 @@ public class PayPalAdapter implements PaymentProviderAdapter {
     }
 
     @Override
-    public RefundResponse refundPayment(String userId, String paymentId, HttpServletRequest hsr) {
+    public RefundResponse refundPayment(String userId, String userEmail, String paymentId, HttpServletRequest hsr) {
         try {
             PaymentTransaction txn = paymentTransactionRepository.findById(UUID.fromString(paymentId))
                         .orElseThrow(() -> new PayPalPaymentException("Unable to find transaction"));
@@ -280,7 +280,8 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                     ? PaymentStatus.SUCCEEDED.getStatus()
                     : PaymentStatus.FAILED.getStatus();
 
-            paymentEventProducer.publishSubscriptionCancelEvent();
+            //TODO: finish
+            paymentEventProducer.publishSubscriptionCancelEvent(null);
 
             return new RefundResponse(
                 refund.getId(), 

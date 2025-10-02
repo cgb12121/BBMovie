@@ -1,5 +1,6 @@
 package com.bbmovie.payment.utils;
 
+import com.bbmovie.payment.dto.request.JwtDecodeResult;
 import com.example.common.entity.JoseConstraint.JwtType;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -26,6 +27,13 @@ public class SimpleJwtDecoder {
     public static String getUserId(String token) {
         JsonNode payload = decode(token);
         return payload.get(SUB).asText();
+    }
+
+    public static JwtDecodeResult getUserIdAndEmail(String token) {
+        JsonNode payload = decode(token);
+        String userId = payload.get(SUB).asText();
+        String email = payload.get("email").asText();
+        return new JwtDecodeResult(userId, email);
     }
 
     public static JsonNode decode(String token) {
