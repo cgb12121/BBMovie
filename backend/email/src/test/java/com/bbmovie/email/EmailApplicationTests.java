@@ -8,6 +8,7 @@ class EmailApplicationTests {
 
     @Test
     void contextLoads() {
+        //im not going to write tests
     }
 
 }

@@ -60,6 +60,7 @@ public class AuthEventConsumer {
                         handle(subject, event, emailServiceFactory);
                     } catch (Exception e) {
                         log.error("Error while processing email for subject {}", subject, e);
+                        Thread.currentThread().interrupt();
                     } finally {
                         limit.release();
                     }
@@ -80,14 +81,18 @@ public class AuthEventConsumer {
 
     private void handle(String subject, Map<String, String> event, EmailServiceFactory factory) {
         EmailService email = factory.getRotationStrategies().getFirst();
+
+        String toUserEmail = event.get("email");
+        String verificationToken = event.get("token");
+
         switch (subject) {
             case "auth.registration" ->
-                    email.sendVerificationEmail(event.get("email"), event.get("token"));
+                    email.sendVerificationEmail(toUserEmail, verificationToken);
             case "auth.forgot_password" ->
-                    email.sendForgotPasswordEmail(event.get("email"), event.get("token"));
+                    email.sendForgotPasswordEmail(event.get(toUserEmail), verificationToken);
             case "auth.changed_password" ->
                     email.notifyChangedPassword(
-                            event.get("email"),
+                            event.get(toUserEmail),
                             ZonedDateTime.parse(event.get("timeChangedPassword"))
                     );
             case "auth.otp" -> log.info("OTP event for {} received", event.get("phone"));

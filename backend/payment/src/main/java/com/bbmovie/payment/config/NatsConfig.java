@@ -6,7 +6,6 @@ import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.nats.client.*;
 import io.nats.client.api.*;
-import lombok.Getter;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
@@ -20,12 +19,13 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
 @Configuration
 public class NatsConfig {
 
-    private static final String paymentStream = "PAYMENTS";
+    private static final String PAYMENT_STREAM = "PAYMENTS";
 
     private final ApplicationEventPublisher publisher;
 
@@ -46,11 +46,12 @@ public class NatsConfig {
                 .connectionListener((conn, type) -> {
                     switch (type) {
                         case CONNECTED, RECONNECTED -> {
-                            log.info("[{}], retrying setup & resubscribing", type.getEvent());
+                            log.info("[{}], (re)subscribing consumers", type.getEvent());
                             publisher.publishEvent(new NatsConnectionEvent(conn, type));
                         }
                         case DISCONNECTED -> log.warn("Disconnected from NATS");
                         case CLOSED -> log.error("Connection to NATS closed");
+                        default -> log.info("NATS connection event: {}", type);
                     }
                 })
                 .build();
@@ -62,26 +63,37 @@ public class NatsConfig {
         private final Options options;
         private final ExecutorService executor = Executors.newSingleThreadExecutor();
         private final AtomicBoolean running = new AtomicBoolean(false);
-
-        @Getter
-        private volatile Connection connection;
+        private final AtomicReference<Connection> connectionAtomicReference = new AtomicReference<>();
 
         public NatsConnectionFactory(Options options) {
             this.options = options;
         }
 
+        public Connection getConnection() {
+            return connectionAtomicReference.get();
+        }
+
         @Override
         public void start() {
+            log.info("Starting NATS connection lifecycle...");
             if (running.compareAndSet(false, true)) {
-                executor.submit(this::connectWithRetry);
+                executor.submit(() -> {
+                    try {
+                        this.connectWithRetry();
+                    } catch (Exception e) {
+                        log.error("NATS connection thread crashed [{}]: {}", e.getClass().getName(), e.getMessage());
+                    }
+                });
+
             }
         }
 
         private void connectWithRetry() {
             RetryConfig config = RetryConfig.custom()
                     .maxAttempts(Integer.MAX_VALUE)
-                    .waitDuration(Duration.ofSeconds(2)) // base wait
-                    .intervalFunction(IntervalFunction.ofExponentialBackoff(2000, 2.0, 30000))
+                    .intervalFunction(
+                            IntervalFunction.ofExponentialBackoff(2000, 2.0, 30000)
+                    )
                     .retryExceptions(Exception.class) // retry on all NATS connect errors
                     .build();
 
@@ -90,17 +102,17 @@ public class NatsConfig {
             Callable<Connection> connect = Retry.decorateCallable(retry, () -> {
                 log.info("Trying to connect to NATS...");
                 Connection conn = Nats.connect(options);
-                setup(conn);
+                setupStream(conn);
                 return conn;
             });
 
-            while (running.get() && connection == null) {
+            while (running.get() && connectionAtomicReference.get() == null) {
                 try {
-                    this.connection = connect.call();
+                    this.connectionAtomicReference.set(connect.call());
                     log.info("Successfully connected to NATS");
                     break;
                 } catch (Exception e) {
-                    log.error("Failed to connect to NATS, will retry", e);
+                    log.error("Failed to connect to NATS, will retry: {}", e.getMessage());
                 }
             }
         }
@@ -108,13 +120,14 @@ public class NatsConfig {
         @Override
         public void stop() {
             if (running.compareAndSet(true, false)) {
-                if (connection != null) {
+                Connection conn = connectionAtomicReference.get();
+                if (conn != null) {
                     try {
-                        connection.close();
+                        conn.close();
                         log.info("NATS connection closed");
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        log.error("Error closing NATS connection", e);
+                        log.error("Error closing NATS connection: {}", e.getMessage());
                     }
                 }
             }
@@ -125,28 +138,30 @@ public class NatsConfig {
             return running.get();
         }
 
-        private void setup(Connection connection) throws IOException {
+        private void setupStream(Connection connection) throws IOException {
             JetStreamManagement jsm = connection.jetStreamManagement();
             try {
-                StreamInfo stream = jsm.getStreamInfo(paymentStream);
+                StreamInfo stream = jsm.getStreamInfo(PAYMENT_STREAM);
                 log.info("Stream already exists {}", stream.toString());
             } catch (JetStreamApiException e) {
                 if (e.getErrorCode() == 404) {
                     try {
                         StreamConfiguration streamConfig = StreamConfiguration.builder()
-                                .name(paymentStream)
+                                .name(PAYMENT_STREAM)
                                 .subjects("payments.*")
                                 .storageType(StorageType.Memory)
                                 .retentionPolicy(RetentionPolicy.WorkQueue)
                                 .build();
                         jsm.addStream(streamConfig);
-                        log.info("Created stream: {}", paymentStream);
+                        log.info("Created stream: {}", PAYMENT_STREAM);
                     } catch (JetStreamApiException ex) {
-                        log.error("Error creating stream: {}", paymentStream, ex);
+                        log.error("Error creating stream: {}", PAYMENT_STREAM, ex);
                     }
                 } else {
-                    log.error("Unable to create stream {}", paymentStream, e);
+                    log.error("Unable to create stream {}", PAYMENT_STREAM, e);
                 }
+            } catch (Exception e) {
+                log.error("Unable to create stream {}", PAYMENT_STREAM, e);
             }
         }
     }

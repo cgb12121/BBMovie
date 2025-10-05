@@ -5,6 +5,7 @@ import io.github.resilience4j.core.IntervalFunction;
 import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.nats.client.*;
+import lombok.extern.log4j.Log4j2;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
@@ -19,13 +20,15 @@ import java.util.concurrent.atomic.AtomicReference;
 import io.nats.client.Connection;
 import io.nats.client.Nats;
 import io.nats.client.Options;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
+@Log4j2
 @Configuration
 public class NatsConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(NatsConfig.class);
+    @Bean
+    public SmartLifecycle natsConnectionLifecycle(NatsConnectionFactory factory) {
+        return factory; // force lifecycle registration
+    }
 
     @Bean
     public NatsConnectionFactory natsConnectionFactory(ApplicationEventPublisher publisher) {
@@ -55,7 +58,7 @@ public class NatsConfig {
 
                     @Override
                     public void exceptionOccurred(Connection conn, Exception exp) {
-                        log.error("NATS exception", exp);
+                        log.error("NATS exception happened [{}]: {}", exp.getClass().getName(), exp.getMessage());
                     }
 
                     @Override
@@ -73,7 +76,6 @@ public class NatsConfig {
         private final Options options;
         private final ExecutorService executor = Executors.newSingleThreadExecutor();
         private final AtomicBoolean running = new AtomicBoolean(false);
-
         private final AtomicReference<Connection> connectionAtomicReference = new AtomicReference<>();
 
         public NatsConnectionFactory(Options options) {
@@ -86,15 +88,22 @@ public class NatsConfig {
 
         @Override
         public void start() {
+            log.info("Starting NATS connection lifecycle...");
             if (running.compareAndSet(false, true)) {
-                executor.submit(this::connectWithRetry);
+                executor.submit(() -> {
+                    try {
+                        this.connectWithRetry();
+                    } catch (Exception e) {
+                        log.error("NATS connection thread crashed [{}]: {}", e.getClass().getName(), e.getMessage());
+                    }
+                });
+
             }
         }
 
         private void connectWithRetry() {
             RetryConfig config = RetryConfig.custom()
                     .maxAttempts(Integer.MAX_VALUE) // keep retrying forever
-                    .waitDuration(Duration.ofSeconds(2)) // base wait
                     .intervalFunction(
                             IntervalFunction.ofExponentialBackoff(2000, 2.0, 30000)
                     ) // 2s -> 4s -> 8s -> ... capped at 30s
@@ -114,7 +123,7 @@ public class NatsConfig {
                     log.info("Successfully connected to NATS");
                     break;
                 } catch (Exception e) {
-                    log.error("Failed to connect to NATS, will retry", e);
+                    log.error("Failed to connect to NATS, will retry: {}", e.getMessage());
                 }
             }
         }
@@ -129,7 +138,7 @@ public class NatsConfig {
                         log.info("NATS connection closed");
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
-                        log.error("Error closing NATS connection", e);
+                        log.error("Error closing NATS connection: {}", e.getMessage());
                     }
                 }
             }

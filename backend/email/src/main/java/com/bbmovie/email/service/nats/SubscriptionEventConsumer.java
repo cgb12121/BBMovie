@@ -53,6 +53,7 @@ public class SubscriptionEventConsumer {
                         handle(subject, event, emailServiceFactory);
                     } catch (Exception e) {
                         log.error("Error while processing email for subject {}", subject, e);
+                        Thread.currentThread().interrupt();
                     } finally {
                         limit.release();
                     }

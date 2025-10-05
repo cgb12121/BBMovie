@@ -8,7 +8,6 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Component
 public class EmailServiceFactory {
@@ -41,6 +40,6 @@ public class EmailServiceFactory {
     public List<EmailService> getRotationStrategies() {
         return rotationOrder.stream()
                 .map(strategies::get)
-                .collect(Collectors.toList());
+                .toList();
     }
 }
