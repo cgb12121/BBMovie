@@ -23,13 +23,19 @@ public record PageResponse<T>(
         int totalPages = (int) Math.ceil((double) total / p.size);
 
         return new PageResponse<>(
-                items, p.index, p.size, total, totalPages,
-                p.index + 1 < totalPages, p.index > 0,
-                p.index + 1 < totalPages ? p.index + 1 : null,
-                p.index > 0 ? p.index - 1 : null
+                items,
+                p.index,
+                p.size,
+                total,
+                totalPages,
+                p.index + 1 < totalPages,
+                p.index > 0,
+                p.index + 1 < totalPages
+                        ? p.index + 1
+                        : null,
+                p.index > 0
+                        ? p.index - 1
+                        : null
         );
     }
 }
-
-
-

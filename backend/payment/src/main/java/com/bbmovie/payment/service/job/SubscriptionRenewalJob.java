@@ -47,6 +47,7 @@ public class SubscriptionRenewalJob implements Job {
         // Notify upcoming renewals (next 3 days)
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime in3Days = now.plusDays(3);
+
         for (UserSubscription sub : userSubscriptionRepository.findByIsActiveTrueAndAutoRenewTrueAndNextPaymentDateBetween(now, in3Days)) {
             try {
                 SubscriptionEvent event = new SubscriptionEvent(

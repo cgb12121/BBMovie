@@ -9,6 +9,7 @@ import io.nats.client.api.*;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.ApplicationListener;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,15 +24,32 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
 @Configuration
-public class NatsConfig {
+public class NatsConfig implements ApplicationListener<NatsConnectionEvent> {
 
     private static final String PAYMENT_STREAM = "PAYMENTS";
 
     private final ApplicationEventPublisher publisher;
+    private Connection connection;
+
+    @Bean
+    public SmartLifecycle natsLifecycle(NatsConnectionFactory factory) {
+        return factory;
+    }
 
     @Autowired
     public NatsConfig(ApplicationEventPublisher publisher) {
         this.publisher = publisher;
+    }
+
+    @Override
+    public void onApplicationEvent(NatsConnectionEvent event) {
+        try {
+            this.connection = event.connection();
+            setupStream();
+        } catch (IOException e) {
+            log.error("Failed to setup NATS stream: {}", e.getMessage());
+        }
+        log.info("JetStream initialized after NATS connection");
     }
 
     @Bean
@@ -47,7 +65,7 @@ public class NatsConfig {
                     switch (type) {
                         case CONNECTED, RECONNECTED -> {
                             log.info("[{}], (re)subscribing consumers", type.getEvent());
-                            publisher.publishEvent(new NatsConnectionEvent(conn, type));
+                            publisher.publishEvent(new NatsConnectionEvent(this, conn, type));
                         }
                         case DISCONNECTED -> log.warn("Disconnected from NATS");
                         case CLOSED -> log.error("Connection to NATS closed");
@@ -56,6 +74,33 @@ public class NatsConfig {
                 })
                 .build();
         return new NatsConnectionFactory(options);
+    }
+
+    private void setupStream() throws IOException {
+        JetStreamManagement jsm = connection.jetStreamManagement();
+        try {
+            StreamInfo stream = jsm.getStreamInfo(PAYMENT_STREAM);
+            log.info("Stream already exists {}", stream.toString());
+        } catch (JetStreamApiException e) {
+            if (e.getErrorCode() == 404) {
+                try {
+                    StreamConfiguration streamConfig = StreamConfiguration.builder()
+                            .name(PAYMENT_STREAM)
+                            .subjects("payments.*")
+                            .storageType(StorageType.Memory)
+                            .retentionPolicy(RetentionPolicy.WorkQueue)
+                            .build();
+                    jsm.addStream(streamConfig);
+                    log.info("Created stream: {}", PAYMENT_STREAM);
+                } catch (JetStreamApiException ex) {
+                    log.error("Error creating stream: {}", PAYMENT_STREAM, ex);
+                }
+            } else {
+                log.error("Unable to create stream {}", PAYMENT_STREAM, e);
+            }
+        } catch (Exception e) {
+            log.error("Unable to create stream {}", PAYMENT_STREAM, e);
+        }
     }
 
     public static class NatsConnectionFactory implements SmartLifecycle {
@@ -101,9 +146,7 @@ public class NatsConfig {
 
             Callable<Connection> connect = Retry.decorateCallable(retry, () -> {
                 log.info("Trying to connect to NATS...");
-                Connection conn = Nats.connect(options);
-                setupStream(conn);
-                return conn;
+                return Nats.connect(options);
             });
 
             while (running.get() && connectionAtomicReference.get() == null) {
@@ -136,33 +179,6 @@ public class NatsConfig {
         @Override
         public boolean isRunning() {
             return running.get();
-        }
-
-        private void setupStream(Connection connection) throws IOException {
-            JetStreamManagement jsm = connection.jetStreamManagement();
-            try {
-                StreamInfo stream = jsm.getStreamInfo(PAYMENT_STREAM);
-                log.info("Stream already exists {}", stream.toString());
-            } catch (JetStreamApiException e) {
-                if (e.getErrorCode() == 404) {
-                    try {
-                        StreamConfiguration streamConfig = StreamConfiguration.builder()
-                                .name(PAYMENT_STREAM)
-                                .subjects("payments.*")
-                                .storageType(StorageType.Memory)
-                                .retentionPolicy(RetentionPolicy.WorkQueue)
-                                .build();
-                        jsm.addStream(streamConfig);
-                        log.info("Created stream: {}", PAYMENT_STREAM);
-                    } catch (JetStreamApiException ex) {
-                        log.error("Error creating stream: {}", PAYMENT_STREAM, ex);
-                    }
-                } else {
-                    log.error("Unable to create stream {}", PAYMENT_STREAM, e);
-                }
-            } catch (Exception e) {
-                log.error("Unable to create stream {}", PAYMENT_STREAM, e);
-            }
         }
     }
 }
