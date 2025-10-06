@@ -1,9 +1,7 @@
 package com.example.bbmoviesearch.service.embedding;
 
-import java.util.List;
+import reactor.core.publisher.Mono;
 
 interface EmbeddingService {
-    float[] generateEmbedding(String text);
-
-    float[][] generateEmbeddings(List<String> texts);
+    Mono<float[]> generateEmbedding(String text);
 }

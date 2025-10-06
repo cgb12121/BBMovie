@@ -1,6 +1,6 @@
 package com.example.bbmoviesearch.config;
 
-import com.example.bbmoviesearch.service.embedding.LocalEmbeddingService;
+import com.example.bbmoviesearch.service.embedding.DjLEmbeddingService;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.embedding.*;
 import org.springframework.context.annotation.Bean;
@@ -8,19 +8,25 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.lang.NonNull;
 
 import java.util.List;
+import java.util.Objects;
 
 @Configuration
 public class VectorStoreConfig {
 
     @Bean
-    public EmbeddingModel embeddingModel(LocalEmbeddingService localEmbeddingService) {
+    public EmbeddingModel embeddingModel(DjLEmbeddingService djLEmbeddingService) {
         return new EmbeddingModel() {
             @NonNull
             @Override
             public EmbeddingResponse call(@NonNull EmbeddingRequest request) {
                 List<String> texts = request.getInstructions();
                 List<Embedding> embeddings = texts.stream()
-                        .map(text -> new Embedding(localEmbeddingService.generateEmbedding(text), text.hashCode()))
+                        .map(text -> {
+                            float[] vec = djLEmbeddingService
+                                    .generateEmbedding(text)
+                                    .block();
+                            return new Embedding(Objects.requireNonNull(vec), text.hashCode());
+                        })
                         .toList();
                 return new EmbeddingResponse(embeddings);
             }
@@ -28,20 +34,20 @@ public class VectorStoreConfig {
             @NonNull
             @Override
             public float[] embed(@NonNull String text) {
-                return localEmbeddingService.generateEmbedding(text);
+                return Objects.requireNonNull(djLEmbeddingService.generateEmbedding(text).block());
             }
 
             @NonNull
             @Override
             public float[] embed(@NonNull Document document) {
-                return localEmbeddingService.generateEmbedding(document.getFormattedContent());
+                return Objects.requireNonNull(djLEmbeddingService.generateEmbedding(document.getFormattedContent()).block());
             }
 
             @NonNull
             @Override
             public List<float[]> embed(@NonNull List<String> texts) {
                 return texts.stream()
-                        .map(localEmbeddingService::generateEmbedding)
+                        .map(t -> djLEmbeddingService.generateEmbedding(t).block())
                         .toList();
             }
 
@@ -53,7 +59,7 @@ public class VectorStoreConfig {
                     @NonNull BatchingStrategy batchingStrategy
             ) {
                 return documents.stream()
-                        .map(document -> localEmbeddingService.generateEmbedding(document.getFormattedContent()))
+                        .map(d -> djLEmbeddingService.generateEmbedding(d.getFormattedContent()).block())
                         .toList();
             }
 
