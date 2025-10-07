@@ -1,4 +1,4 @@
-package com.example.common.utils;
+package com.bbmovie.payment.utils;
 
 import jakarta.servlet.http.HttpServletRequest;
 

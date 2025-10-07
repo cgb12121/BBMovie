@@ -2,6 +2,9 @@ package com.example.bbmoviesearch.entity;
 
 import lombok.Builder;
 import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -11,8 +14,11 @@ import java.util.List;
 
 @Document(indexName = "#{@environment.getProperty('spring.ai.vectorstore.elasticsearch.index-name')}")
 @Data
+@Getter
+@Setter
 @Builder
-public class MovieVectorDocument {
+public class MovieDocument {
+    @Id
     @Field(type = FieldType.Keyword)
     private String id;
 
@@ -23,7 +29,7 @@ public class MovieVectorDocument {
     private String description;
 
     @Field(type = FieldType.Dense_Vector, dims = 384)
-    private float[] contentVector;
+    private float[] embedding;
 
     @Field(type = FieldType.Double)
     private Double rating;

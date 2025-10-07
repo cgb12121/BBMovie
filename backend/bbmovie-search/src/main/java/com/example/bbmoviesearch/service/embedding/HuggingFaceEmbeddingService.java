@@ -4,10 +4,10 @@ import com.example.bbmoviesearch.exception.EmbeddingException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.HttpServerErrorException;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
@@ -16,8 +16,18 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * @deprecated
+ *
+ *  Hugging face removed or changed the api url
+ */
 @Service
 @Log4j2
+@Deprecated(since = "1.0.0", forRemoval = true)
+@ConditionalOnMissingBean({
+        DjLEmbeddingService.class,
+        OllamaEmbeddingService.class
+})
 public class HuggingFaceEmbeddingService implements EmbeddingService {
 
     private static final int MAX_ATTEMPTS = 3;

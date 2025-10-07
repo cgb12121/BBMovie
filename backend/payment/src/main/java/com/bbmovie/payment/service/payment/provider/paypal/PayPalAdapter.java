@@ -24,7 +24,7 @@ import com.bbmovie.payment.service.SubscriptionPlanService;
 import com.bbmovie.payment.service.nats.PaymentEventProducer;
 import com.bbmovie.payment.service.payment.PricingService;
 import com.bbmovie.payment.service.PaymentRecordService;
-import com.example.common.utils.IpAddressUtils;
+import com.bbmovie.payment.utils.IpAddressUtils;
 import com.paypal.api.payments.*;
 import com.paypal.base.rest.APIContext;
 import com.paypal.base.rest.PayPalRESTException;

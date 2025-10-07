@@ -1,4 +1,4 @@
-package com.example.bbmoviesearch.config.elastic;
+package com.example.bbmoviesearch.config.ai_vector;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -16,4 +16,5 @@ public class JacksonConfig {
         objectMapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         return objectMapper;
     }
+
 }

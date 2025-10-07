@@ -23,7 +23,7 @@ import com.bbmovie.payment.service.nats.PaymentEventProducer;
 import com.bbmovie.payment.service.payment.PricingService;
 import com.bbmovie.payment.service.PaymentRecordService;
 import com.bbmovie.payment.service.i18n.PaymentI18nService;
-import com.example.common.utils.IpAddressUtils;
+import com.bbmovie.payment.utils.IpAddressUtils;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;

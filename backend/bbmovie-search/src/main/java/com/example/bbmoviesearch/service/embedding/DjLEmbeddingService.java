@@ -13,15 +13,24 @@ import ai.djl.util.cuda.CudaUtils;
 import com.example.bbmoviesearch.exception.EmbeddingException;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.log4j.Log4j2;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.lang.management.MemoryUsage;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 
 @Log4j2
 @Service
+@ConditionalOnProperty(
+        prefix = "embedding.provider.djl",
+        name = "enabled",
+        havingValue = "true"
+)
 public class DjLEmbeddingService implements AutoCloseable, EmbeddingService {
 
     private final ZooModel<String, float[]> model;
@@ -37,7 +46,6 @@ public class DjLEmbeddingService implements AutoCloseable, EmbeddingService {
     private static Device setupEngine() {
         log.info("Setup DjL Engine...");
         log.info("DjL version: {}", Engine.getDjlVersion());
-        Engine.debugEnvironment();
 
         int gpuCount = Engine.getInstance().getGpuCount();
         log.info("GPU count: {}", gpuCount);
@@ -52,8 +60,8 @@ public class DjLEmbeddingService implements AutoCloseable, EmbeddingService {
             MemoryUsage vRam = CudaUtils.getGpuMemory(device);
 
             log.info("CUDA version: {}", cudaVersion);
-            log.info("GPU v-ram: {} MB", vRam.getMax() / 1024 / 1024);
-            log.info("System's info, {}", vRam.toString());
+            log.info("GPU v-ram: {} GB", BigDecimal.valueOf(vRam.getMax())
+                    .divide(BigDecimal.valueOf(1073741824), 2, RoundingMode.FLOOR));
         } else {
             log.info("No GPU detected. Setting DjL Engine to CPU...");
             device = Device.cpu();
@@ -66,7 +74,7 @@ public class DjLEmbeddingService implements AutoCloseable, EmbeddingService {
     private static Criteria<String, float[]> setupModel(Device device) {
         Criteria<String, float[]> criteria = Criteria.builder()
                 .setTypes(String.class, float[].class)
-                .optModelUrls(ModelOptions.MULTILINGUAL_MODEL)
+                .optModelUrls(DjLModelOptions.MONOLINGUAL_ENGLISH_ONLY_MODEL.getModelUri())
                 .optEngine("PyTorch")
                 .optDevice(device)
                 .optProgress(new ProgressBar())
@@ -76,6 +84,7 @@ public class DjLEmbeddingService implements AutoCloseable, EmbeddingService {
         return criteria;
     }
 
+    @Override
     public Mono<float[]> generateEmbedding(String text) {
         return Mono.fromCallable(() -> {
                     Predictor<String, float[]> predictor = predictorThreadLocal.get();

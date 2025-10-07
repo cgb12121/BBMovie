@@ -1,4 +1,4 @@
-package com.example.bbmoviesearch.service.elasticsearch;
+package com.example.bbmoviesearch.dto;
 
 import lombok.Builder;
 import lombok.Data;
