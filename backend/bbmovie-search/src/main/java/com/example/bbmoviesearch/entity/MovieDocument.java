@@ -28,18 +28,24 @@ public class MovieDocument {
     @Field(type = FieldType.Text, analyzer = "standard")
     private String description;
 
-    @Field(type = FieldType.Dense_Vector, dims = 384)
-    private float[] embedding;
+    @Field(type = FieldType.Keyword)
+    private List<String> categories;
+
+    @Field(type = FieldType.Keyword)
+    private String country;
+
+    @Field(type = FieldType.Keyword)
+    private String type;
 
     @Field(type = FieldType.Double)
     private Double rating;
-
-    @Field(type = FieldType.Keyword)
-    private List<String> categories;
 
     @Field(type = FieldType.Keyword)
     private String posterUrl;
 
     @Field(type = FieldType.Date, storeNullValue = true)
     private LocalDateTime releaseDate;
+
+    @Field(type = FieldType.Dense_Vector, dims = 384)
+    private float[] embedding;
 }

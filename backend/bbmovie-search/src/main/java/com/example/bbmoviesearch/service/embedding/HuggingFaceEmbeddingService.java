@@ -5,7 +5,6 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -19,7 +18,7 @@ import java.util.List;
 /**
  * @deprecated
  *
- *  Hugging face removed or changed the api url
+ *  Fallback when the local model is not being used
  */
 @Service
 @Log4j2
@@ -46,10 +45,24 @@ public class HuggingFaceEmbeddingService implements EmbeddingService {
     @Override
     public Mono<float[]> generateEmbedding(String text) {
         return webClient.post()
-                .uri("/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2")
+                //The api might be changed, get the laster from hugging face if
+                .uri("https://router.huggingface.co/hf-inference/models/sentence-transformers/all-MiniLM-L6-v2/pipeline/sentence-similarity")
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
                 .bodyValue(Collections.singletonList(text))
                 .retrieve()
+                .onStatus(HttpStatusCode::is4xxClientError, response -> {
+                    log.error("HuggingFace API returned an error: {}", response.statusCode());
+                    if (response.statusCode() == HttpStatus.BAD_REQUEST) {
+                        return Mono.error(new EmbeddingException("HuggingFace API returned a bad request."));
+                    }
+                    if (response.statusCode() == HttpStatus.UNAUTHORIZED) {
+                        return Mono.error(new EmbeddingException("HuggingFace API returned an unauthorized request."));
+                    }
+                    if (response.statusCode() == HttpStatus.FORBIDDEN) {
+                        return Mono.error(new EmbeddingException("HuggingFace API returned a forbidden request."));
+                    }
+                    return Mono.error(new EmbeddingException(response.statusCode().toString()));
+                })
                 .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
                         Mono.error(new EmbeddingException("HuggingFace service unavailable.")))
                 .bodyToMono(List.class)
@@ -57,7 +70,8 @@ public class HuggingFaceEmbeddingService implements EmbeddingService {
                         Retry.backoff(MAX_ATTEMPTS, INITIAL_BACKOFF)
                                 .filter(EmbeddingException.class::isInstance)
                                 .onRetryExhaustedThrow((spec, signal) ->
-                                        new EmbeddingException("HuggingFace API failed after retries."))
+                                        new EmbeddingException("HuggingFace API failed after retries.")
+                                )
                 )
                 .map(this::parseEmbedding)
                 .doOnError(e -> log.error("Failed to generate embedding from HuggingFace", e));

@@ -33,8 +33,10 @@ public class MovieSeederService {
     private static final int SAMPLE_COUNT = 100;
 
     @EventListener
-    public void seedIfEmpty(ApplicationReadyEvent event) {
+    public void seedIfEmpty(ApplicationReadyEvent ignored) {
         try {
+            deleteIndex();
+
             if (!indexExists()) {
                 log.warn("Index '{}' not found — creating it...", indexName);
                 createIndex();
@@ -56,6 +58,11 @@ public class MovieSeederService {
         return elasticsearchClient.indices().exists(e -> e.index(indexName)).value();
     }
 
+    private void deleteIndex() throws Exception {
+        elasticsearchClient.indices().delete(d -> d.index(indexName));
+        log.info("Index '{}' deleted successfully.", indexName);
+    }
+
     private void createIndex() throws Exception {
         elasticsearchClient.indices().create(c -> c
                 .index(indexName)
@@ -69,6 +76,7 @@ public class MovieSeederService {
                         .properties("description", p -> p.text(t -> t.analyzer("standard")))
                         .properties("categories", p -> p.keyword(k -> k))
                         .properties("posterUrl", p -> p.keyword(k -> k))
+                        .properties("type", p -> p.keyword(k -> k))
                         .properties("rating", p -> p.double_(d -> d))
                         .properties("releaseDate", p -> p.date(d -> d))
                         .properties("embedding", p -> p.denseVector(v -> v
@@ -85,7 +93,6 @@ public class MovieSeederService {
         );
         log.info("Index '{}' created successfully.", indexName);
     }
-
 
     private boolean isIndexEmpty() throws IOException {
         SearchResponse<Void> response = elasticsearchClient.search(s -> s
@@ -119,6 +126,7 @@ public class MovieSeederService {
 
     private List<MovieDocument> generateSampleMovies() {
         String[] sampleCategories = {"Action", "Drama", "Comedy", "Sci-Fi", "Romance", "Thriller", "Fantasy"};
+        String[] movieTypes = {"movie", "series"};
         List<MovieDocument> list = new ArrayList<>();
 
         IntStream.range(0, SAMPLE_COUNT).forEach(i -> {
@@ -127,6 +135,8 @@ public class MovieSeederService {
             List<String> categories = List.of(
                     sampleCategories[ThreadLocalRandom.current().nextInt(sampleCategories.length)]
             );
+            String types = movieTypes[ThreadLocalRandom.current().nextInt(movieTypes.length)];
+
             double rating = ThreadLocalRandom.current().nextDouble(1, 5);
             String posterUrl = "https://picsum.photos/seed/" + i + "/200/300";
             LocalDateTime releaseDate = LocalDateTime.now().minusDays(ThreadLocalRandom.current().nextInt(0, 2000));
@@ -139,6 +149,7 @@ public class MovieSeederService {
                     .title(title)
                     .description(description)
                     .embedding(embedding)
+                    .type(types)
                     .rating(rating)
                     .categories(categories)
                     .posterUrl(posterUrl)

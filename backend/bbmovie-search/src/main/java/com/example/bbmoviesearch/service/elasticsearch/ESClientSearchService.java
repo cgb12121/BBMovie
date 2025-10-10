@@ -1,8 +1,9 @@
 package com.example.bbmoviesearch.service.elasticsearch;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import co.elastic.clients.elasticsearch._types.FieldSort;
-import co.elastic.clients.elasticsearch._types.SortOrder;
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
+import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.example.bbmoviesearch.dto.PageResponse;
@@ -30,7 +31,8 @@ public class ESClientSearchService implements SearchService {
     @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
     private String indexName;
 
-    private static final String EMBEDDING_FIELD = "embedding";
+    @Value("${spring.ai.vectorstore.elasticsearch.embedding-field}")
+    private String embeddingField;
 
     @Autowired
     public ESClientSearchService(ElasticsearchClient elasticsearchClient, EmbeddingService embeddingService) {
@@ -41,78 +43,124 @@ public class ESClientSearchService implements SearchService {
     @Override
     public <T> Mono<PageResponse<T>> getAllMovies(int page, int size, int age, String region, Class<T> clazz) {
         return Mono.fromCallable(() -> {
-            int from = page * size;
+                    int from = page * size;
 
-            SearchResponse<T> response = elasticsearchClient.search(searchRequest -> searchRequest
-                            .index(indexName)
-                            .query(q -> q.matchAll(m -> m))
-                            .from(from)
-                            .size(size)
-                            .source(src -> src
-                                    .filter(f -> f
-                                            .excludes(EMBEDDING_FIELD)
-                                    )
-                            )
-                            .size(1000),
-                    clazz);
+                    BoolQuery boolQuery = buildFilter(age, region);
+                    boolean hasFilters = !boolQuery.must().isEmpty() || !boolQuery.filter().isEmpty();
 
-            long totalItems = response.hits().total() != null
-                    ? response.hits().total().value()
-                    : 0;
-            int totalPages = (int) Math.ceil((double) totalItems / size);
+                    SearchResponse<T> response = elasticsearchClient.search(searchRequest -> searchRequest
+                                    .index(indexName)
+                                    .query(hasFilters ? q -> q.bool(boolQuery) : q -> q.matchAll(m -> m))  // Conditional to avoid empty bool
+                                    .from(from)
+                                    .size(size)  // FIXED: Only this size—no override
+                                    .source(src -> src
+                                            .filter(f -> f.excludes(embeddingField))
+                                    ),
+                            clazz);
 
-            List<T> items = response
-                    .hits()
-                    .hits()
-                    .stream()
-                    .map(Hit::source)
-                    .toList();
+                    long totalItems = response.hits().total() != null
+                            ? response.hits().total().value()
+                            : 0;
+                    int totalPages = (int) Math.ceil((double) totalItems / size);
 
-            return new PageResponse<>(
-                    items,
-                    page,
-                    size,
-                    totalItems,
-                    totalPages,
-                    page + 1 < totalPages,
-                    page > 0,
-                    page + 1 < totalPages ? page + 1 : null,
-                    page > 0 ? page - 1 : null
-            );
-        })
-        .doOnError(log::error);
+                    List<T> items = response
+                            .hits()
+                            .hits()
+                            .stream()
+                            .map(Hit::source)
+                            .toList();
+
+                    return new PageResponse<>(
+                            items,
+                            page,
+                            size,
+                            totalItems,
+                            totalPages,
+                            page + 1 < totalPages,
+                            page > 0,
+                            page + 1 < totalPages ? page + 1 : null,
+                            page > 0 ? page - 1 : null
+                    );
+                })
+                .onErrorResume(ElasticsearchException.class, e -> {
+                    log.error("ES all-movies search failed: {}", e.getMessage(), e);
+                    return Mono.just(new PageResponse<>(
+                            List.of(),
+                            page,
+                            size,
+                            0L,
+                            1,
+                            false,
+                            false,
+                            null,
+                            null
+                    ));
+                });
     }
 
-    //TODO: fix error that pagination only work for page=0
+    private BoolQuery buildFilter(int age, String region) {
+        BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
+        if (age > 0) {
+            boolBuilder.must(m -> m.range(r -> r.term(t -> t
+                            .field("ageRating")
+                            .lte(String.valueOf(age)))
+            ));
+        }
+        if (region != null && !region.isEmpty()) {
+            boolBuilder.filter(f -> f.term(t -> t
+                    .field("region")
+                    .value(region)
+            ));
+        }
+        return boolBuilder.build();
+    }
+
     @Override
     public <T> Mono<PageResponse<T>> searchSimilar(SearchCriteria criteria, Class<T> clazz) {
         return embeddingService.generateEmbedding(criteria.getQuery())
                 .flatMap(vector -> Mono.fromCallable(() -> {
                     List<Float> queryVector = convertToFloatList(vector);
-                    log.info("Generated embedding for query: {}", vector.length);
-                    log.info("Embedding: {}", queryVector.size());
+
                     int from = criteria.getPage() * criteria.getSize();
+                    int k = Math.min(1000, criteria.getSize() * 10); //take more hits for manual pagination
+                    int numCandidates = Math.max(k * 2, criteria.getSize() * 20);
 
                     SearchResponse<T> response = elasticsearchClient.search(s -> s
                                     .index(indexName)
                                     .knn(knn -> knn
-                                            .field(EMBEDDING_FIELD)
+                                            .field(embeddingField)
                                             .queryVector(queryVector)
-                                            .k(criteria.getSize())
-                                            .numCandidates(criteria.getSize() * 2)
+                                            .k(k)
+                                            .numCandidates(numCandidates)
+                                            .filter(f -> f.term(t -> {
+                                                    if (criteria.getType() != null) {
+                                                        return QueryBuilders.term()
+                                                                .field("type")
+                                                                .value(criteria.getType().get());
+                                                    }
+                                                    return t;
+                                            }))
                                     )
-//                                    .sort(sort -> t.field(
-//                                            f -> {
-//                                                //TODO: create sort properly
-//                                                FieldSort.Builder sort = new FieldSort.Builder();
-//                                                        sort.field("rating").order(SortOrder.Desc);
-//                                                        sort.field("releaseDate").order(SortOrder.Desc);
-//                                                return sort;
-//                                            }
-//                                    ))
+                                    .sort(sort -> sort.field(
+                                            f -> {
+                                                if (criteria.getFilterBy() != null ) {
+                                                    // just apply only 1 option for FilterBy
+                                                    switch (criteria.getFilterBy()) {
+                                                        case newest -> f.field("releaseDate");
+                                                        case rating -> f.field("rating");
+                                                        case most_view -> f.field("viewCount");
+                                                    }
+                                                }
+
+                                                if (criteria.getSortOrder() != null) {
+                                                    f.order(criteria.getSortOrder().get());
+                                                }
+                                                return f;
+                                            }
+                                    ))
                                     .from(from)
                                     .size(criteria.getSize())
-                                    .source(src -> src.filter(f -> f.excludes(EMBEDDING_FIELD))),
+                                    .source(src -> src.filter(f -> f.excludes(embeddingField))),
                             clazz);
 
                     long totalItems = response.hits().total() != null
@@ -136,7 +184,10 @@ public class ESClientSearchService implements SearchService {
                             criteria.getPage() + 1 < totalPages ? criteria.getPage() + 1 : null,
                             criteria.getPage() > 0 ? criteria.getPage() - 1 : null
                         );
-                    }).doOnError(log::error)
-                );
+                    })
+                    .onErrorResume(ElasticsearchException.class, e -> {
+                        log.error("ES kNN search failed: {}", e.getMessage(), e);
+                        return Mono.just(new PageResponse<>());
+                    }));
     }
 }

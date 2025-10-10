@@ -12,7 +12,6 @@ public class WebClientConfig {
     @Bean
     public WebClient huggingFaceWebClient(WebClient.Builder builder) {
         return builder
-                .baseUrl("https://api-inference.huggingface.co")
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }

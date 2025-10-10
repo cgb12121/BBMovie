@@ -12,4 +12,8 @@ public record PageResponse<T>(
         boolean hasPrevious,
         Integer nextPage,
         Integer prevPage
-) { }
+) {
+    public PageResponse() {
+        this(List.of(), 0, 0, 0L, 1, false, false, null, null);
+    }
+}
