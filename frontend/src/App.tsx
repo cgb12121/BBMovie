@@ -29,14 +29,12 @@ const MainLayout: React.FC = () => {
 
 const App: React.FC = () => {
    return (
-    <MfaProvider>
        <ConfigProvider theme={{ token: { colorPrimary: '#1890ff', borderRadius: 4 } }}>
          <Router>
           <GlobalStyles />
             <MainLayout/>
         </Router>
       </ConfigProvider>
-    </MfaProvider>
   );
 };
 

@@ -40,7 +40,10 @@ export const getTokenExpiry = (token: string): number | null => {
 export const isTokenExpired = (token: string): boolean => {
     const expiry = getTokenExpiry(token);
     if (!expiry) return false;
-    return expiry <= Date.now();
+
+    const LEEWAY_IN_MILLISECONDS = 6000;
+
+    return expiry - LEEWAY_IN_MILLISECONDS <= Date.now();
 };
 
 export const getAccessToken = (): string | null => {

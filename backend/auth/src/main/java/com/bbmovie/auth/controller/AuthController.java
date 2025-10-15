@@ -69,7 +69,7 @@ public class AuthController implements AuthControllerOpenApi {
         return ResponseEntity.ok(refreshTokenService.refreshAccessToken(oldAccessToken));
     }
 
-    @PostMapping("/v2/access-token")
+    @PostMapping("/access-token")
     public ResponseEntity<ApiResponse<AccessTokenResponse>> getAccessTokenV1(@RequestHeader(value = "Authorization") String oldBearerToken) {
         String oldAccessToken = oldBearerToken;
         if (oldBearerToken.startsWith("Bearer ")) {
@@ -78,7 +78,7 @@ public class AuthController implements AuthControllerOpenApi {
         return ResponseEntity.ok(ApiResponse.success(new AccessTokenResponse(refreshTokenService.refreshAccessToken(oldAccessToken))));
     }
 
-    @PostMapping("/v2/logout")
+    @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
             @RequestHeader(value = "Authorization") String tokenHeader,
             @AuthenticationPrincipal Authentication authentication,

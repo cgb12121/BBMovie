@@ -212,7 +212,7 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
                 ResponseCookie.from("accessToken", accessToken)
                         .httpOnly(true)
                         .secure(false) //set to true when using https
-                        .sameSite("Strict")
+                        .sameSite("None") //Gateway redirect will break SameSite=Strict
                         .path("/")
                         .maxAge(Duration.ofMinutes(15))
                         .build()

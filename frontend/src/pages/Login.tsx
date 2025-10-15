@@ -44,6 +44,7 @@ import {
 } from "../styles/LoginStyles"
 import { useDispatch } from "react-redux"
 import { setCredentials } from "../redux/authSlice"
+import authService from "../services/authService"
 
 interface LoginFormData {
   email: string
@@ -112,36 +113,57 @@ const Login: React.FC = () => {
   }, [status, messageFromQuery, hasHandledOAuthRedirect, navigate]);
   
   const onFinish = async (values: LoginFormData) => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
   
     try {
-      const { data } = await api.post("/api/auth/login", values)
-      onLoginSuccess(data.data)
+      const response = await authService.getInstance().login(values);
+      if (response.success) {
+        const { userResponse, authResponse, userAgentResponse } = response.data;
+        dispatch(setCredentials({ user: userResponse, auth: authResponse, userAgent: userAgentResponse }));
+        navigate("/");
+      } else {
+        setError(response.message || "Login failed");
+      }
     } catch (err: any) {
       console.error(err);
-      const msg = err?.response?.data?.message ?? "Login failed. Please check your credentials."
-      setError(msg)
+      const msg = err?.response?.data?.message ?? "Login failed. Please check your credentials.";
+      setError(msg);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const onLoginSuccess = (userData: any) => {
-    const { userResponse, authResponse, userAgentResponse } = userData
-
-    // Save to Redux
-    dispatch(setCredentials({ user: userResponse, auth: authResponse, userAgent: userAgentResponse }))  
-
-    // Save to localStorage
-    localStorage.setItem("user", JSON.stringify(userResponse))
-    localStorage.setItem("auth", JSON.stringify(authResponse))
-    localStorage.setItem("userAgent", JSON.stringify(userAgentResponse))
-    // keep single accessToken for components still reading it
-    if (authResponse?.accessToken) {
-      localStorage.setItem('accessToken', authResponse.accessToken)
+    const { userResponse, authResponse, userAgentResponse } = userData;
+  
+    // Validate required data
+    if (!authResponse?.accessToken) {
+      setError("Invalid login response: missing access token");
+      return;
     }
-    navigate("/")
+  
+    const auth = authService.getInstance();
+    
+    auth.setTokens(authResponse.accessToken);
+    if (userAgentResponse) {
+      auth.setDeviceInfo(userAgentResponse);
+    }
+  
+    dispatch(setCredentials({ 
+      user: userResponse, 
+      auth: authResponse, 
+      userAgent: userAgentResponse 
+    }));  
+  
+    localStorage.setItem("user", JSON.stringify(userResponse));
+    localStorage.setItem("auth", JSON.stringify(authResponse));
+    localStorage.setItem("userAgent", JSON.stringify(userAgentResponse));
+    localStorage.setItem("accessToken", authResponse.accessToken);
+  
+    setTimeout(() => {
+      navigate("/", { replace: true });
+    }, 100);
   }
 
   const handleSocialLogin = (provider: string) => {
@@ -188,7 +210,7 @@ const Login: React.FC = () => {
             <Form
               form={form}
               name="login"
-              onFinish={onFinish}
+              onFinish={onFinish}you
               layout="vertical"
               size="large"
               // initialValues={{ remember: false }}

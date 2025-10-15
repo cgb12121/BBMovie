@@ -3,7 +3,6 @@ package com.example.bbmoviesearch.service.elasticsearch;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
 import com.example.bbmoviesearch.dto.PageResponse;
@@ -127,20 +126,20 @@ public class ESClientSearchService implements SearchService {
 
                     SearchResponse<T> response = elasticsearchClient.search(s -> s
                                     .index(indexName)
-                                    .knn(knn -> knn
-                                            .field(embeddingField)
-                                            .queryVector(queryVector)
-                                            .k(k)
-                                            .numCandidates(numCandidates)
-                                            .filter(f -> f.term(t -> {
-                                                    if (criteria.getType() != null) {
-                                                        return QueryBuilders.term()
-                                                                .field("type")
-                                                                .value(criteria.getType().get());
-                                                    }
-                                                    return t;
-                                            }))
-                                    )
+                                    .knn(knn -> {
+                                        knn.field(embeddingField)
+                                                .queryVector(queryVector)
+                                                .k(k)
+                                                .numCandidates(numCandidates);
+
+                                        if (criteria.getType() != null) {
+                                            knn.filter(f -> f.term(t -> t
+                                                    .field("type")
+                                                    .value(criteria.getType().get())
+                                            ));
+                                        }
+                                        return knn;
+                                    })
                                     .sort(sort -> sort.field(
                                             f -> {
                                                 if (criteria.getFilterBy() != null ) {
