@@ -8,7 +8,7 @@
         <version>3.4.4</version>
         <relativePath/>
     </parent>
-    <groupId>com.example</groupId>
+    <groupId>com.bbmovie</groupId>
     <artifactId>bbmovie-search</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>bbmovie</name>
