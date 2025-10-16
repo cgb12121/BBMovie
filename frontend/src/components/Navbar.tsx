@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import SearchBar from './SearchBar';
-import { Logo, Nav, NavLinks, SearchContainer } from '../styles/NavbarStyles';
 import { useSelector } from 'react-redux';
 import { RootState } from '../redux/store';
 import UserMenu from './UserMenu';
 import AuthLinks from './AuthLinks';
-import { CloudUpload, Folder } from '@mui/icons-material';
+import { Search, Bell } from 'lucide-react';
+import { Button } from './ui/button';
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
   const [searchLoading, setSearchLoading] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   const user = useSelector((state: RootState) => state.auth.user);
   const isAuthenticated = !!useSelector((state: RootState) => state.auth.auth?.accessToken);
@@ -22,45 +23,115 @@ const Navbar: React.FC = () => {
     setSearchLoading(true);
     navigate(`/search?query=${encodeURIComponent(query)}&limit=${limit}`);
     setSearchLoading(false);
+    setShowSearch(false);
   };
 
   return (
-    <Nav>
-      <Logo to="/">BBMovie</Logo>
-
-      <SearchContainer>
-        <SearchBar
-          placeholder="Search movies, categories..."
-          onSearch={handleSearch}
-          loading={searchLoading}
-        />
-      </SearchContainer>
-
-      <NavLinks>
-        <NavLink to="/movies">Movies</NavLink>
-        <NavLink to="/categories">Categories</NavLink>
-        {role === 'ROLE_ADMIN' || role === 'ROLE_SUPER_ADMIN' ? (
-          <NavLink to="/jose-debug">JOSE Debug</NavLink>
-        ) : null}
-        {isAuthenticated ? (
-          <UserMenu />
-        ) : (
-          <AuthLinks />
-        )}
-        {isAuthenticated && (
-          <>
-            <NavLink to="/watchlist">Watchlist</NavLink>
-            <NavLink to="/subscriptions">Subscriptions</NavLink>
-            <NavLink to="/upload" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <CloudUpload /> File Upload
+    <header className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-b from-black via-black/95 to-transparent">
+      <div className="px-4 md:px-12 py-4">
+        <div className="flex items-center justify-between gap-8">
+          {/* Logo and Nav Links */}
+          <div className="flex items-center gap-8">
+            <NavLink 
+              to="/"
+              className="text-red-600 text-2xl font-bold tracking-wider hover:text-red-500 transition-colors"
+            >
+              BBMOVIE
             </NavLink>
-            <NavLink to="/files" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Folder /> File Management
-            </NavLink>
-          </>
-        )}
-      </NavLinks>
-    </Nav>
+            <nav className="hidden md:flex items-center gap-6">
+              <NavLink
+                to="/"
+                className={({ isActive }) => 
+                  `text-sm transition-colors hover:text-gray-300 ${
+                    isActive ? 'text-white font-semibold' : 'text-gray-400'
+                  }`
+                }
+              >
+                Home
+              </NavLink>
+              <NavLink
+                to="/movies"
+                className={({ isActive }) => 
+                  `text-sm transition-colors hover:text-gray-300 ${
+                    isActive ? 'text-white font-semibold' : 'text-gray-400'
+                  }`
+                }
+              >
+                Movies
+              </NavLink>
+              <NavLink
+                to="/categories"
+                className={({ isActive }) => 
+                  `text-sm transition-colors hover:text-gray-300 ${
+                    isActive ? 'text-white font-semibold' : 'text-gray-400'
+                  }`
+                }
+              >
+                Categories
+              </NavLink>
+              {isAuthenticated && (
+                <>
+                  <NavLink
+                    to="/watchlist"
+                    className={({ isActive }) => 
+                      `text-sm transition-colors hover:text-gray-300 ${
+                        isActive ? 'text-white font-semibold' : 'text-gray-400'
+                      }`
+                    }
+                  >
+                    My List
+                  </NavLink>
+                  <NavLink
+                    to="/subscriptions"
+                    className={({ isActive }) => 
+                      `text-sm transition-colors hover:text-gray-300 ${
+                        isActive ? 'text-white font-semibold' : 'text-gray-400'
+                      }`
+                    }
+                  >
+                    Plans
+                  </NavLink>
+                </>
+              )}
+            </nav>
+          </div>
+
+          {/* Right Side - Search, Notifications, User */}
+          <div className="flex items-center gap-4">
+            {showSearch ? (
+              <div className="w-64">
+                <SearchBar
+                  placeholder="Search movies..."
+                  onSearch={handleSearch}
+                  loading={searchLoading}
+                />
+              </div>
+            ) : (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="text-white hover:text-gray-300"
+                onClick={() => setShowSearch(true)}
+              >
+                <Search className="h-5 w-5" />
+              </Button>
+            )}
+            
+            {isAuthenticated && (
+              <Button variant="ghost" size="icon" className="text-white hover:text-gray-300">
+                <Bell className="h-5 w-5" />
+              </Button>
+            )}
+            
+            {isAuthenticated ? (
+              <UserMenu />
+            ) : (
+              <AuthLinks />
+            )}
+          </div>
+        </div>
+      </div>
+    </header>
   );
 };
 

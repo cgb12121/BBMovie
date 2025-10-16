@@ -1,23 +1,12 @@
 // frontend/src/pages/Watchlist.tsx
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-    Button,
-    Card,
-    Col,
-    Empty,
-    Form,
-    Input,
-    List,
-    message,
-    Modal,
-    Row,
-    Select,
-    Space,
-    Spin,
-    Tag,
-    Typography
-} from 'antd';
-import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
+import { useNavigate } from 'react-router-dom';
+import { Play, Plus, Edit, Trash2 } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { ImageWithFallback } from '../components/ImageWithFallback';
+import { message, Modal, Form, Input, Select } from 'antd';
 import watchlistService, {
     CreateCollectionRequest,
     Page,
@@ -26,8 +15,6 @@ import watchlistService, {
     WatchlistCollection,
     WatchlistItem
 } from '../services/watchlistService';
-
-const { Title, Paragraph, Text } = Typography;
 
 type CollectionsState = Page<WatchlistCollection> & { loading: boolean };
 
@@ -218,141 +205,153 @@ const Watchlist: React.FC = () => {
         });
     };
 
-    const renderCollections = () => {
-        if (collections.loading) {
-            return <Spin />;
-        }
 
-        if (collections.content.length === 0) {
-            return <Empty description="No collections yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
-        }
-
-        return (
-            <List
-                dataSource={collections.content}
-                renderItem={(collection) => (
-                    <List.Item
-                        key={collection.id}
-                        onClick={() => setSelectedCollection(collection)}
-                        className={selectedCollection?.id === collection.id ? 'collection-item active' : 'collection-item'}
-                        style={{ cursor: 'pointer' }}
-                    >
-                        <List.Item.Meta
-                            title={
-                                <Space>
-                                    <Text strong>{collection.name}</Text>
-                                    <Tag color={collection.isPublic ? 'green' : 'default'}>
-                                        {collection.isPublic ? 'Public' : 'Private'}
-                                    </Tag>
-                                </Space>
-                            }
-                            description={collection.description}
-                        />
-                        <Space>
-                            <Button
-                                type="text"
-                                icon={<EditOutlined />}
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    openEditCollectionModal(collection);
-                                }}
-                            />
-                            <Button
-                                type="text"
-                                danger
-                                icon={<DeleteOutlined />}
-                                onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleDeleteCollection(collection);
-                                }}
-                            />
-                        </Space>
-                    </List.Item>
-                )}
-            />
-        );
-    };
-
-    const renderItems = () => {
-        if (!selectedCollection) {
-            return <Empty description="Select a collection to view movies" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
-        }
-
-        if (items.loading) {
-            return <Spin />;
-        }
-
-        if (!items.response || items.response.content.length === 0) {
-            return <Empty description="No movies in this collection yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
-        }
-
-        return (
-            <List
-                dataSource={items.response.content}
-                renderItem={(item) => (
-                    <Card
-                        key={item.id}
-                        type="inner"
-                        title={item.movieId}
-                        extra={
-                            <Space>
-                                <Button type="link" onClick={() => openEditItemModal(item)}>
-                                    Edit
-                                </Button>
-                                <Button type="link" danger onClick={() => handleDeleteItem(item)}>
-                                    Remove
-                                </Button>
-                            </Space>
-                        }
-                        style={{ marginBottom: '1rem' }}
-                    >
-                        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                            <Tag color={statusColorMap[item.status] || 'default'}>{item.status}</Tag>
-                            {item.notes && <Paragraph>{item.notes}</Paragraph>}
-                            <Text type="secondary">Added: {new Date(item.addedAt).toLocaleString()}</Text>
-                        </Space>
-                    </Card>
-                )}
-            />
-        );
-    };
+    const navigate = useNavigate();
 
     return (
-        <div style={{ padding: '2rem', minHeight: '100vh' }}>
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
+        <div className="min-h-screen bg-black pt-20 pb-12 px-4 md:px-12">
+            <div className="max-w-7xl mx-auto space-y-8">
+                {/* Header */}
+                <div className="flex items-center justify-between">
                     <div>
-                        <Title level={2}>My Watchlists</Title>
-                        <Paragraph type="secondary">
-                            Organise your favourite movies into collections, track progress, and add personal notes.
-                        </Paragraph>
+                        <h1 className="text-white text-4xl font-bold">My Watchlist</h1>
+                        <p className="text-gray-400 mt-2">
+                            Organize your favourite movies into collections and track your progress
+                        </p>
                     </div>
-                    <Button type="primary" icon={<PlusOutlined />} onClick={openCreateCollectionModal}>
+                    <Button onClick={openCreateCollectionModal} className="bg-red-600 hover:bg-red-700 text-white gap-2">
+                        <Plus className="h-4 w-4" />
                         New Collection
                     </Button>
-                </Space>
+                </div>
 
-                <Row gutter={24}>
-                    <Col xs={24} md={8}>
-                        <Card title="Collections" bordered>
-                            {renderCollections()}
+                <div className="grid md:grid-cols-4 gap-6">
+                    {/* Collections Sidebar */}
+                    <div className="md:col-span-1">
+                        <Card className="bg-gray-900 border-gray-800">
+                            <CardHeader>
+                                <CardTitle className="text-white">Collections</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-2">
+                                {collections.loading ? (
+                                    <div className="text-center text-gray-400">Loading...</div>
+                                ) : collections.content.length === 0 ? (
+                                    <div className="text-center text-gray-400 py-4">No collections yet</div>
+                                ) : (
+                                    collections.content.map((collection) => (
+                                        <div
+                                            key={collection.id}
+                                            onClick={() => setSelectedCollection(collection)}
+                                            className={`p-3 rounded-md cursor-pointer transition-colors ${
+                                                selectedCollection?.id === collection.id
+                                                    ? 'bg-red-600 text-white'
+                                                    : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <span className="font-medium truncate">{collection.name}</span>
+                                                <div className="flex gap-1">
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openEditCollectionModal(collection);
+                                                        }}
+                                                        className="p-1 hover:bg-gray-600 rounded"
+                                                    >
+                                                        <Edit className="h-3 w-3" />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleDeleteCollection(collection);
+                                                        }}
+                                                        className="p-1 hover:bg-gray-600 rounded"
+                                                    >
+                                                        <Trash2 className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            {collection.description && (
+                                                <p className="text-xs mt-1 truncate opacity-75">{collection.description}</p>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                            </CardContent>
                         </Card>
-                    </Col>
-                    <Col xs={24} md={16}>
-                        <Card
-                            title={selectedCollection ? selectedCollection.name : 'Select a collection'}
-                            bordered
-                            extra={selectedCollection && (
-                                <Button type="primary" onClick={openCreateItemModal}>
-                                    Add Movie
-                                </Button>
-                            )}
-                        >
-                            {renderItems()}
+                    </div>
+
+                    {/* Movies Grid */}
+                    <div className="md:col-span-3">
+                        <Card className="bg-gray-900 border-gray-800">
+                            <CardHeader className="flex flex-row items-center justify-between">
+                                <div>
+                                    <CardTitle className="text-white">
+                                        {selectedCollection ? selectedCollection.name : 'Select a collection'}
+                                    </CardTitle>
+                                    {selectedCollection?.description && (
+                                        <CardDescription>{selectedCollection.description}</CardDescription>
+                                    )}
+                                </div>
+                                {selectedCollection && (
+                                    <Button onClick={openCreateItemModal} className="bg-red-600 hover:bg-red-700 text-white">
+                                        Add Movie
+                                    </Button>
+                                )}
+                            </CardHeader>
+                            <CardContent>
+                                {!selectedCollection ? (
+                                    <div className="text-center text-gray-400 py-12">
+                                        Select a collection to view movies
+                                    </div>
+                                ) : items.loading ? (
+                                    <div className="text-center text-gray-400 py-12">Loading movies...</div>
+                                ) : !items.response || items.response.content.length === 0 ? (
+                                    <div className="text-center text-gray-400 py-12">
+                                        No movies in this collection yet
+                                    </div>
+                                ) : (
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                                        {items.response.content.map((item) => (
+                                            <div key={item.id} className="group relative">
+                                                <div className="aspect-[2/3] bg-gray-800 rounded-md overflow-hidden">
+                                                    <div className="w-full h-full flex items-center justify-center text-gray-500">
+                                                        Movie {item.movieId}
+                                                    </div>
+                                                </div>
+                                                <div className="mt-2 space-y-1">
+                                                    <Badge className={`${
+                                                        item.status === 'COMPLETED' ? 'bg-green-600' :
+                                                        item.status === 'WATCHING' ? 'bg-blue-600' :
+                                                        item.status === 'PLAN_TO_WATCH' ? 'bg-yellow-600' :
+                                                        'bg-red-600'
+                                                    } text-white text-xs`}>
+                                                        {item.status.replace('_', ' ')}
+                                                    </Badge>
+                                                    <div className="flex gap-1 mt-2">
+                                                        <button
+                                                            onClick={() => openEditItemModal(item)}
+                                                            className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-xs py-1 px-2 rounded"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDeleteItem(item)}
+                                                            className="flex-1 bg-gray-800 hover:bg-gray-700 text-white text-xs py-1 px-2 rounded"
+                                                        >
+                                                            Remove
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </CardContent>
                         </Card>
-                    </Col>
-                </Row>
-            </Space>
+                    </div>
+                </div>
+            </div>
 
             <Modal
                 title={editingCollection ? 'Edit collection' : 'New collection'}

@@ -1,32 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-    Alert,
-    Button,
-    Card,
-    Col,
-    Descriptions,
-    Empty,
-    Form,
-    Input,
-    List,
-    message,
-    Modal,
-    Row,
-    Select,
-    Space,
-    Spin,
-    Statistic,
-    Switch,
-    Tag,
-    Tooltip,
-    Typography
-} from 'antd';
-import {
-    DollarCircleOutlined,
-    ReloadOutlined,
-    ShoppingCartOutlined,
-    StopOutlined
-} from '@ant-design/icons';
+import { Check } from 'lucide-react';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { message, Switch, Modal, Form, Input, Alert, Col, Descriptions, Empty, List, Row, Select, Space, Spin, Statistic, Tag, Tooltip } from 'antd';
 import paymentService, {
     CancelSubscriptionRequest,
     PAYMENT_PROVIDERS,
@@ -34,8 +11,9 @@ import paymentService, {
     SubscriptionPaymentRequest,
     UserSubscription
 } from '../services/paymentService';
-
-const { Title, Paragraph, Text } = Typography;
+import { DollarCircleOutlined, StopOutlined, ReloadOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { Title } from '@mui/icons-material';
+import Paragraph from 'antd/es/skeleton/Paragraph';
 
 const billingCycleOptions = [
     { label: 'Monthly', value: 'MONTHLY' },
@@ -192,194 +170,223 @@ const Subscriptions: React.FC = () => {
 
     const renderPlanCard = (plan: SubscriptionPlan) => {
         const isSelected = plan.id === selectedPlanId;
+        const isRecommended = plan.planType === 'PREMIUM' || plan.name.toLowerCase().includes('premium');
+        
         return (
             <Card
                 key={plan.id}
-                hoverable
+                className={`relative bg-gray-900 border-2 transition-all hover:scale-105 cursor-pointer ${
+                    isSelected || isRecommended
+                        ? 'border-red-600 shadow-lg shadow-red-600/20'
+                        : 'border-gray-800'
+                }`}
                 onClick={() => setSelectedPlanId(plan.id)}
-                className={isSelected ? 'plan-card selected' : 'plan-card'}
-                style={{ borderColor: isSelected ? '#E50914' : undefined }}
             >
-                <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                    <Title level={4} style={{ margin: 0 }}>{plan.name}</Title>
-                    <Tag color="volcano">{plan.planType}</Tag>
-                    <Statistic
-                        prefix={<DollarCircleOutlined />}
-                        title="Monthly Price"
-                        value={plan.monthlyPrice}
-                        precision={2}
-                        suffix={plan.currency}
-                    />
-                    {plan.annualFinalPrice && (
-                        <Statistic
-                            title="Annual Price"
-                            value={plan.annualFinalPrice}
-                            precision={2}
-                            suffix={plan.currency}
-                        />
-                    )}
-                    {plan.annualDiscountPercent && plan.annualDiscountPercent > 0 && (
-                        <Alert
-                            type="success"
-                            message={`Save ${plan.annualDiscountPercent}% on annual billing`}
-                            showIcon
-                        />
-                    )}
-                    {plan.features.length > 0 ? (
-                        <List
-                            size="small"
-                            dataSource={plan.features}
-                            renderItem={(feature) => <List.Item>{feature}</List.Item>}
-                        />
-                    ) : (
-                        <Paragraph type="secondary">No feature list provided.</Paragraph>
-                    )}
-                    <Button type={isSelected ? 'primary' : 'default'} block>
-                        {isSelected ? 'Selected' : 'Choose Plan'}
+                {isRecommended && (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2">
+                        <Badge className="bg-red-600 text-white px-4 py-1">
+                            Most Popular
+                        </Badge>
+                    </div>
+                )}
+                <CardHeader className="text-center space-y-2">
+                    <CardTitle className="text-white text-2xl">{plan.name}</CardTitle>
+                    <CardDescription>{plan.planType}</CardDescription>
+                    <div className="pt-4">
+                        <span className="text-white text-4xl">${plan.monthlyPrice}</span>
+                        <span className="text-gray-400">/month</span>
+                    </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <ul className="space-y-3">
+                        {plan.features.map((feature, index) => (
+                            <li key={index} className="flex items-start gap-3">
+                                <Check className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                                <span className="text-gray-300 text-sm">{feature}</span>
+                            </li>
+                        ))}
+                    </ul>
+                </CardContent>
+                <CardFooter>
+                    <Button
+                        className={`w-full ${
+                            isSelected || isRecommended
+                                ? 'bg-red-600 hover:bg-red-700 text-white'
+                                : 'bg-gray-700 hover:bg-gray-600 text-white'
+                        }`}
+                        size="lg"
+                        onClick={() => setSelectedPlanId(plan.id)}
+                    >
+                        {isSelected ? 'Selected' : 'Get Started'}
                     </Button>
-                </Space>
+                </CardFooter>
             </Card>
         );
     };
 
     const renderSubscriptions = () => {
         if (subscriptionsLoading) {
-            return <Spin />;
+            return <div className="text-center text-gray-400">Loading...</div>;
         }
 
         if (subscriptions.length === 0) {
-            return <Empty description="No active subscriptions" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+            return <div className="text-center text-gray-400 py-4">No active subscriptions</div>;
         }
 
         return (
-            <List
-                dataSource={subscriptions}
-                renderItem={subscription => (
-                    <Card
-                        key={subscription.id}
-                        style={{ marginBottom: '1rem' }}
-                        title={`Subscription ${subscription.id}`}
-                        extra={
-                            <Space>
-                                <Tooltip title="Toggle auto-renew">
-                                    <Switch
-                                        checkedChildren="Auto-renew"
-                                        unCheckedChildren="Auto-renew"
-                                        checked={subscription.autoRenew}
-                                        onChange={(checked) => handleToggleAutoRenew(subscription, checked)}
-                                    />
-                                </Tooltip>
+            <div className="space-y-4">
+                {subscriptions.map(subscription => (
+                    <Card key={subscription.id} className="bg-gray-800 border-gray-700">
+                        <CardHeader className="flex flex-row items-center justify-between pb-2">
+                            <CardTitle className="text-white text-lg">Subscription {subscription.id}</CardTitle>
+                            <div className="flex items-center gap-2">
+                                <Switch
+                                    checked={subscription.autoRenew}
+                                    onChange={(checked) => handleToggleAutoRenew(subscription, checked)}
+                                />
                                 <Button
-                                    danger
-                                    icon={<StopOutlined />}
+                                    variant="destructive"
+                                    size="sm"
                                     onClick={() => setCancelModal({ visible: true, subscriptionId: subscription.id })}
                                 >
                                     Cancel
                                 </Button>
-                            </Space>
-                        }
-                    >
-                        <Descriptions column={1} size="small">
-                            <Descriptions.Item label="Plan ID">{subscription.planId}</Descriptions.Item>
-                            <Descriptions.Item label="Provider">{subscription.provider}</Descriptions.Item>
-                            <Descriptions.Item label="Payment Method">{subscription.paymentMethod ?? 'N/A'}</Descriptions.Item>
-                            <Descriptions.Item label="Start Date">{subscription.startDate ?? 'N/A'}</Descriptions.Item>
-                            <Descriptions.Item label="End Date">{subscription.endDate ?? 'N/A'}</Descriptions.Item>
-                            <Descriptions.Item label="Next Payment">{subscription.nextPaymentDate ?? 'N/A'}</Descriptions.Item>
-                        </Descriptions>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div>
+                                    <span className="text-gray-400">Plan ID:</span>
+                                    <span className="text-white ml-2">{subscription.planId}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400">Provider:</span>
+                                    <span className="text-white ml-2">{subscription.provider}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400">Payment Method:</span>
+                                    <span className="text-white ml-2">{subscription.paymentMethod ?? 'N/A'}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400">Start Date:</span>
+                                    <span className="text-white ml-2">{subscription.startDate ?? 'N/A'}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400">End Date:</span>
+                                    <span className="text-white ml-2">{subscription.endDate ?? 'N/A'}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400">Next Payment:</span>
+                                    <span className="text-white ml-2">{subscription.nextPaymentDate ?? 'N/A'}</span>
+                                </div>
+                            </div>
+                        </CardContent>
                     </Card>
-                )}
-            />
+                ))}
+            </div>
         );
     };
 
     return (
-        <div style={{ padding: '2rem', minHeight: '100vh' }}>
-            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
-                    <div>
-                        <Title level={2}>Manage Subscriptions</Title>
-                        <Paragraph type="secondary">
-                            Choose a plan, subscribe via your preferred provider, and manage auto-renew or cancellation from here.
-                        </Paragraph>
+        <div className="min-h-screen bg-black pt-20 pb-12 px-4">
+            <div className="max-w-7xl mx-auto space-y-12">
+                {/* Header */}
+                <div className="text-center space-y-4">
+                    <h1 className="text-white text-4xl md:text-5xl font-bold">Choose Your Plan</h1>
+                    <p className="text-gray-400 text-lg max-w-2xl mx-auto">
+                        Select the perfect plan for your streaming needs. Upgrade, downgrade, or cancel anytime.
+                    </p>
+                </div>
+
+                {/* Pricing Cards */}
+                {plansLoading ? (
+                    <div className="flex justify-center">
+                        <div className="text-white">Loading plans...</div>
                     </div>
-                    <Button icon={<ReloadOutlined />} onClick={refreshAll}>
-                        Refresh
-                    </Button>
-                </Space>
+                ) : plans.length === 0 ? (
+                    <div className="text-center text-gray-400">No plans available</div>
+                ) : (
+                    <div className="grid md:grid-cols-3 gap-6">
+                        {plans.map(plan => renderPlanCard(plan))}
+                    </div>
+                )}
 
-                <Row gutter={24}>
-                    <Col xs={24} lg={16}>
-                        <Card
-                            title="Available Plans"
-                            extra={plansLoading ? <Spin size="small" /> : null}
-                        >
-                            {plansLoading ? (
-                                <Spin />
-                            ) : plans.length === 0 ? (
-                                <Empty description="No plans available" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                            ) : (
-                                <Row gutter={[16, 16]}>
-                                    {plans.map(plan => (
-                                        <Col key={plan.id} xs={24} sm={12}>
-                                            {renderPlanCard(plan)}
-                                        </Col>
-                                    ))}
-                                </Row>
-                            )}
-                        </Card>
-                    </Col>
-
-                    <Col xs={24} lg={8}>
-                        <Card title="Checkout">
-                            <Space direction="vertical" size="large" style={{ width: '100%' }}>
-                                <Select
-                                    value={billingCycle}
-                                    onChange={(value: BillingCycleValue) => setBillingCycle(value)}
-                                    options={billingCycleOptions.map(option => ({ label: option.label, value: option.value }))}
-                                    disabled={!selectedPlan}
-                                />
-                                <Select
-                                    value={provider}
-                                    onChange={setProvider}
-                                    options={PAYMENT_PROVIDERS.map(code => ({ label: code, value: code }))}
-                                />
-                                <Input
-                                    placeholder="Voucher code (optional)"
-                                    value={voucherCode}
-                                    onChange={(event) => setVoucherCode(event.target.value)}
-                                />
-                                <Space direction="vertical" style={{ width: '100%' }}>
-                                    <Text type="secondary">Estimated price</Text>
-                                    {quoteLoading ? (
-                                        <Spin size="small" />
-                                    ) : quote ? (
-                                        <Title level={4} style={{ margin: 0 }}>
-                                            {quote.amount.toFixed(2)} {selectedPlan?.currency}
-                                        </Title>
-                                    ) : (
-                                        <Text type="secondary">Select a plan to see pricing.</Text>
-                                    )}
-                                </Space>
+                {/* Checkout Section */}
+                {selectedPlan && (
+                    <div className="max-w-2xl mx-auto">
+                        <Card className="bg-gray-900 border-gray-800">
+                            <CardHeader>
+                                <CardTitle className="text-white">Complete Your Purchase</CardTitle>
+                                <CardDescription>Choose your billing cycle and payment provider</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                <div>
+                                    <label className="text-sm text-gray-400 block mb-2">Billing Cycle</label>
+                                    <select
+                                        value={billingCycle}
+                                        onChange={(e) => setBillingCycle(e.target.value as BillingCycleValue)}
+                                        className="w-full bg-gray-800 text-white border border-gray-700 rounded-md px-3 py-2"
+                                    >
+                                        {billingCycleOptions.map(option => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-sm text-gray-400 block mb-2">Payment Provider</label>
+                                    <select
+                                        value={provider}
+                                        onChange={(e) => setProvider(e.target.value)}
+                                        className="w-full bg-gray-800 text-white border border-gray-700 rounded-md px-3 py-2"
+                                    >
+                                        {PAYMENT_PROVIDERS.map(code => (
+                                            <option key={code} value={code}>{code}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-sm text-gray-400 block mb-2">Voucher Code (Optional)</label>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter voucher code"
+                                        value={voucherCode}
+                                        onChange={(e) => setVoucherCode(e.target.value)}
+                                        className="w-full bg-gray-800 text-white border border-gray-700 rounded-md px-3 py-2 placeholder-gray-500"
+                                    />
+                                </div>
+                                {quote && (
+                                    <div className="pt-4 border-t border-gray-800">
+                                        <p className="text-gray-400 text-sm">Total Price</p>
+                                        <p className="text-white text-3xl font-bold">
+                                            ${quote.amount.toFixed(2)} {selectedPlan.currency}
+                                        </p>
+                                    </div>
+                                )}
+                            </CardContent>
+                            <CardFooter>
                                 <Button
-                                    type="primary"
-                                    icon={<ShoppingCartOutlined />}
-                                    block
-                                    disabled={!selectedPlan}
-                                    loading={creatingPayment}
+                                    className="w-full bg-red-600 hover:bg-red-700 text-white"
+                                    size="lg"
                                     onClick={handleCreatePayment}
+                                    disabled={creatingPayment}
                                 >
-                                    Proceed to Payment
+                                    {creatingPayment ? 'Processing...' : 'Proceed to Payment'}
                                 </Button>
-                            </Space>
+                            </CardFooter>
                         </Card>
+                    </div>
+                )}
 
-                        <Card title="Active Subscriptions" style={{ marginTop: '1.5rem' }}>
+                {/* Active Subscriptions */}
+                {subscriptions.length > 0 && (
+                    <div className="max-w-4xl mx-auto">
+                        <h2 className="text-white text-2xl font-semibold mb-6">Active Subscriptions</h2>
+                        <div className="space-y-4">
                             {renderSubscriptions()}
-                        </Card>
-                    </Col>
-                </Row>
-            </Space>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             <Modal
                 title="Cancel Subscription"
