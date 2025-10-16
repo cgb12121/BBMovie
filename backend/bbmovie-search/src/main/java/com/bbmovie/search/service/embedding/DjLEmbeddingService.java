@@ -72,7 +72,7 @@ public class DjLEmbeddingService implements AutoCloseable, EmbeddingService {
     }
 
     private static Criteria<String, float[]> setupModel(Device device) {
-        Criteria<String, float[]> criteria = Criteria.builder()
+        return Criteria.builder()
                 .setTypes(String.class, float[].class)
                 .optModelUrls(DjLModelOptions.MONOLINGUAL_ENGLISH_ONLY_MODEL.getModelUri())
                 .optEngine("PyTorch")
@@ -80,8 +80,6 @@ public class DjLEmbeddingService implements AutoCloseable, EmbeddingService {
                 .optProgress(new ProgressBar())
                 .optTranslatorFactory(new TextEmbeddingTranslatorFactory())
                 .build();
-        log.info("Setup DjL Model: {}", criteria.toString());
-        return criteria;
     }
 
     @Override

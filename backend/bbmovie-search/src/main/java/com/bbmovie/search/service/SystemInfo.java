@@ -1,8 +1,8 @@
 package com.bbmovie.search.service;
 
+import ai.djl.Device;
 import ai.djl.engine.Engine;
 import ai.djl.util.Utils;
-import ai.djl.Device;
 import ai.djl.util.cuda.CudaUtils;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.log4j.Log4j2;
@@ -10,95 +10,117 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Component;
 
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryMXBean;
 import java.lang.management.MemoryUsage;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 @Log4j2
 @Component
 public class SystemInfo {
 
     private final Environment environment;
-    private final boolean shouldLogSystemProperties;
-    private final boolean isDjlEnabled;
+    private final boolean logGeneral;
+    private final boolean logDjl;
+    private final boolean logCuda;
 
     @Autowired
     public SystemInfo(Environment environment) {
         this.environment = environment;
-        this.shouldLogSystemProperties = environment.getProperty("log.system.properties", Boolean.class, false);
-        this.isDjlEnabled = environment.getProperty("embedding.provider.djl.enable", Boolean.class, false);
+        this.logGeneral = environment.getProperty("log.system.info.general.enabled", Boolean.class, true);
+        this.logDjl = environment.getProperty("log.system.info.djl.enabled", Boolean.class, true);
+        this.logCuda = environment.getProperty("log.system.info.cuda.enabled", Boolean.class, true);
     }
 
     @PostConstruct
     public void inspect() {
         String[] activeProfiles = environment.getActiveProfiles();
-        boolean isDev = true;
+        log.info("Active Spring Boot Profiles: [{}]", String.join(", ", activeProfiles));
+        boolean isProd = false;
         for (String profile : activeProfiles) {
             if ("prod".equals(profile) || "production".equals(profile)) {
-                isDev = false;
+                isProd = true;
                 break;
             }
         }
 
-        if (shouldLogSystemProperties && isDev && isDjlEnabled) {
-            log.fatal("Logging system properties. This is a security risk, should only be enabled for debugging, not for production.");
-            log.warn("To disable this warning, set log.system.properties=false in application.properties.");
-            log.warn("Should not use DjL Engine.debugEnvironment() in production.");
-            debugEnvironmentSafe();
+        if (isProd) {
+            return; // Do not log any system info in production
+        }
+
+        if (logGeneral) {
+            logGeneralSystemInfo();
+        }
+        if (logDjl) {
+            logDjlInfo();
+        }
+        if (logCuda) {
+            logCudaInfo();
         }
     }
 
-    private static void debugEnvironmentSafe() {
-        log.info("----------- System Properties -----------");
-        System.getProperties().forEach((k, v) -> {
-            String key = (String) k;
-            if (!"java.class.path".equalsIgnoreCase(key)) {
-                print(key, v);
-            }
-        });
+    private void logGeneralSystemInfo() {
+        log.info("---------- General System Info ----------");
+        // OS Info
+        log.info("OS Name: {}", System.getProperty("os.name"));
+        log.info("OS Version: {}", System.getProperty("os.version"));
+        log.info("OS Arch: {}", System.getProperty("os.arch"));
 
-        log.info("--------- Environment Variables ---------");
-        Utils.getenv().forEach(SystemInfo::print);
+        // JVM Info
+        log.info("Java Version: {}", System.getProperty("java.version"));
+        log.info("Java Vendor: {}", System.getProperty("java.vendor"));
+        log.info("JVM Name: {}", System.getProperty("java.vm.name"));
 
-        log.info("-------------- Directories --------------");
+        // CPU Info
+        log.info("Available CPU Cores: {}", Runtime.getRuntime().availableProcessors());
+
+        // Memory Info
+        MemoryMXBean memoryBean = ManagementFactory.getMemoryMXBean();
+        long heapMax = memoryBean.getHeapMemoryUsage().getMax() / (1024 * 1024);
+        long heapUsed = memoryBean.getHeapMemoryUsage().getUsed() / (1024 * 1024);
+        log.info("JVM Heap Memory: Used {} MB / Max {} MB", heapUsed, heapMax);
+    }
+
+    private void logDjlInfo() {
+        log.info("--------------- DJL Info ----------------");
         try {
-            Path temp = Paths.get(System.getProperty("java.io.tmpdir"));
-            log.info("temp directory: {}", temp);
-            Path tmpFile = Files.createTempFile("test", ".tmp");
-            Files.delete(tmpFile);
+            log.info("DJL Version: {}", Engine.getDjlVersion());
+            log.info("Default Engine: {}", Engine.getInstance().getEngineName());
+            log.info("Default Device: {}", Engine.getInstance().defaultDevice());
 
             Path cacheDir = Utils.getCacheDir();
-            log.info("DJL cache directory: {}", cacheDir.toAbsolutePath());
+            log.info("DJL Cache Directory: {}", cacheDir.toAbsolutePath());
 
-            Path path = Utils.getEngineCacheDir();
-            log.info("Engine cache directory: {}", path.toAbsolutePath());
-            Files.createDirectories(path);
-            if (!Files.isWritable(path)) {
-                log.info("Engine cache directory is not writable!!!");
+            Path engineCacheDir = Utils.getEngineCacheDir();
+            log.info("Engine Cache Directory: {}", engineCacheDir.toAbsolutePath());
+            Files.createDirectories(engineCacheDir);
+            if (!Files.isWritable(engineCacheDir)) {
+                log.warn("DJL Engine cache directory is not writable!");
             }
-        } catch (Throwable e) {
-            log.error("Failed to open directories", e);
+        } catch (Exception e) {
+            log.error("Could not retrieve DJL information.", e);
         }
-
-        log.info("------------------ CUDA -----------------");
-        int gpuCount = CudaUtils.getGpuCount();
-        log.info("GPU Count: {}", gpuCount);
-        if (gpuCount > 0) {
-            log.info("CUDA: {}", CudaUtils.getCudaVersionString());
-            log.info("ARCH: {}", CudaUtils.getComputeCapability(0));
-        }
-        for (int i = 0; i < gpuCount; ++i) {
-            Device device = Device.gpu(i);
-            MemoryUsage mem = CudaUtils.getGpuMemory(device);
-            log.info("GPU({}) memory used: {} bytes", i, mem.getCommitted());
-        }
-
-        log.info("----------------- Engines ---------------");
-        log.info("DJL version: {}", Engine.getDjlVersion());
-        log.info("Default Engine: {}", Engine.getInstance());
-        log.info("Default Device: {}", Engine.getInstance().defaultDevice());
     }
 
-    private static void print(String k, Object v) {
-        log.info("{}: {}", k, v);
+    private void logCudaInfo() {
+        log.info("---------------- CUDA Info ----------------");
+        try {
+            int gpuCount = CudaUtils.getGpuCount();
+            log.info("Detected GPU Count: {}", gpuCount);
+
+            if (gpuCount > 0) {
+                log.info("CUDA Version: {}", CudaUtils.getCudaVersionString());
+                for (int i = 0; i < gpuCount; ++i) {
+                    Device device = Device.gpu(i);
+                    MemoryUsage mem = CudaUtils.getGpuMemory(device);
+                    long total = mem.getMax() / (1024 * 1024);
+                    long used = mem.getCommitted() / (1024 * 1024);
+                    log.info("GPU {}: Used: {} MB / Total: {} MB", i, used, total);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Could not retrieve CUDA information. This is normal if CUDA is not installed.");
+        }
     }
 }

@@ -1,4 +1,4 @@
-package com.bbmovie.search.repository;
+package com.bbmovie.search.repository.search;
 
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.bbmovie.search.dto.SearchCriteria;
@@ -6,7 +6,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.List;
 
-public interface MovieRepository {
+public interface SearchRepository {
     <T> Mono<SearchResponse<T>> findAll(int page, int size, int age, String region, Class<T> clazz);
     <T> Mono<SearchResponse<T>> findSimilar(SearchCriteria criteria, List<Float> queryVector, Class<T> clazz);
 }

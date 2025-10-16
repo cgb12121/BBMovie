@@ -1,4 +1,4 @@
-package com.bbmovie.search.repository;
+package com.bbmovie.search.repository.search;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
@@ -12,7 +12,7 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 @Repository
-public class ElasticsearchMovieRepository implements MovieRepository {
+public class ElasticsearchSearchRepository implements SearchRepository {
 
     private final ElasticsearchClient elasticsearchClient;
 
@@ -23,7 +23,7 @@ public class ElasticsearchMovieRepository implements MovieRepository {
     private String embeddingField;
 
     @Autowired
-    public ElasticsearchMovieRepository(ElasticsearchClient elasticsearchClient) {
+    public ElasticsearchSearchRepository(ElasticsearchClient elasticsearchClient) {
         this.elasticsearchClient = elasticsearchClient;
     }
 

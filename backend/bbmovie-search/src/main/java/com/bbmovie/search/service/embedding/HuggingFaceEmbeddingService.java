@@ -64,7 +64,8 @@ public class HuggingFaceEmbeddingService implements EmbeddingService {
                     return Mono.error(new EmbeddingException(response.statusCode().toString()));
                 })
                 .onStatus(HttpStatusCode::is5xxServerError, clientResponse ->
-                        Mono.error(new EmbeddingException("HuggingFace service unavailable.")))
+                        Mono.error(new EmbeddingException("HuggingFace service unavailable."))
+                )
                 .bodyToMono(List.class)
                 .retryWhen(
                         Retry.backoff(MAX_ATTEMPTS, INITIAL_BACKOFF)
