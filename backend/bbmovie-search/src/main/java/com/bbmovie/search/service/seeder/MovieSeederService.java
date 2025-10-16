@@ -5,32 +5,50 @@ import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import com.bbmovie.search.entity.MovieDocument;
-import lombok.RequiredArgsConstructor;
+import com.bbmovie.search.service.embedding.DjLEmbeddingService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class MovieSeederService {
 
     private final ElasticsearchClient elasticsearchClient;
-    private final EmbeddingModel embeddingModel;
+    private final Optional<EmbeddingModel> embeddingModel;
+    private final Optional<DjLEmbeddingService> djlEmbeddingService;
 
     @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
     private String indexName;
 
     private static final int SAMPLE_COUNT = 100;
+
+    @Autowired
+    public MovieSeederService(
+            ElasticsearchClient elasticsearchClient,
+            Optional<EmbeddingModel> embeddingModel,
+            Optional<DjLEmbeddingService> djlEmbeddingService) {
+        this.elasticsearchClient = elasticsearchClient;
+        this.embeddingModel = embeddingModel;
+        this.djlEmbeddingService = djlEmbeddingService;
+    }
 
     @EventListener
     public void seedIfEmpty(ApplicationReadyEvent ignored) {
@@ -44,13 +62,15 @@ public class MovieSeederService {
 
             if (isIndexEmpty()) {
                 log.info("Index '{}' is empty — inserting {} sample movies...", indexName, SAMPLE_COUNT);
-                insertSamples();
-                log.info("Seeding complete!");
+                insertSamples()
+                        .doOnSuccess(v -> log.info("Seeding complete!"))
+                        .doOnError(e -> log.error("Error during reactive seeding: ", e))
+                        .block();
             } else {
                 log.info("Index '{}' already has data — skipping seeding.", indexName);
             }
         } catch (Exception e) {
-            log.error("Error during seeding: ", e);
+            log.error("Error during seeding setup: ", e);
         }
     }
 
@@ -59,8 +79,12 @@ public class MovieSeederService {
     }
 
     private void deleteIndex() throws Exception {
-        elasticsearchClient.indices().delete(d -> d.index(indexName));
-        log.info("Index '{}' deleted successfully.", indexName);
+        if (indexExists()) {
+            elasticsearchClient.indices().delete(d -> d.index(indexName));
+            log.info("Index '{}' deleted successfully.", indexName);
+        } else {
+            log.info("Index '{}' does not exist, skipping deletion.", indexName);
+        }
     }
 
     private void createIndex() throws Exception {
@@ -97,18 +121,42 @@ public class MovieSeederService {
     private boolean isIndexEmpty() throws IOException {
         SearchResponse<Void> response = elasticsearchClient.search(s -> s
                 .index(indexName)
-                .size(1)
+                .size(0)
                 .query(q -> q.matchAll(m -> m)), Void.class);
 
         long count = response.hits().total() != null ? response.hits().total().value() : 0;
         return count == 0;
     }
 
-    private void insertSamples() throws Exception {
+    private Mono<Void> insertSamples() {
         List<MovieDocument> movies = generateSampleMovies();
+        int batchSize = 20; // Process 20 movies at a time
+        int totalMovies = movies.size();
+        AtomicInteger insertedCount = new AtomicInteger(0);
 
+        return Flux.fromIterable(movies)
+                .buffer(batchSize)
+                .concatMap(batch ->
+                        Mono.fromCallable(() -> {
+                                    BulkRequest.Builder br = buildBulkRequest(batch);
+                                    BulkResponse bulkResponse = elasticsearchClient.bulk(br.build());
+                                    if (bulkResponse.errors()) {
+                                        log.warn("Some bulk operations failed in this batch.");
+                                    }
+                                    return batch.size();
+                                })
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .doOnSuccess(count -> {
+                                    int currentTotal = insertedCount.addAndGet(count);
+                                    log.info("Inserted {}/{} movies...", currentTotal, totalMovies);
+                                })
+                )
+                .then();
+    }
+
+    private BulkRequest.Builder buildBulkRequest(List<MovieDocument> batch) {
         BulkRequest.Builder br = new BulkRequest.Builder();
-        for (MovieDocument movie : movies) {
+        for (MovieDocument movie : batch) {
             br.operations(op -> op
                     .index(idx -> idx
                             .index(indexName)
@@ -117,11 +165,7 @@ public class MovieSeederService {
                     )
             );
         }
-
-        BulkResponse bulkResponse = elasticsearchClient.bulk(br.build());
-        if (bulkResponse.errors()) {
-            log.warn("Some bulk operations failed: {}", bulkResponse.items());
-        }
+        return br;
     }
 
     private List<MovieDocument> generateSampleMovies() {
@@ -141,8 +185,18 @@ public class MovieSeederService {
             String posterUrl = "https://picsum.photos/seed/" + i + "/200/300";
             LocalDateTime releaseDate = LocalDateTime.now().minusDays(ThreadLocalRandom.current().nextInt(0, 2000));
 
-            // Create embedding using Ollama/DJL model
-            float[] embedding = embeddingModel.embed(title + " " + description);
+            // Create embedding
+            float[] embedding = new float[384]; // Default to empty embedding
+
+            if (djlEmbeddingService.isPresent()) {
+                embedding = djlEmbeddingService.get().generateEmbedding(title + " " + description).block();
+                log.debug("Generated embedding using DJL for movie: {}", title);
+            } else if (embeddingModel.isPresent()) {
+                embedding = embeddingModel.get().embed(title + " " + description);
+                log.debug("Generated embedding using Spring AI EmbeddingModel for movie: {}", title);
+            } else {
+                log.warn("No embedding provider available. Using empty embedding for movie: {}", title);
+            }
 
             list.add(MovieDocument.builder()
                     .id(UUID.randomUUID().toString())

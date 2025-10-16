@@ -17,4 +17,20 @@ public class SystemHealthEvent {
     public enum Status {
         UP, DOWN
     }
+
+    public static SystemHealthEvent up(String service, String reason) {
+        return SystemHealthEvent.builder()
+                .service(service)
+                .status(Status.UP)
+                .reason(reason)
+                .build();
+    }
+
+    public static SystemHealthEvent down(String service, String reason) {
+        return SystemHealthEvent.builder()
+                .service(service)
+                .status(Status.DOWN)
+                .reason(reason)
+                .build();
+    }
 }

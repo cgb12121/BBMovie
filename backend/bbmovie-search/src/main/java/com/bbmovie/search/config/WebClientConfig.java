@@ -11,8 +11,7 @@ public class WebClientConfig {
 
     @Bean
     public WebClient huggingFaceWebClient(WebClient.Builder builder) {
-        return builder
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
+        return builder.defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .build();
     }
 }

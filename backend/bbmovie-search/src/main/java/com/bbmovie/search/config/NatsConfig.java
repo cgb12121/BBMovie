@@ -149,9 +149,5 @@ public class NatsConfig {
             return running.get();
         }
 
-        @Override
-        public boolean isAutoStartup() {
-            return true;
-        }
     }
 }
