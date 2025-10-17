@@ -8,9 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.*;
 
 @With
@@ -22,16 +20,30 @@ import lombok.*;
 @AllArgsConstructor
 @Table(name = "jwk_keys")
 public class JwkKey extends BaseEntity {
+
+    public enum KeyType {
+        RSA, HMAC
+    }
+
     @JsonProperty("kid")
     private String kid;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    @Builder.Default
+    private KeyType keyType = KeyType.RSA;
+
     @JsonProperty("public_key")
-    @Column(length = 4096, nullable = false)
-    private String publicJwk;
+    @Column(length = 4096)
+    private String publicJwk; // Used for RSA public key
 
     @JsonIgnore
     @Column(length = 4096)
-    private String privateJwk;
+    private String privateJwk; // Used for RSA private key
+
+    @JsonIgnore
+    @Column(length = 1024)
+    private String hmacSecret; // Used for HMAC secret key
 
     @JsonProperty("is_active")
     @Builder.Default
@@ -46,15 +58,20 @@ public class JwkKey extends BaseEntity {
 
         try {
             ObjectNode jwkNode = mapper.valueToTree(this);
-            JsonNode publicJwkNode = mapper.readTree(this.publicJwk);
-            jwkNode.set("publicJwk", publicJwkNode);
+            if (publicJwk != null) {
+                JsonNode publicJwkNode = mapper.readTree(this.publicJwk);
+                jwkNode.set("publicJwk", publicJwkNode);
+            }
             jwkNode.put("privateJwk", "[SECRET]");
+            jwkNode.put("hmacSecret", "[SECRET]");
             return mapper.writeValueAsString(jwkNode);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             return "\nJwk { \n"
                     + "          kid: " + this.kid + ",\n"
+                    + "          keyType: " + this.keyType + ",\n"
                     + "          public key: " + this.publicJwk + ",\n"
                     + "          private key: [SECRET]" + ", \n"
+                    + "          hmacSecret: [SECRET]" + ", \n"
                     + "          isActive: " + this.isActive + ", \n"
                     + "          createdAt: " + this.getCreatedDate() +
                     "\n }";

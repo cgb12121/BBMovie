@@ -13,7 +13,7 @@ import com.bbmovie.auth.entity.jose.RefreshToken;
 import com.bbmovie.auth.exception.*;
 import com.bbmovie.auth.repository.UserRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
-import com.bbmovie.auth.security.jose.config.TokenPair;
+import com.bbmovie.auth.security.jose.dto.TokenPair;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.auth.verify.magiclink.ChangePasswordTokenService;
 import com.bbmovie.auth.service.auth.verify.magiclink.EmailVerifyTokenService;

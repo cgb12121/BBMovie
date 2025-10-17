@@ -1,5 +1,8 @@
-package com.bbmovie.auth.security.jose;
+package com.bbmovie.auth.security.jose.dto;
 
+
+import com.bbmovie.auth.security.jose.JoseProviderStrategy;
+import com.bbmovie.auth.security.jose.filter.JoseAuthenticationFilter;
 
 import java.util.List;
 

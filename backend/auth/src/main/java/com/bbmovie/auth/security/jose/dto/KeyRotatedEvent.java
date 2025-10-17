@@ -1,4 +1,4 @@
-package com.bbmovie.auth.security.jose.config;
+package com.bbmovie.auth.security.jose.dto;
 
 /**
  * Event representing that a JWK (JSON Web Key) key rotation has occurred.
@@ -17,8 +17,8 @@ package com.bbmovie.auth.security.jose.config;
  * - Listeners can subscribe to this event using event-driven mechanisms (e.g.,
  *   Spring's `@EventListener` mechanism).
  */
-public class JwkKeyRotatedEvent {
-    public JwkKeyRotatedEvent() {
+public class KeyRotatedEvent {
+    public KeyRotatedEvent() {
         // No need to pass any values
     }
 }

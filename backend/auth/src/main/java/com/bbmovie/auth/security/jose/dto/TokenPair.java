@@ -1,4 +1,4 @@
-package com.bbmovie.auth.security.jose.config;
+package com.bbmovie.auth.security.jose.dto;
 
 /**
  * A record that encapsulates an access token and a refresh token.

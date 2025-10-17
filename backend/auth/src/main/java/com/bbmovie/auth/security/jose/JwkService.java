@@ -1,4 +1,4 @@
-package com.bbmovie.auth.security.jose.config;
+package com.bbmovie.auth.security.jose;
 
 import com.bbmovie.auth.entity.jose.JwkKey;
 import com.bbmovie.auth.repository.JwkKeyRepository;

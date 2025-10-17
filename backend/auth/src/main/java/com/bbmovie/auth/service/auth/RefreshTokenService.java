@@ -9,7 +9,7 @@ import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.RefreshTokenRepository;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
-import com.bbmovie.auth.security.jose.JoseValidatedToken;
+import com.bbmovie.auth.security.jose.dto.JoseValidatedToken;
 import com.bbmovie.auth.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.extern.log4j.Log4j2;

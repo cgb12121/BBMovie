@@ -1,24 +1,59 @@
-package com.bbmovie.auth.security.jose.config;
+package com.bbmovie.auth.security.jose;
 
 import com.bbmovie.auth.entity.jose.JwkKey;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
-import org.springframework.stereotype.Service;
 
+import javax.crypto.SecretKey;
+import java.security.NoSuchAlgorithmException;
 import java.util.Date;
 import java.util.UUID;
+
+import java.util.Base64;
 
 /**
  * A service class for generating and managing RSA keys and JSON Web Keys (JWKs).
  * This utility provides methods to manage the cryptographic keys necessary for
  * secure operations such as signing and verifying JSON Web Tokens (JWTs).
  */
-@Service
-public class RSAKeyService {
+public class AppKeyGenerator {
 
-    private RSAKeyService() {
+    private AppKeyGenerator() {
+    }
+
+    /**
+     * Generates a new 256-bit secret key suitable for HMAC-SHA256 operations.
+     *
+     * @return a {@link SecretKey} instance.
+     * @throws IllegalStateException if the HmacSHA256 algorithm is not available.
+     */
+    public static SecretKey generateHmacKey() {
+        try {
+            javax.crypto.KeyGenerator keyGen = javax.crypto.KeyGenerator.getInstance("HmacSHA256");
+            keyGen.init(256);
+            return keyGen.generateKey();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("HmacSHA256 algorithm not available", e);
+        }
+    }
+
+    /**
+     * Generates a new {@link JwkKey} entity for an HMAC secret key.
+     *
+     * @return an instance of {@link JwkKey} configured for HMAC.
+     */
+    public static JwkKey generateNewHmacKeyForRotation() {
+        SecretKey secretKey = generateHmacKey();
+
+        String encodedKey = Base64.getEncoder().encodeToString(secretKey.getEncoded());
+        return JwkKey.builder()
+                .kid(UUID.randomUUID().toString())
+                .keyType(JwkKey.KeyType.HMAC)
+                .hmacSecret(encodedKey)
+                .isActive(true)
+                .build();
     }
 
     /**

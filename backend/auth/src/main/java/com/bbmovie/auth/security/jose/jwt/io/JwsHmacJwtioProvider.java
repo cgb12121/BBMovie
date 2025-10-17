@@ -4,11 +4,11 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
-import com.bbmovie.auth.security.jose.config.TokenPair;
-import com.example.common.annotation.Experimental;
+import com.bbmovie.auth.security.jose.KeyCache;
+import com.bbmovie.auth.security.jose.dto.TokenPair;
 import com.example.common.entity.JoseConstraint.JwtType;
+
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -28,30 +28,41 @@ import static com.example.common.entity.JoseConstraint.JosePayload.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
 import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
-@Deprecated
+/**
+ * JOSE provider using the `jwt.io` library for JWS with HMAC-SHA algorithms.
+ * This implementation uses a single, symmetric secret key dynamically retrieved
+ * from the JwkKeyCache to support key rotation.
+ */
 @Log4j2
 @SuppressWarnings("squid:S6830")
-@Component("jwt.io.hmac")
-public class JwtioSymmetric implements JoseProviderStrategy {
+@Component("jwsHmacJwtio")
+public class JwsHmacJwtioProvider implements JoseProviderStrategy {
 
     private final int jwtAccessExpirationInMs;
     private final int jwtRefreshExpirationInMs;
-    private final SecretKey secretKey;
+    private final KeyCache keyCache;
     private final RedisTemplate<Object, Object> redisTemplate;
 
-    public JwtioSymmetric(
-            @Value("${app.jose.key.secret}") String jwtSecret,
+    public JwsHmacJwtioProvider(
             @Value("${app.jose.expiration.access-token}") int jwtAccessExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshExpirationInMs,
+            KeyCache keyCache,
             RedisTemplate<Object, Object> redisTemplate
     ) {
         this.jwtAccessExpirationInMs = jwtAccessExpirationInMs;
         this.jwtRefreshExpirationInMs = jwtRefreshExpirationInMs;
-        this.secretKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
+        this.keyCache = keyCache;
         this.redisTemplate = redisTemplate;
     }
 
-    @Experimental
+    private SecretKey getSecretKey() {
+        SecretKey key = keyCache.getActiveHmacSecretKey();
+        if (key == null) {
+            throw new IllegalStateException("No active HMAC secret key available. Check key configuration and type.");
+        }
+        return key;
+    }
+
     @Override
     public TokenPair generateTokenPair(Authentication authentication, User loggedInUser) {
         String refreshJti = UUID.randomUUID().toString();
@@ -89,11 +100,10 @@ public class JwtioSymmetric implements JoseProviderStrategy {
                 .addClaims(claims)
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
-                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .signWith(getSecretKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
-    @Experimental
     private String generateToken(
             Authentication authentication, long expirationInMs, String sid, User loggedInUser,
             String jti, String issuer
@@ -118,7 +128,7 @@ public class JwtioSymmetric implements JoseProviderStrategy {
                 .setExpiration(expiryDate)
                 .setIssuer(issuer) // Set issuer (refresh token's jti), null for refresh token
                 .addClaims(claims)
-                .signWith(secretKey, SignatureAlgorithm.HS256)
+                .signWith(getSecretKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
 
@@ -275,7 +285,7 @@ public class JwtioSymmetric implements JoseProviderStrategy {
     public boolean validateToken(String token) {
         try {
             Jwts.parserBuilder()
-                    .setSigningKey(secretKey)
+                    .setSigningKey(getSecretKey())
                     .build()
                     .parseClaimsJws(token);
             return true;
@@ -286,7 +296,7 @@ public class JwtioSymmetric implements JoseProviderStrategy {
 
     private Claims extractClaims(String token) {
         return Jwts.parserBuilder()
-                .setSigningKey(secretKey)
+                .setSigningKey(getSecretKey())
                 .build()
                 .parseClaimsJws(token)
                 .getBody();

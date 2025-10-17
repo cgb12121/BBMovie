@@ -5,10 +5,11 @@ import com.bbmovie.auth.entity.enumerate.Role;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
-import com.bbmovie.auth.security.jose.config.TokenPair;
+import com.bbmovie.auth.security.jose.KeyCache;
+import com.bbmovie.auth.security.jose.dto.TokenPair;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
-import com.example.common.annotation.Experimental;
 import com.example.common.entity.JoseConstraint.JwtType;
+
 import io.jsonwebtoken.*;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,13 +21,8 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Component;
 
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.PKCS8EncodedKeySpec;
-import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -36,50 +32,58 @@ import static com.example.common.entity.JoseConstraint.JosePayload.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
 import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
-@Deprecated
+/**
+ * JOSE provider using the `jwt.io` library for JWS with RSA algorithms (e.g., RS256).
+ * This implementation uses an asymmetric RSA key pair.
+ * - The private key is used for signing tokens.
+ * - The public key is used for verification.
+ * It dynamically retrieves the keys from the JwkKeyCache to support key rotation.
+ */
 @Log4j2
 @SuppressWarnings("squid:S6830")
-@Component("jwt.io.rsa")
-public class JwtioAsymmetric implements JoseProviderStrategy {
+@Component("jwsRsaJwtio")
+public class JwsRsaJwtioProvider implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
-    private final PrivateKey privateKey;
-    private final PublicKey publicKey;
+    private final KeyCache keyCache;
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
 
-    public JwtioAsymmetric(
-            @Value("${app.jose.key.private}") String privateKeyStr,
-            @Value("${app.jose.key.public}") String publicKeyStr,
+    public JwsRsaJwtioProvider(
             @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
+            KeyCache keyCache,
             RedisTemplate<Object, Object> redisTemplate,
             List<OAuth2UserInfoStrategy> strategies
-    ) throws NoSuchAlgorithmException, InvalidKeySpecException {
+    ) {
         this.jwtAccessTokenExpirationInMs = jwtAccessTokenExpirationInMs;
         this.jwtRefreshTokenExpirationInMs = jwtRefreshTokenExpirationInMs;
-        this.privateKey = getPrivateKeyFromString(privateKeyStr);
-        this.publicKey = getPublicKeyFromString(publicKeyStr);
+        this.keyCache = keyCache;
         this.redisTemplate = redisTemplate;
         this.strategies = strategies;
     }
 
-    private PrivateKey getPrivateKeyFromString(String key)
-            throws NoSuchAlgorithmException, InvalidKeySpecException
-    {
-        byte[] bytes = Base64.getDecoder().decode(key);
-        return KeyFactory.getInstance("RSA").generatePrivate(new PKCS8EncodedKeySpec(bytes));
+    private PrivateKey getPrivateKey() {
+        try {
+            return keyCache.getActiveRsaPrivateKey().toRSAPrivateKey();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to get active private key", e);
+        }
     }
 
-    private PublicKey getPublicKeyFromString(String key)
-            throws NoSuchAlgorithmException, InvalidKeySpecException
-    {
-        byte[] bytes = Base64.getDecoder().decode(key);
-        return KeyFactory.getInstance("RSA").generatePublic(new X509EncodedKeySpec(bytes));
+    private PublicKey getPublicKey(String kid) {
+        try {
+            return keyCache.getPublicKeys().stream()
+                    .filter(key -> key.getKeyID().equals(kid))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Public key not found for kid: " + kid))
+                    .toRSAPublicKey();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to get public key for kid: " + kid, e);
+        }
     }
 
-    @Experimental
     @Override
     public TokenPair generateTokenPair(Authentication authentication, User loggedInUser) {
         String refreshJti = UUID.randomUUID().toString();
@@ -121,11 +125,10 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
                 .setIssuedAt(now)
                 .setExpiration(expiryDate)
                 .addClaims(claims)
-                .signWith(privateKey, SignatureAlgorithm.RS256)
+                .signWith(getPrivateKey(), SignatureAlgorithm.RS256)
                 .compact();
     }
 
-    @Experimental
     private String generateToken(
             Authentication authentication, long expirationInMs, String sid, User loggedInUser,
             String jti, String issuer
@@ -150,7 +153,7 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
                 .setExpiration(expiryDate)
                 .setIssuer(issuer) // Set issuer (refresh token's jti), null for refresh token
                 .addClaims(claims)
-                .signWith(privateKey, SignatureAlgorithm.RS256)
+                .signWith(getPrivateKey(), SignatureAlgorithm.RS256)
                 .compact();
     }
 
@@ -358,6 +361,13 @@ public class JwtioAsymmetric implements JoseProviderStrategy {
     }
 
     private Claims extractClaims(String token) {
+        JwsHeader header = Jwts.parserBuilder()
+                .build()
+                .parseClaimsJws(token)
+                .getHeader();
+        String kid = (String) header.get("kid");
+        PublicKey publicKey = getPublicKey(kid);
+
         return Jwts.parserBuilder()
                 .setSigningKey(publicKey)
                 .build()

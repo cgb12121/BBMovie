@@ -1,8 +1,7 @@
 package com.bbmovie.auth.security.jose;
 
 import com.bbmovie.auth.entity.User;
-import com.bbmovie.auth.security.jose.config.TokenPair;
-import com.example.common.entity.JoseConstraint;
+import com.bbmovie.auth.security.jose.dto.TokenPair;
 import com.example.common.entity.JoseConstraint.JwtType;
 import org.springframework.security.core.Authentication;
 

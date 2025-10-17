@@ -1,7 +1,8 @@
-package com.bbmovie.auth.security.jose.config;
+package com.bbmovie.auth.security.jose;
 
 import com.bbmovie.auth.entity.jose.JwkKey;
 import com.bbmovie.auth.repository.JwkKeyRepository;
+import com.bbmovie.auth.security.jose.dto.KeyRotatedEvent;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.RSAKey;
 import lombok.extern.log4j.Log4j2;
@@ -19,8 +20,8 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 
-import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateNewKeyForRotation;
-import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateRsaKey;
+import static com.bbmovie.auth.security.jose.AppKeyGenerator.generateNewKeyForRotation;
+import static com.bbmovie.auth.security.jose.AppKeyGenerator.generateRsaKey;
 
 /**
  * The {@code JwkRotation} class is responsible for managing JSON Web Key (JWK)
@@ -31,7 +32,7 @@ import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateRsaKey
  * This class integrates with the following components:
  * - {@code JwkKeyRepository}: Used for persistence and retrieval of key entities.
  * - {@code ApplicationEventPublisher}: Used to publish events such as
- *   {@link JwkKeyRotatedEvent} after key rotation or cleanup.
+ *   {@link KeyRotatedEvent} after key rotation or cleanup.
  * - {@code JwkKeyCache}: Provides access to the active private key and cached
  *   public keys.
  * <p>
@@ -42,7 +43,7 @@ import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateRsaKey
  *   accessible RSA keys.
  * <p>
  * The key rotation mechanism generates a new RSA key and deactivates any currently
- * active keys, persisting changes to the repository. A {@link JwkKeyRotatedEvent}
+ * active keys, persisting changes to the repository. A {@link KeyRotatedEvent}
  * is published after successful rotation to notify other application components.
  * <p>
  * Thread safety is guaranteed for critical operations, such as key rotation and
@@ -51,14 +52,14 @@ import static com.bbmovie.auth.security.jose.config.RSAKeyService.generateRsaKey
 @Log4j2
 @Configuration
 @EnableScheduling
-public class JwkRotation {
+public class KeyRotation {
 
     private final JwkKeyRepository keyRepo;
     private final ApplicationEventPublisher eventPublisher;
-    private final JwkKeyCache keyCache;
+    private final KeyCache keyCache;
 
     @Autowired
-    public JwkRotation(JwkKeyRepository keyRepo, ApplicationEventPublisher eventPublisher, JwkKeyCache keyCache) {
+    public KeyRotation(JwkKeyRepository keyRepo, ApplicationEventPublisher eventPublisher, KeyCache keyCache) {
         this.keyRepo = keyRepo;
         this.eventPublisher = eventPublisher;
         this.keyCache = keyCache;
@@ -71,7 +72,7 @@ public class JwkRotation {
      */
     @Bean
     public RSAKey activePrivateKey() {
-        return keyCache.getActivePrivateKey();
+        return keyCache.getActiveRsaPrivateKey();
     }
 
     /**
@@ -91,7 +92,7 @@ public class JwkRotation {
      * This method is executed every 7 days as defined by the specified cron expression.
      * It deactivates all currently active JWKs, generates a new RSA key,
      * and saves the newly generated key as the active JWK. Additionally,
-     * it publishes a {@link JwkKeyRotatedEvent} to signal other components about the rotation.
+     * it publishes a {@link KeyRotatedEvent} to signal other components about the rotation.
      * <p>
      * Steps involved in the rotation process:
      * - Fetch all keys from the repository and filter for the active ones.
@@ -103,25 +104,45 @@ public class JwkRotation {
      * Thread safety is ensured by using the synchronized keyword to prevent concurrent execution.
      *
      * @throws IllegalStateException if the generation of the new RSA key fails.
+     *
+     * This is an administrative action and is not scheduled.
      */
-    @Scheduled(cron = "0 0 0 */7 * *")
-    public synchronized void rotateKey() {
-        log.info("Begin to  rotate JWK key.");
-        keyRepo.findAll().stream().filter(JwkKey::isActive).toList().forEach(key -> {
-            key.setActive(false);
-            keyRepo.save(key);
-        });
+    public synchronized void rotateToNewRsaKey() {
+        log.info("Begin to rotate to a new RSA JWK key.");
+        deactivateAllKeys();
 
         try {
             RSAKey newRsaKey = generateRsaKey();
             JwkKey newKeyEntity = generateNewKeyForRotation(newRsaKey);
             keyRepo.save(newKeyEntity);
-            log.info("Rotate JWK key successfully. {}", newKeyEntity.toString());
+            log.info("Rotated to new RSA JWK key successfully. {}", newKeyEntity.toString());
 
-            eventPublisher.publishEvent(new JwkKeyRotatedEvent());
+            eventPublisher.publishEvent(new KeyRotatedEvent());
         } catch (JOSEException e) {
             throw new IllegalStateException("Failed to generate new RSA key", e);
         }
+    }
+
+    /**
+     * Rotates the active JSON Web Key (JWK) to a new HMAC key.
+     * This is an administrative action and is not scheduled.
+     */
+    public synchronized void rotateToNewHmacKey() {
+        log.info("Begin to rotate to a new HMAC JWK key.");
+        deactivateAllKeys();
+
+        JwkKey newKeyEntity = AppKeyGenerator.generateNewHmacKeyForRotation();
+        keyRepo.save(newKeyEntity);
+        log.info("Rotated to new HMAC JWK key successfully. {}", newKeyEntity.toString());
+
+        eventPublisher.publishEvent(new KeyRotatedEvent());
+    }
+
+    private void deactivateAllKeys() {
+        keyRepo.findAll().stream().filter(JwkKey::isActive).forEach(key -> {
+            key.setActive(false);
+            keyRepo.save(key);
+        });
     }
 
     /**
@@ -133,7 +154,7 @@ public class JwkRotation {
      * <ul>
      *   - Fetches all the keys currently stored in the repository.
      *   - Delegates the removal decision and logic to the {@code removedInactiveKeys} method.
-     *   - Publishes a {@link JwkKeyRotatedEvent} to signal other components about potential key changes.
+     *   - Publishes a {@link KeyRotatedEvent} to signal other components about potential key changes.
      * </ul>
      * The method employs synchronization to ensure thread safety during execution.
      */
@@ -142,7 +163,7 @@ public class JwkRotation {
         log.info("Begin to remove inactive JWK keys.");
         List<JwkKey> allKeys = keyRepo.findAll();
         removedInactiveKeys(allKeys);
-        eventPublisher.publishEvent(new JwkKeyRotatedEvent());
+        eventPublisher.publishEvent(new KeyRotatedEvent());
     }
 
     /**

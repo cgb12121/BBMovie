@@ -1,7 +1,7 @@
 package com.bbmovie.auth.controller;
 
 import com.bbmovie.auth.dto.ApiResponse;
-import com.bbmovie.auth.security.jose.config.JwkService;
+import com.bbmovie.auth.security.jose.JwkService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;

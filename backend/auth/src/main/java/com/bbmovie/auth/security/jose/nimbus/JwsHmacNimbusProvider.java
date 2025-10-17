@@ -4,8 +4,8 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
-import com.bbmovie.auth.security.jose.config.TokenPair;
-import com.example.common.annotation.Experimental;
+import com.bbmovie.auth.security.jose.KeyCache;
+import com.bbmovie.auth.security.jose.dto.TokenPair;
 import com.example.common.entity.JoseConstraint;
 import com.nimbusds.jose.JOSEObjectType;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -14,7 +14,6 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import jakarta.annotation.PostConstruct;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -25,7 +24,6 @@ import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import javax.crypto.spec.SecretKeySpec;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -35,34 +33,40 @@ import static com.example.common.entity.JoseConstraint.JosePayload.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
 import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
+/**
+ * JOSE provider using the `nimbus-jose-jwt` library for JWS with HMAC-SHA algorithms.
+ * This implementation uses a single, symmetric secret key dynamically retrieved
+ * from the JwkKeyCache to support key rotation.
+ */
 @Log4j2
-@Component("nimbusHmac")
-public class NimbusHmac implements JoseProviderStrategy {
+@Component("jwsHmacNimbus")
+public class JwsHmacNimbusProvider implements JoseProviderStrategy {
 
     private final int jwtAccessExpirationInMs;
     private final int jwtRefreshExpirationInMs;
-    private final String jwtSecret;
-    private SecretKey secretKey;
+    private final KeyCache keyCache;
     private final RedisTemplate<Object, Object> redisTemplate;
 
-    public NimbusHmac(
-            @Value("${app.jose.key.secret}") String jwtSecret,
+    public JwsHmacNimbusProvider(
             @Value("${app.jose.expiration.access-token}") int jwtAccessExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshExpirationInMs,
+            KeyCache keyCache,
             RedisTemplate<Object, Object> redisTemplate
     ) {
-        this.jwtSecret = jwtSecret;
         this.jwtAccessExpirationInMs = jwtAccessExpirationInMs;
         this.jwtRefreshExpirationInMs = jwtRefreshExpirationInMs;
+        this.keyCache = keyCache;
         this.redisTemplate = redisTemplate;
     }
 
-    @PostConstruct
-    public void initKey() {
-        this.secretKey = new SecretKeySpec(jwtSecret.getBytes(), "HmacSHA256");
+    private SecretKey getSecretKey() {
+        SecretKey key = keyCache.getActiveHmacSecretKey();
+        if (key == null) {
+            throw new IllegalStateException("No active HMAC secret key available. Check key configuration and type.");
+        }
+        return key;
     }
 
-    @Experimental
     @Override
     public TokenPair generateTokenPair(Authentication authentication, User loggedInUser) {
         String refreshJti = UUID.randomUUID().toString();
@@ -108,7 +112,7 @@ public class NimbusHmac implements JoseProviderStrategy {
                     .build();
 
             SignedJWT signedJWT = new SignedJWT(header, claimsSet);
-            signedJWT.sign(new MACSigner(secretKey.getEncoded()));
+            signedJWT.sign(new MACSigner(getSecretKey().getEncoded()));
 
             return signedJWT.serialize();
         } catch (Exception e) {
@@ -117,7 +121,6 @@ public class NimbusHmac implements JoseProviderStrategy {
         }
     }
 
-    @Experimental
     private String generateToken(
             Authentication authentication, long expirationInMs, String sid, User loggedInUser,
             String jti, String issuer
@@ -148,7 +151,7 @@ public class NimbusHmac implements JoseProviderStrategy {
                     .build();
 
             SignedJWT signedJWT = new SignedJWT(header, claimsSet);
-            signedJWT.sign(new MACSigner(secretKey.getEncoded()));
+            signedJWT.sign(new MACSigner(getSecretKey().getEncoded()));
 
             return signedJWT.serialize();
         } catch (Exception e) {
@@ -197,7 +200,7 @@ public class NimbusHmac implements JoseProviderStrategy {
     public List<String> getRolesFromToken(String token) {
         try {
             SignedJWT signedJWT = SignedJWT.parse(token);
-            if (!signedJWT.verify(new MACVerifier(secretKey.getEncoded()))) {
+            if (!signedJWT.verify(new MACVerifier(getSecretKey().getEncoded()))) {
                 throw new IllegalArgumentException("JWT verification failed");
             }
             String role = (String) signedJWT.getJWTClaimsSet().getClaim(ROLE);
@@ -293,7 +296,7 @@ public class NimbusHmac implements JoseProviderStrategy {
     public boolean validateToken(String token) {
         try {
             SignedJWT signedJWT = SignedJWT.parse(token);
-            return signedJWT.verify(new MACVerifier(secretKey.getEncoded()));
+            return signedJWT.verify(new MACVerifier(getSecretKey().getEncoded()));
         } catch (Exception ex) {
             log.error("JWT validation failed: {}", ex.getMessage());
             return false;

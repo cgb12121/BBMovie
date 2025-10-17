@@ -1,6 +1,9 @@
-package com.bbmovie.auth.security.jose;
+package com.bbmovie.auth.security.jose.filter;
 
 import com.bbmovie.auth.exception.BlacklistedJwtTokenException;
+import com.bbmovie.auth.security.jose.JoseProviderStrategy;
+import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
+import com.bbmovie.auth.security.jose.dto.JoseValidatedToken;
 import jakarta.annotation.Nullable;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

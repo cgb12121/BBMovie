@@ -1,6 +1,6 @@
 package com.bbmovie.auth.security;
 
-import com.bbmovie.auth.security.jose.JoseAuthenticationFilter;
+import com.bbmovie.auth.security.jose.filter.JoseAuthenticationFilter;
 import com.bbmovie.auth.security.oauth2.CustomAuthorizationRequestResolver;
 import com.bbmovie.auth.security.oauth2.OAuth2LoginSuccessHandler;
 import com.bbmovie.auth.service.auth.CustomUserDetailsService;

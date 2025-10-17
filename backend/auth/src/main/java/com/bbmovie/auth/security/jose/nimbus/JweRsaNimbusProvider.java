@@ -4,17 +4,16 @@ import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.JoseProviderStrategy;
-import com.bbmovie.auth.security.jose.config.TokenPair;
+import com.bbmovie.auth.security.jose.KeyCache;
+import com.bbmovie.auth.security.jose.dto.TokenPair;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
-import com.example.common.annotation.Experimental;
 import com.nimbusds.jose.*;
-import com.nimbusds.jose.crypto.RSASSASigner;
-import com.nimbusds.jose.crypto.RSASSAVerifier;
+import com.nimbusds.jose.crypto.RSADecrypter;
+import com.nimbusds.jose.crypto.RSAEncrypter;
 import com.nimbusds.jose.jwk.RSAKey;
+import com.nimbusds.jwt.EncryptedJWT;
 import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.SignedJWT;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
@@ -29,38 +28,42 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import static com.example.common.entity.JoseConstraint.*;
+import static com.example.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX;
 import static com.example.common.entity.JoseConstraint.JosePayload.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
-import static com.example.common.entity.JoseConstraint.JwtType.JWS;
+import static com.example.common.entity.JoseConstraint.JwtType.JWE;
 
+/**
+ * JOSE provider using the `nimbus-jose-jwt` library for JWE with RSA algorithms (e.g., RSA-OAEP-256).
+ * This implementation uses an asymmetric RSA key pair.
+ * - The public key is used for encrypting tokens.
+ * - The private key is used for decryption.
+ * It dynamically retrieves the keys from the JwkKeyCache to support key rotation.
+ */
 @Log4j2
-@Component("nimbusJws")
-public class NimbusJws implements JoseProviderStrategy {
+@Component("jweRsaNimbus")
+public class JweRsaNimbusProvider implements JoseProviderStrategy {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
-    private final RSAKey activePrivateKey;
-    private final List<RSAKey> publicKeys;
+    private final KeyCache keyCache;
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
 
-    public NimbusJws(
+    public JweRsaNimbusProvider(
             @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
-            @Qualifier("activePrivateKey") RSAKey activePrivateKey,
-            List<RSAKey> publicKeys,
+            KeyCache keyCache,
             RedisTemplate<Object, Object> redisTemplate,
             List<OAuth2UserInfoStrategy> strategies
     ) {
         this.jwtAccessTokenExpirationInMs = jwtAccessTokenExpirationInMs;
         this.jwtRefreshTokenExpirationInMs = jwtRefreshTokenExpirationInMs;
-        this.activePrivateKey = activePrivateKey;
-        this.publicKeys = publicKeys;
+        this.keyCache = keyCache;
         this.redisTemplate = redisTemplate;
         this.strategies = strategies;
     }
 
-    @Experimental
     @Override
     public TokenPair generateTokenPair(Authentication authentication, User loggedInUser) {
         String refreshJti = UUID.randomUUID().toString();
@@ -82,10 +85,16 @@ public class NimbusJws implements JoseProviderStrategy {
 
     private String generateToken(Authentication authentication, int expirationInMs, String sid, User loggedInUser) {
         try {
-            String username = getUsernameFromAuthentication(authentication);
-            String role = getRoleFromAuthentication(authentication);
+            RSAKey currentActiveKey = keyCache.getActiveRsaPrivateKey();
+            String username = extractUsername(authentication);
+            String role = extractRole(authentication);
             Date now = new Date();
             Date expiryDate = new Date(now.getTime() + expirationInMs);
+
+            JWEHeader header = new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A256GCM)
+                    .contentType("JWT")
+                    .keyID(currentActiveKey.getKeyID())
+                    .build();
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .subject(username)
@@ -101,30 +110,35 @@ public class NimbusJws implements JoseProviderStrategy {
                     .claim(SID, sid)
                     .build();
 
-            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
-                    .type(JOSEObjectType.JWT)
-                    .keyID(activePrivateKey.getKeyID())
-                    .build();
+            EncryptedJWT encryptedJWT = new EncryptedJWT(header, claimsSet);
 
-            SignedJWT signedJWT = new SignedJWT(header, claimsSet);
-            signedJWT.sign(new RSASSASigner(activePrivateKey.toRSAPrivateKey()));
-            return signedJWT.serialize();
+            RSAKey publicKey = currentActiveKey.toPublicJWK();
+            JWEEncrypter encrypter = new RSAEncrypter(publicKey);
+
+            encryptedJWT.encrypt(encrypter);
+
+            return encryptedJWT.serialize();
         } catch (Exception e) {
-            log.error("Token generation error: {}", e.getMessage());
-            throw new IllegalStateException("Failed to generate JWT", e);
+            log.error("Token encryption error: {}", e.getMessage());
+            throw new IllegalStateException("Failed to generate JWE token", e);
         }
     }
 
-    @Experimental
     private String generateToken(
             Authentication authentication, long expirationInMs, String sid, User loggedInUser,
             String jti, String issuer
     ) {
         try {
-            String username = getUsernameFromAuthentication(authentication);
-            String role = getRoleFromAuthentication(authentication);
+            RSAKey currentActiveKey = keyCache.getActiveRsaPrivateKey();
+            String username = extractUsername(authentication);
+            String role = extractRole(authentication);
             Date now = new Date();
             Date expiryDate = new Date(now.getTime() + expirationInMs);
+
+            JWEHeader header = new JWEHeader.Builder(JWEAlgorithm.RSA_OAEP_256, EncryptionMethod.A256GCM)
+                    .contentType("JWT")
+                    .keyID(currentActiveKey.getKeyID())
+                    .build();
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .issuer(issuer)
@@ -141,145 +155,130 @@ public class NimbusJws implements JoseProviderStrategy {
                     .claim(SID, sid)
                     .build();
 
-            JWSHeader header = new JWSHeader.Builder(JWSAlgorithm.RS256)
-                    .type(JOSEObjectType.JWT)
-                    .keyID(activePrivateKey.getKeyID())
-                    .build();
+            EncryptedJWT encryptedJWT = new EncryptedJWT(header, claimsSet);
 
-            SignedJWT signedJWT = new SignedJWT(header, claimsSet);
-            signedJWT.sign(new RSASSASigner(activePrivateKey.toRSAPrivateKey()));
-            return signedJWT.serialize();
+            RSAKey publicKey = currentActiveKey.toPublicJWK();
+            JWEEncrypter encrypter = new RSAEncrypter(publicKey);
+
+            encryptedJWT.encrypt(encrypter);
+
+            return encryptedJWT.serialize();
         } catch (Exception e) {
             log.error("[Experimental] Token generation failed: {}", e.getMessage());
             throw new IllegalStateException("JWT generation failed", e);
         }
     }
 
-    private String getUsernameFromAuthentication(Authentication authentication) {
-        Object principal = authentication.getPrincipal();
+    private Optional<EncryptedJWT> resolveAndDecrypt(String token) {
+        if(token == null || token.isBlank()) return Optional.empty();
 
-        if (principal instanceof UserDetails userDetails) {
-            return userDetails.getUsername();
-        } else if (principal instanceof DefaultOAuth2User oauth2User) {
-            OAuth2AuthenticationToken token = (OAuth2AuthenticationToken) authentication;
-            String provider = token.getAuthorizedClientRegistrationId();
-            Map<String, Object> attributes = oauth2User.getAttributes();
-
-            OAuth2UserInfoStrategy strategy = getStrategyForProvider(provider);
-            return strategy.getUsername(attributes);
+        if (token.split("\\.").length != 5) {
+            log.warn("Invalid JWE format (expected 5 parts): '{}'", token);
+            return Optional.empty();
         }
-        throw new UnsupportedPrincipalType(
-                "Unsupported principal type: " + principal.getClass().getName()
-        );
-    }
 
-    private OAuth2UserInfoStrategy getStrategyForProvider(String provider) {
-        return strategies.stream()
-                .filter(s -> s.getAuthProvider().name().equalsIgnoreCase(provider))
-                .findFirst()
-                .orElseThrow(() -> new UnsupportedOAuth2Provider("Unsupported provider: " + provider));
-    }
-
-    private String getRoleFromAuthentication(Authentication authentication) {
-        Object principal = authentication.getPrincipal();
-        if (principal instanceof User user) {
-            return "ROLE_" + user.getRole().name();
-        } else if (principal instanceof UserDetails userDetails) {
-            return userDetails.getAuthorities().stream()
-                    .findFirst()
-                    .map(GrantedAuthority::getAuthority)
-                    .orElse("ROLE_USER");
-        } else if (principal instanceof DefaultOAuth2User) {
-            return "ROLE_USER";
+        try {
+            EncryptedJWT jwt = EncryptedJWT.parse(token);
+            // Use the current active key for decryption
+            RSADecrypter decrypter = new RSADecrypter(keyCache.getActiveRsaPrivateKey().toRSAPrivateKey());
+            jwt.decrypt(decrypter);
+            log.debug("Decrypted JWT: {}", jwt.serialize());
+            return Optional.of(jwt);
+        } catch (Exception e) {
+            log.error("Failed to decrypt JWE token: {}", e.getMessage());
+            return Optional.empty();
         }
-        throw new UnsupportedPrincipalType(
-                "Unsupported principal type: " + principal.getClass().getName()
-        );
     }
 
     @Override
     public boolean validateToken(String token) {
-        Optional<SignedJWT> verifiedJwt = resolveAndVerify(token);
-        if (verifiedJwt.isEmpty()) {
-            return false;
-        }
-        try {
-            return verifiedJwt.get().getJWTClaimsSet().getExpirationTime().after(new Date());
-        } catch (ParseException e) {
-            log.error("Failed to parse token expiration: {}", e.getMessage());
-            return false;
-        }
+        return resolveAndDecrypt(token)
+                .map(jwt -> {
+                    try {
+                        Date expirationTime = jwt.getJWTClaimsSet().getExpirationTime();
+                        boolean expired = expirationTime.before(new Date());
+                        if (expired) {
+                            log.warn("Expired JWT token: {}", token);
+                            return false;
+                        }
+                        return true;
+                    } catch (ParseException e) {
+                        log.error("Error parsing expiration: {}", e.getMessage());
+                        return false;
+                    }
+                })
+                .orElse(false);
     }
 
     @Override
     public String getUsernameFromToken(String token) {
-        return resolveAndVerify(token)
+        return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
                         return jwt.getJWTClaimsSet().getSubject();
-                    } catch (Exception e) {
-                        throw new IllegalArgumentException("Invalid JWK username", e);
+                    } catch (ParseException e) {
+                        throw new IllegalArgumentException("Invalid JWT subject", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Failed to parse username from JWK token"));
+                .orElseThrow(() -> new IllegalArgumentException("Failed to resolve username from token"));
     }
 
     @Override
     public List<String> getRolesFromToken(String token) {
-        return resolveAndVerify(token)
+        return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
                         String role = (String) jwt.getJWTClaimsSet().getClaim(ROLE);
                         return List.of(role);
-                    } catch (Exception e) {
-                        throw new IllegalArgumentException("Invalid roles from JWK", e);
+                    } catch (ParseException e) {
+                        throw new IllegalArgumentException("Invalid JWT role", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Unable to get roles from JWK token"));
+                .orElseThrow(() -> new IllegalArgumentException("Failed to resolve username from token"));
     }
 
     @Override
     public Date getIssuedAtFromToken(String token) {
-        return resolveAndVerify(token)
+        return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
                         return jwt.getJWTClaimsSet().getIssueTime();
-                    } catch (Exception e) {
-                        throw new IllegalArgumentException("Invalid iat from JWK", e);
+                    } catch (ParseException e) {
+                        throw new IllegalArgumentException("Invalid JWT expiration", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Unable to get issued date from JWK token"));
+                .orElseThrow(() -> new IllegalArgumentException("Token invalid or unverified"));
     }
 
     @Override
     public Date getExpirationDateFromToken(String token) {
-        return resolveAndVerify(token)
+        return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
                         return jwt.getJWTClaimsSet().getExpirationTime();
-                    } catch (Exception e) {
-                        throw new IllegalArgumentException("Invalid exp from JWK", e);
+                    } catch (ParseException e) {
+                        throw new IllegalArgumentException("Invalid JWT expiration", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Unable to get expiration date from JWK token"));
+                .orElseThrow(() -> new IllegalArgumentException("Token invalid or unverified"));
     }
 
     @Override
     public String getJtiFromToken(String token) {
-        return resolveAndVerify(token)
+        return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
                         return (String) jwt.getJWTClaimsSet().getClaim(JTI);
                     } catch (Exception e) {
-                        throw new IllegalArgumentException("Invalid jwt from JWK", e);
+                        throw new IllegalArgumentException("Invalid jti from JWK", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Unable to get jti from JWK token"));
+                .orElseThrow(() -> new IllegalArgumentException("Unable to get jti from JWK"));
     }
 
     @Override
     public String getSidFromToken(String token) {
-        return resolveAndVerify(token)
+        return resolveAndDecrypt(token)
                 .map(jwt -> {
                     try {
                         return (String) jwt.getJWTClaimsSet().getClaim(SID);
@@ -287,31 +286,31 @@ public class NimbusJws implements JoseProviderStrategy {
                         throw new IllegalArgumentException("Invalid sid from JWK", e);
                     }
                 })
-                .orElseThrow(() -> new IllegalArgumentException("Unable to get sid from JWK token"));
+                .orElseThrow(() -> new IllegalArgumentException("Unable to get sid from JWK"));
     }
 
     @Override
     public Map<String, Object> getClaimsFromToken(String token) {
-        return resolveAndVerify(token).map(jwt ->{
+        return resolveAndDecrypt(token).map(jwt ->{
             try {
                 return jwt.getJWTClaimsSet().getClaims();
             } catch (Exception e) {
                 log.error("Failed to parse claims: {}", e.getMessage());
                 throw new IllegalArgumentException("Invalid claims from JWK", e);
             }
-        }).orElseThrow(() -> new IllegalArgumentException("Unable to get claims from JWK token"));
+        }).orElseThrow(() -> new IllegalArgumentException("Unable to get claims from JWK"));
     }
 
     @Override
     public Map<String, Object> getOnlyABACClaimsFromToken(String token) {
-        return resolveAndVerify(token).map(jwt ->{
+        return resolveAndDecrypt(token).map(jwt ->{
             try {
                 return getOnlyABACFromClaims(jwt.getJWTClaimsSet().getClaims());
             } catch (Exception e) {
                 log.error("Failed to parse abac claims from JWK token: {}", e.getMessage());
                 throw new IllegalArgumentException("Invalid abac from JWK", e);
             }
-        }).orElseThrow(() -> new IllegalArgumentException("Unable to get abac claims from JWK token"));
+        }).orElseThrow(() -> new IllegalArgumentException("Unable to get claims from JWK"));
     }
 
     @Override
@@ -324,39 +323,6 @@ public class NimbusJws implements JoseProviderStrategy {
         claims.remove(IAT);
         claims.remove(ISS);
         return claims;
-    }
-
-    private Optional<SignedJWT> resolveAndVerify(String token) {
-        if (token == null || token.isBlank()) {
-            log.warn("Invalid token format (null, blank, or missing 3 JWT parts): '{}'", token);
-            return Optional.empty();
-        }
-
-        try {
-            SignedJWT jwt = SignedJWT.parse(token);
-            String kid = jwt.getHeader().getKeyID();
-            if (kid == null) {
-                log.error("Token missing key ID (kid)");
-                return Optional.empty();
-            }
-
-            for (RSAKey key : publicKeys) {
-                if (key.getKeyID().equals(kid)) {
-                    if (jwt.verify(new RSASSAVerifier(key.toRSAPublicKey()))) {
-                        log.info("Token verified with kid: {}", kid);
-                        return Optional.of(jwt);
-                    } else {
-                        log.error("Token verification failed for kid: {}", kid);
-                        return Optional.empty();
-                    }
-                }
-            }
-            log.error("No matching key found for kid: {}", kid);
-            return Optional.empty();
-        } catch (Exception e) {
-            log.error("Failed to verify token: {}", e.getMessage());
-            return Optional.empty();
-        }
     }
 
     @Override
@@ -396,6 +362,36 @@ public class NimbusJws implements JoseProviderStrategy {
 
     @Override
     public JwtType getType() {
-        return JWS;
+        return JWE;
+    }
+
+    private String extractUsername(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetails userDetails) return userDetails.getUsername();
+        if (principal instanceof DefaultOAuth2User oauthUser) {
+            String provider = ((OAuth2AuthenticationToken) authentication).getAuthorizedClientRegistrationId();
+            return getStrategyForProvider(provider).getUsername(oauthUser.getAttributes());
+        }
+        throw new UnsupportedPrincipalType("Unsupported principal: " + principal.getClass().getName());
+    }
+
+    private String extractRole(Authentication authentication) {
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof User user) return "ROLE_" + user.getRole().name();
+        if (principal instanceof UserDetails userDetails)
+            return userDetails.getAuthorities()
+                    .stream()
+                    .findFirst()
+                    .map(GrantedAuthority::getAuthority)
+                    .orElse("ROLE_USER");
+        if (principal instanceof DefaultOAuth2User) return "ROLE_USER";
+        throw new UnsupportedPrincipalType("Unsupported principal: " + principal.getClass().getName());
+    }
+
+    private OAuth2UserInfoStrategy getStrategyForProvider(String provider) {
+        return strategies.stream()
+                .filter(s -> s.getAuthProvider().name().equalsIgnoreCase(provider))
+                .findFirst()
+                .orElseThrow(() -> new UnsupportedOAuth2Provider("Unsupported provider: " + provider));
     }
 }
