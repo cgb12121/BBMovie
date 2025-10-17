@@ -15,6 +15,7 @@ package com.bbmovie.auth.security.anonymity;
  * <p>- {@code isAnonymity(String ip)}: Checks if the given IP address is identified as anonymous.
  * <p>- {@code getName()}: Retrieves the name of the IP anonymity provider implementation.
  */
+@Deprecated(forRemoval = true, since = "1.0")
 public interface IpAnonymityProvider {
     boolean isAnonymity(String ip);
     String getName();

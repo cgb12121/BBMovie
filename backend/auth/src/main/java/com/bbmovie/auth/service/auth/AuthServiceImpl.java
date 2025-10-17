@@ -12,7 +12,6 @@ import com.bbmovie.auth.entity.enumerate.Role;
 import com.bbmovie.auth.entity.jose.RefreshToken;
 import com.bbmovie.auth.exception.*;
 import com.bbmovie.auth.repository.UserRepository;
-import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
 import com.bbmovie.auth.security.jose.config.TokenPair;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
@@ -31,7 +30,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.log4j.Log4j2;
 import nl.basjes.parse.useragent.UserAgent;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -43,14 +41,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.util.WebUtils;
 
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.*;
 
-import static com.bbmovie.auth.constant.error.AuthErrorMessages.EMAIL_ALREADY_EXISTS;
-import static com.bbmovie.auth.constant.error.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
+import static com.bbmovie.auth.constant.AuthErrorMessages.EMAIL_ALREADY_EXISTS;
+import static com.bbmovie.auth.constant.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
 import static com.example.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
 import static com.example.common.entity.JoseConstraint.JosePayload.SID;
 import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
@@ -71,7 +68,7 @@ public class AuthServiceImpl implements AuthService {
     private final OtpService otpService;
     private final DeviceInfoUtils deviceInfoUtils;
     private final UserAgentAnalyzerUtils userAgentAnalyzer;
-    private final JoseProviderStrategy joseProviderStrategy;
+    private final JoseProviderStrategyContext joseProviderStrategyContext;
 
     @Autowired
     public AuthServiceImpl(
@@ -101,7 +98,7 @@ public class AuthServiceImpl implements AuthService {
         this.otpService = otpService;
         this.deviceInfoUtils = deviceInfoUtils;
         this.userAgentAnalyzer = userAgentAnalyzer;
-        this.joseProviderStrategy = joseProviderStrategyContext.getActiveProvider();
+        this.joseProviderStrategyContext = joseProviderStrategyContext;
     }
 
     /**
@@ -141,7 +138,8 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         String sid = UUID.randomUUID().toString();
-        TokenPair tokenPair = joseProviderStrategy.generateTokenPair(authentication, user);
+        TokenPair tokenPair = joseProviderStrategyContext.getActiveProvider()
+                .generateTokenPair(authentication, user);
 
         boolean isNewSession = refreshTokenService.findAllValidByEmail(user.getEmail())
                 .stream()
@@ -399,7 +397,7 @@ public class AuthServiceImpl implements AuthService {
         String currentDeviceName = currentAgent.getValue("DeviceName");
         String currentIp = IpAddressUtils.getClientIp(request);
 
-        String email = joseProviderStrategy.getUsernameFromToken(accessToken);
+        String email = joseProviderStrategyContext.getActiveProvider().getUsernameFromToken(accessToken);
 
         List<DeviceInfo> allDevices = getAllLoggedInDevicesRaw(email);
         List<LoggedInDeviceResponse> result = new ArrayList<>();
@@ -446,7 +444,8 @@ public class AuthServiceImpl implements AuthService {
 
         for (RefreshToken refreshToken : refreshTokens) {
             String oldSid = refreshToken.getSid();
-            joseProviderStrategy.addTokenToABACBlacklist(oldSid);
+            joseProviderStrategyContext.getActiveProvider()
+                    .addTokenToABACBlacklist(oldSid);
             abacEventProducer.send(JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + oldSid);
 
             List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
@@ -455,7 +454,8 @@ public class AuthServiceImpl implements AuthService {
 
             String newSid = UUID.randomUUID().toString();
             //need to pass time to make sure new-issued token expired same with old token
-            String newRefreshToken = joseProviderStrategy.generateRefreshToken(authentication, newSid, user);
+            String newRefreshToken = joseProviderStrategyContext.getActiveProvider()
+                    .generateRefreshToken(authentication, newSid, user);
 
             refreshToken.setToken(newRefreshToken);
             refreshToken.setSid(newSid);
@@ -475,10 +475,12 @@ public class AuthServiceImpl implements AuthService {
      *                    used to extract the session ID (SID) for revocation.
      */
     private void revokeTokensFromCurrentDevice(String accessToken) {
-        Map<String, Object> claims = joseProviderStrategy.getClaimsFromToken(accessToken);
+        Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider()
+                .getClaimsFromToken(accessToken);
         String sid = claims.get(SID).toString();
         refreshTokenService.deleteRefreshToken(sid);
-        joseProviderStrategy.addTokenToLogoutBlacklist(sid);
+        joseProviderStrategyContext.getActiveProvider()
+                .addTokenToLogoutBlacklist(sid);
 
         logoutEventProducer.send(JWT_LOGOUT_BLACKLIST_PREFIX + sid);
     }
@@ -495,7 +497,8 @@ public class AuthServiceImpl implements AuthService {
      * @throws IllegalArgumentException Thrown if the target SID matches the current session SID.
      */
     private void revokeTokensFromSpecificDevice(String accessToken, String targetSid) {
-        Map<String, Object> claims = joseProviderStrategy.getClaimsFromToken(accessToken);
+        Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider()
+                .getClaimsFromToken(accessToken);
         String sid = claims.get(SID).toString();
         String email = claims.get(SUB).toString();
 
@@ -504,7 +507,8 @@ public class AuthServiceImpl implements AuthService {
         }
 
         refreshTokenService.deleteByEmailAndSid(email, targetSid);
-        joseProviderStrategy.addTokenToLogoutBlacklist(targetSid);
+        joseProviderStrategyContext.getActiveProvider()
+                .addTokenToLogoutBlacklist(targetSid);
         logoutEventProducer.send(JWT_LOGOUT_BLACKLIST_PREFIX + targetSid);
     }
 
@@ -521,7 +525,8 @@ public class AuthServiceImpl implements AuthService {
         List<String> allSessions = refreshTokenService.getAllSessionsByEmail(email);
         refreshTokenService.deleteAllRefreshTokenByEmail(email);
         for (String sid : allSessions) {
-            joseProviderStrategy.addTokenToLogoutBlacklist(sid);
+            joseProviderStrategyContext.getActiveProvider()
+                    .addTokenToLogoutBlacklist(sid);
             logoutEventProducer.send(JWT_LOGOUT_BLACKLIST_PREFIX + sid);
         }
     }

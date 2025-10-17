@@ -4,6 +4,7 @@ import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
+import com.bbmovie.search.dto.event.ElasticsearchUpEvent;
 import com.bbmovie.search.entity.MovieDocument;
 import com.bbmovie.search.service.embedding.DjLEmbeddingService;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
+import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -34,27 +36,40 @@ public class MovieSeederService {
     private final ElasticsearchClient elasticsearchClient;
     private final Optional<EmbeddingModel> embeddingModel;
     private final Optional<DjLEmbeddingService> djlEmbeddingService;
+    private final Environment environment;
 
     @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
     private String indexName;
-
+    private boolean seedingComplete = false;
     private static final int SAMPLE_COUNT = 100;
 
     @Autowired
     public MovieSeederService(
             ElasticsearchClient elasticsearchClient,
             Optional<EmbeddingModel> embeddingModel,
-            Optional<DjLEmbeddingService> djlEmbeddingService) {
+            Optional<DjLEmbeddingService> djlEmbeddingService,
+            Environment environment) {
         this.elasticsearchClient = elasticsearchClient;
         this.embeddingModel = embeddingModel;
         this.djlEmbeddingService = djlEmbeddingService;
+        this.environment = environment;
     }
 
-    @EventListener
-    public void seedIfEmpty(ApplicationReadyEvent ignored) {
-        try {
-            deleteIndex();
+    @EventListener({ ApplicationReadyEvent.class, ElasticsearchUpEvent.class })
+    public void seedIfEmpty() {
+        String[] activeProfiles = environment.getActiveProfiles();
 
+        for (String profile : activeProfiles) {
+            if ("prod".equals(profile) || "production".equals(profile)) {
+                return;
+            }
+        }
+
+        if (seedingComplete) {
+            return;
+        }
+
+        try {
             if (!indexExists()) {
                 log.warn("Index '{}' not found — creating it...", indexName);
                 createIndex();
@@ -71,16 +86,25 @@ public class MovieSeederService {
             }
         } catch (Exception e) {
             log.error("Error during seeding setup: ", e);
+        } finally {
+            seedingComplete = true;
         }
     }
 
     private boolean indexExists() throws IOException {
-        return elasticsearchClient.indices().exists(e -> e.index(indexName)).value();
+        return elasticsearchClient
+                .indices()
+                .exists(e -> e.index(indexName))
+                .value();
     }
 
+    //Only use when testing/developing
+    @SuppressWarnings("unused")
     private void deleteIndex() throws Exception {
         if (indexExists()) {
-            elasticsearchClient.indices().delete(d -> d.index(indexName));
+            elasticsearchClient
+                    .indices()
+                    .delete(d -> d.index(indexName));
             log.info("Index '{}' deleted successfully.", indexName);
         } else {
             log.info("Index '{}' does not exist, skipping deletion.", indexName);
@@ -88,43 +112,49 @@ public class MovieSeederService {
     }
 
     private void createIndex() throws Exception {
-        elasticsearchClient.indices().create(c -> c
-                .index(indexName)
-                .settings(s -> s
-                        .numberOfShards("1")
-                        .numberOfReplicas("0")
-                )
-                .mappings(m -> m
-                        .properties("id", p -> p.keyword(k -> k))
-                        .properties("title", p -> p.text(t -> t.analyzer("standard")))
-                        .properties("description", p -> p.text(t -> t.analyzer("standard")))
-                        .properties("categories", p -> p.keyword(k -> k))
-                        .properties("posterUrl", p -> p.keyword(k -> k))
-                        .properties("type", p -> p.keyword(k -> k))
-                        .properties("rating", p -> p.double_(d -> d))
-                        .properties("releaseDate", p -> p.date(d -> d))
-                        .properties("embedding", p -> p.denseVector(v -> v
-                                .dims(384)
-                                .index(true)
-                                .similarity("cosine")
-                                .indexOptions(io -> io
-                                        .type("int8_hnsw")
-                                        .m(16)
-                                        .efConstruction(100)
-                                )
-                        ))
-                )
-        );
+        elasticsearchClient
+                .indices()
+                .create(c -> c
+                    .index(indexName)
+                    .settings(s -> s
+                            .numberOfShards("1")
+                            .numberOfReplicas("0")
+                    )
+                    .mappings(m -> m
+                            .properties("id", p -> p.keyword(k -> k))
+                            .properties("title", p -> p.text(t -> t.analyzer("standard")))
+                            .properties("description", p -> p.text(t -> t.analyzer("standard")))
+                            .properties("categories", p -> p.keyword(k -> k))
+                            .properties("posterUrl", p -> p.keyword(k -> k))
+                            .properties("type", p -> p.keyword(k -> k))
+                            .properties("rating", p -> p.double_(d -> d))
+                            .properties("releaseDate", p -> p.date(d -> d))
+                            .properties("embedding", p -> p.denseVector(v -> v
+                                    .dims(384)
+                                    .index(true)
+                                    .similarity("cosine")
+                                    .indexOptions(io -> io
+                                            .type("int8_hnsw")
+                                            .m(16)
+                                            .efConstruction(100)
+                                    )
+                            ))
+                    )
+                );
         log.info("Index '{}' created successfully.", indexName);
     }
 
     private boolean isIndexEmpty() throws IOException {
-        SearchResponse<Void> response = elasticsearchClient.search(s -> s
-                .index(indexName)
-                .size(0)
-                .query(q -> q.matchAll(m -> m)), Void.class);
+        SearchResponse<Void> response = elasticsearchClient
+                .search(s -> s
+                    .index(indexName)
+                    .size(0)
+                    .query(q -> q.matchAll(m -> m))
+                , Void.class);
 
-        long count = response.hits().total() != null ? response.hits().total().value() : 0;
+        long count = response.hits().total() != null
+                ? response.hits().total().value()
+                : 0;
         return count == 0;
     }
 

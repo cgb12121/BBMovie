@@ -1,4 +1,4 @@
-package com.bbmovie.search.events;
+package com.bbmovie.search.dto.event;
 
 import org.springframework.context.ApplicationEvent;
 

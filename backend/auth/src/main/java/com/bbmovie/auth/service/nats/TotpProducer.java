@@ -1,24 +1,42 @@
 package com.bbmovie.auth.service.nats;
 
+import com.bbmovie.auth.dto.event.NatsConnectionEvent;
 import com.example.common.enums.NotificationType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-import io.nats.client.Connection;
+import io.nats.client.ConnectionListener;
 import io.nats.client.JetStream;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
+
+@Log4j2
 @Service
 public class TotpProducer {
 
-    private final JetStream jetStream;
+    private final AtomicReference<JetStream> jetStreamRef = new AtomicReference<>();
 
-    @Autowired
-    public TotpProducer(Connection nats) throws java.io.IOException {
-        this.jetStream = nats.jetStream();
+    @EventListener
+    public void onNatsConnection(NatsConnectionEvent event) {
+        if (event.type() == ConnectionListener.Events.CONNECTED || event.type() == ConnectionListener.Events.RECONNECTED) {
+            log.info("NATS connected, initializing JetStream context for TotpProducer.");
+            try {
+                jetStreamRef.set(event.connection().jetStream());
+            } catch (IOException e) {
+                log.error("Failed to create JetStream context for TotpProducer.", e);
+            }
+        }
     }
 
     public void sendNotification(String userId, NotificationType type, String destination, String message) {
+        JetStream jetStream = jetStreamRef.get();
+        if (jetStream == null) {
+            log.warn("NATS JetStream not available. Skipping TOTP notification for user: {}", userId);
+            return;
+        }
+
         try {
             java.util.Map<String, Object> payload = java.util.Map.of(
                     "userId", userId,
@@ -29,7 +47,8 @@ public class TotpProducer {
             byte[] data = new ObjectMapper().writeValueAsBytes(payload);
             jetStream.publish("auth.otp", data);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to publish OTP notification", e);
+            // Do not throw exception to avoid breaking business logic flow
+            log.error("Failed to publish OTP notification for user: {}", userId, e);
         }
     }
 }

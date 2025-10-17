@@ -1,6 +1,5 @@
 package com.bbmovie.auth.security;
 
-import com.bbmovie.auth.security.anonymity.IpAnonymityFilter;
 import com.bbmovie.auth.security.jose.JoseAuthenticationFilter;
 import com.bbmovie.auth.security.oauth2.CustomAuthorizationRequestResolver;
 import com.bbmovie.auth.security.oauth2.OAuth2LoginSuccessHandler;
@@ -10,6 +9,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -41,24 +41,26 @@ import java.util.function.Supplier;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    @Value("${app.frontend.url}")
+    private String frontendUrl;
+
     private final CustomUserDetailsService userDetailsService;
     private final JoseAuthenticationFilter joseAuthenticationFilter;
     private final CustomAuthorizationRequestResolver customAuthorizationRequestResolver;
-    private final IpAnonymityFilter ipAnonymityFilter;
     private final CorsConfigurationSource corsConfigurationSource;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
 
     @Autowired
     public SecurityConfig(
-            JoseAuthenticationFilter joseAuthenticationFilter, IpAnonymityFilter ipAnonymityFilter,
-            CorsConfigurationSource corsConfigurationSource, CustomUserDetailsService userDetailsService,
+            JoseAuthenticationFilter joseAuthenticationFilter,
+            CorsConfigurationSource corsConfigurationSource,
+            CustomUserDetailsService userDetailsService,
             OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler,
             CustomAuthorizationRequestResolver customAuthorizationRequestResolver
     ) {
         this.userDetailsService = userDetailsService;
         this.joseAuthenticationFilter = joseAuthenticationFilter;
         this.customAuthorizationRequestResolver = customAuthorizationRequestResolver;
-        this.ipAnonymityFilter = ipAnonymityFilter;
         this.corsConfigurationSource = corsConfigurationSource;
         this.oAuth2LoginSuccessHandler = oAuth2LoginSuccessHandler;
     }
@@ -113,8 +115,7 @@ public class SecurityConfig {
                     .failureHandler((request, response, exception) -> {
                         log.error(exception.getMessage(), exception);
                         response.sendRedirect(
-                                "http://localhost:3000/login?status=error&message=" +
-                                URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8)
+                                frontendUrl + "/login?status=error&message=" + URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8)
                         );
                     })
                     .authorizationEndpoint(authorization -> authorization
@@ -122,7 +123,7 @@ public class SecurityConfig {
                     )
             )
             .addFilterBefore(joseAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterBefore(ipAnonymityFilter, JoseAuthenticationFilter.class)
+//            .addFilterBefore(ipAnonymityFilter, JoseAuthenticationFilter.class) //the gateway will handle this
             .build();
     }
 

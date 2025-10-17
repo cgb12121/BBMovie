@@ -1,6 +1,5 @@
 package com.bbmovie.search.service.nats;
 
-import com.bbmovie.search.config.NatsConfig;
 import com.bbmovie.search.dto.event.NatsConnectionEvent;
 import com.bbmovie.search.entity.MovieDocument;
 import com.bbmovie.search.repository.esclient.MovieMetadataRepository;
@@ -17,22 +16,22 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.util.concurrent.atomic.AtomicReference;
+
 @Log4j2
 @Service
 public class VideoEventConsumer {
 
-    private final Connection nats;
     private final ObjectMapper objectMapper;
     private final MovieMetadataRepository movieMetadataRepository;
     private final EmbeddingService embeddingService;
+    private final AtomicReference<Connection> natsRef = new AtomicReference<>();
 
     @Autowired
     public VideoEventConsumer(
-            NatsConfig.NatsConnectionFactory natsConnectionFactory,
             ObjectMapper objectMapper,
             MovieMetadataRepository movieMetadataRepository,
             EmbeddingService embeddingService) {
-        this.nats = natsConnectionFactory.getConnection();
         this.objectMapper = objectMapper;
         this.movieMetadataRepository = movieMetadataRepository;
         this.embeddingService = embeddingService;
@@ -42,12 +41,13 @@ public class VideoEventConsumer {
     public void onNatsConnection(NatsConnectionEvent event) {
         if (event.type() == ConnectionListener.Events.CONNECTED || event.type() == ConnectionListener.Events.RECONNECTED) {
             log.info("NATS connected/reconnected, (re)subscribing…");
+            natsRef.set(event.connection());
             setupVideoEventSubscriptions();
         }
     }
 
     private void setupVideoEventSubscriptions() {
-        Dispatcher dispatcher = this.nats.createDispatcher(msg -> {
+        Dispatcher dispatcher = natsRef.get().createDispatcher(msg -> {
             try {
                 VideoMetadata videoMetadata = objectMapper.readValue(msg.getData(), VideoMetadata.class);
                 handle(videoMetadata)
@@ -70,8 +70,9 @@ public class VideoEventConsumer {
 
     private Mono<Void> handle(VideoMetadata videoMetadata) {
         log.info("Received video metadata event for movieId: {}", videoMetadata.getMovieId());
+        String movieId = String.valueOf(videoMetadata.getMovieId());
 
-        return movieMetadataRepository.findById(String.valueOf(videoMetadata.getMovieId()))
+        return movieMetadataRepository.findById(movieId)
                 .flatMap(movieDocument -> {
                     log.info("Found movie document with id {}, updating posterUrl.", movieDocument.getId());
                     movieDocument.setPosterUrl(videoMetadata.getPosterUrl());

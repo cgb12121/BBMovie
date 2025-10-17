@@ -7,12 +7,13 @@ import io.github.resilience4j.retry.RetryConfig;
 import io.nats.client.*;
 import io.nats.client.api.*;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.ApplicationListener;
 import org.springframework.context.SmartLifecycle;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.event.EventListener;
+import org.springframework.lang.NonNull;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -24,11 +25,13 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
 @Configuration
-public class NatsConfig implements ApplicationListener<NatsConnectionEvent> {
+public class NatsConfig {
 
-    private static final String PAYMENT_STREAM = "PAYMENTS";
+    @Value("${nats.js.stream.payment}")
+    private String paymentStream;
 
-    private final ApplicationEventPublisher publisher;
+    private final AtomicBoolean streamInitialized = new AtomicBoolean(false);
+
     private Connection connection;
 
     @Bean
@@ -36,24 +39,8 @@ public class NatsConfig implements ApplicationListener<NatsConnectionEvent> {
         return factory;
     }
 
-    @Autowired
-    public NatsConfig(ApplicationEventPublisher publisher) {
-        this.publisher = publisher;
-    }
-
-    @Override
-    public void onApplicationEvent(NatsConnectionEvent event) {
-        try {
-            this.connection = event.connection();
-            setupStream();
-        } catch (IOException e) {
-            log.error("Failed to setup NATS stream: {}", e.getMessage());
-        }
-        log.info("JetStream initialized after NATS connection");
-    }
-
     @Bean
-    public NatsConnectionFactory natsConnection() {
+    public NatsConnectionFactory natsConnection(ApplicationEventPublisher publisher) {
         Options options = new Options.Builder()
                 .server("nats://localhost:4222")
                 .connectionName("payment-service")
@@ -76,30 +63,50 @@ public class NatsConfig implements ApplicationListener<NatsConnectionEvent> {
         return new NatsConnectionFactory(options);
     }
 
+    @EventListener
+    public void onApplicationEvent(@NonNull NatsConnectionEvent event) {
+        if (streamInitialized.compareAndSet(false, true)) {
+            try {
+                this.connection = event.connection();
+                setupStream();
+                log.info("JetStream initialized after NATS connection");
+            } catch (IOException e) {
+                log.error("Failed to setup NATS stream: {}", e.getMessage());
+                streamInitialized.set(false);
+            }
+        }
+    }
+
     private void setupStream() throws IOException {
+        if (streamInitialized.get()) {
+            return;
+        }
+
         JetStreamManagement jsm = connection.jetStreamManagement();
         try {
-            StreamInfo stream = jsm.getStreamInfo(PAYMENT_STREAM);
+            StreamInfo stream = jsm.getStreamInfo(paymentStream);
             log.info("Stream already exists {}", stream.toString());
         } catch (JetStreamApiException e) {
             if (e.getErrorCode() == 404) {
                 try {
                     StreamConfiguration streamConfig = StreamConfiguration.builder()
-                            .name(PAYMENT_STREAM)
+                            .name(paymentStream)
                             .subjects("payments.*")
                             .storageType(StorageType.Memory)
                             .retentionPolicy(RetentionPolicy.WorkQueue)
                             .build();
                     jsm.addStream(streamConfig);
-                    log.info("Created stream: {}", PAYMENT_STREAM);
+                    log.info("Created stream: {}", paymentStream);
                 } catch (JetStreamApiException ex) {
-                    log.error("Error creating stream: {}", PAYMENT_STREAM, ex);
+                    log.error("Error creating stream: {}", paymentStream, ex);
                 }
             } else {
-                log.error("Unable to create stream {}", PAYMENT_STREAM, e);
+                log.error("Unable to create stream {}", paymentStream, e);
             }
         } catch (Exception e) {
-            log.error("Unable to create stream {}", PAYMENT_STREAM, e);
+            log.error("Unable to create stream {}", paymentStream, e);
+        } finally {
+            streamInitialized.set(true);
         }
     }
 

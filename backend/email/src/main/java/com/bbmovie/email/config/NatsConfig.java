@@ -82,10 +82,6 @@ public class NatsConfig {
             this.options = options;
         }
 
-        public Connection getConnection() {
-            return connectionAtomicReference.get();
-        }
-
         @Override
         public void start() {
             log.info("Starting NATS connection lifecycle...");

@@ -27,6 +27,7 @@ import java.io.IOException;
  * The filter is designed to execute once per request and is automatically registered in Spring's
  * filter chain.
  */
+@Deprecated(forRemoval = true, since = "1.0")
 @Component
 public class IpAnonymityFilter extends OncePerRequestFilter {
 

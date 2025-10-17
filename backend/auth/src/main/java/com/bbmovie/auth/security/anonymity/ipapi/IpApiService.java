@@ -16,6 +16,7 @@ import org.springframework.web.client.RestTemplate;
  * processes the API response to determine anonymity-related attributes. Additionally, the class
  * provides metadata about its implementation via the {@code getName()} method.
  */
+@Deprecated(forRemoval = true, since = "1.0.0")
 @Log4j2
 @Service
 public class IpApiService implements IpAnonymityProvider {

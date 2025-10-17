@@ -1,8 +1,8 @@
 package com.bbmovie.search.service.elasticsearch;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
-import com.bbmovie.search.events.ElasticsearchDownEvent;
-import com.bbmovie.search.events.ElasticsearchUpEvent;
+import com.bbmovie.search.dto.event.ElasticsearchDownEvent;
+import com.bbmovie.search.dto.event.ElasticsearchUpEvent;
 import com.bbmovie.search.service.nats.HealthEventProducer;
 import com.example.common.dtos.events.SystemHealthEvent;
 import io.github.resilience4j.core.IntervalFunction;

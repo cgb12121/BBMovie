@@ -19,6 +19,7 @@ import java.util.Optional;
  * API. If the IP is invalid, the API request fails, or the request exceeds the rate
  * limit, the service will return an empty Optional.
  */
+@Deprecated(forRemoval = true, since = "1.0.0")
 @Log4j2
 @Service
 public class IpInfoLocationService implements LocationService{

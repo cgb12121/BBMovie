@@ -3,6 +3,8 @@ package com.bbmovie.auth.security.jose;
 
 import java.util.List;
 
+
+//TODO: this might need to be extended to handle new ABAC policies and JTI/SID
 /**
  * Represents a validated security token created and managed by a {@link JoseProviderStrategy}.
  * This record encapsulates the necessary information about a token to facilitate
@@ -20,7 +22,7 @@ import java.util.List;
  * <p>
  * This class is used by {@link JoseAuthenticationFilter} to validate old token after key rotation
  */
-record JoseValidatedToken(
+public record JoseValidatedToken(
         JoseProviderStrategy provider,
         String sid,
         String username,

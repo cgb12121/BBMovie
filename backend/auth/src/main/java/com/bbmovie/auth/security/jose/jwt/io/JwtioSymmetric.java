@@ -28,6 +28,7 @@ import static com.example.common.entity.JoseConstraint.JosePayload.*;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.*;
 import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
+@Deprecated
 @Log4j2
 @SuppressWarnings("squid:S6830")
 @Component("jwt.io.hmac")

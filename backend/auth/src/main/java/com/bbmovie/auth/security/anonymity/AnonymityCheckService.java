@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+@Deprecated(forRemoval = true, since = "1.0.0")
 @Service
 @Log4j2
 public class AnonymityCheckService {

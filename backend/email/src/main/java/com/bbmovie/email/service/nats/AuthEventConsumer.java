@@ -1,12 +1,13 @@
 package com.bbmovie.email.service.nats;
 
-import com.bbmovie.email.config.NatsConfig;
 import com.bbmovie.email.dto.event.NatsConnectionEvent;
 import com.bbmovie.email.exception.CustomEmailException;
 import com.bbmovie.email.service.email.EmailService;
 import com.bbmovie.email.service.email.EmailServiceFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.nats.client.*;
+import io.nats.client.Connection;
+import io.nats.client.ConnectionListener;
+import io.nats.client.Dispatcher;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
@@ -25,13 +26,11 @@ public class AuthEventConsumer {
     private final Semaphore limit = new Semaphore(100);
     private final ExecutorService emailExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
-    private final Connection nats;
     private final ObjectMapper objectMapper;
     private final EmailServiceFactory emailServiceFactory;
 
     @Autowired
-    public AuthEventConsumer(NatsConfig.NatsConnectionFactory natsConnectionFactory, ObjectMapper objectMapper, EmailServiceFactory emailServiceFactory) {
-        this.nats = natsConnectionFactory.getConnection();
+    public AuthEventConsumer(ObjectMapper objectMapper, EmailServiceFactory emailServiceFactory) {
         this.objectMapper = objectMapper;
         this.emailServiceFactory = emailServiceFactory;
     }
@@ -39,13 +38,13 @@ public class AuthEventConsumer {
     @EventListener
     public void onNatsConnection(NatsConnectionEvent event) {
         if (event.type() == ConnectionListener.Events.CONNECTED || event.type() == ConnectionListener.Events.RECONNECTED) {
-            log.info("NATS connected/reconnected, (re)subscribing…");
-            setupAuthServiceEventSubscriptions();
+            log.info("NATS connected/reconnected, (re)subscribing to auth events…");
+            setupAuthServiceEventSubscriptions(event.connection());
         }
     }
 
-    private void setupAuthServiceEventSubscriptions() {
-        Dispatcher dispatcher = this.nats.createDispatcher(msg -> {
+    private void setupAuthServiceEventSubscriptions(Connection nats) {
+        Dispatcher dispatcher = nats.createDispatcher(msg -> {
             try {
                 String subject = msg.getSubject();
                 @SuppressWarnings("unchecked")

@@ -24,6 +24,7 @@ import org.springframework.web.client.RestTemplate;
  * Logging is used to track the API responses and any issues encountered during
  * the process.
  */
+@Deprecated(forRemoval = true, since = "1.0.0")
 @Log4j2
 @Component("vpnapiProvider")
 public class VpnApiService implements IpAnonymityProvider {

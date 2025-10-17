@@ -1,4 +1,4 @@
-package com.bbmovie.auth.constant.error;
+package com.bbmovie.auth.constant;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;

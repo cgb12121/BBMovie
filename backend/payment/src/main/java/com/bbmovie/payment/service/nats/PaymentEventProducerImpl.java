@@ -1,31 +1,51 @@
 package com.bbmovie.payment.service.nats;
 
-import com.bbmovie.payment.config.NatsConfig;
+import com.bbmovie.payment.dto.event.NatsConnectionEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.nats.client.ConnectionListener;
+import io.nats.client.JetStream;
 import io.nats.client.JetStreamApiException;
 import io.nats.client.api.PublishAck;
-import io.nats.client.JetStream;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
 @Service
 public class PaymentEventProducerImpl implements PaymentEventProducer {
 
-    private final JetStream jetStream;
+    private final AtomicReference<JetStream> jetStreamRef = new AtomicReference<>();
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public PaymentEventProducerImpl(NatsConfig.NatsConnectionFactory natsConnectionFactory, ObjectMapper objectMapper) throws IOException {
-        this.jetStream = natsConnectionFactory.getConnection().jetStream();
+    public PaymentEventProducerImpl(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+    }
+
+    @EventListener
+    public void onNatsConnection(NatsConnectionEvent event) {
+        if (event.type() == ConnectionListener.Events.CONNECTED || event.type() == ConnectionListener.Events.RECONNECTED) {
+            log.info("NATS connected, initializing JetStream context for PaymentEventProducer.");
+            try {
+                jetStreamRef.set(event.connection().jetStream());
+            } catch (IOException e) {
+                log.error("Failed to create JetStream context after NATS connection was established.", e);
+            }
+        }
     }
 
     @Override
     public <T> void publish(String subject, T event) {
+        JetStream jetStream = jetStreamRef.get();
+        if (jetStream == null) {
+            log.warn("NATS JetStream is not available. Skipping event publication to subject: {}", subject);
+            return;
+        }
+
         try {
             byte[] data = objectMapper.writeValueAsBytes(event);
             PublishAck ack = jetStream.publish(subject, data);
@@ -39,16 +59,16 @@ public class PaymentEventProducerImpl implements PaymentEventProducer {
 
     @Override
     public <T> void publishSubscriptionSuccessEvent(T data) {
-        publish("payment.subscription.success", data);
+        publish("payments.subscription.success", data);
     }
 
     @Override
     public <T> void publishSubscriptionCancelEvent(T data) {
-        publish("payment.subscription.cancel", data);
+        publish("payments.subscription.cancel", data);
     }
 
     @Override
     public <T> void publishSubscriptionRenewEvent(T data) {
-        publish("payment.subscription.renew", data);
+        publish("payments.subscription.renew", data);
     }
 }

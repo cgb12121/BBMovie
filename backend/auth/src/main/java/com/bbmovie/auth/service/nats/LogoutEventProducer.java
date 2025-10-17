@@ -1,41 +1,39 @@
 package com.bbmovie.auth.service.nats;
 
-import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import io.nats.client.Connection;
+import com.bbmovie.auth.dto.event.NatsConnectionEvent;
+import io.nats.client.ConnectionListener;
 import io.nats.client.JetStream;
+import lombok.extern.log4j.Log4j2;
+import org.springframework.context.event.EventListener;
+import org.springframework.stereotype.Service;
 
-/**
- * This class is responsible for producing logout event messages and sending them to a Kafka topic.
- * It is used to notify other systems or services about logout actions within the application.
- * <p>
- * The Kafka topic for logout events is pre-configured in the application using {@link KafkaTopicConfig}.
- * <p>
- * The class relies on Spring's {@link KafkaTemplate} to handle message production and
- * uses logging to provide feedback on the success or failure of message delivery.
- * <p>
- * Dependencies:
- * - {@link KafkaTemplate}: Used for sending messages to Kafka.
- * - {@link KafkaTopicConfig}: Provides configuration for the Kafka topic used by this producer.
- */
+import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
+
 @Log4j2
 @Service
 public class LogoutEventProducer {
 
-    private final JetStream jetStream;
+    private final AtomicReference<JetStream> jetStreamRef = new AtomicReference<>();
 
-    @Autowired
-    public LogoutEventProducer(Connection nats) throws java.io.IOException {
-        this.jetStream = nats.jetStream();
+    @EventListener
+    public void onNatsConnection(NatsConnectionEvent event) {
+        if (event.type() == ConnectionListener.Events.CONNECTED || event.type() == ConnectionListener.Events.RECONNECTED) {
+            log.info("NATS connected, initializing JetStream context for LogoutEventProducer.");
+            try {
+                jetStreamRef.set(event.connection().jetStream());
+            } catch (IOException e) {
+                log.error("Failed to create JetStream context for LogoutEventProducer.", e);
+            }
+        }
     }
 
-    /**
-     * Sends a logout event message to the configured Kafka topic.
-     *
-     * @param key the unique key identifying the logout event to be sent
-     */
     public void send(String key) {
+        JetStream jetStream = jetStreamRef.get();
+        if (jetStream == null) {
+            log.warn("NATS JetStream not available. Skipping logout event publication for key: {}", key);
+            return;
+        }
         try {
             byte[] data = key.getBytes(java.nio.charset.StandardCharsets.UTF_8);
             jetStream.publish("auth.logout", data);
