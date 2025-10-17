@@ -26,7 +26,7 @@ interface LoginFormData {
   // remember?: boolean
 }
 
-const OAUTH_BASE_URL = "http://localhost:8765/oauth2/authorization";
+const OAUTH_BASE_URL = process.env.OAUTH_BASE_URL;
 
 const Login: React.FC = () => {
   const navigate = useNavigate();

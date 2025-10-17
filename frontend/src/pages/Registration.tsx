@@ -1,5 +1,5 @@
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
 import { message } from "antd"
 import { Mail, Lock, User, Eye, EyeOff, AlertCircle } from 'lucide-react'

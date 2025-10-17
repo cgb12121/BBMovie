@@ -2,7 +2,7 @@ import axios from 'axios';
 import { getAccessToken } from '../utils/AccessTokenUtil';
 
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_GATEWAY_URL || 'http://localhost:8765',
+    baseURL: process.env.API_URL,
     withCredentials: true,
     headers: {
         "Content-Type": 'application/json'
@@ -23,7 +23,7 @@ function getBaseUrlForPath(url?: string): string | undefined {
         .find(prefix => url.startsWith(prefix));
     const override = matchedPrefix ? serviceBaseUrls[matchedPrefix] : undefined;
 
-    return override || process.env.REACT_APP_API_GATEWAY_URL || 'http://localhost:8765';
+    return override || process.env.API_URL;
 }
 
 function appendDeviceHeaders(headers: Record<string, unknown>): void {
@@ -84,9 +84,5 @@ api.interceptors.request.use(
 //     }
 // );
 
-function getCookie(name: string): string | null {
-    const match = document.cookie.match(new RegExp('(^|;\\s*)(' + name + ')=([^;]*)'));
-    return match ? decodeURIComponent(match[3]) : null;
-}
 
 export default api;

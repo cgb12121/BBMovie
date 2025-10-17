@@ -16,7 +16,7 @@ export interface FileUploadResponse {
 
 class FileService {
 
-  private readonly baseUrl = process.env.REACT_APP_API_GATEWAY_URL ?? 'http://localhost:8765';
+  private readonly baseUrl = process.env.API_URL;
 
   /**
    * Upload a single file with real-time progress tracking
