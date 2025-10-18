@@ -5,7 +5,6 @@ import com.example.common.dtos.nats.FileUploadResult;
 import com.example.common.enums.Storage;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -23,25 +22,6 @@ public class LocalStorageStrategyImpl implements StorageStrategy {
 
     @Value("${spring.upload-dir}")
     private String uploadDir;
-
-    @Override
-    public Mono<FileUploadResult> store(FilePart filePart, String safeName) {
-        Path dest = Paths.get(uploadDir).resolve(safeName).normalize();
-
-        if (!dest.startsWith(Paths.get(uploadDir))) {
-            return Mono.error(new SecurityException("Invalid filename"));
-        }
-
-        return filePart.transferTo(dest).flatMap(v -> {
-            try {
-                String contentType = Files.probeContentType(dest);
-                long fileSize = Files.size(dest);
-                return Mono.just(new FileUploadResult(dest.toUri().toString(), safeName, contentType, fileSize));
-            } catch (IOException e) {
-                return Mono.error(new FileUploadException("Failed to read file attributes after storing: " + safeName, e));
-            }
-        });
-    }
 
     @Override
     public Mono<FileUploadResult> store(File file, String filename) {
