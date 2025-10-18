@@ -38,6 +38,11 @@ spring:
                   args:
                     regexp: /api/public(?<remaining>/.*)
                     replacement: /public${remaining}
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@customKeyResolver}"
+                    redis-rate-limiter.replenishRate: 10
+                    redis-rate-limiter.burstCapacity: 20
             - id: device_route
               uri: lb://auth
               predicates:
@@ -64,6 +69,11 @@ spring:
                   args:
                     regexp: /api/(movies|reviews)(?<remaining>/.*)
                     replacement: /$1${remaining}
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@customKeyResolver}"
+                    redis-rate-limiter.replenishRate: 50
+                    redis-rate-limiter.burstCapacity: 100
             - id: user_route
               uri: lb://user-service
               predicates:
@@ -73,6 +83,11 @@ spring:
                   args:
                     regexp: /api/(users|payments)(?<remaining>/.*)
                     replacement: /$1${remaining}
+                - name: RequestRateLimiter
+                  args:
+                    key-resolver: "#{@customKeyResolver}"
+                    redis-rate-limiter.replenishRate: 50
+                    redis-rate-limiter.burstCapacity: 100
             - id: payment_route
               uri: lb://payment-service
               predicates:

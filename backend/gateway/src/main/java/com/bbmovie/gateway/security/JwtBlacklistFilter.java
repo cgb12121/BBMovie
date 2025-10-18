@@ -1,6 +1,6 @@
 package com.bbmovie.gateway.security;
 
-import com.bbmovie.gateway.config.FilterOrderConfig;
+import com.bbmovie.gateway.config.FilterOrder;
 import com.bbmovie.gateway.exception.IpAddressException;
 import com.example.common.entity.JoseConstraint.JwtType;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -26,20 +26,16 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.*;
 
 import org.springframework.http.HttpStatus;
 import reactor.core.scheduler.Schedulers;
 
-import static com.bbmovie.gateway.config.RateLimiterConfig.DEFAULT_RATE_LIMITER_KEY;
 import static com.example.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX;
 import static com.example.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
 import static com.example.common.entity.JoseConstraint.JosePayload.SID;
 import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
-import static com.example.common.entity.JoseConstraint.JwtType.JWE;
 import static com.example.common.entity.JoseConstraint.JwtType.JWS;
 
 @Log4j2
@@ -88,8 +84,6 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
         log.info("Processing route: {}, isPublic: {}", path, isPublicRoute);
 
         if (isPublicRoute || path.equals("/.well-known/jwks.json")) {
-            exchange.getAttributes()
-                    .put(DEFAULT_RATE_LIMITER_KEY, getClientIp(exchange));
             log.debug("Skipping validation for public route: {}", path);
             return chain.filter(exchange);
         }
@@ -114,8 +108,6 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
 
         if (token == null && apiKey == null) {
             log.warn("No token or API key provided for path: {}", exchange.getRequest().getPath());
-            exchange.getAttributes()
-                    .put(DEFAULT_RATE_LIMITER_KEY, getClientIp(exchange));
             return setUnauthorizedResponse(exchange, "No token or API key provided");
         }
 
@@ -134,18 +126,12 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
                 .flatMap(status -> {
                     if (!"valid".equals(status)) {
                         log.warn("Invalid API key: {}", apiKey);
-                        exchange.getAttributes()
-                                .put(DEFAULT_RATE_LIMITER_KEY, getClientIp(exchange));
                         return setUnauthorizedResponse(exchange, "Invalid API key");
                     }
-                    exchange.getAttributes()
-                            .put(DEFAULT_RATE_LIMITER_KEY, "api-key:" + apiKey);
                     return chain.filter(exchange);
                 })
                 .onErrorResume(err -> {
                     log.warn("API key validation failed: {}", err.getMessage());
-                    exchange.getAttributes()
-                            .put(DEFAULT_RATE_LIMITER_KEY, getClientIp(exchange));
                     return setUnauthorizedResponse(exchange, "Invalid API key");
                 });
     }
@@ -155,7 +141,6 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
                 .flatMap(payload -> {
                     String sid = payload.get(SID).asText();
                     String username = payload.get(SUB).asText();
-                    exchange.getAttributes().put(DEFAULT_RATE_LIMITER_KEY, "sid:" + sid);
                     return checkBlacklists(sid, username, exchange, chain);
                 })
                 .onErrorResume(ex -> handleTokenError(ex, exchange));
@@ -244,26 +229,6 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
                     .onErrorMap(e -> new RuntimeException("Failed to parse JWS payload", e));
         }
 
-        if (JWE.equals(type)) {
-            return decodeJwePayload(token)
-                    .flatMap(jwePayload -> {
-                        if (!StringUtils.hasText(jwePayload)) {
-                            return Mono.error(new IllegalArgumentException("JWE payload is empty"));
-                        }
-                        return Mono.just(jwePayload)
-                                .<JsonNode>handle((payload, sink) -> {
-                                    try {
-                                        sink.next(objectMapper.readTree(payload));
-                                    } catch (IOException e) {
-                                        sink.error(new RuntimeException("Failed to parse JWE payload", e));
-                                    }
-                                });
-                    })
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .timeout(Duration.ofSeconds(10))
-                    .onErrorMap(e -> new RuntimeException("JWE processing failed", e));
-        }
-
         return Mono.error(new IllegalArgumentException("Unsupported JWT type: " + type));
     }
 
@@ -278,18 +243,6 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
                 .retrieve()
                 .bodyToMono(String.class)
                 .doOnError(err -> log.error("WebClient error fetching new token: {}", err.getMessage()));
-    }
-
-    private Mono<String> decodeJwePayload(String jweToken) {
-        Map<String, String> requestBody = Map.of("token", jweToken);
-        return authWebClient
-                .post()
-                .uri("/jwe/payload")
-                .header(apiKeyHeader, apiKey)
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .doOnError(err -> log.error("WebClient error decoding JWE: {}", err.getMessage()));
     }
 
     private Mono<Void> setUnauthorizedResponse(ServerWebExchange exchange, String message) {
@@ -313,18 +266,8 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
                 .writeWith(Mono.just(buffer));
     }
 
-    private String getClientIp(ServerWebExchange exchange) {
-        try {
-            return Objects.requireNonNull(exchange.getRequest().getRemoteAddress())
-                    .getAddress()
-                    .getHostAddress();
-        } catch (Exception e) {
-            throw new IpAddressException("Cannot get client ip: " + e.getMessage());
-        }
-    }
-
     @Override
     public int getOrder() {
-        return FilterOrderConfig.SECOND;
+        return FilterOrder.SECOND;
     }
 }

@@ -9,9 +9,9 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
-public class RedisConfig {
+public class ReactiveRedisConfig {
 
-    @Bean
+    @Bean("reactiveRedis")
     public ReactiveRedisTemplate<String, Boolean> reactiveBooleanRedisTemplate(ReactiveRedisConnectionFactory factory) {
         StringRedisSerializer keySerializer = new StringRedisSerializer();
         Jackson2JsonRedisSerializer<Boolean> valueSerializer = new Jackson2JsonRedisSerializer<>(Boolean.class);

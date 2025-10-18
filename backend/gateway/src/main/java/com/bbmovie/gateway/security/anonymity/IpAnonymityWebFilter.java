@@ -1,9 +1,10 @@
 package com.bbmovie.gateway.security.anonymity;
 
+import com.bbmovie.gateway.config.FilterOrder;
 import com.bbmovie.gateway.util.IpAddressUtils;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.core.annotation.Order;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
@@ -14,8 +15,7 @@ import reactor.core.publisher.Mono;
 
 @Component
 @Log4j2
-@Order(-1)
-public class IpAnonymityWebFilter implements WebFilter {
+public class IpAnonymityWebFilter implements WebFilter, Ordered {
 
     private final AnonymityCheckService anonymityCheckService;
 
@@ -29,7 +29,7 @@ public class IpAnonymityWebFilter implements WebFilter {
     public Mono<Void> filter(@NonNull ServerWebExchange exchange,@NonNull WebFilterChain chain) {
         String ip = IpAddressUtils.getClientIp(exchange.getRequest());
 
-        if (ip == null || ip.isEmpty()) {
+        if (ip == null || ip.equals("127.0.0.1") || ip.isEmpty()) {
             return chain.filter(exchange); // No IP, let it pass
         }
 
@@ -42,5 +42,10 @@ public class IpAnonymityWebFilter implements WebFilter {
                     }
                     return chain.filter(exchange);
                 });
+    }
+
+    @Override
+    public int getOrder() {
+        return FilterOrder.THIRD;
     }
 }
