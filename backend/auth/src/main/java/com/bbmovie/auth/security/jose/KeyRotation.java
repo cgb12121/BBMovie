@@ -1,16 +1,16 @@
 package com.bbmovie.auth.security.jose;
 
-import com.bbmovie.auth.entity.jose.JwkKey;
+import com.bbmovie.auth.entity.jose.JoseKey;
 import com.bbmovie.auth.repository.JwkKeyRepository;
 import com.bbmovie.auth.security.jose.dto.KeyRotatedEvent;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.RSAKey;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Scope;
 import org.springframework.scheduling.annotation.EnableScheduling;
 import org.springframework.scheduling.annotation.Scheduled;
 
@@ -56,34 +56,26 @@ public class KeyRotation {
 
     private final JwkKeyRepository keyRepo;
     private final ApplicationEventPublisher eventPublisher;
-    private final KeyCache keyCache;
+
+    @Value("${app.jose.strategy}")
+    private String configuredStrategy;
 
     @Autowired
-    public KeyRotation(JwkKeyRepository keyRepo, ApplicationEventPublisher eventPublisher, KeyCache keyCache) {
+    public KeyRotation(JwkKeyRepository keyRepo, ApplicationEventPublisher eventPublisher) {
         this.keyRepo = keyRepo;
         this.eventPublisher = eventPublisher;
-        this.keyCache = keyCache;
     }
 
-    /**
-     * Retrieves the currently active private RSA key from the key cache.
-     *
-     * @return the active private RSA key as an instance of {@link RSAKey}.
-     */
-    @Bean
-    public RSAKey activePrivateKey() {
-        return keyCache.getActiveRsaPrivateKey();
-    }
-
-    /**
-     * Retrieves a list of RSA public keys from the key cache.
-     *
-     * @return a list of {@link RSAKey} objects representing the public RSA keys stored in the key cache.
-     */
-    @Bean
-    @Scope("prototype")
-    public List<RSAKey> publicKeys() {
-        return keyCache.getPublicKeys();
+    @PostConstruct
+    public void initializeKeys() {
+        if (keyRepo.count() == 0) {
+            log.info("No keys found in the database. Initializing a new key based on strategy '{}'", configuredStrategy);
+            if (configuredStrategy.toLowerCase().contains("hmac")) {
+                rotateToNewHmacKey();
+            } else {
+                rotateToNewRsaKey();
+            }
+        }
     }
 
     /**
@@ -97,7 +89,7 @@ public class KeyRotation {
      * Steps involved in the rotation process:
      * - Fetch all keys from the repository and filter for the active ones.
      * - Mark all active keys as inactive and persist the updates in the repository.
-     * - Generate a new RSA key and create a corresponding {@link JwkKey} entity for it.
+     * - Generate a new RSA key and create a corresponding {@link JoseKey} entity for it.
      * - Save the newly created key entity in the repository and log the rotation process details.
      * - Publish an event to notify other components of the key rotation.
      * <p>
@@ -107,17 +99,18 @@ public class KeyRotation {
      *
      * This is an administrative action and is not scheduled.
      */
+    //TODO: auto rotate
     public synchronized void rotateToNewRsaKey() {
         log.info("Begin to rotate to a new RSA JWK key.");
         deactivateAllKeys();
 
         try {
             RSAKey newRsaKey = generateRsaKey();
-            JwkKey newKeyEntity = generateNewKeyForRotation(newRsaKey);
+            JoseKey newKeyEntity = generateNewKeyForRotation(newRsaKey);
             keyRepo.save(newKeyEntity);
             log.info("Rotated to new RSA JWK key successfully. {}", newKeyEntity.toString());
 
-            eventPublisher.publishEvent(new KeyRotatedEvent());
+            eventPublisher.publishEvent(new KeyRotatedEvent(newKeyEntity));
         } catch (JOSEException e) {
             throw new IllegalStateException("Failed to generate new RSA key", e);
         }
@@ -127,19 +120,20 @@ public class KeyRotation {
      * Rotates the active JSON Web Key (JWK) to a new HMAC key.
      * This is an administrative action and is not scheduled.
      */
+    //TODO: auto rotate
     public synchronized void rotateToNewHmacKey() {
         log.info("Begin to rotate to a new HMAC JWK key.");
         deactivateAllKeys();
 
-        JwkKey newKeyEntity = AppKeyGenerator.generateNewHmacKeyForRotation();
+        JoseKey newKeyEntity = AppKeyGenerator.generateNewHmacKeyForRotation();
         keyRepo.save(newKeyEntity);
         log.info("Rotated to new HMAC JWK key successfully. {}", newKeyEntity.toString());
 
-        eventPublisher.publishEvent(new KeyRotatedEvent());
+        eventPublisher.publishEvent(new KeyRotatedEvent(newKeyEntity));
     }
 
     private void deactivateAllKeys() {
-        keyRepo.findAll().stream().filter(JwkKey::isActive).forEach(key -> {
+        keyRepo.findAll().stream().filter(JoseKey::isActive).forEach(key -> {
             key.setActive(false);
             keyRepo.save(key);
         });
@@ -161,7 +155,7 @@ public class KeyRotation {
     @Scheduled(cron = "0 0 */6 * * *")
     public synchronized void removeInactiveKeys() {
         log.info("Begin to remove inactive JWK keys.");
-        List<JwkKey> allKeys = keyRepo.findAll();
+        List<JoseKey> allKeys = keyRepo.findAll();
         removedInactiveKeys(allKeys);
         eventPublisher.publishEvent(new KeyRotatedEvent());
     }
@@ -172,9 +166,9 @@ public class KeyRotation {
      * that are relatively recent (not older than a specific cutoff time) and may delete the oldest
      * ones first to ensure only a maximum of five keys remain.
      *
-     * @param keys A list of {@link JwkKey} objects to evaluate and potentially remove inactive keys from.
+     * @param keys A list of {@link JoseKey} objects to evaluate and potentially remove inactive keys from.
      */
-    private void removedInactiveKeys(List<JwkKey> keys) {
+    private void removedInactiveKeys(List<JoseKey> keys) {
         Duration tokenLifetime = Duration.ofMinutes(15);
         Instant cutoff = Instant.now().minus(tokenLifetime);
 
@@ -184,7 +178,7 @@ public class KeyRotation {
                         Instant keyCreationInstant = key.getCreatedDate().atZone(ZoneId.systemDefault()).toInstant();
                         return !key.isActive() && !keyCreationInstant.isBefore(cutoff);
                     })
-                    .sorted(Comparator.comparing(JwkKey::getCreatedDate))
+                    .sorted(Comparator.comparing(JoseKey::getCreatedDate))
                     .limit(keys.size() - 5L)
                     .forEach(keyRepo::delete);
         }

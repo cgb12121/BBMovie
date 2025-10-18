@@ -1,6 +1,6 @@
 package com.bbmovie.auth.security.jose;
 
-import com.bbmovie.auth.entity.jose.JwkKey;
+import com.bbmovie.auth.entity.jose.JoseKey;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -40,17 +40,17 @@ public class AppKeyGenerator {
     }
 
     /**
-     * Generates a new {@link JwkKey} entity for an HMAC secret key.
+     * Generates a new {@link JoseKey} entity for an HMAC secret key.
      *
-     * @return an instance of {@link JwkKey} configured for HMAC.
+     * @return an instance of {@link JoseKey} configured for HMAC.
      */
-    public static JwkKey generateNewHmacKeyForRotation() {
+    public static JoseKey generateNewHmacKeyForRotation() {
         SecretKey secretKey = generateHmacKey();
 
         String encodedKey = Base64.getEncoder().encodeToString(secretKey.getEncoded());
-        return JwkKey.builder()
+        return JoseKey.builder()
                 .kid(UUID.randomUUID().toString())
-                .keyType(JwkKey.KeyType.HMAC)
+                .keyType(JoseKey.KeyType.HMAC)
                 .hmacSecret(encodedKey)
                 .isActive(true)
                 .build();
@@ -73,15 +73,15 @@ public class AppKeyGenerator {
     }
 
     /**
-     * Generates a new {@link JwkKey} for key rotation using the provided RSA key.
+     * Generates a new {@link JoseKey} for key rotation using the provided RSA key.
      * The generated JWK key includes the key identifier (kid), private JWK in
      * serialized form, public JWK in serialized form, and is marked as active.
      *
      * @param rsaKey the RSA key used to generate the new JWK key. Must not be null.
-     * @return an instance of {@link JwkKey} containing the new key details for rotation.
+     * @return an instance of {@link JoseKey} containing the new key details for rotation.
      */
-    public static JwkKey generateNewKeyForRotation(RSAKey rsaKey) {
-        return JwkKey.builder()
+    public static JoseKey generateNewKeyForRotation(RSAKey rsaKey) {
+        return JoseKey.builder()
                 .kid(rsaKey.getKeyID())
                 .privateJwk(rsaKey.toJSONString())
                 .publicJwk(rsaKey.toPublicJWK().toJSONString())

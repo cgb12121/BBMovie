@@ -1,6 +1,6 @@
 package com.bbmovie.auth.security.jose;
 
-import com.bbmovie.auth.entity.jose.JwkKey;
+import com.bbmovie.auth.entity.jose.JoseKey;
 import com.bbmovie.auth.repository.JwkKeyRepository;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -25,12 +25,12 @@ import java.util.stream.Collectors;
  */
 @Service
 @Log4j2
-public class JwkService {
+public class PublicKeyService {
 
     private final JwkKeyRepository keyRepo;
 
     @Autowired
-    public JwkService(JwkKeyRepository keyRepo) {
+    public PublicKeyService(JwkKeyRepository keyRepo) {
         this.keyRepo = keyRepo;
     }
 
@@ -78,7 +78,7 @@ public class JwkService {
      */
     public List<Map<String, Object>> getAllPublicJwks() {
         return keyRepo.findAll().stream()
-                .sorted(Comparator.comparing(JwkKey::getCreatedDate).reversed())
+                .sorted(Comparator.comparing(JoseKey::getCreatedDate).reversed())
                 .limit(5)
                 .map(jwk -> {
                     try {
@@ -101,7 +101,7 @@ public class JwkService {
      */
     private List<RSAKey> getAllActivePublicKeys() {
         return keyRepo.findAll().stream()
-                .filter(JwkKey::isActive)
+                .filter(JoseKey::isActive)
                 .map(k -> {
                     try {
                         return RSAKey.parse(k.getPublicJwk());

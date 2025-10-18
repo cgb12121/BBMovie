@@ -66,7 +66,7 @@ public class JwsRsaJwtioProvider implements JoseProviderStrategy {
 
     private PrivateKey getPrivateKey() {
         try {
-            return keyCache.getActiveRsaPrivateKey().toRSAPrivateKey();
+            return keyCache.getActiveRsaKey().toRSAPrivateKey();
         } catch (Exception e) {
             throw new IllegalStateException("Failed to get active private key", e);
         }

@@ -84,7 +84,7 @@ public class JwsRsaNimbusProvider implements JoseProviderStrategy {
 
     private String generateToken(Authentication authentication, int expirationInMs, String sid, User loggedInUser) {
         try {
-            RSAKey currentActiveKey = keyCache.getActiveRsaPrivateKey();
+            RSAKey currentActiveKey = keyCache.getActiveRsaKey();
             String username = getUsernameFromAuthentication(authentication);
             String role = getRoleFromAuthentication(authentication);
             Date now = new Date();
@@ -123,7 +123,7 @@ public class JwsRsaNimbusProvider implements JoseProviderStrategy {
             String jti, String issuer
     ) {
         try {
-            RSAKey currentActiveKey = keyCache.getActiveRsaPrivateKey();
+            RSAKey currentActiveKey = keyCache.getActiveRsaKey();
             String username = getUsernameFromAuthentication(authentication);
             String role = getRoleFromAuthentication(authentication);
             Date now = new Date();

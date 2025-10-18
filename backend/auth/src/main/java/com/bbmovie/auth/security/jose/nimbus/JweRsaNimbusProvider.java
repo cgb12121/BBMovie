@@ -85,7 +85,7 @@ public class JweRsaNimbusProvider implements JoseProviderStrategy {
 
     private String generateToken(Authentication authentication, int expirationInMs, String sid, User loggedInUser) {
         try {
-            RSAKey currentActiveKey = keyCache.getActiveRsaPrivateKey();
+            RSAKey currentActiveKey = keyCache.getActiveRsaKey();
             String username = extractUsername(authentication);
             String role = extractRole(authentication);
             Date now = new Date();
@@ -129,7 +129,7 @@ public class JweRsaNimbusProvider implements JoseProviderStrategy {
             String jti, String issuer
     ) {
         try {
-            RSAKey currentActiveKey = keyCache.getActiveRsaPrivateKey();
+            RSAKey currentActiveKey = keyCache.getActiveRsaKey();
             String username = extractUsername(authentication);
             String role = extractRole(authentication);
             Date now = new Date();
@@ -180,7 +180,7 @@ public class JweRsaNimbusProvider implements JoseProviderStrategy {
         try {
             EncryptedJWT jwt = EncryptedJWT.parse(token);
             // Use the current active key for decryption
-            RSADecrypter decrypter = new RSADecrypter(keyCache.getActiveRsaPrivateKey().toRSAPrivateKey());
+            RSADecrypter decrypter = new RSADecrypter(keyCache.getActiveRsaKey().toRSAPrivateKey());
             jwt.decrypt(decrypter);
             log.debug("Decrypted JWT: {}", jwt.serialize());
             return Optional.of(jwt);

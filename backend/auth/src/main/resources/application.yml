@@ -5,10 +5,6 @@ app:
         auth: 1
   jose:
     strategy: jwsRsaNimbus
-    key:
-      secret: ${JOSE_SECRET}
-      private: ${JOSE_PRIVATE_KEY}
-      public: ${JOSE_PUBLIC_KEY}
     expiration:
       access-token: ${JOSE_EXPIRATION}
       refresh-token: ${JOSE_REFRESH_EXPIRATION}

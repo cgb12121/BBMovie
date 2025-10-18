@@ -19,7 +19,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "jwk_keys")
-public class JwkKey extends BaseEntity {
+public class JoseKey extends BaseEntity {
 
     public enum KeyType {
         RSA, HMAC

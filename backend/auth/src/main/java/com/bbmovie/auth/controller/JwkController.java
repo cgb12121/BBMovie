@@ -1,7 +1,7 @@
 package com.bbmovie.auth.controller;
 
 import com.bbmovie.auth.dto.ApiResponse;
-import com.bbmovie.auth.security.jose.JwkService;
+import com.bbmovie.auth.security.jose.PublicKeyService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
@@ -18,16 +18,16 @@ import java.util.concurrent.TimeUnit;
 @RequestMapping()
 public class JwkController {
 
-    private final JwkService jwkService;
+    private final PublicKeyService publicKeyService;
 
     @Autowired
-    public JwkController(JwkService jwkService) {
-        this.jwkService = jwkService;
+    public JwkController(PublicKeyService publicKeyService) {
+        this.publicKeyService = publicKeyService;
     }
 
     @GetMapping("/.well-known/jwks.json")
     public ResponseEntity<Map<String, Object>> getJwk() {
-        List<Map<String, Object>> jwks = jwkService.getAllPublicJwks();
+        List<Map<String, Object>> jwks = publicKeyService.getAllPublicJwks();
         return ResponseEntity.ok()
                 .cacheControl(CacheControl.maxAge(1, TimeUnit.HOURS).cachePublic())
                 .body(Map.of("keys", jwks));
@@ -36,12 +36,12 @@ public class JwkController {
     @GetMapping("/admin/jwks/all")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ApiResponse<Map<String, Object>> getJwks() {
-        return ApiResponse.success(Map.of("keys", List.of(jwkService.getAllActiveJwks())));
+        return ApiResponse.success(Map.of("keys", List.of(publicKeyService.getAllActiveJwks())));
     }
 
     @GetMapping("/admin/jwks/active")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     public ApiResponse<Map<String, Object>> getActiveJwks() {
-        return ApiResponse.success(Map.of("keys", List.of(jwkService.getJwk())));
+        return ApiResponse.success(Map.of("keys", List.of(publicKeyService.getJwk())));
     }
 }

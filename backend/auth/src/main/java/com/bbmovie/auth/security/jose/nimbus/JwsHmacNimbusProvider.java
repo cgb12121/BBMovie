@@ -60,7 +60,7 @@ public class JwsHmacNimbusProvider implements JoseProviderStrategy {
     }
 
     private SecretKey getSecretKey() {
-        SecretKey key = keyCache.getActiveHmacSecretKey();
+        SecretKey key = keyCache.getActiveHmacKey();
         if (key == null) {
             throw new IllegalStateException("No active HMAC secret key available. Check key configuration and type.");
         }
