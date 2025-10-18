@@ -26,8 +26,7 @@ public class OutboxService {
     public OutboxService(
             OutboxEventRepository outboxEventRepository,
             ReactiveNatsProducer reactiveNatsProducer,
-            ObjectMapper objectMapper
-    ) {
+            ObjectMapper objectMapper) {
         this.outboxEventRepository = outboxEventRepository;
         this.reactiveNatsProducer = reactiveNatsProducer;
         this.objectMapper = objectMapper;
