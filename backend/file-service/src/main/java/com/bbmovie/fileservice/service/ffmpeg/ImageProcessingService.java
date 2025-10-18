@@ -4,6 +4,7 @@ import lombok.extern.log4j.Log4j2;
 import net.bramp.ffmpeg.FFmpeg;
 import net.bramp.ffmpeg.FFmpegExecutor;
 import net.bramp.ffmpeg.builder.FFmpegBuilder;
+import net.bramp.ffmpeg.job.FFmpegJob;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -27,13 +28,16 @@ public class ImageProcessingService {
                     String outputPath = output.toString();
                     FFmpegBuilder builder = new FFmpegBuilder()
                             .setInput(input.toString())
-                            .overrideOutputFiles(true)
-                            .addOutput(outputPath)
-                            .setFormat(format.getExtension())
-                            .setVideoFilter("scale=" + width + ":" + height)
-                            .addExtraArgs("-q:v", "3")
-                            .done();
-                    new FFmpegExecutor(ffmpeg).createJob(builder).run();
+                                .overrideOutputFiles(true)
+                                .addOutput(outputPath)
+                                .setFormat(format.getExtension())
+                                .setVideoFilter("scale=" + width + ":" + height)
+                                .addExtraArgs("-q:v", "3")
+                                .done();
+                    FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
+                    FFmpegJob job = executor.createJob(builder, progress -> log.info(progress.toString()));
+                    job.run();
+
                     return output;
                 })
                 .doOnError(err -> log.error("Image processing failed: {}", err.getMessage(), err))

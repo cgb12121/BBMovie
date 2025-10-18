@@ -16,9 +16,8 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
 @Service
-public class PaymentEventProducerImpl implements PaymentEventProducer {
+public class PaymentEventProducerImpl extends AbstractNatsJetStreamService implements PaymentEventProducer {
 
-    private final AtomicReference<JetStream> jetStreamRef = new AtomicReference<>();
     private final ObjectMapper objectMapper;
 
     @Autowired
@@ -26,21 +25,9 @@ public class PaymentEventProducerImpl implements PaymentEventProducer {
         this.objectMapper = objectMapper;
     }
 
-    @EventListener
-    public void onNatsConnection(NatsConnectionEvent event) {
-        if (event.type() == ConnectionListener.Events.CONNECTED || event.type() == ConnectionListener.Events.RECONNECTED) {
-            log.info("NATS connected, initializing JetStream context for PaymentEventProducer.");
-            try {
-                jetStreamRef.set(event.connection().jetStream());
-            } catch (IOException e) {
-                log.error("Failed to create JetStream context after NATS connection was established.", e);
-            }
-        }
-    }
-
     @Override
     public <T> void publish(String subject, T event) {
-        JetStream jetStream = jetStreamRef.get();
+        JetStream jetStream = getJetStream();
         if (jetStream == null) {
             log.warn("NATS JetStream is not available. Skipping event publication to subject: {}", subject);
             return;

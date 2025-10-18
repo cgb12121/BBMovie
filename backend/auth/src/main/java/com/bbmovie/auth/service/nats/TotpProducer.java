@@ -1,38 +1,19 @@
 package com.bbmovie.auth.service.nats;
 
-import com.bbmovie.auth.dto.event.NatsConnectionEvent;
 import com.example.common.enums.NotificationType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.nats.client.ConnectionListener;
 import io.nats.client.JetStream;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
 @Service
-public class TotpProducer {
-
-    private final AtomicReference<JetStream> jetStreamRef = new AtomicReference<>();
-
-    @EventListener
-    public void onNatsConnection(NatsConnectionEvent event) {
-        if (event.type() == ConnectionListener.Events.CONNECTED || event.type() == ConnectionListener.Events.RECONNECTED) {
-            log.info("NATS connected, initializing JetStream context for TotpProducer.");
-            try {
-                jetStreamRef.set(event.connection().jetStream());
-            } catch (IOException e) {
-                log.error("Failed to create JetStream context for TotpProducer.", e);
-            }
-        }
-    }
+public class TotpProducer extends AbstractNatsJetStreamService {
 
     public void sendNotification(String userId, NotificationType type, String destination, String message) {
-        JetStream jetStream = jetStreamRef.get();
+        JetStream jetStream = getJetStream();
         if (jetStream == null) {
             log.warn("NATS JetStream not available. Skipping TOTP notification for user: {}", userId);
             return;

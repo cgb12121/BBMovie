@@ -20,7 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
 @Service
-public class VideoEventConsumer {
+public class VideoEventConsumer extends AbstractNatsJetStreamService {
 
     private final ObjectMapper objectMapper;
     private final MovieMetadataRepository movieMetadataRepository;

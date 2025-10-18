@@ -25,8 +25,9 @@ public class DailyReconciliationJob implements Job {
     private final PaymentTransactionRepository paymentTransactionRepository;
 
     @Autowired
-    public DailyReconciliationJob(Map<String, PaymentProviderAdapter> providers,
-                                  PaymentTransactionRepository paymentTransactionRepository) {
+    public DailyReconciliationJob(
+            Map<String, PaymentProviderAdapter> providers,
+            PaymentTransactionRepository paymentTransactionRepository) {
         this.providers = providers;
         this.paymentTransactionRepository = paymentTransactionRepository;
     }

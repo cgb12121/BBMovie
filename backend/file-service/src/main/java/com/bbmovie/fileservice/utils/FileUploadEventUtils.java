@@ -1,6 +1,6 @@
 package com.bbmovie.fileservice.utils;
 
-import com.bbmovie.fileservice.entity.TempFileRecord;
+import com.bbmovie.fileservice.entity.cdc.OutboxFileRecord;
 import com.example.common.dtos.nats.FileUploadEvent;
 import com.example.common.dtos.nats.FileUploadResult;
 import com.example.common.dtos.nats.UploadMetadata;
@@ -29,11 +29,11 @@ public class FileUploadEventUtils {
                 .build();
     }
 
-    public static TempFileRecord createNewTempUploadEvent(
+    public static OutboxFileRecord createNewTempUploadEvent(
             UploadMetadata metadata, String originalNameWithoutExtension,
             String fileExtension, Path tempPath, String username
     ) {
-        return TempFileRecord.builder()
+        return OutboxFileRecord.builder()
                 .id(UUID.randomUUID().toString())
                 .fileName(originalNameWithoutExtension)
                 .extension(fileExtension)

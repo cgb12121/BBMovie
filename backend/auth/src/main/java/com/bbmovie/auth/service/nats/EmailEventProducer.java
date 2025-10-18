@@ -1,43 +1,24 @@
 package com.bbmovie.auth.service.nats;
 
-import com.bbmovie.auth.dto.event.NatsConnectionEvent;
 import com.bbmovie.auth.exception.ChangedPasswordNotificationEventException;
 import com.bbmovie.auth.exception.MagicLinkEventException;
 import com.bbmovie.auth.exception.OtpEventException;
-import io.nats.client.ConnectionListener;
 import io.nats.client.JetStream;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
 @Service
-public class EmailEventProducer {
-
-    private final AtomicReference<JetStream> jetStreamRef = new AtomicReference<>();
+public class EmailEventProducer extends AbstractNatsJetStreamService {
 
     private static final String EMAIL_KEY = "email";
     private static final String PHONE_NUMBER_KEY = "phoneNumber"; // Corrected key
     private static final String OTP_KEY = "otp";
     private static final String TOKEN_FOR_MAGIC_LINK_KEY = "token";
     private static final String TIME_CHANGE_PASSWORD_KEY = "timeChangedPassword";
-
-    @EventListener
-    public void onNatsConnection(NatsConnectionEvent event) {
-        if (event.type() == ConnectionListener.Events.CONNECTED || event.type() == ConnectionListener.Events.RECONNECTED) {
-            log.info("NATS connected, initializing JetStream context for EmailEventProducer.");
-            try {
-                jetStreamRef.set(event.connection().jetStream());
-            } catch (IOException e) {
-                log.error("Failed to create JetStream context for EmailEventProducer.", e);
-            }
-        }
-    }
 
     public void sendOtp(String phoneNumber, String otp) {
         Map<String, String> event = Map.of(PHONE_NUMBER_KEY, phoneNumber, OTP_KEY, otp);
@@ -60,7 +41,7 @@ public class EmailEventProducer {
     }
 
     private void publish(String subject, Map<String, String> event, RuntimeException exception) {
-        JetStream jetStream = jetStreamRef.get();
+        JetStream jetStream = getJetStream();
         if (jetStream == null) {
             log.warn("NATS JetStream not available. Skipping event publication to subject: {}", subject);
             return; // Silently fail if NATS is not connected

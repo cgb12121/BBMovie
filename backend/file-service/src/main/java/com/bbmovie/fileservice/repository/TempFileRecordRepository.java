@@ -1,6 +1,6 @@
 package com.bbmovie.fileservice.repository;
 
-import com.bbmovie.fileservice.entity.TempFileRecord;
+import com.bbmovie.fileservice.entity.cdc.OutboxFileRecord;
 import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -10,11 +10,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Repository
-public interface TempFileRecordRepository extends ReactiveCrudRepository<TempFileRecord, String> {
+public interface TempFileRecordRepository extends ReactiveCrudRepository<OutboxFileRecord, String> {
 
     @Modifying
     @Query(""" 
-        insert into temp_file (
+        insert into outbox_file_record (
             id, file_name, extension, size, temp_dir, temp_store_for, uploaded_by, is_removed, created_at
         )
         values (
@@ -22,13 +22,13 @@ public interface TempFileRecordRepository extends ReactiveCrudRepository<TempFil
             :#{#newRecord.tempStoreFor}, :#{#newRecord.uploadedBy}, :#{#newRecord.isRemoved}, :#{#newRecord.createdAt}
         )
     """)
-    Mono<Void> saveTempFile(@Param("newRecord") TempFileRecord newRecord);
+    Mono<Void> saveTempFile(@Param("newRecord") OutboxFileRecord newRecord);
 
     @Query("SELECT * FROM temp_file WHERE is_removed = false")
-    Flux<TempFileRecord> findAllByIsRemovedFalse();
+    Flux<OutboxFileRecord> findAllByIsRemovedFalse();
 
     @Query("SELECT * FROM temp_file WHERE file_name = :fileName")
-    Mono<TempFileRecord> findByFileName(String fileName);
+    Mono<OutboxFileRecord> findByFileName(String fileName);
 
     @Query("""
         UPDATE temp_file

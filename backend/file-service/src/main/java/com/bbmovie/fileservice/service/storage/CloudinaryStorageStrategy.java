@@ -1,23 +1,22 @@
 package com.bbmovie.fileservice.service.storage;
 
 import com.cloudinary.Cloudinary;
+import com.cloudinary.utils.ObjectUtils;
 import com.example.common.dtos.nats.FileUploadResult;
 import com.example.common.enums.Storage;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.buffer.DataBufferUtils;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.io.File;
-import java.nio.file.Paths;
+import java.io.IOException;
 import java.util.Map;
+import java.util.Objects;
 
 @Component("cloudinaryStorage")
 public class CloudinaryStorageStrategy implements StorageStrategy {
-
-    @Value("${app.upload.temp-dir}")
-    private String tempUploadDir;
 
     private final Cloudinary cloudinary;
 
@@ -28,22 +27,44 @@ public class CloudinaryStorageStrategy implements StorageStrategy {
 
     @Override
     public Mono<FileUploadResult> store(FilePart filePart, String safeName) {
-        return filePart.transferTo(Paths.get(tempUploadDir + safeName)) // temp save
-                .then(Mono.fromCallable(() -> {
-                    Map<?, ?> result = cloudinary.uploader().upload(
-                        new File(tempUploadDir + safeName),
-                        Map.of(
-                                "public_id", safeName,
-                                "access_mode", "authenticated"
-                        )
-                    );
-                    return new FileUploadResult((String) result.get("secure_url"), (String) result.get("public_id"));
-                }));
+        return Mono.fromCallable(() -> {
+            try {
+                Map<?, ?> result = cloudinary.uploader().upload(
+                    DataBufferUtils.join(filePart.content()).block().asInputStream(true),
+                    ObjectUtils.asMap(
+                            "public_id", safeName,
+                            "resource_type", "auto",
+                            "access_mode", "authenticated"
+                    )
+                );
+                String contentType = result.get("resource_type") + "/" + result.get("format");
+                long fileSize = ((Number) result.get("bytes")).longValue();
+                return new FileUploadResult((String) result.get("secure_url"), (String) result.get("public_id"), contentType, fileSize);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to upload to Cloudinary", e);
+            }
+        });
     }
 
     @Override
     public Mono<FileUploadResult> store(File file, String filename) {
-        return Mono.error(new UnsupportedOperationException("Cloudinary does not support storing local File objects."));
+         return Mono.fromCallable(() -> {
+            try {
+                Map<?, ?> result = cloudinary.uploader().upload(
+                    file,
+                    ObjectUtils.asMap(
+                            "public_id", filename,
+                            "resource_type", "auto",
+                            "access_mode", "authenticated"
+                    )
+                );
+                String contentType = result.get("resource_type") + "/" + result.get("format");
+                long fileSize = ((Number) result.get("bytes")).longValue();
+                return new FileUploadResult((String) result.get("secure_url"), (String) result.get("public_id"), contentType, fileSize);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to upload file to Cloudinary", e);
+            }
+        });
     }
 
     @Override

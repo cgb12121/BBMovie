@@ -1,4 +1,4 @@
-package com.bbmovie.fileservice.entity;
+package com.bbmovie.fileservice.entity.cdc;
 
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
@@ -7,13 +7,13 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
-@Table("temp_file")
+@Table("outbox_file_record")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TempFileRecord {
+public class OutboxFileRecord {
     @Id
     @Column("id")
     private String id;

@@ -18,36 +18,38 @@ public class TikaValidationService {
 
     private final Tika tika;
 
+    private static final List<String> ALLOWED_IMAGE_EXTENSIONS = ImageExtension.getAllowedExtensions()
+            .stream()
+            .map(ImageExtension::getExtension)
+            .toList();
+
+    private static final List<String> ALLOWED_VIDEO_EXTENSIONS = VideoExtension.getAllowedVideoExtensions()
+            .stream()
+            .map(VideoExtension::getExtension)
+            .toList();
+
+
     @Autowired
     public TikaValidationService(Tika tika) {
         this.tika = tika;
     }
 
-    public Mono<Boolean> isValidContentType(Path path) {
+    public Mono<Void> validateContentType(Path path) {
         return Mono.fromCallable(() -> {
             String contentType = tika.detect(path.toFile());
             String extension = contentType.substring(contentType.lastIndexOf("/") + 1).toLowerCase();
             log.info("Detected content type: {}, {}", contentType, extension);
-            if (contentType.startsWith("image/")) {
-                List<String> allowedImageExtensions = ImageExtension.getAllowedExtensions()
-                        .stream()
-                        .map(ImageExtension::getExtension)
-                        .toList();
-                if (allowedImageExtensions.contains(extension)) {
-                    return true;
-                }
+
+            if (contentType.startsWith("image/") && ALLOWED_IMAGE_EXTENSIONS.contains(extension)) {
+                return true;
             }
-            if (contentType.startsWith("video/")) {
-                List<String> allowedVideoExtensions = VideoExtension.getAllowedVideoExtensions()
-                        .stream()
-                        .map(VideoExtension::getExtension)
-                        .toList();
-                if (allowedVideoExtensions.contains(extension)) {
-                    return true;
-                }
+
+            if (contentType.startsWith("video/") && ALLOWED_VIDEO_EXTENSIONS.contains(extension)) {
+                return true;
             }
+
             log.error("Unsupported file type: {}", contentType);
-            return false;
-        });
+            throw new UnsupportedExtension("Unsupported file type: " + contentType);
+        }).then();
     }
 }

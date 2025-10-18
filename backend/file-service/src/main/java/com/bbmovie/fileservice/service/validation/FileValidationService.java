@@ -21,17 +21,15 @@ public class FileValidationService {
         this.clamAVService = clamAVService;
     }
 
-    public Mono<Boolean> validateFile(Path filePath) {
-        return tikaService.isValidContentType(filePath)
-                .flatMap(tikaResult ->
-                        clamAVService.scanFile(filePath)
-                                .handle((scanResult, sink) -> {
-                                    if (Boolean.TRUE.equals(scanResult)) {
-                                        sink.next(tikaResult);
-                                    } else {
-                                        sink.error(new MalwareFileException("Malware file(s) detected!"));
-                                    }
-                                })
-                );
+    public Mono<Void> validateFile(Path filePath) {
+        return tikaService.validateContentType(filePath) // This will now raise an error on unsupported types
+                .then(clamAVService.scanFile(filePath))
+                .flatMap(isClean -> {
+                    if (Boolean.TRUE.equals(isClean)) {
+                        return Mono.empty(); // Success
+                    } else {
+                        return Mono.error(new MalwareFileException("Malware file(s) detected!"));
+                    }
+                });
     }
 }
