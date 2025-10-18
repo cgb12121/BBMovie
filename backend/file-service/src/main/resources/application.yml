@@ -1,35 +1,25 @@
 spring:
   application:
     name: bbmovie-upload-file
-
   upload-dir: ${UPLOAD_DIR}
-
   security:
     oauth2:
       resourceserver:
         jwt:
           jwk-set-uri: http://localhost:8080/.well-known/jwks.json
-
-  kafka:
-    bootstrap-servers: localhost:9092
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all
-      retries: 3
-      batch-size: 16384
-
   r2dbc:
     url: ${DATABASE_URL}
     username: ${DATABASE_USERNAME}
     password: ${DATABASE_PASSWORD}
-
-
   data:
     redis:
       host: localhost
       port: 6379
       database: 1
+  sql:
+    init:
+      mode: always
+
 
 logging:
   level:
@@ -58,17 +48,16 @@ ffmpeg.path: ${FFMPEG_PATH}
 ffprobe.path: ${FFPROBE_PATH}
 app.upload.temp-dir: C:/upload-temp
 
+
 cloudinary:
   cloud-name: ${CLOUDINARY_CLOUD_NAME}
   api-key: ${CLOUDINARY_API_KEY}
   api-secret: ${CLOUDINARY_API_SECRET}
 
+
 jose:
-  secret: ''
   jwk:
     endpoint: http://localhost:8080/.well-known/jwks.json
-  jws:
-    endpoint: http://localhost:8080/.well-known/jws
 
 
 eureka:

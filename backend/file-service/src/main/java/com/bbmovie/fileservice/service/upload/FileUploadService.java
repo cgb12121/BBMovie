@@ -161,7 +161,7 @@ public class FileUploadService {
                     .mimeType(uploadResult.getContentType())
                     .fileSize(uploadResult.getFileSize())
                     .build();
-            return fileAssetRepository.insertFileAsset(asset).thenReturn(asset);
+            return fileAssetRepository.save(asset).thenReturn(asset);
         } catch (Exception e) {
             return Mono.error(e);
         }
