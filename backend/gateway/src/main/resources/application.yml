@@ -41,8 +41,10 @@ spring:
                 - name: RequestRateLimiter
                   args:
                     key-resolver: "#{@customKeyResolver}"
-                    redis-rate-limiter.replenishRate: 10
-                    redis-rate-limiter.burstCapacity: 20
+                    # Rate: 60 requests/minute (60 req / 60s = 1 req/s)
+                    redis-rate-limiter.replenishRate: 1
+                    # Burst capacity allows for the full 60 requests to be made in a short burst.
+                    redis-rate-limiter.burstCapacity: 60
             - id: device_route
               uri: lb://auth
               predicates:
@@ -72,8 +74,10 @@ spring:
                 - name: RequestRateLimiter
                   args:
                     key-resolver: "#{@customKeyResolver}"
-                    redis-rate-limiter.replenishRate: 50
-                    redis-rate-limiter.burstCapacity: 100
+                    # Rate: 3600 requests/hour (3600 req / 3600s = 1 req/s)
+                    redis-rate-limiter.replenishRate: 1
+                    # Burst capacity allows for the full 3600 requests to be made in a short burst.
+                    redis-rate-limiter.burstCapacity: 3600
             - id: user_route
               uri: lb://user-service
               predicates:
@@ -86,8 +90,10 @@ spring:
                 - name: RequestRateLimiter
                   args:
                     key-resolver: "#{@customKeyResolver}"
-                    redis-rate-limiter.replenishRate: 50
-                    redis-rate-limiter.burstCapacity: 100
+                    # Rate: 86400 requests/day (86400 req / 86400s = 1 req/s)
+                    redis-rate-limiter.replenishRate: 1
+                    # Burst capacity allows for the full 86400 requests to be made in a short burst.
+                    redis-rate-limiter.burstCapacity: 86400
             - id: payment_route
               uri: lb://payment-service
               predicates:
