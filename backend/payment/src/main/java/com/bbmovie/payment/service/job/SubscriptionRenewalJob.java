@@ -1,12 +1,11 @@
 package com.bbmovie.payment.service.job;
 
-import com.bbmovie.payment.config.NatsConfig;
 import com.bbmovie.payment.service.UserSubscriptionService;
 import com.bbmovie.payment.repository.UserSubscriptionRepository;
 import com.bbmovie.payment.entity.UserSubscription;
+import com.bbmovie.payment.service.nats.AbstractNatsJetStreamService;
 import com.example.common.dtos.nats.SubscriptionEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.nats.client.JetStream;
 import lombok.extern.log4j.Log4j2;
 
 import java.io.IOException;
@@ -19,23 +18,19 @@ import org.springframework.stereotype.Service;
 
 @Log4j2
 @Service
-public class SubscriptionRenewalJob implements Job {
+public class SubscriptionRenewalJob extends AbstractNatsJetStreamService implements Job {
 
     private final UserSubscriptionService userSubscriptionService;
     private final UserSubscriptionRepository userSubscriptionRepository;
-    private final JetStream js;
     private final ObjectMapper objectMapper;
 
     @Autowired
     public SubscriptionRenewalJob(
             UserSubscriptionService userSubscriptionService,
             UserSubscriptionRepository userSubscriptionRepository,
-            NatsConfig.NatsConnectionFactory nats,
-            ObjectMapper objectMapper
-    ) throws IOException {
+            ObjectMapper objectMapper) throws IOException {
         this.userSubscriptionService = userSubscriptionService;
         this.userSubscriptionRepository = userSubscriptionRepository;
-        this.js = nats.getConnection().jetStream();
         this.objectMapper = objectMapper;
     }
 
@@ -59,7 +54,7 @@ public class SubscriptionRenewalJob implements Job {
                         sub.getNextPaymentDate()
                 );
                 byte[] payload = objectMapper.writeValueAsBytes(event);
-                js.publish("payments.subscription.renewal.upcoming", payload);
+                getJetStream().publish("payments.subscription.renewal.upcoming", payload);
             } catch (Exception e) {
                 log.error("Failed to publish renewal upcoming event for sub {}", sub.getId(), e);
             }

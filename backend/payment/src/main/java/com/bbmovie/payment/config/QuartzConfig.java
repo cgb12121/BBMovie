@@ -54,7 +54,8 @@ public class QuartzConfig {
                 .forJob(cancelPaymentJobDetail)
                 .withIdentity("cancelPaymentTrigger")
                 .withSchedule(CronScheduleBuilder
-                        .cronSchedule("0 * * * *") // every hour
+                        // "at the beginning of every hour"
+                        .cronSchedule("0 0 * * * ?")
                         .inTimeZone(TimeZone.getTimeZone(DEFAULT_TIMEZONE))
                 )
                 .build();
