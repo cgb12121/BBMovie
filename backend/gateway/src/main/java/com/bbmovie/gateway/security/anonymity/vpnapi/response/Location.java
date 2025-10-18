@@ -1,4 +1,4 @@
-package com.bbmovie.auth.security.anonymity.vpnapi;
+package com.bbmovie.gateway.security.anonymity.vpnapi.response;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;

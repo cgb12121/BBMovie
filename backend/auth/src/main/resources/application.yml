@@ -1,8 +1,4 @@
 app:
-  internal:
-    api:
-      key:
-        auth: 1
   jose:
     expiration:
       access-token: ${JOSE_EXPIRATION}
@@ -141,16 +137,6 @@ logging:
         ai: DEBUG
     ai:
       djl: DEBUG
-
-
-ip:
-  ipinfo:
-    token: ${IP_INFO_TOKEN}
-  vpnapi:
-    api-key: ${VNP_API_API_KEY}
-  ipapi:
-    api-key: ${IP_API_KEY}
-
 
 eureka:
   client:

@@ -1,4 +1,4 @@
-package com.bbmovie.auth.security.anonymity.location;
+package com.bbmovie.gateway.security.anonymity.location;
 
 import lombok.extern.log4j.Log4j2;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +18,6 @@ import java.util.Optional;
  * country code. If the IP is invalid, the API request fails, or the response indicates an error, the service
  * will return an empty Optional.
  */
-@Deprecated(forRemoval = true, since = "1.0.0")
 @Log4j2
 @Service
 public class IpWhoLocationService implements LocationService {
