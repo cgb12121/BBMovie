@@ -1,9 +1,8 @@
-package com.bbmovie.auth.security.jose.nimbus;
+package com.bbmovie.auth.security.jose.provider;
 
 import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
-import com.bbmovie.auth.security.jose.JoseProviderStrategy;
 import com.bbmovie.auth.security.jose.KeyCache;
 import com.bbmovie.auth.security.jose.dto.TokenPair;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
@@ -40,8 +39,8 @@ import static com.example.common.entity.JoseConstraint.JwtType.JWS;
  * It dynamically retrieves the keys from the JwkKeyCache to support key rotation.
  */
 @Log4j2
-@Component("jwsRsaNimbus")
-public class JwsRsaNimbusProvider implements JoseProviderStrategy {
+@Component
+public class JoseProviderImpl implements JoseProvider {
 
     private final int jwtAccessTokenExpirationInMs;
     private final int jwtRefreshTokenExpirationInMs;
@@ -49,7 +48,7 @@ public class JwsRsaNimbusProvider implements JoseProviderStrategy {
     private final RedisTemplate<Object, Object> redisTemplate;
     private final List<OAuth2UserInfoStrategy> strategies;
 
-    public JwsRsaNimbusProvider(
+    public JoseProviderImpl(
             @Value("${app.jose.expiration.access-token}") int jwtAccessTokenExpirationInMs,
             @Value("${app.jose.expiration.refresh-token}") int jwtRefreshTokenExpirationInMs,
             KeyCache keyCache,

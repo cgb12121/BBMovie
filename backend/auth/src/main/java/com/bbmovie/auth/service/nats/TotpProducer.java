@@ -10,6 +10,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Log4j2
@@ -38,9 +39,9 @@ public class TotpProducer {
         }
 
         try {
-            java.util.Map<String, Object> payload = java.util.Map.of(
+            Map<String, Object> payload = Map.of(
                     "userId", userId,
-                    "type", type != null ? type.name() : null,
+                    "type", type != null ? type.name() : "UNKNOWN",
                     "destination", destination,
                     "message", message
             );

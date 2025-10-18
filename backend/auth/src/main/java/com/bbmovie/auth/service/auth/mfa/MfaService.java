@@ -4,7 +4,7 @@ import com.bbmovie.auth.dto.request.MfaVerifyRequest;
 import com.bbmovie.auth.dto.response.MfaSetupResult;
 import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.repository.UserRepository;
-import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
+import com.bbmovie.auth.security.jose.provider.JoseProvider;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.nats.TotpProducer;
 import com.example.common.enums.NotificationType;
@@ -22,7 +22,7 @@ import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
 @Service
 public class MfaService {
 
-    private final JoseProviderStrategyContext joseContext;
+    private final JoseProvider joseProvider;
     private final TotpService totpService;
     private final UserRepository userRepository;
     private final OtpService otpService;
@@ -30,10 +30,10 @@ public class MfaService {
 
     @Autowired
     public MfaService(
-            JoseProviderStrategyContext joseContext, TotpService totpService,
+            JoseProvider joseProvider, TotpService totpService,
             UserRepository userRepository, OtpService otpService, TotpProducer totpProducer
     ) {
-        this.joseContext = joseContext;
+        this.joseProvider = joseProvider;
         this.totpService = totpService;
         this.userRepository = userRepository;
         this.otpService = otpService;
@@ -42,7 +42,7 @@ public class MfaService {
 
     public MfaSetupResult getMfaSetupResult(String authorizationHeader) {
         String token = extractBearerToken(authorizationHeader);
-        Map<String, Object> claims = joseContext.getActiveProvider().getClaimsFromToken(token);
+        Map<String, Object> claims = joseProvider.getClaimsFromToken(token);
         String email = String.valueOf(claims.get(SUB));
 
         User user = userRepository.findByEmail(email)
@@ -67,7 +67,7 @@ public class MfaService {
 
     public void verify(String authorizationHeader, MfaVerifyRequest request) {
         String token = extractBearerToken(authorizationHeader);
-        Map<String, Object> claims = joseContext.getActiveProvider().getClaimsFromToken(token);
+        Map<String, Object> claims = joseProvider.getClaimsFromToken(token);
         String emailFromToken = String.valueOf(claims.get(SUB));
 
         String emailFromOtp = otpService.getEmailForOtpToken(request.code());

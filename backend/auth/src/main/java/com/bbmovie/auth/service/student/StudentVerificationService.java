@@ -9,7 +9,7 @@ import com.bbmovie.auth.exception.StudentApplicationException;
 import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.StudentProfileRepository;
 import com.bbmovie.auth.repository.UserRepository;
-import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
+import com.bbmovie.auth.security.jose.provider.JoseProvider;
 import com.example.common.dtos.nats.UploadMetadata;
 import com.example.common.enums.EntityType;
 import com.example.common.enums.Storage;
@@ -46,9 +46,9 @@ public class StudentVerificationService {
 	private final UniversityRegistryService universityRegistryService;
 	private final OcrExtractionService ocrExtractionService;
 	private final ObjectMapper objectMapper;
-	private final JoseProviderStrategyContext joseContext;
+    private final JoseProvider joseProvider;
 
-	@Value("${services.file-service.base-url:http://localhost:8084}")
+    @Value("${services.file-service.base-url:http://localhost:8084}")
 	private String fileServiceBaseUrl;
 
 	@Autowired
@@ -57,13 +57,13 @@ public class StudentVerificationService {
 			StudentProfileRepository studentProfileRepository,
 			UniversityRegistryService universityRegistryService,
 			OcrExtractionService ocrExtractionService,
-			JoseProviderStrategyContext joseContext
+            JoseProvider joseProvider
 	) {
 		this.userRepository = userRepository;
 		this.studentProfileRepository = studentProfileRepository;
 		this.universityRegistryService = universityRegistryService;
 		this.ocrExtractionService = ocrExtractionService;
-		this.joseContext = joseContext;
+		this.joseProvider = joseProvider;
 		this.objectMapper = new ObjectMapper();
 	}
 
@@ -213,7 +213,7 @@ public class StudentVerificationService {
 			ByteArrayResource fileResource = new ByteArrayResource(document.getBytes()) {
 				@Override
 				public String getFilename() {
-					return joseContext.getActiveProvider().getUsernameFromToken(jwt) + "_" + LocalDateTime.now();
+					return joseProvider.getUsernameFromToken(jwt) + "_" + LocalDateTime.now();
 				}
 			};
 

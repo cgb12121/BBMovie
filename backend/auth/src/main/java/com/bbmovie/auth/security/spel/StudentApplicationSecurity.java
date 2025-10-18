@@ -1,8 +1,7 @@
 package com.bbmovie.auth.security.spel;
 
 import com.bbmovie.auth.repository.UserRepository;
-import com.bbmovie.auth.security.jose.JoseProviderStrategy;
-import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
+import com.bbmovie.auth.security.jose.provider.JoseProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -12,12 +11,12 @@ import java.util.UUID;
 public class StudentApplicationSecurity {
 
     private final UserRepository userRepository;
-    private final JoseProviderStrategyContext joseContext;
+    private final JoseProvider joseProvider;
 
     @Autowired
-    public StudentApplicationSecurity(UserRepository userRepository, JoseProviderStrategyContext joseContext) {
+    public StudentApplicationSecurity(UserRepository userRepository, JoseProvider joseProvider) {
         this.userRepository = userRepository;
-        this.joseContext = joseContext;
+        this.joseProvider = joseProvider;
     }
 
     public boolean isOwner(String authorizationHeader, UUID applicationId) {
@@ -27,11 +26,10 @@ public class StudentApplicationSecurity {
                 ? authorizationHeader.substring(7)
                 : authorizationHeader;
 
-        JoseProviderStrategy provider = joseContext.getActiveProvider();
-        if (provider == null) return false;
+
         try {
-            if (!provider.validateToken(token)) return false;
-            String email = provider.getUsernameFromToken(token);
+            if (!joseProvider.validateToken(token)) return false;
+            String email = joseProvider.getUsernameFromToken(token);
             if (email == null) return false;
             return userRepository
                     .findByEmail(email)

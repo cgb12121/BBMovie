@@ -4,7 +4,6 @@ app:
       key:
         auth: 1
   jose:
-    strategy: jwsRsaNimbus
     expiration:
       access-token: ${JOSE_EXPIRATION}
       refresh-token: ${JOSE_REFRESH_EXPIRATION}

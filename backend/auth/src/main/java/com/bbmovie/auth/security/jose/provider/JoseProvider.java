@@ -1,4 +1,4 @@
-package com.bbmovie.auth.security.jose;
+package com.bbmovie.auth.security.jose.provider;
 
 import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.security.jose.dto.TokenPair;
@@ -15,7 +15,7 @@ import java.util.Map;
  * blacklists and extracting token claims.
  */
 @SuppressWarnings("unused")
-public interface JoseProviderStrategy {
+public interface JoseProvider {
 
     TokenPair generateTokenPair(Authentication authentication, User loggedInUser);
 

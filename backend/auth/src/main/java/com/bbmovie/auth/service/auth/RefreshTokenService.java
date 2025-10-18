@@ -7,9 +7,7 @@ import com.bbmovie.auth.exception.InvalidTokenException;
 import com.bbmovie.auth.exception.NoRefreshTokenException;
 import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.RefreshTokenRepository;
-import com.bbmovie.auth.security.jose.JoseProviderStrategy;
-import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
-import com.bbmovie.auth.security.jose.dto.JoseValidatedToken;
+import com.bbmovie.auth.security.jose.provider.JoseProvider;
 import com.bbmovie.auth.service.UserService;
 import jakarta.transaction.Transactional;
 import lombok.extern.log4j.Log4j2;
@@ -33,19 +31,19 @@ import static com.example.common.entity.JoseConstraint.JosePayload.*;
 @SuppressWarnings("ConstantConditions") // Suppress warning on passing Nonnull (on purpose)
 public class RefreshTokenService {
 
-    private final JoseProviderStrategyContext joseProviderStrategyContext;
+    private final JoseProvider joseProvider;
     private final RefreshTokenRepository refreshTokenRepository;
     private final UserService userService;
     private final RefreshTokenService selfProxy; // spring should solve this proxied self-reference instance
 
     @Autowired
     public RefreshTokenService(
-            JoseProviderStrategyContext joseProviderStrategyContext,
+            JoseProvider joseProvider,
             RefreshTokenRepository refreshTokenRepository,
             UserService userService,
             @Lazy RefreshTokenService selfProxy
     ) {
-        this.joseProviderStrategyContext = joseProviderStrategyContext;
+        this.joseProvider = joseProvider;
         this.refreshTokenRepository = refreshTokenRepository;
         this.userService = userService;
         this.selfProxy = selfProxy;
@@ -69,13 +67,15 @@ public class RefreshTokenService {
             oldAccessToken = oldAccessToken.substring(7);
         }
 
-        JoseValidatedToken validatedToken = resolveAndValidateToken(oldAccessToken)
-                .orElseThrow(() -> new InvalidTokenException("Token is invalid, expired, or signed with an unknown key."));
+        if (!joseProvider.validateToken(oldAccessToken)) {
+            throw new InvalidTokenException("Token is invalid, expired, or signed with an unknown key.");
+        }
 
-        String username = validatedToken.username();
-        String sid = validatedToken.sid();
+        Map<String, Object> claims = joseProvider.getClaimsFromToken(oldAccessToken);
+        String username = (String) claims.get(SUB);
+        String sid = (String) claims.get(SID);
 
-        if (validatedToken.provider().isTokenInLogoutBlacklist(sid)) {
+        if (joseProvider.isTokenInLogoutBlacklist(sid)) {
             throw new BlacklistedJwtTokenException("Session has logged out or expired.");
         }
 
@@ -89,20 +89,23 @@ public class RefreshTokenService {
         User user = userService.findByEmail(username)
                 .orElseThrow(() -> new UserNotFoundException("Unable to find user"));
 
+        List<SimpleGrantedAuthority> authorities = joseProvider.getRolesFromToken(oldAccessToken).stream()
+                .map(SimpleGrantedAuthority::new)
+                .collect(Collectors.toList());
+
         UserDetails userDetails = new org.springframework.security.core.userdetails.User(
-                username, null, validatedToken.roles().stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList())
+                username, "", authorities
         );
         Authentication authentication = new UsernamePasswordAuthenticationToken(
                 userDetails, null, userDetails.getAuthorities()
         );
 
-        // Always generate new tokens with the current active provider
-        String newAccessToken = joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sid, user);
+        String newAccessToken = joseProvider.generateAccessToken(authentication, sid, user);
 
-        if (validatedToken.provider().isTokenInABACBlacklist(sid)) {
-            String newRefreshTokenString = joseProviderStrategyContext.getActiveProvider().generateRefreshToken(authentication, sid, user);
+        if (joseProvider.isTokenInABACBlacklist(sid)) {
+            String newRefreshTokenString = joseProvider.generateRefreshToken(authentication, sid, user);
             selfProxy.saveRefreshToken(sid, newRefreshTokenString);
-            validatedToken.provider().removeTokenFromABACBlacklist(sid);
+            joseProvider.removeTokenFromABACBlacklist(sid);
         }
 
         return newAccessToken;
@@ -112,12 +115,11 @@ public class RefreshTokenService {
     public void saveRefreshToken(String sid, String refreshTokenString) {
         RefreshToken refreshToken = refreshTokenRepository.findBySid(sid);
         if (refreshToken != null) {
-            Optional<JoseValidatedToken> validatedToken = resolveAndValidateToken(refreshTokenString);
-            if (validatedToken.isEmpty()) {
+            if (!joseProvider.validateToken(refreshTokenString)) {
                 log.warn("Cannot save refresh token; it was signed with an unknown key.");
                 return;
             }
-            Map<String, Object> claims = validatedToken.get().provider().getClaimsFromToken(refreshTokenString);
+            Map<String, Object> claims = joseProvider.getClaimsFromToken(refreshTokenString);
             Date newExp = (Date) claims.get(EXP);
             Date newIat = (Date) claims.get(IAT);
             String jti = claims.get(JTI).toString();
@@ -136,12 +138,12 @@ public class RefreshTokenService {
             String deviceIpAddress, String deviceName, String deviceOs,
             String browser, String browserVersion
     ) {
-        Optional<JoseValidatedToken> validatedToken = resolveAndValidateToken(refreshToken);
-        if (validatedToken.isEmpty()) {
+        if (!joseProvider.validateToken(refreshToken)) {
             log.error("Cannot save refresh token for user {}; it was signed with an unknown or invalid key.", email);
             throw new InvalidTokenException("Cannot process refresh token with invalid signature.");
         }
-        Map<String, Object> claims = validatedToken.get().provider().getClaimsFromToken(refreshToken);
+
+        Map<String, Object> claims = joseProvider.getClaimsFromToken(refreshToken);
         Date expiryDate = (Date) claims.get(EXP);
         String jti = (String) claims.get(JTI);
         String sid = (String) claims.get(SID);
@@ -177,27 +179,6 @@ public class RefreshTokenService {
         );
 
         refreshTokenRepository.save(token);
-    }
-
-    private Optional<JoseValidatedToken> resolveAndValidateToken(String token) {
-        return Optional.ofNullable(joseProviderStrategyContext.getActiveProvider())
-                .filter(p -> p.validateToken(token))
-                .map(p -> createValidatedToken(p, token))
-                .or(() -> {
-                    log.warn("Validating token with previous JOSE provider. This is normal during key rotation.");
-                    return Optional.ofNullable(joseProviderStrategyContext.getPreviousProvider())
-                            .filter(p -> p.validateToken(token))
-                            .map(p -> createValidatedToken(p, token));
-                });
-    }
-
-    private JoseValidatedToken createValidatedToken(JoseProviderStrategy provider, String token) {
-        Map<String, Object> claims = provider.getClaimsFromToken(token);
-        String username = (String) claims.get(SUB);
-        String sid = (String) claims.get(SID);
-        List<String> roles = Collections.singletonList((String) claims.get(ROLE));
-        boolean isEnabled = (boolean) claims.get(ABAC.IS_ACCOUNTING_ENABLED);
-        return new JoseValidatedToken(provider, sid, username, roles, isEnabled);
     }
 
     public List<RefreshToken> findAllValidByEmail(String email) {

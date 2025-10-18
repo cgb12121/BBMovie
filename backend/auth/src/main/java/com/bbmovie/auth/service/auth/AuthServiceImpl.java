@@ -12,8 +12,8 @@ import com.bbmovie.auth.entity.enumerate.Role;
 import com.bbmovie.auth.entity.jose.RefreshToken;
 import com.bbmovie.auth.exception.*;
 import com.bbmovie.auth.repository.UserRepository;
-import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
 import com.bbmovie.auth.security.jose.dto.TokenPair;
+import com.bbmovie.auth.security.jose.provider.JoseProvider;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.auth.verify.magiclink.ChangePasswordTokenService;
 import com.bbmovie.auth.service.auth.verify.magiclink.EmailVerifyTokenService;
@@ -68,12 +68,12 @@ public class AuthServiceImpl implements AuthService {
     private final OtpService otpService;
     private final DeviceInfoUtils deviceInfoUtils;
     private final UserAgentAnalyzerUtils userAgentAnalyzer;
-    private final JoseProviderStrategyContext joseProviderStrategyContext;
+    private final JoseProvider joseProvider;
 
     @Autowired
     public AuthServiceImpl(
             AuthenticationManager authenticationManager,
-            JoseProviderStrategyContext joseProviderStrategyContext,
+            JoseProvider joseProvider,
             PasswordEncoder passwordEncoder,
             UserRepository userRepository,
             EmailVerifyTokenService emailVerifyTokenService,
@@ -98,7 +98,7 @@ public class AuthServiceImpl implements AuthService {
         this.otpService = otpService;
         this.deviceInfoUtils = deviceInfoUtils;
         this.userAgentAnalyzer = userAgentAnalyzer;
-        this.joseProviderStrategyContext = joseProviderStrategyContext;
+        this.joseProvider = joseProvider;
     }
 
     /**
@@ -138,8 +138,7 @@ public class AuthServiceImpl implements AuthService {
         userRepository.save(user);
 
         String sid = UUID.randomUUID().toString();
-        TokenPair tokenPair = joseProviderStrategyContext.getActiveProvider()
-                .generateTokenPair(authentication, user);
+        TokenPair tokenPair = joseProvider.generateTokenPair(authentication, user);
 
         boolean isNewSession = refreshTokenService.findAllValidByEmail(user.getEmail())
                 .stream()
@@ -397,7 +396,7 @@ public class AuthServiceImpl implements AuthService {
         String currentDeviceName = currentAgent.getValue("DeviceName");
         String currentIp = IpAddressUtils.getClientIp(request);
 
-        String email = joseProviderStrategyContext.getActiveProvider().getUsernameFromToken(accessToken);
+        String email = joseProvider.getUsernameFromToken(accessToken);
 
         List<DeviceInfo> allDevices = getAllLoggedInDevicesRaw(email);
         List<LoggedInDeviceResponse> result = new ArrayList<>();
@@ -444,8 +443,7 @@ public class AuthServiceImpl implements AuthService {
 
         for (RefreshToken refreshToken : refreshTokens) {
             String oldSid = refreshToken.getSid();
-            joseProviderStrategyContext.getActiveProvider()
-                    .addTokenToABACBlacklist(oldSid);
+            joseProvider.addTokenToABACBlacklist(oldSid);
             abacEventProducer.send(JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX + oldSid);
 
             List<GrantedAuthority> authorities = List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
@@ -454,8 +452,7 @@ public class AuthServiceImpl implements AuthService {
 
             String newSid = UUID.randomUUID().toString();
             //need to pass time to make sure new-issued token expired same with old token
-            String newRefreshToken = joseProviderStrategyContext.getActiveProvider()
-                    .generateRefreshToken(authentication, newSid, user);
+            String newRefreshToken = joseProvider.generateRefreshToken(authentication, newSid, user);
 
             refreshToken.setToken(newRefreshToken);
             refreshToken.setSid(newSid);
@@ -475,12 +472,10 @@ public class AuthServiceImpl implements AuthService {
      *                    used to extract the session ID (SID) for revocation.
      */
     private void revokeTokensFromCurrentDevice(String accessToken) {
-        Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider()
-                .getClaimsFromToken(accessToken);
+        Map<String, Object> claims = joseProvider.getClaimsFromToken(accessToken);
         String sid = claims.get(SID).toString();
         refreshTokenService.deleteRefreshToken(sid);
-        joseProviderStrategyContext.getActiveProvider()
-                .addTokenToLogoutBlacklist(sid);
+        joseProvider.addTokenToLogoutBlacklist(sid);
 
         logoutEventProducer.send(JWT_LOGOUT_BLACKLIST_PREFIX + sid);
     }
@@ -497,8 +492,7 @@ public class AuthServiceImpl implements AuthService {
      * @throws IllegalArgumentException Thrown if the target SID matches the current session SID.
      */
     private void revokeTokensFromSpecificDevice(String accessToken, String targetSid) {
-        Map<String, Object> claims = joseProviderStrategyContext.getActiveProvider()
-                .getClaimsFromToken(accessToken);
+        Map<String, Object> claims = joseProvider.getClaimsFromToken(accessToken);
         String sid = claims.get(SID).toString();
         String email = claims.get(SUB).toString();
 
@@ -507,8 +501,7 @@ public class AuthServiceImpl implements AuthService {
         }
 
         refreshTokenService.deleteByEmailAndSid(email, targetSid);
-        joseProviderStrategyContext.getActiveProvider()
-                .addTokenToLogoutBlacklist(targetSid);
+        joseProvider.addTokenToLogoutBlacklist(targetSid);
         logoutEventProducer.send(JWT_LOGOUT_BLACKLIST_PREFIX + targetSid);
     }
 
@@ -525,8 +518,7 @@ public class AuthServiceImpl implements AuthService {
         List<String> allSessions = refreshTokenService.getAllSessionsByEmail(email);
         refreshTokenService.deleteAllRefreshTokenByEmail(email);
         for (String sid : allSessions) {
-            joseProviderStrategyContext.getActiveProvider()
-                    .addTokenToLogoutBlacklist(sid);
+            joseProvider.addTokenToLogoutBlacklist(sid);
             logoutEventProducer.send(JWT_LOGOUT_BLACKLIST_PREFIX + sid);
         }
     }

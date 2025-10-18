@@ -4,13 +4,12 @@ import com.bbmovie.auth.dto.response.UserAgentResponse;
 import com.bbmovie.auth.entity.User;
 import com.bbmovie.auth.entity.enumerate.Role;
 import com.bbmovie.auth.entity.jose.RefreshToken;
-import com.bbmovie.auth.security.jose.JoseProviderStrategyContext;
+import com.bbmovie.auth.security.jose.provider.JoseProvider;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategy;
 import com.bbmovie.auth.security.oauth2.strategy.user.info.OAuth2UserInfoStrategyFactory;
 import com.bbmovie.auth.service.UserService;
 import com.bbmovie.auth.service.auth.RefreshTokenService;
 import com.bbmovie.auth.utils.DeviceInfoUtils;
-import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.log4j.Log4j2;
@@ -47,19 +46,20 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
     private String frontendUrl;
 
     private final UserService userService;
-    private final JoseProviderStrategyContext joseProviderStrategyContext;
+    private final JoseProvider joseProvider;
     private final RefreshTokenService refreshTokenService;
     private final ObjectProvider<PasswordEncoder> passwordEncoderProvider;
     private final OAuth2UserInfoStrategyFactory strategyFactory;
     private final DeviceInfoUtils deviceInfoUtils;
 
     public OAuth2LoginSuccessHandler(
-            UserService userService, JoseProviderStrategyContext joseProviderStrategyContext,
-            RefreshTokenService refreshTokenService, ObjectProvider<PasswordEncoder> passwordEncoderProvider,
-            OAuth2UserInfoStrategyFactory strategyFactory, DeviceInfoUtils deviceInfoUtils
-    ) {
+            UserService userService, JoseProvider joseProvider,
+            RefreshTokenService refreshTokenService,
+            ObjectProvider<PasswordEncoder> passwordEncoderProvider,
+            OAuth2UserInfoStrategyFactory strategyFactory,
+            DeviceInfoUtils deviceInfoUtils) {
         this.userService = userService;
-        this.joseProviderStrategyContext = joseProviderStrategyContext;
+        this.joseProvider = joseProvider;
         this.refreshTokenService = refreshTokenService;
         this.passwordEncoderProvider = passwordEncoderProvider;
         this.strategyFactory = strategyFactory;
@@ -172,9 +172,9 @@ public class OAuth2LoginSuccessHandler extends SavedRequestAwareAuthenticationSu
             Authentication authentication, String email, UserAgentResponse userAgentInfo, User oauth2User
     ) {
         String sid = UUID.randomUUID().toString();
-        String accessToken = joseProviderStrategyContext.getActiveProvider().generateAccessToken(authentication, sid, oauth2User);
-        String refreshToken = joseProviderStrategyContext.getActiveProvider().generateRefreshToken(authentication, sid, oauth2User);
-        Date expirationDate = joseProviderStrategyContext.getActiveProvider().getExpirationDateFromToken(refreshToken);
+        String accessToken = joseProvider.generateAccessToken(authentication, sid, oauth2User);
+        String refreshToken = joseProvider.generateRefreshToken(authentication, sid, oauth2User);
+        Date expirationDate = joseProvider.getExpirationDateFromToken(refreshToken);
 
         RefreshToken refreshTokenToDb = RefreshToken.builder()
                 .token(refreshToken)
