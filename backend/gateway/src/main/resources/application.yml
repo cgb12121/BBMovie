@@ -38,13 +38,6 @@ spring:
                   args:
                     regexp: /api/public(?<remaining>/.*)
                     replacement: /public${remaining}
-#                - name: RequestRateLimiter
-#                  args:
-#                    key-resolver: "#{@customKeyResolver}"
-#                    # Rate: 60 requests/minute (60 req / 60s = 1 req/s)
-#                    redis-rate-limiter.replenishRate: 1
-#                    # Burst capacity allows for the full 60 requests to be made in a short burst.
-#                    redis-rate-limiter.burstCapacity: 60
             - id: device_route
               uri: lb://auth
               predicates:
@@ -71,13 +64,6 @@ spring:
                   args:
                     regexp: /api/(movies|reviews)(?<remaining>/.*)
                     replacement: /${remaining}
-#                - name: RequestRateLimiter
-#                  args:
-#                    key-resolver: "#{@customKeyResolver}"
-#                    # Rate: 3600 requests/hour (3600 req / 3600s = 1 req/s)
-#                    redis-rate-limiter.replenishRate: 1
-#                    # Burst capacity allows for the full 3600 requests to be made in a short burst.
-#                    redis-rate-limiter.burstCapacity: 3600
             - id: user_route
               uri: lb://user-service
               predicates:
@@ -87,13 +73,6 @@ spring:
                   args:
                     regexp: /api/(users|payments)(?<remaining>/.*)
                     replacement: /${remaining}
-#                - name: RequestRateLimiter
-#                  args:
-#                    key-resolver: "#{@customKeyResolver}"
-#                    # Rate: 86400 requests/day (86400 req / 86400s = 1 req/s)
-#                    redis-rate-limiter.replenishRate: 1
-#                    # Burst capacity allows for the full 86400 requests to be made in a short burst.
-#                    redis-rate-limiter.burstCapacity: 86400
             - id: payment_route
               uri: lb://payment-service
               predicates:
@@ -191,6 +170,83 @@ logging:
     org.springframework.cloud.gateway.filter.ratelimit: DEBUG
     org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter: DEBUG
     Bucket4j: DEBUG
+
+
+bucket4j:
+  enabled: true
+  default-http-content-type: application/json
+  default-http-status-code: 429
+  default-http-response-body: '{ "message": "Too many requests!" }'
+  filters:
+    # API endpoints - stricter limits
+    - url: /api/.*
+      rate-limits:
+        - plan: ANONYMOUS
+          bandwidths:
+            - capacity: 20
+              time: 1
+              unit: minutes
+        - plan: FREE
+          bandwidths:
+            - capacity: 100
+              time: 1
+              unit: hours
+            - capacity: 30
+              time: 1
+              unit: minutes
+        - plan: PREMIUM
+          bandwidths:
+            - capacity: 5000
+              time: 1
+              unit: hours
+            - capacity: 200
+              time: 1
+              unit: minutes
+
+    # Public endpoints - more lenient
+    - url: /public/.*
+      rate-limits:
+        - plan: ANONYMOUS
+          bandwidths:
+            - capacity: 100
+              time: 1
+              unit: minutes
+        - plan: FREE
+          bandwidths:
+            - capacity: 500
+              time: 1
+              unit: hours
+        - plan: PREMIUM
+          bandwidths:
+            - capacity: 10000
+              time: 1
+              unit: hours
+
+    # Heavy operations - very strict
+    - url: /api/export/.*
+      rate-limits:
+        - plan: ANONYMOUS
+          bandwidths:
+            - capacity: 5
+              time: 1
+              unit: hours
+        - plan: FREE
+          bandwidths:
+            - capacity: 10
+              time: 1
+              unit: hours
+            - capacity: 3
+              time: 1
+              unit: minutes
+        - plan: PREMIUM
+          bandwidths:
+            - capacity: 100
+              time: 1
+              unit: hours
+            - capacity: 20
+              time: 1
+              unit: minutes
+
 
 server:
   port: 8765
