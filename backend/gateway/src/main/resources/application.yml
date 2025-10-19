@@ -38,13 +38,13 @@ spring:
                   args:
                     regexp: /api/public(?<remaining>/.*)
                     replacement: /public${remaining}
-                - name: RequestRateLimiter
-                  args:
-                    key-resolver: "#{@customKeyResolver}"
-                    # Rate: 60 requests/minute (60 req / 60s = 1 req/s)
-                    redis-rate-limiter.replenishRate: 1
-                    # Burst capacity allows for the full 60 requests to be made in a short burst.
-                    redis-rate-limiter.burstCapacity: 60
+#                - name: RequestRateLimiter
+#                  args:
+#                    key-resolver: "#{@customKeyResolver}"
+#                    # Rate: 60 requests/minute (60 req / 60s = 1 req/s)
+#                    redis-rate-limiter.replenishRate: 1
+#                    # Burst capacity allows for the full 60 requests to be made in a short burst.
+#                    redis-rate-limiter.burstCapacity: 60
             - id: device_route
               uri: lb://auth
               predicates:
@@ -70,14 +70,14 @@ spring:
                 - name: RewritePath
                   args:
                     regexp: /api/(movies|reviews)(?<remaining>/.*)
-                    replacement: /$1${remaining}
-                - name: RequestRateLimiter
-                  args:
-                    key-resolver: "#{@customKeyResolver}"
-                    # Rate: 3600 requests/hour (3600 req / 3600s = 1 req/s)
-                    redis-rate-limiter.replenishRate: 1
-                    # Burst capacity allows for the full 3600 requests to be made in a short burst.
-                    redis-rate-limiter.burstCapacity: 3600
+                    replacement: /${remaining}
+#                - name: RequestRateLimiter
+#                  args:
+#                    key-resolver: "#{@customKeyResolver}"
+#                    # Rate: 3600 requests/hour (3600 req / 3600s = 1 req/s)
+#                    redis-rate-limiter.replenishRate: 1
+#                    # Burst capacity allows for the full 3600 requests to be made in a short burst.
+#                    redis-rate-limiter.burstCapacity: 3600
             - id: user_route
               uri: lb://user-service
               predicates:
@@ -86,14 +86,14 @@ spring:
                 - name: RewritePath
                   args:
                     regexp: /api/(users|payments)(?<remaining>/.*)
-                    replacement: /$1${remaining}
-                - name: RequestRateLimiter
-                  args:
-                    key-resolver: "#{@customKeyResolver}"
-                    # Rate: 86400 requests/day (86400 req / 86400s = 1 req/s)
-                    redis-rate-limiter.replenishRate: 1
-                    # Burst capacity allows for the full 86400 requests to be made in a short burst.
-                    redis-rate-limiter.burstCapacity: 86400
+                    replacement: /${remaining}
+#                - name: RequestRateLimiter
+#                  args:
+#                    key-resolver: "#{@customKeyResolver}"
+#                    # Rate: 86400 requests/day (86400 req / 86400s = 1 req/s)
+#                    redis-rate-limiter.replenishRate: 1
+#                    # Burst capacity allows for the full 86400 requests to be made in a short burst.
+#                    redis-rate-limiter.burstCapacity: 86400
             - id: payment_route
               uri: lb://payment-service
               predicates:
@@ -111,7 +111,7 @@ spring:
                 - name: RewritePath
                   args:
                     regexp: /api/(subscription|v1/subscription)(?<remaining>/.*)
-                    replacement: /api/$1${remaining}
+                    replacement: /api/${remaining}
             - id: search_route
               uri: lb://bbmovie-search
               predicates:
@@ -157,14 +157,13 @@ spring:
       port: 6379
       database: 0
 
-
 eureka:
   client:
+    enabled: true
     service-url:
       defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true
     fetch-registry: true
-
 
 internal:
   url:
@@ -173,13 +172,11 @@ internal:
       base-url: lb://auth
       abac-endpoint: /auth/abac/new-access-token
 
-
 gateway:
   config:
     security:
       enabled: true
       api-key-header: X-Api-Key
-
 
 ip:
   ipinfo:
@@ -189,11 +186,11 @@ ip:
   ipapi:
     api-key: ${IP_API_KEY}
 
-
 logging:
   level:
     org.springframework.cloud.gateway.filter.ratelimit: DEBUG
-
+    org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter: DEBUG
+    Bucket4j: DEBUG
 
 server:
   port: 8765

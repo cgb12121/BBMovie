@@ -22,11 +22,6 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "No refresh token found");
     }
 
-    @ExceptionHandler(io.jsonwebtoken.ExpiredJwtException.class)
-    public ResponseEntity<ApiResponse<Void>> handleExpiredJwtException(io.jsonwebtoken.ExpiredJwtException e) {
-        return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "Invalid token: token has expired");
-    }
-
     @ExceptionHandler(MultipartException.class)
     public ResponseEntity<ApiResponse<Void>> handleMultipartException(MultipartException e) {
         return buildErrorResponse(e, HttpStatus.BAD_REQUEST, "Invalid file format");

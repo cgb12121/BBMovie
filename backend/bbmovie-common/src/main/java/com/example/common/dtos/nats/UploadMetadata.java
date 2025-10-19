@@ -12,10 +12,10 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UploadMetadata {
-    @NotNull(message = "movieId is required")
-    private String movieId;
+    @NotNull(message = "Id is required")
+    private String fileId;
     @NotNull(message = "entityType is required")
-    private EntityType entityType;
+    private EntityType fileType;
     @NotNull(message = "storage is required")
     private Storage storage;
     @Nullable

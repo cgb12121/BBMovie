@@ -4,6 +4,7 @@ import com.bbmovie.gateway.config.FilterOrder;
 import com.bbmovie.gateway.util.IpAddressUtils;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
@@ -15,6 +16,11 @@ import reactor.core.publisher.Mono;
 
 @Component
 @Log4j2
+@ConditionalOnProperty(
+        value = "my.service.enabled",
+        havingValue = "true",
+        matchIfMissing = false
+)
 public class IpAnonymityWebFilter implements WebFilter, Ordered {
 
     private final AnonymityCheckService anonymityCheckService;
@@ -29,7 +35,7 @@ public class IpAnonymityWebFilter implements WebFilter, Ordered {
     public Mono<Void> filter(@NonNull ServerWebExchange exchange,@NonNull WebFilterChain chain) {
         String ip = IpAddressUtils.getClientIp(exchange.getRequest());
 
-        if (ip == null || ip.equals("127.0.0.1") || ip.isEmpty()) {
+        if (ip.equals("127.0.0.1") || ip.isEmpty() || ip.equalsIgnoreCase("ANONYMOUS")) {
             return chain.filter(exchange); // No IP, let it pass
         }
 
@@ -46,6 +52,6 @@ public class IpAnonymityWebFilter implements WebFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return FilterOrder.THIRD;
+        return FilterOrder.FOURTH;
     }
 }

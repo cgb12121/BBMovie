@@ -55,15 +55,6 @@ spring:
       port: 6379
       password: ${REDIS_PASSWORD}
       database: 0
-  kafka:
-    bootstrap-servers: localhost:9092
-    consumer:
-      group-id: upload-core-group
-      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-    properties:
-      spring.json.trusted.packages: "*"
-
   security:
     oauth2:
       client:
@@ -140,6 +131,7 @@ logging:
 
 eureka:
   client:
+    enabled: true
     service-url:
       defaultZone: http://localhost:8761/eureka/
     register-with-eureka: true

@@ -73,7 +73,6 @@ public class KeyRotation {
         log.info("Begin to remove inactive JWK keys.");
         List<JoseKey> allKeys = keyRepo.findAll();
         removedInactiveKeys(allKeys);
-        eventPublisher.publishEvent(new KeyRotatedEvent());
     }
 
     private void removedInactiveKeys(List<JoseKey> keys) {

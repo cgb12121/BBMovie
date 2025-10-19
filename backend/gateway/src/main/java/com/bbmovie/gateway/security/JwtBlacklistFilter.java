@@ -268,6 +268,6 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return FilterOrder.SECOND;
+        return FilterOrder.THIRD;
     }
 }

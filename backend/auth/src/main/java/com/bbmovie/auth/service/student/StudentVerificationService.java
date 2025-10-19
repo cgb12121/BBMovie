@@ -207,7 +207,7 @@ public class StudentVerificationService {
 			} else {
 				jwt = bearerToken;
 			}
-			UploadMetadata metadata = new UploadMetadata(EntityType.STUDENT_DOCUMENT, Storage.LOCAL, null);
+			UploadMetadata metadata = new UploadMetadata(UUID.randomUUID().toString() ,EntityType.STUDENT_DOCUMENT, Storage.LOCAL, null);
 
 			MultiValueMap<String, Object> parts = new LinkedMultiValueMap<>();
 			ByteArrayResource fileResource = new ByteArrayResource(document.getBytes()) {

@@ -19,7 +19,7 @@ public class FileUploadEventUtils {
     ) {
         return FileUploadEvent.builder()
                 .title(fileName)
-                .entityType(metadata.getEntityType())
+                .entityType(metadata.getFileType())
                 .storage(metadata.getStorage())
                 .url(result.getUrl())
                 .publicId(result.getPublicId())
@@ -38,7 +38,7 @@ public class FileUploadEventUtils {
                 .fileName(originalNameWithoutExtension)
                 .extension(fileExtension)
                 .tempDir(tempPath.toString())
-                .tempStoreFor(metadata.getEntityType().name())
+                .tempStoreFor(metadata.getFileType().name())
                 .uploadedBy(username)
                 .isRemoved(false)
                 .createdAt(LocalDateTime.now())

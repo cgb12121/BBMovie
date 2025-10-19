@@ -153,8 +153,8 @@ public class FileUploadService {
     private Mono<FileAsset> saveFileAsset(UploadMetadata metadata, FileUploadResult uploadResult, String qualityLabel) {
         try {
             FileAsset asset = FileAsset.builder()
-                    .movieId(metadata.getMovieId())
-                    .entityType(metadata.getEntityType())
+                    .movieId(metadata.getFileId())
+                    .entityType(metadata.getFileType())
                     .storageProvider(metadata.getStorage())
                     .pathOrPublicId(uploadResult.getPublicId())
                     .quality(qualityLabel)
