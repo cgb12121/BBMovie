@@ -114,13 +114,13 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
 
         Map<String, Object> claims = planResolver.getClaims(exchange.getRequest());
         String plan = resolvePlan(claims);
-        String key = resolveKey(claims, exchange.getRequest());
+        String userIdentifier = resolveKey(claims, exchange.getRequest());
 
         // Include URL pattern in a cache key to separate limits per endpoint
         String urlIdentifier = matchedFilter.config().getUrl().replaceAll("[^a-zA-Z0-9]", "_");
-        String cacheKey = "rate-limit:" + urlIdentifier + ":" + plan + ":" + key;
+        String cacheKey = "rate-limit:" + urlIdentifier + ":" + plan + ":" + userIdentifier;
 
-        log.debug("Rate limiting - Path: {}, Plan: {}, Key: {}", path, plan, key);
+        log.debug("Rate limiting - Path: {}, Plan: {}, Key: {}", path, plan, userIdentifier);
 
         // Get or create a bucket in Redis reactively
         return Mono.fromCompletionStage(() -> {
