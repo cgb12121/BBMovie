@@ -119,11 +119,11 @@ public class AuthServiceImpl implements AuthService {
         log.info("Login request received for email: {}, {}", loginRequest, request);
 
         User user = userRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new UserNotFoundException("Invalid username/email or password"));
+                .orElseThrow(BadLoginException::new);
 
         boolean correctPassword = passwordEncoder.matches(loginRequest.getPassword(), user.getPassword());
         if (!correctPassword) {
-            throw new AuthenticationException("Invalid username/email or password");
+            throw new BadLoginException();
         }
         boolean isUserEnabled = user.isEnabled();
         if (!isUserEnabled) {

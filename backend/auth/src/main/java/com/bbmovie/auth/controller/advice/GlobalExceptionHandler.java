@@ -17,6 +17,11 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @ControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
+    @ExceptionHandler(BadLoginException.class)
+    public ResponseEntity<ApiResponse<Void>> handleBadLoginException(BadLoginException e) {
+        return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "Invalid username or password");
+    }
+
     @ExceptionHandler(NoRefreshTokenException.class)
     public ResponseEntity<ApiResponse<Void>> handleNoRefreshTokenException(NoRefreshTokenException e) {
         return buildErrorResponse(e, HttpStatus.UNAUTHORIZED, "No refresh token found");
