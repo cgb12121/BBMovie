@@ -158,6 +158,8 @@ gateway:
       api-key-header: X-Api-Key
 
 ip:
+  filter:
+    enabled: true
   ipinfo:
     token: ${IP_INFO_TOKEN}
   vpnapi:

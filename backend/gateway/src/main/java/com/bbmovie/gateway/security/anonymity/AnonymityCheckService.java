@@ -22,8 +22,7 @@ public class AnonymityCheckService {
 
     public AnonymityCheckService(
             List<IpAnonymityProvider> providers,
-            @Qualifier("ipRedisReactive") ReactiveRedisTemplate<String, Boolean> redisTemplate
-    ) {
+            @Qualifier("ipRedisReactive") ReactiveRedisTemplate<String, Boolean> redisTemplate) {
         if (providers == null || providers.isEmpty()) {
             throw new IllegalArgumentException("Anonymity providers list cannot be null or empty.");
         }

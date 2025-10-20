@@ -1,6 +1,6 @@
 package com.bbmovie.gateway.config.ratelimit;
 
-import com.bbmovie.gateway.config.FilterOrder;
+import com.bbmovie.gateway.config.ApplicationFilterOrder;
 import com.example.common.entity.JoseConstraint;
 import io.github.bucket4j.*;
 import io.github.bucket4j.distributed.proxy.AsyncProxyManager;
@@ -25,19 +25,18 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 @Component
 @Slf4j
 public class RateLimitingFilter implements GlobalFilter, Ordered {
 
-    private final SubscriptionPlanResolver planResolver;
+    private final ClaimsResolver planResolver;
     private final Bucket4jConfigProperties config;
     private final List<CompiledFilterConfig> compiledFilters;
     private final AsyncProxyManager<byte[]> proxyManager;
 
     @Autowired
-    public RateLimitingFilter(SubscriptionPlanResolver planResolver, Bucket4jConfigProperties config, AsyncProxyManager<byte[]> proxyManager) {
+    public RateLimitingFilter(ClaimsResolver planResolver, Bucket4jConfigProperties config, AsyncProxyManager<byte[]> proxyManager) {
         this.planResolver = planResolver;
         this.config = config;
         this.proxyManager = proxyManager;
@@ -48,7 +47,7 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
                         Pattern.compile(filter.getUrl()),
                         filter
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private BucketConfiguration createBucketConfiguration(String plan, Bucket4jConfigProperties.FilterConfig filterConfig) {
@@ -114,7 +113,7 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
 
         Map<String, Object> claims = planResolver.getClaims(exchange.getRequest());
         String plan = resolvePlan(claims);
-        String userIdentifier = resolveKey(claims, exchange.getRequest());
+        String userIdentifier = resolveSID(claims, exchange.getRequest());
 
         // Include URL pattern in a cache key to separate limits per endpoint
         String urlIdentifier = matchedFilter.config().getUrl().replaceAll("[^a-zA-Z0-9]", "_");
@@ -126,7 +125,9 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
         return Mono.fromCompletionStage(() -> {
                     byte[] cacheKeyBytes = cacheKey.getBytes(StandardCharsets.UTF_8);
                     return proxyManager.builder()
-                            .build(cacheKeyBytes, () -> CompletableFuture.completedFuture(createBucketConfiguration(plan, matchedFilter.config())))
+                            .build(cacheKeyBytes, () -> CompletableFuture.completedFuture(
+                                    createBucketConfiguration(plan, matchedFilter.config())
+                            ))
                             .tryConsumeAndReturnRemaining(1);
                 })
                 .flatMap(probe -> {
@@ -174,15 +175,15 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
         return (String) claims.getOrDefault(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, "ANONYMOUS");
     }
 
-    private String resolveKey(Map<String, Object> claims, ServerHttpRequest request) {
+    private String resolveSID(Map<String, Object> claims, ServerHttpRequest request) {
         return (String) claims.getOrDefault(JoseConstraint.JosePayload.SID,
                 Optional.ofNullable(request.getRemoteAddress())
                         .map(address -> address.getAddress().getHostAddress())
-                        .orElse("anonymous-fallback"));
+                        .orElse("ANONYMOUS"));
     }
 
     @Override
     public int getOrder() {
-        return FilterOrder.SECOND;
+        return ApplicationFilterOrder.RATE_LIMITING_FILTER;
     }
 }

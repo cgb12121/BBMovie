@@ -20,12 +20,12 @@ import java.util.Map;
  */
 @Log4j2
 @Service("subscriptionPlanResolver")
-public class SubscriptionPlanResolver {
+public class ClaimsResolver {
 
     private final ObjectMapper objectMapper;
 
     @Autowired
-    public SubscriptionPlanResolver(ObjectMapper objectMapper) {
+    public ClaimsResolver(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
     }
 

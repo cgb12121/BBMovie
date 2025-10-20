@@ -1,27 +1,26 @@
 package com.bbmovie.gateway.security.anonymity;
 
-import com.bbmovie.gateway.config.FilterOrder;
+import com.bbmovie.gateway.config.ApplicationFilterOrder;
 import com.bbmovie.gateway.util.IpAddressUtils;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
 import org.springframework.http.HttpStatus;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
-import org.springframework.web.server.WebFilter;
-import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 @Component
 @Log4j2
 @ConditionalOnProperty(
-        value = "my.service.enabled",
-        havingValue = "true",
-        matchIfMissing = false
+        value = "ip.filter.enabled",
+        havingValue = "true"
 )
-public class IpAnonymityWebFilter implements WebFilter, Ordered {
+public class IpAnonymityWebFilter implements GlobalFilter, Ordered {
 
     private final AnonymityCheckService anonymityCheckService;
 
@@ -32,10 +31,10 @@ public class IpAnonymityWebFilter implements WebFilter, Ordered {
 
     @Override
     @NonNull
-    public Mono<Void> filter(@NonNull ServerWebExchange exchange,@NonNull WebFilterChain chain) {
+    public Mono<Void> filter(@NonNull ServerWebExchange exchange,@NonNull GatewayFilterChain chain) {
         String ip = IpAddressUtils.getClientIp(exchange.getRequest());
 
-        if (ip.equals("127.0.0.1") || ip.isEmpty() || ip.equalsIgnoreCase("ANONYMOUS")) {
+        if (ip.isEmpty() || ip.equalsIgnoreCase("ANONYMOUS")) {
             return chain.filter(exchange); // No IP, let it pass
         }
 
@@ -52,6 +51,6 @@ public class IpAnonymityWebFilter implements WebFilter, Ordered {
 
     @Override
     public int getOrder() {
-        return FilterOrder.FOURTH;
+        return ApplicationFilterOrder.ANONYMITY_CHECK_FILTER;
     }
 }
