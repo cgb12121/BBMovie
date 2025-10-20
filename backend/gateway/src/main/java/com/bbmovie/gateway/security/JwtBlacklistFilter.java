@@ -1,6 +1,7 @@
 package com.bbmovie.gateway.security;
 
 import com.bbmovie.gateway.config.ApplicationFilterOrder;
+import com.bbmovie.gateway.exception.InvalidAuthenticationMethodException;
 import com.example.common.entity.JoseConstraint.JwtType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -109,17 +110,17 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
 
     private Mono<JsonNode> parseJwtPayload(String token) {
         if (!StringUtils.hasText(token)) {
-            return Mono.error(new IllegalArgumentException("No valid authentication method(s) found."));
+            return Mono.error(new InvalidAuthenticationMethodException("No valid authentication method(s) found."));
         }
 
         JwtType type = JwtType.getType(token);
         if (type == null) {
-            return Mono.error(new IllegalArgumentException("Unable to determine JWT type"));
+            return Mono.error(new InvalidAuthenticationMethodException("Unable to determine JWT type"));
         }
 
         String rawPayload = JwtType.getPayload(token);
         if (!StringUtils.hasText(rawPayload)) {
-            return Mono.error(new IllegalArgumentException("Payload must not be null or empty"));
+            return Mono.error(new InvalidAuthenticationMethodException("Payload must not be null or empty"));
         }
 
         if (JWS.equals(type)) {
@@ -130,11 +131,11 @@ public class JwtBlacklistFilter implements GlobalFilter, Ordered {
                     .subscribeOn(Schedulers.boundedElastic())
                     .onErrorMap(e -> {
                         log.error("Failed to parse JWS payload: {}", e.getMessage());
-                        return new RuntimeException("Failed to parse JWS payload");
+                        return new InvalidAuthenticationMethodException("Failed to parse JWS payload");
                     });
         }
 
-        return Mono.error(new IllegalArgumentException("Unsupported JWT type: " + type));
+        return Mono.error(new InvalidAuthenticationMethodException("Unsupported JWT type: " + type));
     }
 
     private Mono<Void> createResponse(ServerWebExchange exchange, String message, HttpStatus status) {

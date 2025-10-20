@@ -144,13 +144,6 @@ eureka:
     register-with-eureka: true
     fetch-registry: true
 
-internal:
-  url:
-    auth:
-      api-key: 1
-      base-url: lb://auth
-      abac-endpoint: /auth/abac/new-access-token
-
 gateway:
   config:
     security:

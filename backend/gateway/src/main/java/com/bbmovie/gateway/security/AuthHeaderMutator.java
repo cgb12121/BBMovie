@@ -5,15 +5,16 @@ import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.cloud.gateway.filter.GatewayFilter;
 import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.core.Ordered;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.web.server.ServerWebExchange;
 
 @Component
-public class AuthHeaderFilter extends AbstractGatewayFilterFactory<AuthHeaderFilter.Config> {
+public class AuthHeaderMutator extends AbstractGatewayFilterFactory<AuthHeaderMutator.Config> implements Ordered {
 
-    public AuthHeaderFilter() {
+    public AuthHeaderMutator() {
         super(Config.class);
     }
 
@@ -45,6 +46,11 @@ public class AuthHeaderFilter extends AbstractGatewayFilterFactory<AuthHeaderFil
 
             return chain.filter(forward);
         };
+    }
+
+    @Override
+    public int getOrder() {
+        return Ordered.LOWEST_PRECEDENCE;
     }
 
     @Getter
