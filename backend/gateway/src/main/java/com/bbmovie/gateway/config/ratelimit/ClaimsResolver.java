@@ -1,5 +1,6 @@
 package com.bbmovie.gateway.config.ratelimit;
 
+import com.example.common.entity.JoseConstraint;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
@@ -9,17 +10,14 @@ import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * A Spring service bean responsible for resolving rate limiting plans and keys.
- * It can be referenced in SpEL expressions in application.yml via the bean name "@subscriptionPlanResolver".
+ * It can be referenced in SpEL expressions in application.yml via the bean name "@claimsResolver".
  */
 @Log4j2
-@Service("subscriptionPlanResolver")
+@Service("claimsResolver")
 public class ClaimsResolver {
 
     private final ObjectMapper objectMapper;
@@ -27,6 +25,17 @@ public class ClaimsResolver {
     @Autowired
     public ClaimsResolver(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
+    }
+
+    public String resolvePlan(Map<String, Object> claims) {
+        return (String) claims.getOrDefault(JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER, "ANONYMOUS");
+    }
+
+    public String resolveSID(Map<String, Object> claims, ServerHttpRequest request) {
+        return (String) claims.getOrDefault(JoseConstraint.JosePayload.SID,
+                Optional.ofNullable(request.getRemoteAddress())
+                        .map(address -> address.getAddress().getHostAddress())
+                        .orElse("ANONYMOUS"));
     }
 
     public Map<String, Object> getClaims(ServerHttpRequest request) {
