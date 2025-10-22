@@ -1,0 +1,16 @@
+package com.bbmovie.ai_assistant_service.controller.advice;
+
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.bind.annotation.RestControllerAdvice;
+
+@Slf4j
+@RestControllerAdvice
+public class GlobalExceptionHandler {
+
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<?> handleException(Exception e) {
+        return ResponseEntity.internalServerError().body(e.getMessage());
+    }
+}

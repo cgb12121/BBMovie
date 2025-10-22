@@ -45,46 +45,6 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
                 .toList();
     }
 
-    private BucketConfiguration createBucketConfiguration(String plan, Bucket4jConfigProperties.FilterConfig filterConfig) {
-        // Find matching rate limit config for the plan
-        Bucket4jConfigProperties.RateLimitConfig rateLimitConfig = filterConfig.getRateLimits().stream()
-                .filter(rl -> plan.equals(rl.getPlan()))
-                .findFirst()
-                .orElse(null);
-
-        if (rateLimitConfig == null) {
-            log.warn("No rate limit config found for plan: {}, using default ANONYMOUS limits", plan);
-            // Fallback to ANONYMOUS if plan not found
-            rateLimitConfig = filterConfig.getRateLimits().stream()
-                    .filter(rl -> "ANONYMOUS".equals(rl.getPlan()))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("No ANONYMOUS fallback rate limit config found"));
-        }
-
-        ConfigurationBuilder builder = BucketConfiguration.builder();
-
-        // Add all bandwidths from config
-        for (Bucket4jConfigProperties.BandwidthConfig bandwidth : rateLimitConfig.getBandwidths()) {
-            Duration duration = parseDuration(bandwidth.getTime(), bandwidth.getUnit());
-            builder.addLimit(Bandwidth.classic(
-                    bandwidth.getCapacity(),
-                    Refill.intervally(bandwidth.getCapacity(), duration)
-            ));
-        }
-
-        return builder.build();
-    }
-
-    private Duration parseDuration(long time, String unit) {
-        return switch (unit.toLowerCase()) {
-            case "seconds" -> Duration.ofSeconds(time);
-            case "minutes" -> Duration.ofMinutes(time);
-            case "hours" -> Duration.ofHours(time);
-            case "days" -> Duration.ofDays(time);
-            default -> throw new IllegalArgumentException("Unsupported time unit: " + unit);
-        };
-    }
-
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         // Check if rate limiting is enabled
@@ -164,6 +124,46 @@ public class RateLimitingFilter implements GlobalFilter, Ordered {
                 config.getDefaultHttpResponseBody().getBytes(StandardCharsets.UTF_8)
         );
         return exchange.getResponse().writeWith(Mono.just(buffer));
+    }
+
+    private BucketConfiguration createBucketConfiguration(String plan, Bucket4jConfigProperties.FilterConfig filterConfig) {
+        // Find matching rate limit config for the plan
+        Bucket4jConfigProperties.RateLimitConfig rateLimitConfig = filterConfig.getRateLimits().stream()
+                .filter(rl -> plan.equals(rl.getPlan()))
+                .findFirst()
+                .orElse(null);
+
+        if (rateLimitConfig == null) {
+            log.warn("No rate limit config found for plan: {}, using default ANONYMOUS limits", plan);
+            // Fallback to ANONYMOUS if plan not found
+            rateLimitConfig = filterConfig.getRateLimits().stream()
+                    .filter(rl -> "ANONYMOUS".equals(rl.getPlan()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("No ANONYMOUS fallback rate limit config found"));
+        }
+
+        ConfigurationBuilder builder = BucketConfiguration.builder();
+
+        // Add all bandwidths from config
+        for (Bucket4jConfigProperties.BandwidthConfig bandwidth : rateLimitConfig.getBandwidths()) {
+            Duration duration = parseDuration(bandwidth.getTime(), bandwidth.getUnit());
+            builder.addLimit(Bandwidth.classic(
+                    bandwidth.getCapacity(),
+                    Refill.intervally(bandwidth.getCapacity(), duration)
+            ));
+        }
+
+        return builder.build();
+    }
+
+    private Duration parseDuration(long time, String unit) {
+        return switch (unit.toLowerCase()) {
+            case "seconds" -> Duration.ofSeconds(time);
+            case "minutes" -> Duration.ofMinutes(time);
+            case "hours" -> Duration.ofHours(time);
+            case "days" -> Duration.ofDays(time);
+            default -> throw new IllegalArgumentException("Unsupported time unit: " + unit);
+        };
     }
 
     @Override
