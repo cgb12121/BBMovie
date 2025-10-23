@@ -65,6 +65,12 @@
             <artifactId>langchain4j-spring-boot-starter</artifactId>
             <version>1.7.1-beta14</version>
         </dependency>
+        <!-- https://mvnrepository.com/artifact/dev.langchain4j/langchain4j-agentic -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-agentic</artifactId>
+            <version>1.7.1-beta14</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/dev.langchain4j/langchain4j-experimental-sql -->
 <!--        <dependency>-->
 <!--            <groupId>dev.langchain4j</groupId>-->

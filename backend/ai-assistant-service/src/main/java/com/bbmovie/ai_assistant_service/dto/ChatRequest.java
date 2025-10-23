@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class ChatRequest {
 //    private Long sessionId;
     private String message;
+    private String role;
 }

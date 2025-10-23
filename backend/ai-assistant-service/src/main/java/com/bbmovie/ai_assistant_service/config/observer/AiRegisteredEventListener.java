@@ -10,7 +10,7 @@ import java.util.List;
 
 @Log4j2
 @Component
-class AiServiceRegisteredEventListener implements ApplicationListener<AiServiceRegisteredEvent> {
+class AiRegisteredEventListener implements ApplicationListener<AiServiceRegisteredEvent> {
 
     @Override
     public void onApplicationEvent(AiServiceRegisteredEvent event) {
