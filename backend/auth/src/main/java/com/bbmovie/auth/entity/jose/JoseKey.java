@@ -3,11 +3,6 @@ package com.bbmovie.auth.entity.jose;
 import com.bbmovie.auth.entity.BaseEntity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -27,11 +22,11 @@ public class JoseKey extends BaseEntity {
     private String kid;
 
     @JsonProperty("public_key")
-    @Column(length = 4096, nullable = false)
+    @Column(name = "public_jwk", length = 4096, nullable = false)
     private String publicJwk;
 
     @JsonIgnore
-    @Column(length = 4096, nullable = false)
+    @Column(name = "private_jwk", length = 4096, nullable = false)
     private String privateJwk;
 
     @JsonProperty("is_active")
@@ -40,25 +35,13 @@ public class JoseKey extends BaseEntity {
 
     @Override
     public String toString() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.enable(SerializationFeature.INDENT_OUTPUT);
-        mapper.registerModule(new JavaTimeModule());
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-
-        try {
-            ObjectNode jwkNode = mapper.valueToTree(this);
-            JsonNode publicJwkNode = mapper.readTree(this.publicJwk);
-            jwkNode.set("publicJwk", publicJwkNode);
-            jwkNode.put("privateJwk", "[SECRET]");
-            return mapper.writeValueAsString(jwkNode);
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            return "\nJwk { \n"
-                    + "          kid: " + this.kid + ",\n"
-                    + "          public key: " + this.publicJwk + ",\n"
-                    + "          private key: [SECRET]" + ", \n"
-                    + "          isActive: " + this.isActive + ", \n"
-                    + "          createdAt: " + this.getCreatedDate() +
-                    "\n }";
-        }
+        return "\nJwk { "
+                + "     kid: '" + kid + ";\n"
+                + "     publicJwk: '" + publicJwk + ";\n"
+                + "     privateJwk: [SECRET] \n"
+                + "     isActive: " + isActive + "\n"
+                + "     createdDate: " + getCreatedDate() + "\n"
+                + "     lastModifiedDate: " + getLastModifiedDate() + "\n"
+                + "}";
     }
 }

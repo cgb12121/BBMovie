@@ -48,7 +48,7 @@ public class UniversityRegistryService {
         long startTime = System.nanoTime();
         long count = universityRepository.count();
         log.info("Found {} entries in university registry at the database", count);
-        if (count > 0 && count < 10000) {
+        if (count > 0) {
             log.info("University registry already contains {} entries, skipping initialization", count);
             return;
         }
