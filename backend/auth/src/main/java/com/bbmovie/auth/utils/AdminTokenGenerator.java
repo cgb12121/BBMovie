@@ -80,8 +80,8 @@ public class AdminTokenGenerator {
 
         JWSSigner signer = new RSASSASigner(rsaKey);
 
-        String iat = String.valueOf(LocalDateTime.now().toEpochSecond(ZoneOffset.UTC));
-        String exp = String.valueOf(LocalDateTime.now().plusYears(1).toEpochSecond(ZoneOffset.UTC));
+        long iat = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
+        long exp = LocalDateTime.now().plusYears(1).toEpochSecond(ZoneOffset.UTC);
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject("admin")

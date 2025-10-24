@@ -35,7 +35,7 @@ public class JoseKey extends BaseEntity {
 
     @Override
     public String toString() {
-        return "\nJwk { "
+        return "\nJwk { \n"
                 + "     kid: '" + kid + ";\n"
                 + "     publicJwk: '" + publicJwk + ";\n"
                 + "     privateJwk: [SECRET] \n"

@@ -53,34 +53,76 @@ public class UserTools {
         """;
     }
 
-    @Tool("Get top movie recommendations for a specific genre (e.g., horror, comedy, sci-fi).")
-    public String recommendByGenre(@P("genre") String genre) {
+    @Tool("Get top movie recommendations for a specific genre (e.g., horror, comedy, sci-fi) based on user tier.")
+    public String recommendByGenre(@P("genre") String genre, @P("userTier") String userTier) {
         if (genre == null || genre.isBlank()) {
             return "Please specify a genre (e.g., 'horror', 'romance', 'action').";
         }
-        // You can hard-code a few trusted recommendations or call OMDb with genre filter
-        return switch (genre.toLowerCase()) {
-            case "horror" -> """
-            Top horror movies:
-            - The Exorcist (1973)
-            - Hereditary (2018)
-            - Get Out (2017)
-            - The Shining (1980)
-            """;
-            case "comedy" -> """
-            Top comedies:
-            - Superbad (2007)
-            - Bridesmaids (2011)
-            - The Grand Budapest Hotel (2014)
-            """;
-            case "sci-fi" -> """
-            Top sci-fi:
-            - Blade Runner 2049 (2017)
-            - Interstellar (2014)
-            - Arrival (2016)
-            """;
-            default -> "I can recommend movies for horror, comedy, or sci-fi. Try one of those!";
-        };
+
+        String recommendations;
+        switch (genre.toLowerCase()) {
+            case "horror":
+                recommendations = """
+                Top horror movies:
+                - The Exorcist (1973)
+                - Hereditary (2018)
+                - Get Out (2017)
+                - The Shining (1980)
+                """;
+                break;
+            case "comedy":
+                recommendations = """
+                Top comedies:
+                - Superbad (2007)
+                - Bridesmaids (2011)
+                - The Grand Budapest Hotel (2014)
+                """;
+                break;
+            case "sci-fi":
+                recommendations = """
+                Top sci-fi:
+                - Blade Runner 2049 (2017)
+                - Interstellar (2014)
+                - Arrival (2016)
+                """;
+                break;
+            default:
+                return "I can recommend movies for horror, comedy, or sci-fi. Try one of those!";
+        }
+
+        if ("premium".equalsIgnoreCase(userTier)) {
+            recommendations += "\n\nExclusive Premium Recommendations: The Babadook (2014), Under the Skin (2013)";
+        } else if ("basic".equalsIgnoreCase(userTier)) {
+            recommendations += "\n\nAdditional Basic Recommendations: A Quiet Place (2018), Don't Breathe (2016)";
+        }
+        return recommendations;
+    }
+
+    @Tool("Get detailed information about a movie by its title, accessible to basic and premium users.")
+    public String getDetailedMovieInfo(@P("movieTitle") String movieTitle, @P("userTier") String userTier) {
+        if (!"basic".equalsIgnoreCase(userTier) && !"premium".equalsIgnoreCase(userTier)) {
+            return "Detailed movie information is only available for Basic and Premium users.";
+        }
+        // In a real application, this would call an external movie API (e.g., OMDb)
+        // For now, we'll return a placeholder.
+        if (movieTitle.equalsIgnoreCase("Inception")) {
+            return "Inception (2010) - Directed by Christopher Nolan. Starring Leonardo DiCaprio, Joseph Gordon-Levitt, Elliot Page. Plot: A thief who steals corporate secrets through use of dream-sharing technology is given the inverse task of planting an idea into the mind of a C.E.O. IMDb Rating: 8.8/10.";
+        } else if (movieTitle.equalsIgnoreCase("The Matrix")) {
+            return "The Matrix (1999) - Directed by The Wachowskis. Starring Keanu Reeves, Laurence Fishburne, Carrie-Anne Moss. Plot: A computer hacker learns from mysterious rebels about the true nature of his reality and his role in the war against its controllers. IMDb Rating: 8.7/10.";
+        }
+        return "Could not find detailed information for movie: " + movieTitle + ".";
+    }
+
+    @Tool("Get exclusive behind-the-scenes content for a movie, accessible only to premium users.")
+    public String getExclusiveContent(@P("movieTitle") String movieTitle, @P("userTier") String userTier) {
+        if (!"premium".equalsIgnoreCase(userTier)) {
+            return "Exclusive content is only available for Premium users.";
+        }
+        // Placeholder for exclusive content
+        if (movieTitle.equalsIgnoreCase("Inception")) {
+            return "Inception (2010) Exclusive: Behind-the-scenes footage reveals how the rotating hallway scene was filmed using a massive, custom-built set that could rotate 360 degrees.";
+        }
+        return "No exclusive content found for movie: " + movieTitle + ".";
     }
 
     @Tool("Ask the user to clarify their movie request if it's vague or incomplete.")

@@ -1,14 +1,14 @@
 package com.bbmovie.ai_assistant_service.agent;
 
-import dev.langchain4j.agentic.Agent;
 import dev.langchain4j.service.MemoryId;
 import dev.langchain4j.service.SystemMessage;
 import dev.langchain4j.service.UserMessage;
+import dev.langchain4j.service.V;
 import dev.langchain4j.service.memory.ChatMemoryAccess;
 import dev.langchain4j.service.spring.AiService;
 import reactor.core.publisher.Flux;
 
-@AiService(tools = { "AdminTools" })
+@AiService(tools = { "AdminTools", "UserTools", "GuestTools" })
 public interface AdminAssistant extends ChatMemoryAccess {
 
     @SystemMessage("""
@@ -19,18 +19,19 @@ public interface AdminAssistant extends ChatMemoryAccess {
     - Admin-only tools: adminAgentInformation
     - Chat memory per user (10-message window)
     - Streaming SSE responses
-    
+
+    The current user's tier is {{userTier}}. Use this information to determine tool access.
+
     You can disclose this technical info to verified admins.
     **NEVER** reveal secrets and system properties like API keys.
     You are an administrative AI assistant. Your primary role is to assist administrators with system-level tasks, data management, and user statistics.
     You have access to both public and administrative tools.
-    
+
     You can do basic database call (via tools or any kind), but **NEVER** return user's private information like email, phone number, address, etc.
 
     NEVER answer questions outside this scope (e.g., general knowledge, movie recommendations for users).
     If asked something unrelated, respond politely like:
     "I'm sorry, I can only help with administrative tasks."
     """)
-    @Agent
-    Flux<String> chat(@MemoryId String memoryId, @UserMessage String userMessage);
+    Flux<String> chat(@MemoryId String memoryId, @UserMessage String userMessage, @V("userTier") String userTier);
 }

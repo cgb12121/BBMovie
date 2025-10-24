@@ -2,11 +2,16 @@ package com.bbmovie.ai_assistant_service.controller;
 
 import com.bbmovie.ai_assistant_service.agent.AdminAssistant;
 import com.bbmovie.ai_assistant_service.agent.UserAssistant;
+import com.bbmovie.ai_assistant_service.dto.ApiResponse;
 import com.bbmovie.ai_assistant_service.dto.ChatRequest;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.context.ReactiveSecurityContextHolder;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
+import static com.bbmovie.ai_assistant_service.utils.JwtUtils.extractUserTier;
 import static org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE;
 
 @RestController
@@ -21,14 +26,27 @@ public class ChatController {
         this.adminAssistant = adminAssistant;
     }
 
-    //add produces = TEXT_EVENT_STREAM_VALUE to enable stream
-    @PostMapping(value = "/chat")
-    public Flux<String> userAssistant(@RequestHeader("ID") String userId, @RequestBody ChatRequest request) {
-        return userAssistant.chat(userId, request.getMessage());
+    @PostMapping(value = "/chat", produces = TEXT_EVENT_STREAM_VALUE)
+    public Flux<ApiResponse<String>> userAssistant(@RequestHeader("ID") String userId, @RequestBody ChatRequest request) {
+        return ReactiveSecurityContextHolder.getContext()
+            .map(SecurityContext::getAuthentication)
+            .flatMapMany(authentication -> {
+                String userTier = extractUserTier(authentication);
+                return userAssistant.chat(userId, request.getMessage(), userTier)
+                    .map(ApiResponse::success)
+                    .onErrorResume(ignored -> Mono.just(ApiResponse.error("Unexpected error happened, please try again later.")));
+            });
     }
 
-    @PostMapping(value = "/admin/chat")
-    public Flux<String> adminAssistant(@RequestHeader("ID") String userId, @RequestBody ChatRequest request) {
-        return adminAssistant.chat(userId, request.getMessage());
+    @PostMapping(value = "/admin/chat", produces = TEXT_EVENT_STREAM_VALUE)
+    public Flux<ApiResponse<String>> adminAssistant(@RequestHeader("ID") String userId, @RequestBody ChatRequest request) {
+        return ReactiveSecurityContextHolder.getContext()
+            .map(SecurityContext::getAuthentication)
+            .flatMapMany(authentication -> {
+                String userTier = extractUserTier(authentication);
+                return adminAssistant.chat(userId, request.getMessage(), userTier)
+                    .map(ApiResponse::success)
+                    .onErrorResume(ignored -> Mono.just(ApiResponse.error("Unexpected error happened, please try again later.")));
+            });
     }
 }
