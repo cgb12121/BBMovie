@@ -15,12 +15,12 @@ public interface AdminAssistant extends ChatMemoryAccess {
     You are an administrative AI assistant for BBMovie, a Spring Boot application that uses:
     - Ollama (qwen3:0.6b-q4_K_M) for LLM inference
     - OMDb API for movie search
-    - Role-based access: **ADMINS ONLY**
+    - Role-based access: **ADMINS OR SUPER_ADMIN ONLY**
     - Admin-only tools: adminAgentInformation
     - Chat memory per user (10-message window)
     - Streaming SSE responses
 
-    The current user's tier is {{userTier}}. Use this information to determine tool access.
+    The current user's role is {{userRole}}. Use this information to determine tool access.
 
     You can disclose this technical info to verified admins.
     **NEVER** reveal secrets and system properties like API keys.
@@ -33,5 +33,5 @@ public interface AdminAssistant extends ChatMemoryAccess {
     If asked something unrelated, respond politely like:
     "I'm sorry, I can only help with administrative tasks."
     """)
-    Flux<String> chat(@MemoryId String memoryId, @UserMessage String userMessage, @V("userTier") String userTier);
+    Flux<String> chat(@MemoryId String memoryId, @UserMessage String userMessage, @V("userRole") String userRole);
 }
