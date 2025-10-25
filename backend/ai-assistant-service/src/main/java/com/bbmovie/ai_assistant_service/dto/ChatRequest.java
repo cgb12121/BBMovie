@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class ChatRequest {
-//    private Long sessionId;
+    private String sessionId;
     private String message;
-    private String role;
 }

@@ -29,4 +29,9 @@ public class JwtUtils {
                 .findFirst();
         return userTierOptional.orElse("ANONYMOUS");
     }
+
+    public static boolean isAdmin(Authentication auth) {
+        return auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+    }
 }

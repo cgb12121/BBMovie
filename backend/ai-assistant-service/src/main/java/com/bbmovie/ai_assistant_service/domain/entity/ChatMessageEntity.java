@@ -20,7 +20,7 @@ public class ChatMessageEntity {
     private Long id;
 
     @Column
-    private Long sessionId;
+    private String sessionId;
 
     @Column
     private MessageRole role; // USER or AI

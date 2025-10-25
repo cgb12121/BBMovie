@@ -7,6 +7,6 @@ import reactor.core.publisher.Flux;
 
 @Repository
 public interface ChatMessageRepository extends R2dbcRepository<ChatMessageEntity, Long> {
-    Flux<ChatMessageEntity> findBySessionIdOrderByCreatedAtAsc(Long sessionId);
-    Flux<Void> deleteBySessionId(Long sessionId);
+    Flux<ChatMessageEntity> findBySessionIdOrderByCreatedAtAsc(String sessionId);
+    Flux<Void> deleteBySessionId(String sessionId);
 }

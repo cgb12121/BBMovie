@@ -15,7 +15,7 @@ public class LangchainMapper {
         };
     }
 
-    public static ChatMessageEntity toChatMessageEntity(ChatMessage chatMessage, Long sessionId) {
+    public static ChatMessageEntity toChatMessageEntity(ChatMessage chatMessage, String sessionId) {
         String content = null;
         String thinking = null;
         String toolUsage = null;
@@ -47,4 +47,18 @@ public class LangchainMapper {
                 .createdAt(LocalDateTime.now())
                 .build();
     }
+
+    public static String extractMessageContent(ChatMessage msg) {
+        if (msg instanceof UserMessage userMsg) {
+            return userMsg.singleText();
+        } else if (msg instanceof AiMessage aiMsg) {
+            return aiMsg.text();
+        } else if (msg instanceof SystemMessage sysMsg) {
+            return sysMsg.text();
+        } else if (msg instanceof ToolExecutionResultMessage toolMsg) {
+            return toolMsg.toolName();
+        }
+        return msg.toString();
+    }
+
 }

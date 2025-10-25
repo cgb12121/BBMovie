@@ -6,9 +6,15 @@ import dev.langchain4j.service.UserMessage;
 import dev.langchain4j.service.V;
 import dev.langchain4j.service.memory.ChatMemoryAccess;
 import dev.langchain4j.service.spring.AiService;
+import dev.langchain4j.service.spring.AiServiceWiringMode;
 import reactor.core.publisher.Flux;
 
-@AiService(tools = { "UserTools", "GuestTools" })
+@AiService(
+        wiringMode = AiServiceWiringMode.EXPLICIT,
+        streamingChatModel = "ollamaStreamingChatModel",
+        chatMemoryProvider = "chatMemoryProvider",
+        tools = { "UserTools", "GuestTools" }
+)
 public interface UserAssistant extends ChatMemoryAccess {
 
     @SystemMessage("""

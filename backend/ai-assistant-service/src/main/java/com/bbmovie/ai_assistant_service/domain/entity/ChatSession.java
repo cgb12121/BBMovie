@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 public class ChatSession {
 
     @Id
-    private Long id;
+    private String id; //uuid
 
     @Column
     private String userId;
