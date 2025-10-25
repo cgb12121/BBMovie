@@ -39,6 +39,7 @@ public class SecurityConfig {
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .authorizeExchange(exchanges -> exchanges
                 .pathMatchers("/admin/**").hasAnyRole("ROLE_ADMIN", "ADMIN")
+                .pathMatchers("/experimental/**").permitAll()
                 .anyExchange().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
