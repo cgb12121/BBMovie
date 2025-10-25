@@ -22,20 +22,20 @@ public class ExperimentalChatListener implements ChatModelListener {
         ChatRequest request = requestContext.chatRequest();
         List<ChatMessage> message = request.messages();
         List<ToolSpecification> tools = request.toolSpecifications();
-        log.info("[listener] Request to {}: {} messages, {} tools", provider, message, tools);
+        log.info("[listener] Request to {}: \n{} \n tools[{}] ", provider, message, tools);
     }
 
     @Override
     public void onResponse(ChatModelResponseContext responseContext) {
         ModelProvider provider = responseContext.modelProvider();
         ChatResponse response = responseContext.chatResponse();
-        log.debug("[listener] Response from {}: {} chars", provider, response.aiMessage().text());
+        log.debug("[listener] Response from {}: \n{}", provider, response.aiMessage());
     }
 
     @Override
     public void onError(ChatModelErrorContext errorContext) {
         ModelProvider provider = errorContext.modelProvider();
         Throwable error = errorContext.error();
-        log.error("[listener] Error from {}: {}", provider, error.getMessage(), error);
+        log.error("[listener] Error from {}: \n{}", provider, error.getMessage(), error);
     }
 }
