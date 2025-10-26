@@ -42,12 +42,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.*;
 
 import static com.bbmovie.auth.constant.AuthErrorMessages.EMAIL_ALREADY_EXISTS;
 import static com.bbmovie.auth.constant.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
+import static com.bbmovie.auth.security.SecurityConfig.*;
 import static com.example.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
 import static com.example.common.entity.JoseConstraint.JosePayload.SID;
 import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
@@ -133,6 +135,12 @@ public class AuthServiceImpl implements AuthService {
                 new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword(), user.getAuthorities())
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        boolean isPasswordDeprecated = isDeprecatedHash(user.getPassword());
+        if (isPasswordDeprecated) {
+            String newPassword = passwordEncoder.encode(loginRequest.getPassword());
+            user.setPassword(newPassword);
+        }
 
         user.setLastLoginTime(LocalDateTime.now());
         userRepository.save(user);
@@ -708,6 +716,16 @@ public class AuthServiceImpl implements AuthService {
         );
     }
 
+    private String encodeWithRandomAlgorithm(String rawPassword) {
+        Map<String, PasswordEncoder> encoders = ACTIVE_ENCODER;
+
+        List<String> algos = new ArrayList<>(encoders.keySet());
+        String chosen = algos.get(new SecureRandom().nextInt(algos.size()));
+        PasswordEncoder encoder = encoders.get(chosen);
+
+        return "{" + chosen + "}" + encoder.encode(rawPassword);
+    }
+
     /**
      * Creates a new User object based on the provided RegisterRequest.
      *
@@ -718,7 +736,7 @@ public class AuthServiceImpl implements AuthService {
         return User.builder()
                 .email(request.getEmail())
                 .displayedUsername(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
+                .password(encodeWithRandomAlgorithm(request.getPassword()))
 //                .phoneNumber(request.getPhoneNumber())
                 .firstName(request.getFirstName())
                 .lastName(request.getLastName())

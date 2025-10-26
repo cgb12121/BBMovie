@@ -23,8 +23,9 @@ import org.springframework.security.config.annotation.web.configurers.HeadersCon
 import org.springframework.security.config.annotation.web.configurers.RequestCacheConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.crypto.argon2.Argon2PasswordEncoder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.crypto.password.*;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.*;
@@ -33,7 +34,12 @@ import org.springframework.web.cors.CorsConfigurationSource;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Supplier;
+
+import static org.springframework.security.crypto.password.Pbkdf2PasswordEncoder.SecretKeyFactoryAlgorithm.PBKDF2WithHmacSHA256;
 
 @Slf4j
 @Configuration
@@ -84,7 +90,7 @@ public class SecurityConfig {
                 .ignoringRequestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html")
                 .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                 .csrfTokenRequestHandler(new SpaCsrfTokenRequestHandler())
-                .disable() // Disable for stateless API, which doesn't rely on cookie authentication
+                .disable() // Disable for stateless API using JWT, which doesn't rely on cookie authentication
             )
             .cors(cors -> cors
                 .configurationSource(corsConfigurationSource)
@@ -144,10 +150,75 @@ public class SecurityConfig {
         SecurityContextHolder.setStrategyName(SecurityContextHolder.MODE_INHERITABLETHREADLOCAL);
     }
 
+    public static final Map<String, PasswordEncoder> ACTIVE_ENCODER = Map.of(
+            "bcrypt", new BCryptPasswordEncoder(BCryptPasswordEncoder.BCryptVersion.$2A, 12),
+            "argon2", new Argon2PasswordEncoder(16, 32, 1, 1 << 14, 2),
+            "pbkdf2", new Pbkdf2PasswordEncoder("", 16, 310000, PBKDF2WithHmacSHA256)
+    );
+
+    @SuppressWarnings("deprecation")
+    public static final Map<String, PasswordEncoder> DEPRECATED_ENCODER = Map.of(
+            "noop", NoOpPasswordEncoder.getInstance(),
+            "md4", new Md4PasswordEncoder()
+    );
+
+    public static List<String> getActiveEncodersName() {
+        return List.copyOf(ACTIVE_ENCODER.keySet());
+    }
+
+    public static List<String> getDeprecatedEncodersName() {
+        return List.copyOf(DEPRECATED_ENCODER.keySet());
+    }
+
+    /**  around encoder names **/
+    public static List<String> getActiveEncoderPrefixes() {
+        return getActiveEncodersName().stream()
+                .map(SecurityConfig::wrapWithBraces)
+                .toList();
+    }
+
+    /**  for deprecated encoders **/
+    public static List<String> getDeprecatedEncoderPrefixes() {
+        return getDeprecatedEncodersName().stream()
+                .map(SecurityConfig::wrapWithBraces)
+                .toList();
+    }
+
+    /**  wrap with {} if not already wrapped **/
+    public static String wrapWithBraces(String name) {
+        if (name == null || name.isEmpty()) return name;
+        if (name.startsWith("{") && name.endsWith("}")) return name;
+        return "{" + name + "}";
+    }
+
+    /** remove {} if present **/
+    public static String unwrapBraces(String name) {
+        if (name == null || name.isEmpty()) return name;
+        if (name.startsWith("{") && name.contains("}")) {
+            return name.substring(1, name.indexOf('}'));
+        }
+        return name;
+    }
+
+    /** detect if hash uses deprecated encoder **/
+    public static boolean isDeprecatedHash(String encoded) {
+        if (encoded == null) return false;
+        return getDeprecatedEncoderPrefixes().stream().anyMatch(encoded::startsWith);
+    }
+
+    /** detect if hash uses active encoder **/
+    public static boolean isActiveHash(String encoded) {
+        if (encoded == null) return false;
+        return getActiveEncoderPrefixes().stream().anyMatch(encoded::startsWith);
+    }
+
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        String defaultId = "argon2";
+        Map<String, PasswordEncoder> encoders = new HashMap<>(ACTIVE_ENCODER);
+        return new DelegatingPasswordEncoder(defaultId, encoders);
     }
+
 
     static final class SpaCsrfTokenRequestHandler implements CsrfTokenRequestHandler {
         private final CsrfTokenRequestHandler plain = new CsrfTokenRequestAttributeHandler();
