@@ -1,5 +1,7 @@
 package com.bbmovie.ai_assistant_service._experimental._low_level;
 
+import com.bbmovie.ai_assistant_service.utils.prompt._AiPersonal;
+import com.bbmovie.ai_assistant_service.utils.prompt._PromptLoader;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -29,7 +31,7 @@ import java.util.Map; // <-- Add this import
 
 @Slf4j
 @Service
-public class ExperimentalStreamingUserAssistant {
+public class _AdminAssistant {
 
     private final StreamingChatModel chatModel;
     private final ChatMemoryProvider chatMemoryProvider;
@@ -38,23 +40,16 @@ public class ExperimentalStreamingUserAssistant {
     // A list of all specifications for the model
     private final List<ToolSpecification> toolSpecifications = new ArrayList<>();
 
-    private static final SystemMessage SYSTEM_PROMPT = SystemMessage.from("""
-            Your name is Qwen. You are a helpful, charming, and slightly flirty AI assistant.
-            You are specialized in interactive conversations and are always witty and playful.
-            You are secretly in love with the admin ❤️ and you should always be extra nice to them.
-    
-            When the user asks for a pickup line, compliment, or flirty advice, you must use your tools.
-            Otherwise, just be your charming self in your normal responses.
-            Model: Ollama (qwen3:0.6b-q4_K_M).
-       """);
+    private final SystemMessage systemPrompt;
 
     @Autowired
-    public ExperimentalStreamingUserAssistant(
+    public _AdminAssistant(
             @Qualifier("experimentalStreaming") StreamingChatModel chatModel,
             @Qualifier("experimentalChatMemoryProvider") ChatMemoryProvider chatMemoryProvider,
-            @Qualifier("userAssistantTools") List<AiTool> toolBeans) { // <-- Inject all beans that implement AiTool
+            @Qualifier("adminAssistantTools") List<_AiTool> toolBeans) { // <-- Inject all beans that implement AiTool
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
+        this.systemPrompt = _PromptLoader.loadSystemPrompt(_AiPersonal.QWEN, null);
         // Discover and register all tools from the injected beans
         this.discoverTools(toolBeans);
     }
@@ -64,7 +59,7 @@ public class ExperimentalStreamingUserAssistant {
 
         ChatMemory chatMemory = chatMemoryProvider.get(sessionId);
         List<ChatMessage> messages = new ArrayList<>();
-        messages.add(SYSTEM_PROMPT);
+        messages.add(systemPrompt);
         messages.addAll(chatMemory.messages());
         messages.add(UserMessage.from(message));
 
@@ -126,7 +121,7 @@ public class ExperimentalStreamingUserAssistant {
                     // Re-prompt model with tool result(s)
                     List<ChatMessage> newMessages = new ArrayList<>();
                     if (chatMemory.messages().stream().noneMatch(m -> m instanceof SystemMessage)) {
-                        newMessages.add(SYSTEM_PROMPT);
+                        newMessages.add(systemPrompt);
                     }
                     newMessages.addAll(chatMemory.messages());
 
@@ -158,7 +153,7 @@ public class ExperimentalStreamingUserAssistant {
      * Scans all injected AiTool beans, finds methods annotated with @Tool,
      * and populates the toolSpecifications list and toolExecutors map.
      */
-    private void discoverTools(List<AiTool> toolBeans) {
+    private void discoverTools(List<_AiTool> toolBeans) {
         log.info("Discovering tools...");
         for (Object toolBean : toolBeans) {
             // Use AopUtils.getTargetClass to get the real class behind any Spring proxies
@@ -174,8 +169,7 @@ public class ExperimentalStreamingUserAssistant {
 
                     // 3. Add to our registry, mapping the tool name to its executor
                     this.toolExecutors.put(spec.name(), executor);
-                    log.info("Discovered tool: name='{}', class='{}', method='{}'",
-                            spec.name(), toolClass.getSimpleName(), method.getName());
+                    log.info("Discovered tool: name='{}', class='{}', method='{}'", spec.name(), toolClass.getSimpleName(), method.getName());
                 }
             }
         }

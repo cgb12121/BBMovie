@@ -19,7 +19,7 @@ import java.util.List;
  */
 @Configuration
 @ConditionalOnProperty(name = "ai.experimental.streaming.enabled", havingValue = "true")
-public class ExperimentalStreamingConfig {
+public class _StreamingConfig {
 
     @Bean("experimentalStreamingChatMemoryStore")
     public ChatMemoryStore experimentalMemoryStore() {
@@ -42,7 +42,7 @@ public class ExperimentalStreamingConfig {
                 .baseUrl("http://localhost:11434")
                 .modelName("qwen3:0.6b-q4_K_M")
                 .temperature(0.7)
-                .listeners(List.of(new ExperimentalChatListener()))
+                .listeners(List.of(new _ChatListener()))
                 .build();
     }
 }
