@@ -4,56 +4,45 @@ import com.bbmovie.auth.dto.request.ChangePasswordRequest;
 import com.bbmovie.auth.dto.request.LoginRequest;
 import com.bbmovie.auth.dto.request.RegisterRequest;
 import com.bbmovie.auth.dto.request.ResetPasswordRequest;
-import com.bbmovie.auth.dto.response.*;
+import com.bbmovie.auth.dto.response.LoggedInDeviceResponse;
+import com.bbmovie.auth.dto.response.LoginResponse;
+import com.bbmovie.auth.dto.response.UserAgentResponse;
+import com.bbmovie.auth.dto.response.UserResponse;
 import com.bbmovie.auth.entity.User;
-import com.bbmovie.auth.exception.CustomEmailException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.transaction.annotation.Transactional;
+
 
 import java.util.List;
 
+/**
+ * Facade interface
+ */
+@SuppressWarnings("unused")
 public interface AuthService {
+    // SessionService methods
     LoginResponse login(LoginRequest loginRequest, HttpServletRequest request);
-
-    UserAgentResponse getUserDeviceInformation(HttpServletRequest request);
-
     LoginResponse getLoginResponseFromOAuth2Login(UserDetails userDetails, HttpServletRequest request);
-
-    @Transactional
-    void register(RegisterRequest request);
-
-    @Transactional
-    String verifyAccountByEmail(String token);
-
-    void sendVerificationEmail(String email);
-
-    void sendOtp(User user);
-
-    @Transactional
-    void verifyAccountByOtp(String otp);
-
-    @Transactional
     void logoutFromCurrentDevice(String accessToken);
-
-    @Transactional
     void logoutFromOneDevice(String accessToken, String targetSid);
-
     List<LoggedInDeviceResponse> getAllLoggedInDevices(String jwtToken, HttpServletRequest request);
-
-    //need to check again
-    @Transactional
+    void revokeAuthCookies(HttpServletResponse response);
     void updateUserTokensOnAbacChange(String email);
 
-    UserResponse loadAuthenticatedUserInformation(String email);
+    // RegistrationService methods
+    void register(RegisterRequest request);
+    String verifyAccountByEmail(String token);
+    void sendVerificationEmail(String email);
+    void sendOtp(User user);
+    void verifyAccountByOtp(String otp);
 
-    @Transactional(noRollbackFor = CustomEmailException.class)
+    // PasswordService methods
     void changePassword(String requestEmail, ChangePasswordRequest request);
-
     void sendForgotPasswordEmail(String email);
-
     void resetPassword(String token, ResetPasswordRequest request);
 
-    void revokeAuthCookies(HttpServletResponse response);
+    // UserService methods
+    UserResponse loadAuthenticatedUserInformation(String email);
+    UserAgentResponse getUserDeviceInformation(HttpServletRequest request);
 }

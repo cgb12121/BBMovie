@@ -4,7 +4,7 @@ import com.bbmovie.auth.dto.ApiResponse;
 import com.bbmovie.auth.dto.request.DeviceRevokeEntry;
 import com.bbmovie.auth.dto.request.RevokeDeviceRequest;
 import com.bbmovie.auth.dto.response.LoggedInDeviceResponse;
-import com.bbmovie.auth.service.auth.AuthService;
+import com.bbmovie.auth.service.auth.session.SessionService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,11 +18,11 @@ import java.util.Map;
 @RequestMapping("/device")
 public class SessionController {
 
-    private final AuthService authService;
+    private final SessionService sessionService;
 
     @Autowired
-    public SessionController(AuthService authService) {
-        this.authService = authService;
+    public SessionController(SessionService sessionService) {
+        this.sessionService = sessionService;
     }
 
     @GetMapping("/test")
@@ -34,7 +34,7 @@ public class SessionController {
     public ResponseEntity<ApiResponse<List<LoggedInDeviceResponse>>> getAllDeviceLoggedIntoAccount(
             @RequestHeader("Authorization") String accessToken, HttpServletRequest request
     ) {
-        List<LoggedInDeviceResponse> devices = authService.getAllLoggedInDevices(accessToken, request);
+        List<LoggedInDeviceResponse> devices = sessionService.getAllLoggedInDevices(accessToken, request);
         return devices.isEmpty()
                 ? ResponseEntity.ok(ApiResponse.success(List.of()))
                 : ResponseEntity.ok(ApiResponse.success(devices));
@@ -47,7 +47,7 @@ public class SessionController {
     ) {
         Map<String, String> result = new HashMap<>();
         for (DeviceRevokeEntry device : request.getDevices()) {
-            authService.logoutFromOneDevice(accessToken, device.getDeviceName());
+            sessionService.logoutFromOneDevice(accessToken, device.getDeviceName());
             result.put(device.getDeviceName(), device.getIp());
         }
         return ResponseEntity.ok(ApiResponse.success(result));

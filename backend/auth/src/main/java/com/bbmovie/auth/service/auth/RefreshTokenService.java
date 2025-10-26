@@ -8,7 +8,7 @@ import com.bbmovie.auth.exception.NoRefreshTokenException;
 import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.RefreshTokenRepository;
 import com.bbmovie.auth.security.jose.provider.JoseProvider;
-import com.bbmovie.auth.service.UserService;
+import com.bbmovie.auth.service.auth.user.UserService;
 import jakarta.transaction.Transactional;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
