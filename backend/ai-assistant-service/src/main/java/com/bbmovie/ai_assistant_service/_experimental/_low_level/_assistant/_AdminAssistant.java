@@ -64,26 +64,32 @@ public class _AdminAssistant {
     public Flux<String> chat(String sessionId, String message, String userRole) {
         log.info("[streaming] session={} role={} message={}", sessionId, userRole, message);
 
-        chatHistoryRepository.save(_ChatHistory.builder()
+        _ChatHistory userMessageHistory = _ChatHistory.builder()
                 .sessionId(sessionId)
                 .messageType("USER")
                 .content(message)
                 .timestamp(Instant.now())
-                .build()).subscribe(); // Subscribe to persist the message
-
-        ChatMemory chatMemory = chatMemoryProvider.get(sessionId);
-        List<ChatMessage> messages = new ArrayList<>();
-        messages.add(systemPrompt);
-        messages.addAll(chatMemory.messages());
-        messages.add(UserMessage.from(message));
-
-        // Use the dynamically built list of specifications
-        ChatRequest request = ChatRequest.builder()
-                .messages(messages)
-                .toolSpecifications(this.toolSpecifications) // <-- Use the populated list
                 .build();
 
-        return Flux.create(sink -> processChat(sessionId, request, sink));
+        return chatHistoryRepository.save(userMessageHistory)
+                .log()
+                .flatMapMany(savedHistory -> {
+                    log.info("[streaming] User message saved (id={}), proceeding to AI chat.", savedHistory.getId());
+
+                    ChatMemory chatMemory = chatMemoryProvider.get(sessionId);
+                    List<ChatMessage> messages = new ArrayList<>();
+                    messages.add(systemPrompt);
+                    messages.addAll(chatMemory.messages());
+                    messages.add(UserMessage.from(message));
+
+                    ChatRequest request = ChatRequest.builder()
+                            .messages(messages)
+                            .toolSpecifications(this.toolSpecifications)
+                            .build();
+
+                    return Flux.create((FluxSink<String> sink) -> processChat(sessionId, request, sink));
+                })
+                .doOnError(ex -> log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage(), ex));
     }
 
     private void processChat(String sessionId, ChatRequest chatRequest, FluxSink<String> sink) {
