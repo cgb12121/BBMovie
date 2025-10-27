@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.security;
 
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
@@ -11,24 +11,17 @@ import org.springframework.security.oauth2.server.resource.authentication.Reacti
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
-import com.example.common.entity.JoseConstraint;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.GrantedAuthority;
 
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER;
 import static com.example.common.entity.JoseConstraint.JosePayload.ROLE;
 
-@ConditionalOnProperty(
-        name = "spring.security.enabled",
-        havingValue = "true",
-        matchIfMissing = true
-)
 @Configuration
 @EnableWebFluxSecurity
+@ConditionalOnBooleanProperty(name = "spring.security.enabled", matchIfMissing = true)
 public class SecurityConfig {
 
     private static final String JWKS_URL = "http://localhost:8080/.well-known/jwks.json";
