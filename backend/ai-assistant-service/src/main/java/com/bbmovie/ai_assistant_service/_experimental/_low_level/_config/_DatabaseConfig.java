@@ -4,7 +4,7 @@ import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.r2dbc.config.EnableR2dbcAuditing;
@@ -15,6 +15,9 @@ import org.springframework.data.r2dbc.dialect.R2dbcDialect;
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 import org.springframework.r2dbc.connection.R2dbcTransactionManager;
 import org.springframework.r2dbc.core.DatabaseClient;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.r2dbc.connection.init.ConnectionFactoryInitializer;
+import org.springframework.r2dbc.connection.init.ResourceDatabasePopulator;
 import org.springframework.transaction.ReactiveTransactionManager;
 
 
@@ -31,7 +34,7 @@ import org.springframework.transaction.ReactiveTransactionManager;
         entityOperationsRef = "experimentalEntityOperations" // <-- Key Fix 1: Point to the correct DatabaseClient
 )
 @EnableR2dbcAuditing
-@ConditionalOnProperty(name = "ai.experimental.database.enabled", havingValue = "true")
+@ConditionalOnBooleanProperty(name = "ai.experimental.enabled")
 public class _DatabaseConfig {
     /**
      * Creates the ConnectionFactory for the experimental DB.
@@ -40,7 +43,6 @@ public class _DatabaseConfig {
     @Bean
     @Qualifier("experimentalConnectionFactory")
     public ConnectionFactory experimentalConnectionFactory(_R2dbcProperties properties) {
-
         ConnectionFactoryOptions options = ConnectionFactoryOptions.builder()
                 .option(ConnectionFactoryOptions.DRIVER, properties.getDriver())
                 .option(ConnectionFactoryOptions.HOST, properties.getHost())
@@ -49,7 +51,6 @@ public class _DatabaseConfig {
                 .option(ConnectionFactoryOptions.PASSWORD, properties.getPassword())
                 .option(ConnectionFactoryOptions.DATABASE, properties.getDatabase())
                 .build();
-
         // Use ConnectionFactories (plural) to get the provider
         return ConnectionFactories.get(options);
     }
@@ -88,5 +89,24 @@ public class _DatabaseConfig {
     public ReactiveTransactionManager experimentalTransactionManager(
             @Qualifier("experimentalConnectionFactory") ConnectionFactory connectionFactory) {
         return new R2dbcTransactionManager(connectionFactory);
+    }
+
+    /**
+     * Initializes the experimental database schema on startup.
+     * It runs the 'experimental_schema.sql' script.
+     */
+    @Bean
+    @Qualifier("experimentalDbInitializer")
+    public ConnectionFactoryInitializer experimentalDbInitializer(
+            @Qualifier("experimentalConnectionFactory") ConnectionFactory connectionFactory
+    ) {
+        ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
+        initializer.setConnectionFactory(connectionFactory);
+
+        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+        populator.addScript(new ClassPathResource("db/experimental_schema.sql"));
+        initializer.setDatabasePopulator(populator);
+
+        return initializer;
     }
 }
