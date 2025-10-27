@@ -3,6 +3,7 @@ package com.bbmovie.ai_assistant_service._experimental._low_level._tool;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.Random;
@@ -10,6 +11,7 @@ import java.util.Random;
 @SuppressWarnings("unused")
 @Component
 @Qualifier("adminAssistantTools") //add tag to the bean, not the bean name. a bean can have multiple tags
+@ConditionalOnBooleanProperty(name = "ai.experimental.enabled")
 public class _AdminTool implements _AiTool {
 
     private final Random random = new Random();

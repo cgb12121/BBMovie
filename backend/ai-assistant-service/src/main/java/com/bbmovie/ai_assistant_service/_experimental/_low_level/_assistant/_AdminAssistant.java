@@ -16,12 +16,14 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.service.tool.DefaultToolExecutor;
 import dev.langchain4j.service.tool.ToolExecutor;
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import com.bbmovie.ai_assistant_service._experimental._low_level.database._ChatHistory;
 import com.bbmovie.ai_assistant_service._experimental._low_level.database._ChatHistoryRepository;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -35,6 +37,7 @@ import java.util.Map;
 
 @Slf4j
 @Service
+@ConditionalOnBooleanProperty(name = "ai.experimental.enabled")
 public class _AdminAssistant {
 
     private final StreamingChatModel chatModel;
@@ -61,15 +64,40 @@ public class _AdminAssistant {
         this.discoverTools(toolBeans);
     }
 
+    /**
+     * Scans all injected AiTool beans, finds methods annotated with @Tool,
+     * and populates the toolSpecifications list and toolExecutors map.
+     * <p>
+     * Can use {@link PostConstruct}` to init all allowed tools instead, optional.
+     */
+    private void discoverTools(List<_AiTool> toolBeans) {
+        log.info("Discovering tools...");
+        for (Object toolBean : toolBeans) {
+            // Use AopUtils.getTargetClass to get the real class behind any Spring proxies
+            Class<?> toolClass = AopUtils.getTargetClass(toolBean);
+            for (Method method : toolClass.getDeclaredMethods()) {
+                if (method.isAnnotationPresent(Tool.class)) {
+                    // Create the specification
+                    ToolSpecification spec = ToolSpecifications.toolSpecificationFrom(method);
+                    this.toolSpecifications.add(spec);
+
+                    // Create the executor for this specific method
+                    ToolExecutor executor = new DefaultToolExecutor(toolBean, method);
+
+                    // Add to our registry, mapping the tool name to its executor
+                    this.toolExecutors.put(spec.name(), executor);
+                    log.info("Discovered tool: name='{}', class='{}', method='{}'",
+                            spec.name(), toolClass.getSimpleName(), method.getName());
+                }
+            }
+        }
+        log.info("Discovered {} tools in total.", this.toolExecutors.size());
+    }
+
     public Flux<String> chat(String sessionId, String message, String userRole) {
         log.info("[streaming] session={} role={} message={}", sessionId, userRole, message);
 
-        _ChatHistory userMessageHistory = _ChatHistory.builder()
-                .sessionId(sessionId)
-                .messageType("USER")
-                .content(message)
-                .timestamp(Instant.now())
-                .build();
+        _ChatHistory userMessageHistory = createChatHistory(sessionId, "USER", message, Instant.now());
 
         return chatHistoryRepository.save(userMessageHistory)
                 .log()
@@ -89,7 +117,9 @@ public class _AdminAssistant {
 
                     return Flux.create((FluxSink<String> sink) -> processChat(sessionId, request, sink));
                 })
-                .doOnError(ex -> log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage(), ex));
+                .doOnError(ex -> log.error("[streaming] Error in chat pipeline for session={}: {}",
+                        sessionId, ex.getMessage(), ex)
+                );
     }
 
     private void processChat(String sessionId, ChatRequest chatRequest, FluxSink<String> sink) {
@@ -105,58 +135,39 @@ public class _AdminAssistant {
                 AiMessage aiMsg = completeResponse.aiMessage();
                 ChatMemory chatMemory = chatMemoryProvider.get(sessionId);
 
-                // This block now handles multiple tools
                 if (aiMsg.toolExecutionRequests() != null && !aiMsg.toolExecutionRequests().isEmpty()) {
 
                     // Add the AI message (containing tool requests) to memory
                     // This is important so the model remembers it tried to call a tool
                     chatMemory.add(aiMsg);
 
-                    // Save AI message (tool request) to database
-                    chatHistoryRepository.save(_ChatHistory.builder()
-                            .sessionId(sessionId)
-                            .messageType("AI_TOOL_REQUEST")
-                            .content(aiMsg.text() + " " + aiMsg.toolExecutionRequests().toString())
-                            .timestamp(Instant.now())
-                            .build()).subscribe(); // Subscribe to persist the message
+                    String content = aiMsg.text() + " " + aiMsg.toolExecutionRequests().toString();
+                    _ChatHistory aiResponse = createChatHistory(sessionId, "AI_TOOL_REQUEST", content, Instant.now());
+                    chatHistoryRepository.save(aiResponse).subscribe();
 
                     for (ToolExecutionRequest req : aiMsg.toolExecutionRequests()) {
                         log.info("[tool] Model requested tool={} args={}", req.name(), req.arguments());
 
-                        // 1. Find the correct executor from our map
                         ToolExecutor toolExecutor = toolExecutors.get(req.name());
 
                         if (toolExecutor == null) {
-                            // If no executor is found, report an error
                             log.error("[tool] Could not find executor for tool={}", req.name());
                             String error = "Tool '" + req.name() + "' not found.";
                             ToolExecutionResultMessage errorResult = ToolExecutionResultMessage.from(req, error);
                             chatMemory.add(errorResult);
 
-                            // Save tool error to database
-                            chatHistoryRepository.save(_ChatHistory.builder()
-                                    .sessionId(sessionId)
-                                    .messageType("TOOL_ERROR")
-                                    .content(error)
-                                    .timestamp(Instant.now())
-                                    .build()).subscribe(); // Subscribe to persist the message
-                            continue; // Go to the next tool request
+                            _ChatHistory toolError = createChatHistory(sessionId, "TOOL_ERROR", error, Instant.now());
+                            chatHistoryRepository.save(toolError).subscribe();
+                            continue;
                         }
 
-                        // 2. Execute the tool
                         String executionResult = toolExecutor.execute(req, sessionId);
 
-                        // 3. Store the tool result as a message
                         ToolExecutionResultMessage toolResult = ToolExecutionResultMessage.from(req, executionResult);
                         chatMemory.add(toolResult);
 
-                        // Save tool result to database
-                        chatHistoryRepository.save(_ChatHistory.builder()
-                                .sessionId(sessionId)
-                                .messageType("TOOL_RESULT")
-                                .content(executionResult)
-                                .timestamp(Instant.now())
-                                .build()).subscribe(); // Subscribe to persist the message
+                        _ChatHistory toolHistory = createChatHistory(sessionId, "TOOL_REQUEST", req.toString(), Instant.now());
+                        chatHistoryRepository.save(toolHistory).subscribe();
 
                         log.info("[tool] Tool '{}' executed: {}", req.name(), executionResult);
                     }
@@ -164,32 +175,29 @@ public class _AdminAssistant {
 
                     // Re-prompt model with tool result(s)
                     List<ChatMessage> newMessages = new ArrayList<>();
-                    if (chatMemory.messages().stream().noneMatch(m -> m instanceof SystemMessage)) {
+
+                    boolean hasSystemPrompt = chatMemory.messages()
+                            .stream()
+                            .anyMatch(m -> m instanceof SystemMessage);
+                    if (hasSystemPrompt) {
                         newMessages.add(systemPrompt);
                     }
                     newMessages.addAll(chatMemory.messages());
 
                     ChatRequest afterToolRequest = ChatRequest.builder()
                             .messages(newMessages)
-                            // We send specifications again in case it wants to call another tool
-                            .toolSpecifications(toolSpecifications)
+                            .toolSpecifications(toolSpecifications) // send specifications again in case it wants to call another tool
                             .build();
 
-                    // recursion to trigger the next response
-                    processChat(sessionId, afterToolRequest, sink);
+                    processChat(sessionId, afterToolRequest, sink); // recursion to trigger the next response
                     return;
                 }
 
                 // Normal AI response
                 chatMemory.add(aiMsg);
 
-                // Save AI response to database
-                chatHistoryRepository.save(_ChatHistory.builder()
-                        .sessionId(sessionId)
-                        .messageType("AI")
-                        .content(aiMsg.text())
-                        .timestamp(Instant.now())
-                        .build()).subscribe(); // Subscribe to persist the message
+                _ChatHistory aiHistory = createChatHistory(sessionId, "AI_RESPONSE", aiMsg.text(), Instant.now());
+                chatHistoryRepository.save(aiHistory).subscribe();
 
                 sink.complete();
             }
@@ -202,30 +210,12 @@ public class _AdminAssistant {
         });
     }
 
-    /**
-     * Scans all injected AiTool beans, finds methods annotated with @Tool,
-     * and populates the toolSpecifications list and toolExecutors map.
-     */
-    private void discoverTools(List<_AiTool> toolBeans) {
-        log.info("Discovering tools...");
-        for (Object toolBean : toolBeans) {
-            // Use AopUtils.getTargetClass to get the real class behind any Spring proxies
-            Class<?> toolClass = AopUtils.getTargetClass(toolBean);
-            for (Method method : toolClass.getDeclaredMethods()) {
-                if (method.isAnnotationPresent(Tool.class)) {
-                    // 1. Create the specification
-                    ToolSpecification spec = ToolSpecifications.toolSpecificationFrom(method);
-                    this.toolSpecifications.add(spec);
-
-                    // 2. Create the executor for this specific method
-                    ToolExecutor executor = new DefaultToolExecutor(toolBean, method);
-
-                    // 3. Add to our registry, mapping the tool name to its executor
-                    this.toolExecutors.put(spec.name(), executor);
-                    log.info("Discovered tool: name='{}', class='{}', method='{}'", spec.name(), toolClass.getSimpleName(), method.getName());
-                }
-            }
-        }
-        log.info("Discovered {} tools in total.", this.toolExecutors.size());
+    private _ChatHistory createChatHistory(String sessionId, String messageType, String content, Instant timestamp) {
+        return _ChatHistory.builder()
+                .sessionId(sessionId)
+                .messageType(messageType)
+                .content(content)
+                .timestamp(timestamp)
+                .build();
     }
 }

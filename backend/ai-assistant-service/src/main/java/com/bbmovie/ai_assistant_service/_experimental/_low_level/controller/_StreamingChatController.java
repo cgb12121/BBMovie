@@ -3,6 +3,7 @@ package com.bbmovie.ai_assistant_service._experimental._low_level.controller;
 import com.bbmovie.ai_assistant_service._experimental._low_level._assistant._AdminAssistant;
 import com.bbmovie.ai_assistant_service.dto.ChatRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -14,6 +15,7 @@ import static com.example.common.entity.JoseConstraint.JosePayload.ROLE;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/experimental")
+@ConditionalOnBooleanProperty(name = "ai.experimental.enabled")
 public class _StreamingChatController {
 
     private final _AdminAssistant streamingUserAssistant;
