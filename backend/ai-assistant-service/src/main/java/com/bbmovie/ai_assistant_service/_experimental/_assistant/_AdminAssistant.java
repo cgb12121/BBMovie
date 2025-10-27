@@ -27,6 +27,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProp
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.lang.reflect.Method;
 import java.time.Instant;
@@ -59,7 +61,7 @@ public class _AdminAssistant {
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
         this.chatHistoryRepository = chatHistoryRepository;
-        this.systemPrompt = _PromptLoader.loadSystemPrompt(_AiPersonal.QWEN, null);
+        this.systemPrompt = _PromptLoader.loadSystemPrompt(_AiPersonal.QWEN, null); //TODO: this should be system prompt, not assistant
         // Discover and register all tools from the injected beans
         this.discoverTools(toolBeans);
     }
@@ -115,19 +117,31 @@ public class _AdminAssistant {
                             .toolSpecifications(this.toolSpecifications)
                             .build();
 
-                    return Flux.create((FluxSink<String> sink) -> processChat(sessionId, request, sink));
+                    return Flux.create((FluxSink<String> sink) -> {
+                        // The processChat method now returns a Mono<Void>
+                        // We must subscribe to it to kick off the work.
+                        processChat(sessionId, request, sink)
+                                .doOnError(sink::error) // Pass errors to the sink
+                                .doOnSuccess(v -> sink.complete()) // Complete the sink on success
+                                .subscribeOn(Schedulers.boundedElastic()) // Run on a non-blocking thread
+                                .subscribe();
+                    });
                 })
                 .doOnError(ex -> log.error("[streaming] Error in chat pipeline for session={}: {}",
                         sessionId, ex.getMessage(), ex)
                 );
     }
 
-    private void processChat(String sessionId, ChatRequest chatRequest, FluxSink<String> sink) {
-        chatModel.chat(chatRequest, new StreamingChatResponseHandler() {
-
+    /**
+     * PROCESSES THE CHAT AND RETURNS A MONO THAT COMPLETES WHEN ALL WORK IS DONE.
+     * This method is now fully reactive and recursive.
+     */
+    private Mono<Void> processChat(String sessionId, ChatRequest chatRequest, FluxSink<String> sink) {
+        // We use Mono.create to bridge the callback-based handler with our reactive chain
+        return Mono.create(monoSink -> chatModel.chat(chatRequest, new StreamingChatResponseHandler() {
             @Override
             public void onPartialResponse(String partialResponse) {
-                sink.next(partialResponse);
+                sink.next(partialResponse); // Stream partials to the client
             }
 
             @Override
@@ -136,78 +150,105 @@ public class _AdminAssistant {
                 ChatMemory chatMemory = chatMemoryProvider.get(sessionId);
 
                 if (aiMsg.toolExecutionRequests() != null && !aiMsg.toolExecutionRequests().isEmpty()) {
-
-                    // Add the AI message (containing tool requests) to memory
-                    // This is important so the model remembers it tried to call a tool
+                    // --- TOOL CALLING LOGIC ---
                     chatMemory.add(aiMsg);
-
                     String content = aiMsg.text() + " " + aiMsg.toolExecutionRequests().toString();
-                    _ChatHistory aiResponse = createChatHistory(sessionId, "AI_TOOL_REQUEST", content, Instant.now());
-                    chatHistoryRepository.save(aiResponse).subscribe();
 
-                    for (ToolExecutionRequest req : aiMsg.toolExecutionRequests()) {
-                        log.info("[tool] Model requested tool={} args={}", req.name(), req.arguments());
+                    // 1. Create a chain of save-and-execute logic for ALL tools
+                    // Flux.fromIterable allows us to process each tool request reactively
+                    Flux.fromIterable(aiMsg.toolExecutionRequests())
+                            .concatMap(req ->
+                                    // This inner chain runs for each tool request, one after another
+                                    saveHistory(sessionId, "AI_TOOL_REQUEST", content)
+                                            .then(executeAndSaveTool(sessionId, req, chatMemory))
+                            )
+                            .collectList() // Wait for all tools to execute
+                            .flatMap(toolResults -> {
+                                // 2. Now that all tools are done, re-prompt the model
+                                List<ChatMessage> newMessages = new ArrayList<>();
+                                boolean hasSystemPrompt = chatMemory.messages()
+                                        .stream()
+                                        .anyMatch(m -> m instanceof SystemMessage);
+                                if (!hasSystemPrompt) {
+                                    newMessages.add(systemPrompt);
+                                }
+                                newMessages.addAll(chatMemory.messages());
 
-                        ToolExecutor toolExecutor = toolExecutors.get(req.name());
+                                ChatRequest afterToolRequest = ChatRequest.builder()
+                                        .messages(newMessages)
+                                        .toolSpecifications(toolSpecifications)
+                                        .build();
 
-                        if (toolExecutor == null) {
-                            log.error("[tool] Could not find executor for tool={}", req.name());
-                            String error = "Tool '" + req.name() + "' not found.";
-                            ToolExecutionResultMessage errorResult = ToolExecutionResultMessage.from(req, error);
-                            chatMemory.add(errorResult);
+                                // 3. RECURSION: Call processChat again
+                                //    This returns a Mono<Void>
+                                return processChat(sessionId, afterToolRequest, sink);
+                            })
+                            .then(Mono.fromRunnable(monoSink::success))
+                            .doOnError(monoSink::error) // Explicitly pass errors
+                            .subscribe(); // Subscribe to kick off this inner chain
 
-                            _ChatHistory toolError = createChatHistory(sessionId, "TOOL_ERROR", error, Instant.now());
-                            chatHistoryRepository.save(toolError).subscribe();
-                            continue;
-                        }
-
-                        String executionResult = toolExecutor.execute(req, sessionId);
-
-                        ToolExecutionResultMessage toolResult = ToolExecutionResultMessage.from(req, executionResult);
-                        chatMemory.add(toolResult);
-
-                        _ChatHistory toolHistory = createChatHistory(sessionId, "TOOL_REQUEST", req.toString(), Instant.now());
-                        chatHistoryRepository.save(toolHistory).subscribe();
-
-                        log.info("[tool] Tool '{}' executed: {}", req.name(), executionResult);
-                    }
-
-
-                    // Re-prompt model with tool result(s)
-                    List<ChatMessage> newMessages = new ArrayList<>();
-
-                    boolean hasSystemPrompt = chatMemory.messages()
-                            .stream()
-                            .anyMatch(m -> m instanceof SystemMessage);
-                    if (hasSystemPrompt) {
-                        newMessages.add(systemPrompt);
-                    }
-                    newMessages.addAll(chatMemory.messages());
-
-                    ChatRequest afterToolRequest = ChatRequest.builder()
-                            .messages(newMessages)
-                            .toolSpecifications(toolSpecifications) // send specifications again in case it wants to call another tool
-                            .build();
-
-                    processChat(sessionId, afterToolRequest, sink); // recursion to trigger the next response
-                    return;
+                } else {
+                    // --- NORMAL AI RESPONSE ---
+                    chatMemory.add(aiMsg);
+                    saveHistory(sessionId, "AI_RESPONSE", aiMsg.text())
+                            .then(Mono.fromRunnable(monoSink::success))
+                            .doOnError(monoSink::error) // Explicitly pass errors
+                            .subscribe(); // Subscribe to kick off this inner chain
                 }
-
-                // Normal AI response
-                chatMemory.add(aiMsg);
-
-                _ChatHistory aiHistory = createChatHistory(sessionId, "AI_RESPONSE", aiMsg.text(), Instant.now());
-                chatHistoryRepository.save(aiHistory).subscribe();
-
-                sink.complete();
             }
 
             @Override
             public void onError(Throwable error) {
                 log.error("[streaming] Error during streaming", error);
-                sink.error(error);
+                monoSink.error(error); // Propagate the error
             }
-        });
+        }));
+    }
+
+    /**
+     * Helper method to execute a tool and save its results.
+     * Returns a Mono<ToolExecutionResultMessage>
+     */
+    private Mono<ToolExecutionResultMessage> executeAndSaveTool(String sessionId, ToolExecutionRequest req, ChatMemory chatMemory) {
+        log.info("[tool] Model requested tool={} args={}", req.name(), req.arguments());
+        ToolExecutor toolExecutor = toolExecutors.get(req.name());
+
+        Mono<ToolExecutionResultMessage> toolResultMono;
+
+        if (toolExecutor == null) {
+            log.error("[tool] Could not find executor for tool={}", req.name());
+            String error = "Tool '" + req.name() + "' not found.";
+            toolResultMono = Mono.just(ToolExecutionResultMessage.from(req, error))
+                    .flatMap(result -> saveHistory(sessionId, "TOOL_ERROR", error)
+                    .thenReturn(result)); // Return the result after saving
+        } else {
+            // Execute the tool and save the result
+            try {
+                String executionResult = toolExecutor.execute(req, sessionId);
+                toolResultMono = Mono.just(ToolExecutionResultMessage.from(req, executionResult))
+                        .flatMap(result -> saveHistory(sessionId, "TOOL_RESULT", executionResult)
+                        .thenReturn(result)); // Return the result after saving
+                log.info("[tool] Tool '{}' executed: {}", req.name(), executionResult);
+            } catch (Exception e) {
+                log.error("[tool] Error executing tool '{}': {}", req.name(), e.getMessage(), e);
+                String error = "Error executing tool '" + req.name() + "': " + e.getMessage();
+                toolResultMono = Mono.just(ToolExecutionResultMessage.from(req, error))
+                        .flatMap(result -> saveHistory(sessionId, "TOOL_ERROR", error)
+                        .thenReturn(result));
+            }
+        }
+
+        // Add the result to memory *after* it's been processed and saved
+        return toolResultMono.doOnNext(chatMemory::add);
+    }
+
+    /**
+     * Helper method to save chat history and return a Mono<Void>
+     */
+    private Mono<Void> saveHistory(String sessionId, String messageType, String content) {
+        return chatHistoryRepository.save(createChatHistory(sessionId, messageType, content, Instant.now()))
+                .log() // Log the save operation
+                .then(); // Convert to Mono<Void>
     }
 
     private _ChatHistory createChatHistory(String sessionId, String messageType, String content, Instant timestamp) {

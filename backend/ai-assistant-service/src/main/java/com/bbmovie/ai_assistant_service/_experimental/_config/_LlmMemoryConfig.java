@@ -2,8 +2,6 @@ package com.bbmovie.ai_assistant_service._experimental._config;
 
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
-import dev.langchain4j.model.chat.StreamingChatModel;
-import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
 import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,15 +9,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProp
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.util.List;
-
 /**
  * Experimental config for real-time streaming from Ollama.
  * Controlled by property: ai.experimental.streaming.enabled=true
  */
 @Configuration
 @ConditionalOnBooleanProperty(name = "ai.experimental.enabled")
-public class _StreamingConfig {
+public class _LlmMemoryConfig {
 
     @Bean("experimentalStreamingChatMemoryStore")
     public ChatMemoryStore experimentalMemoryStore() {
@@ -33,16 +29,6 @@ public class _StreamingConfig {
                 .id(sessionId)
                 .maxMessages(50)
                 .chatMemoryStore(store)
-                .build();
-    }
-
-    @Bean("experimentalStreaming")
-    public StreamingChatModel streamingChatModel() {
-        return OllamaStreamingChatModel.builder()
-                .baseUrl("http://localhost:11434")
-                .modelName("qwen3:0.6b-q4_K_M")
-                .temperature(0.7)
-                .listeners(List.of(new _ChatListener()))
                 .build();
     }
 }
