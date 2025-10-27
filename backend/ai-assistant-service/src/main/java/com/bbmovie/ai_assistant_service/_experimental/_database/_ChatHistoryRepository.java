@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service._experimental._low_level.database;
+package com.bbmovie.ai_assistant_service._experimental._database;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.data.r2dbc.repository.R2dbcRepository;

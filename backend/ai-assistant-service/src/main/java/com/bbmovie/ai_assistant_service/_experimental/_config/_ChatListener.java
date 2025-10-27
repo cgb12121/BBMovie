@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service._experimental._low_level._config;
+package com.bbmovie.ai_assistant_service._experimental._config;
 
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;

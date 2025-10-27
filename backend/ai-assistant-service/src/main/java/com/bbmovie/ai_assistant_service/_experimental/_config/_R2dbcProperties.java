@@ -1,8 +1,7 @@
-package com.bbmovie.ai_assistant_service._experimental._low_level._config;
+package com.bbmovie.ai_assistant_service._experimental._config;
 
 import lombok.Data;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 

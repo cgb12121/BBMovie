@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service._experimental._low_level._config;
+package com.bbmovie.ai_assistant_service._experimental._config;
 
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
@@ -30,7 +30,7 @@ import org.springframework.transaction.ReactiveTransactionManager;
  */
 @Configuration
 @EnableR2dbcRepositories(
-        basePackages = "com.bbmovie.ai_assistant_service._experimental._low_level.database",
+        basePackages = "com.bbmovie.ai_assistant_service._experimental._database",
         entityOperationsRef = "experimentalEntityOperations" // <-- Key Fix 1: Point to the correct DatabaseClient
 )
 @EnableR2dbcAuditing

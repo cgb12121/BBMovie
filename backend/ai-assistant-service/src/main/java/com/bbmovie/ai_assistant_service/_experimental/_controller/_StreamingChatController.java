@@ -1,6 +1,6 @@
-package com.bbmovie.ai_assistant_service._experimental._low_level.controller;
+package com.bbmovie.ai_assistant_service._experimental._controller;
 
-import com.bbmovie.ai_assistant_service._experimental._low_level._assistant._AdminAssistant;
+import com.bbmovie.ai_assistant_service._experimental._assistant._AdminAssistant;
 import com.bbmovie.ai_assistant_service.dto.ChatRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;

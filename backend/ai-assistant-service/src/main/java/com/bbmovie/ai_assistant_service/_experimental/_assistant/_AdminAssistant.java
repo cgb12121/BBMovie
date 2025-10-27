@@ -1,6 +1,6 @@
-package com.bbmovie.ai_assistant_service._experimental._low_level._assistant;
+package com.bbmovie.ai_assistant_service._experimental._assistant;
 
-import com.bbmovie.ai_assistant_service._experimental._low_level._tool._AiTool;
+import com.bbmovie.ai_assistant_service._experimental._tool._AiTool;
 import com.bbmovie.ai_assistant_service.utils.prompt._AiPersonal;
 import com.bbmovie.ai_assistant_service.utils.prompt._PromptLoader;
 import dev.langchain4j.agent.tool.Tool;
@@ -18,8 +18,8 @@ import dev.langchain4j.service.tool.DefaultToolExecutor;
 import dev.langchain4j.service.tool.ToolExecutor;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import com.bbmovie.ai_assistant_service._experimental._low_level.database._ChatHistory;
-import com.bbmovie.ai_assistant_service._experimental._low_level.database._ChatHistoryRepository;
+import com.bbmovie.ai_assistant_service._experimental._database._ChatHistory;
+import com.bbmovie.ai_assistant_service._experimental._database._ChatHistoryRepository;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
