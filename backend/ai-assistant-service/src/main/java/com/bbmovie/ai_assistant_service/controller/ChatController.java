@@ -77,5 +77,4 @@ public class ChatController {
                     return Flux.just(authorities.toString());
                 });
     }
-
 }

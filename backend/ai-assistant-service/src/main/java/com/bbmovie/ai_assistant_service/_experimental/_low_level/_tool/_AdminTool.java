@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service._experimental._low_level;
+package com.bbmovie.ai_assistant_service._experimental._low_level._tool;
 
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;

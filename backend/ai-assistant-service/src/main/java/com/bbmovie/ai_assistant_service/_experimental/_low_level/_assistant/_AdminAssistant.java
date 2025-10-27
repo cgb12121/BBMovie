@@ -1,5 +1,6 @@
-package com.bbmovie.ai_assistant_service._experimental._low_level;
+package com.bbmovie.ai_assistant_service._experimental._low_level._assistant;
 
+import com.bbmovie.ai_assistant_service._experimental._low_level._tool._AiTool;
 import com.bbmovie.ai_assistant_service.utils.prompt._AiPersonal;
 import com.bbmovie.ai_assistant_service.utils.prompt._PromptLoader;
 import dev.langchain4j.agent.tool.Tool;
@@ -16,7 +17,9 @@ import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import dev.langchain4j.service.tool.DefaultToolExecutor;
 import dev.langchain4j.service.tool.ToolExecutor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.aop.support.AopUtils; // <-- Add this import
+import com.bbmovie.ai_assistant_service._experimental._low_level.database._ChatHistory;
+import com.bbmovie.ai_assistant_service._experimental._low_level.database._ChatHistoryRepository;
+import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -24,10 +27,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 
 import java.lang.reflect.Method;
+import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap; // <-- Add this import
+import java.util.HashMap;
 import java.util.List;
-import java.util.Map; // <-- Add this import
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -35,6 +39,7 @@ public class _AdminAssistant {
 
     private final StreamingChatModel chatModel;
     private final ChatMemoryProvider chatMemoryProvider;
+    private final _ChatHistoryRepository chatHistoryRepository;
     // A registry to hold all discovered tool executors, mapped by tool name
     private final Map<String, ToolExecutor> toolExecutors = new HashMap<>();
     // A list of all specifications for the model
@@ -46,9 +51,11 @@ public class _AdminAssistant {
     public _AdminAssistant(
             @Qualifier("experimentalStreaming") StreamingChatModel chatModel,
             @Qualifier("experimentalChatMemoryProvider") ChatMemoryProvider chatMemoryProvider,
-            @Qualifier("adminAssistantTools") List<_AiTool> toolBeans) { // <-- Inject all beans that implement AiTool
+            @Qualifier("adminAssistantTools") List<_AiTool> toolBeans,
+            @Qualifier("experimentalChatHistoryRepository") _ChatHistoryRepository chatHistoryRepository) { // <-- Inject all beans that implement AiTool
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
+        this.chatHistoryRepository = chatHistoryRepository;
         this.systemPrompt = _PromptLoader.loadSystemPrompt(_AiPersonal.QWEN, null);
         // Discover and register all tools from the injected beans
         this.discoverTools(toolBeans);
@@ -56,6 +63,13 @@ public class _AdminAssistant {
 
     public Flux<String> chat(String sessionId, String message, String userRole) {
         log.info("[streaming] session={} role={} message={}", sessionId, userRole, message);
+
+        chatHistoryRepository.save(_ChatHistory.builder()
+                .sessionId(sessionId)
+                .messageType("USER")
+                .content(message)
+                .timestamp(Instant.now())
+                .build()).subscribe(); // Subscribe to persist the message
 
         ChatMemory chatMemory = chatMemoryProvider.get(sessionId);
         List<ChatMessage> messages = new ArrayList<>();
@@ -92,6 +106,14 @@ public class _AdminAssistant {
                     // This is important so the model remembers it tried to call a tool
                     chatMemory.add(aiMsg);
 
+                    // Save AI message (tool request) to database
+                    chatHistoryRepository.save(_ChatHistory.builder()
+                            .sessionId(sessionId)
+                            .messageType("AI_TOOL_REQUEST")
+                            .content(aiMsg.text() + " " + aiMsg.toolExecutionRequests().toString())
+                            .timestamp(Instant.now())
+                            .build()).subscribe(); // Subscribe to persist the message
+
                     for (ToolExecutionRequest req : aiMsg.toolExecutionRequests()) {
                         log.info("[tool] Model requested tool={} args={}", req.name(), req.arguments());
 
@@ -104,6 +126,14 @@ public class _AdminAssistant {
                             String error = "Tool '" + req.name() + "' not found.";
                             ToolExecutionResultMessage errorResult = ToolExecutionResultMessage.from(req, error);
                             chatMemory.add(errorResult);
+
+                            // Save tool error to database
+                            chatHistoryRepository.save(_ChatHistory.builder()
+                                    .sessionId(sessionId)
+                                    .messageType("TOOL_ERROR")
+                                    .content(error)
+                                    .timestamp(Instant.now())
+                                    .build()).subscribe(); // Subscribe to persist the message
                             continue; // Go to the next tool request
                         }
 
@@ -113,6 +143,14 @@ public class _AdminAssistant {
                         // 3. Store the tool result as a message
                         ToolExecutionResultMessage toolResult = ToolExecutionResultMessage.from(req, executionResult);
                         chatMemory.add(toolResult);
+
+                        // Save tool result to database
+                        chatHistoryRepository.save(_ChatHistory.builder()
+                                .sessionId(sessionId)
+                                .messageType("TOOL_RESULT")
+                                .content(executionResult)
+                                .timestamp(Instant.now())
+                                .build()).subscribe(); // Subscribe to persist the message
 
                         log.info("[tool] Tool '{}' executed: {}", req.name(), executionResult);
                     }
@@ -138,6 +176,15 @@ public class _AdminAssistant {
 
                 // Normal AI response
                 chatMemory.add(aiMsg);
+
+                // Save AI response to database
+                chatHistoryRepository.save(_ChatHistory.builder()
+                        .sessionId(sessionId)
+                        .messageType("AI")
+                        .content(aiMsg.text())
+                        .timestamp(Instant.now())
+                        .build()).subscribe(); // Subscribe to persist the message
+
                 sink.complete();
             }
 

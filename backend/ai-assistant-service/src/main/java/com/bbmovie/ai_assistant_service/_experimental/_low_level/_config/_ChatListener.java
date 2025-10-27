@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service._experimental._low_level;
+package com.bbmovie.ai_assistant_service._experimental._low_level._config;
 
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;
@@ -10,19 +10,21 @@ import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Slf4j
+@Component
 public class _ChatListener implements ChatModelListener {
 
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
         ModelProvider provider = requestContext.modelProvider();
         ChatRequest request = requestContext.chatRequest();
-        List<ChatMessage> message = request.messages();
+        List<ChatMessage> messages = request.messages();
         List<ToolSpecification> tools = request.toolSpecifications();
-        log.info("[listener] Request to {}: \n{} \n tools[{}] ", provider, message, tools);
+        log.info("[listener] Request to {}: \n{} \n tools[{}] ", provider, messages, tools);
     }
 
     @Override
