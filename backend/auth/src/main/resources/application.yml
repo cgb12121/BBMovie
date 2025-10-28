@@ -21,8 +21,10 @@ management:
     tags:
       application: ${spring.application.name}
 
-
 spring:
+  threads:
+    virtual:
+      enabled: true
   application:
     name: auth
   datasource:
