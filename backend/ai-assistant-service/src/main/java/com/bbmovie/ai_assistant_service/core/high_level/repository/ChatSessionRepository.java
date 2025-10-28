@@ -1,0 +1,11 @@
+package com.bbmovie.ai_assistant_service.core.high_level.repository;
+
+import com.bbmovie.ai_assistant_service.core.high_level.agent.domain.entity.ChatSession;
+import org.springframework.data.r2dbc.repository.R2dbcRepository;
+import org.springframework.stereotype.Repository;
+import reactor.core.publisher.Flux;
+
+@Repository
+public interface ChatSessionRepository extends R2dbcRepository<ChatSession, String> {
+    Flux<ChatSession> findByUserId(String userId);
+}
