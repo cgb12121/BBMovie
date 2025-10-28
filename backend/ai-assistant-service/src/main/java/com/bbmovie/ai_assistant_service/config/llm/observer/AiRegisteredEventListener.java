@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.config.observer;
+package com.bbmovie.ai_assistant_service.config.llm.observer;
 
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.service.spring.event.AiServiceRegisteredEvent;

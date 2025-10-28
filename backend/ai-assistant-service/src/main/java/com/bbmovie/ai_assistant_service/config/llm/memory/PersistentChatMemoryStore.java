@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.config.memory;
+package com.bbmovie.ai_assistant_service.config.llm.memory;
 
 import com.bbmovie.ai_assistant_service.domain.entity.ChatMessageEntity;
 import com.bbmovie.ai_assistant_service.repository.ChatMessageRepository;

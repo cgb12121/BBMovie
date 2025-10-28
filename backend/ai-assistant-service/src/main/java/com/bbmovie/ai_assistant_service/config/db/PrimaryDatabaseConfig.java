@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.config;
+package com.bbmovie.ai_assistant_service.config.db;
 
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
@@ -55,7 +55,6 @@ public class PrimaryDatabaseConfig {
     public R2dbcEntityOperations primaryEntityOperations(
             @Qualifier("databaseClient") DatabaseClient databaseClient,
             @Qualifier("r2dbcConnectionFactory") ConnectionFactory connectionFactory) {
-
         R2dbcDialect dialect = DialectResolver.getDialect(connectionFactory);
         return new R2dbcEntityTemplate(databaseClient, dialect);
     }

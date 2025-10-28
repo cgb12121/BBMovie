@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.config.memory;
+package com.bbmovie.ai_assistant_service.config.llm.memory;
 
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;

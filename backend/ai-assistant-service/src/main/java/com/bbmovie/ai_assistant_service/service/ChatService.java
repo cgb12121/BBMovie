@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.service;
 
-import com.bbmovie.ai_assistant_service.config.memory.PersistentChatMemoryStore;
+import com.bbmovie.ai_assistant_service.config.llm.memory.PersistentChatMemoryStore;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import org.springframework.stereotype.Service;
