@@ -2,14 +2,12 @@ package com.bbmovie.ai_assistant_service.core.low_level._config;
 
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
 @Configuration
-@ConditionalOnBooleanProperty(name = "ai.experimental.enabled")
 public class _LlmModelConfig {
 
     private static final String QWEN_3_0_6_B_Q_4_K_M = "qwen3:0.6b-q4_K_M";

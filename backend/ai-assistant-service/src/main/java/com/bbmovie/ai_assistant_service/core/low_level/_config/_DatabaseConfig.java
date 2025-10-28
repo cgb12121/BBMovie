@@ -4,7 +4,6 @@ import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.r2dbc.config.EnableR2dbcAuditing;
@@ -20,7 +19,6 @@ import org.springframework.r2dbc.connection.init.ConnectionFactoryInitializer;
 import org.springframework.r2dbc.connection.init.ResourceDatabasePopulator;
 import org.springframework.transaction.ReactiveTransactionManager;
 
-
 /**
  * Configuration for the "experimental" secondary R2DBC database.
  * <p>
@@ -30,11 +28,10 @@ import org.springframework.transaction.ReactiveTransactionManager;
  */
 @Configuration
 @EnableR2dbcRepositories(
-        basePackages = "com.bbmovie.ai_assistant_service.low_level._database",
+        basePackages = "com.bbmovie.ai_assistant_service.core.low_level._database",
         entityOperationsRef = "experimentalEntityOperations" // <-- Key Fix 1: Point to the correct DatabaseClient
 )
 @EnableR2dbcAuditing
-@ConditionalOnBooleanProperty(name = "ai.experimental.enabled")
 public class _DatabaseConfig {
     /**
      * Creates the ConnectionFactory for the experimental DB.

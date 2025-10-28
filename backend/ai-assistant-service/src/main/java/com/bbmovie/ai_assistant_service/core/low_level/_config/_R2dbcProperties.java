@@ -1,7 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config;
 
 import lombok.Data;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +15,6 @@ import org.springframework.stereotype.Component;
 @Data
 @Component
 @ConfigurationProperties("ai.experimental.datasource")
-@ConditionalOnBooleanProperty(name = "ai.experimental.enabled")
 public class _R2dbcProperties {
     private String driver = "mysql"; // Default driver
     private String host = "localhost";

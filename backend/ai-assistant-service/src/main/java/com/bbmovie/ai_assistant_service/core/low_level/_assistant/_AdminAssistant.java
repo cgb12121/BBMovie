@@ -23,7 +23,6 @@ import com.bbmovie.ai_assistant_service.core.low_level._database._ChatHistoryRep
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -39,7 +38,6 @@ import java.util.Map;
 
 @Slf4j
 @Service
-@ConditionalOnBooleanProperty(name = "ai.experimental.enabled")
 public class _AdminAssistant {
 
     private final StreamingChatModel chatModel;
