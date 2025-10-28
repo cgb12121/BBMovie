@@ -61,7 +61,7 @@ public class _AdminAssistant {
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
         this.chatHistoryRepository = chatHistoryRepository;
-        this.systemPrompt = _PromptLoader.loadSystemPrompt(_AiPersonal.QWEN, null); //TODO: this should be system prompt, not assistant
+        this.systemPrompt = _PromptLoader.loadSystemPrompt(false, _AiPersonal.QWEN, null);
         // Discover and register all tools from the injected beans
         this.discoverTools(toolBeans);
     }

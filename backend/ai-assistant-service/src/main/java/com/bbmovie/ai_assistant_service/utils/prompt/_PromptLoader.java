@@ -19,11 +19,17 @@ public class _PromptLoader {
 
     private _PromptLoader() {}
 
-    public static SystemMessage loadSystemPrompt(@Nullable _AiPersonal personal, @Nullable Map<String, Object> vars) {
-        String system = loadText(SYSTEM_DIR + "system-prompt.txt");
-        String persona = personal != null
-                ? loadText(PERSONAL_DIR + personal.getFileName())
-                : "";
+    public static SystemMessage loadSystemPrompt(
+            boolean notEnablePersona, @Nullable _AiPersonal personal, @Nullable Map<String, Object> vars) {
+        String system = "";
+        String persona = "";
+        if (notEnablePersona) {
+            system = loadText(SYSTEM_DIR + "system-prompt.txt");
+        } else {
+            persona = personal != null
+                    ? loadText(PERSONAL_DIR + personal.getFileName())
+                    : "";
+        }
         String combined = system + "\n\n" + persona;
 
         vars = vars == null
