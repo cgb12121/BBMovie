@@ -77,7 +77,7 @@ import lombok.Getter;
  * </ul>
  */
 @Getter
-public enum _AiPersonal {
+public enum _AiModel {
     QWEN3_MINI("qwen3:0.6b", "qwen_mini.txt"),
     QWEN3("qwen3:1.7b", "qwen.txt"),
     LLAMA3("llama3.2b:","llama.txt"),
@@ -85,10 +85,10 @@ public enum _AiPersonal {
     NEMOTRON_MINI("nemotron_mini:4b", "nemotron.txt");
 
     private final String modelName;
-    private final String fileName;
+    private final String personaPromptPath;
 
-    _AiPersonal(String modelName, String fileName) {
+    _AiModel(String modelName, String personaPromptPath) {
         this.modelName = modelName;
-        this.fileName = fileName;
+        this.personaPromptPath = personaPromptPath;
     }
 }

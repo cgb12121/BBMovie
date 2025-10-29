@@ -20,14 +20,14 @@ public class _PromptLoader {
     private _PromptLoader() {}
 
     public static SystemMessage loadSystemPrompt(
-            @NonNull Boolean enablePersona, @Nullable _AiPersonal personal, @Nullable Map<String, Object> vars) {
+            @NonNull Boolean enablePersona, @Nullable _AiModel model, @Nullable Map<String, Object> vars) {
 
         String generalSystemPrompt = loadText(SYSTEM_DIR + "system-prompt.txt");
         String securityPolicyPrompt = loadText(SYSTEM_DIR + "security-policy.txt");
         String personaPrompt = "";
 
-        if (enablePersona && personal != null) {
-            personaPrompt = loadText(PERSONAL_DIR + personal.getFileName());
+        if (enablePersona && model != null) {
+            personaPrompt = loadText(PERSONAL_DIR + model.getPersonaPromptPath());
         }
 
         String combined = String.join("\n\n---\n\n", generalSystemPrompt, securityPolicyPrompt, personaPrompt).trim();

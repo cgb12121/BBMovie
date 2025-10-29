@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._config._llm;
+package com.bbmovie.ai_assistant_service.core.low_level._config._ai;
 
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;

@@ -1,7 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._assistant;
 
 import com.bbmovie.ai_assistant_service.core.low_level._tool._AiTool;
-import com.bbmovie.ai_assistant_service.core.low_level._utils._AiPersonal;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._AiModel;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._PromptLoader;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
@@ -60,7 +60,7 @@ public class _AdminAssistant {
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
         this.chatHistoryRepository = chatHistoryRepository;
-        this.systemPrompt = _PromptLoader.loadSystemPrompt(true, _AiPersonal.LLAMA3, null);
+        this.systemPrompt = _PromptLoader.loadSystemPrompt(true, _AiModel.LLAMA3, null);
         // Discover and register all tools from the injected beans
         this.discoverTools(toolBeans);
     }

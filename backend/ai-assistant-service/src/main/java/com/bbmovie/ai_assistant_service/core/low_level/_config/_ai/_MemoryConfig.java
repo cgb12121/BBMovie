@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._config._llm;
+package com.bbmovie.ai_assistant_service.core.low_level._config._ai;
 
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Configuration;
  * Controlled by property: ai.experimental.streaming.enabled=true
  */
 @Configuration
-public class _LlmMemoryConfig {
+public class _MemoryConfig {
 
     @Bean("_StreamingChatMemoryStore")
     public ChatMemoryStore _MemoryStore() {
