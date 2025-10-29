@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._config;
+package com.bbmovie.ai_assistant_service.core.low_level._config._db;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;

@@ -13,7 +13,7 @@ import static com.example.common.entity.JoseConstraint.JosePayload.ROLE;
 
 @RestController
 @RequiredArgsConstructor
-@RequestMapping("/experimental")
+@RequestMapping("/v0")
 public class _StreamingChatController {
 
     private final _AdminAssistant streamingUserAssistant;

@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._config;
+package com.bbmovie.ai_assistant_service.core.low_level._config._llm;
 
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;
@@ -10,12 +10,14 @@ import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Slf4j
 @Component
+@Qualifier("_ChatListener")
 public class _ChatListener implements ChatModelListener {
 
     @Override

@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._config;
+package com.bbmovie.ai_assistant_service.core.low_level._config._llm;
 
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
@@ -15,14 +15,14 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class _LlmMemoryConfig {
 
-    @Bean("experimentalStreamingChatMemoryStore")
-    public ChatMemoryStore experimentalMemoryStore() {
+    @Bean("_StreamingChatMemoryStore")
+    public ChatMemoryStore _MemoryStore() {
         return new InMemoryChatMemoryStore();
     }
 
-    @Bean("experimentalChatMemoryProvider")
-    public ChatMemoryProvider experimentalChatMemoryProvider(
-            @Qualifier("experimentalStreamingChatMemoryStore") ChatMemoryStore store) {
+    @Bean("_ChatMemoryProvider")
+    public ChatMemoryProvider _ChatMemoryProvider(
+            @Qualifier("_StreamingChatMemoryStore") ChatMemoryStore store) {
         return sessionId -> MessageWindowChatMemory.builder()
                 .id(sessionId)
                 .maxMessages(50)

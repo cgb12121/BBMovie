@@ -20,21 +20,19 @@ public class _PromptLoader {
     private _PromptLoader() {}
 
     public static SystemMessage loadSystemPrompt(
-            boolean notEnablePersona, @Nullable _AiPersonal personal, @Nullable Map<String, Object> vars) {
-        String system = "";
-        String persona = "";
-        if (notEnablePersona) {
-            system = loadText(SYSTEM_DIR + "system-prompt.txt");
-        } else {
-            persona = personal != null
-                    ? loadText(PERSONAL_DIR + personal.getFileName())
-                    : "";
-        }
-        String combined = system + "\n\n" + persona;
+            @NonNull Boolean enablePersona, @Nullable _AiPersonal personal, @Nullable Map<String, Object> vars) {
 
-        vars = vars == null
-                ? Map.of()
-                : vars;
+        String generalSystemPrompt = loadText(SYSTEM_DIR + "system-prompt.txt");
+        String securityPolicyPrompt = loadText(SYSTEM_DIR + "security-policy.txt");
+        String personaPrompt = "";
+
+        if (enablePersona && personal != null) {
+            personaPrompt = loadText(PERSONAL_DIR + personal.getFileName());
+        }
+
+        String combined = String.join("\n\n---\n\n", generalSystemPrompt, securityPolicyPrompt, personaPrompt).trim();
+
+        vars = (vars == null) ? Map.of() : vars;
         String rendered = PromptTemplate.from(combined).apply(vars).text();
         return SystemMessage.from(rendered);
     }

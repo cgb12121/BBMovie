@@ -38,6 +38,7 @@ import java.util.Map;
 
 @Slf4j
 @Service
+@Qualifier("_AdminAssistant")
 public class _AdminAssistant {
 
     private final StreamingChatModel chatModel;
@@ -52,14 +53,14 @@ public class _AdminAssistant {
 
     @Autowired
     public _AdminAssistant(
-            @Qualifier("experimentalStreaming") StreamingChatModel chatModel,
-            @Qualifier("experimentalChatMemoryProvider") ChatMemoryProvider chatMemoryProvider,
-            @Qualifier("adminAssistantTools") List<_AiTool> toolBeans,
-            @Qualifier("experimentalChatHistoryRepository") _ChatHistoryRepository chatHistoryRepository) { // <-- Inject all beans that implement AiTool
+            @Qualifier("_StreamingChatModel") StreamingChatModel chatModel,
+            @Qualifier("_ChatMemoryProvider") ChatMemoryProvider chatMemoryProvider,
+            @Qualifier("_AdminTool") List<_AiTool> toolBeans,
+            @Qualifier("_ChatHistoryRepository") _ChatHistoryRepository chatHistoryRepository) { // <-- Inject all beans that implement AiTool
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
         this.chatHistoryRepository = chatHistoryRepository;
-        this.systemPrompt = _PromptLoader.loadSystemPrompt(false, _AiPersonal.LLAMA, null);
+        this.systemPrompt = _PromptLoader.loadSystemPrompt(true, _AiPersonal.LLAMA3, null);
         // Discover and register all tools from the injected beans
         this.discoverTools(toolBeans);
     }
