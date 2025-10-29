@@ -9,7 +9,7 @@ import java.util.Random;
 
 @SuppressWarnings("unused")
 @Component
-@Qualifier("adminAssistantTools") //add tag to the bean, not the bean name. a bean can have multiple tags
+@Qualifier("_AdminTool") //add tag to the bean, not the bean name. a bean can have multiple tags
 public class _AdminTool implements _AiTool {
 
     private final Random random = new Random();
