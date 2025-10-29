@@ -28,7 +28,7 @@ import org.springframework.transaction.ReactiveTransactionManager;
  */
 @Configuration
 @EnableR2dbcRepositories(
-        basePackages = "com.bbmovie.ai_assistant_service.core.low_level._database",
+        basePackages = "com.bbmovie.ai_assistant_service.core.low_level._repository",
         entityOperationsRef = "_EntityOperations"
 )
 @EnableR2dbcAuditing

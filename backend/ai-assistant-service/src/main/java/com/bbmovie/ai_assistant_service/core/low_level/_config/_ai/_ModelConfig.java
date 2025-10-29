@@ -173,7 +173,6 @@ public class _ModelConfig {
      * </ul>
      *
      */
-
     @Bean("_StreamingChatModel")
     public StreamingChatModel _StreamingChatModel() {
         return OllamaStreamingChatModel.builder()

@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._database;
+package com.bbmovie.ai_assistant_service.core.low_level._entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,7 +24,7 @@ public class _ChatHistory {
     private String sessionId;
 
     @Column("message_type")
-    private String messageType; // e.g., "USER", "AI", "TOOL_REQUEST", "TOOL_RESULT"
+    private String messageType; // e.g., "USER", "AI", "TOOL_REQUEST", "TOOL_RESULT", "AI_THINKING"
 
     @Column("content")
     private String content;

@@ -18,8 +18,8 @@ import dev.langchain4j.service.tool.DefaultToolExecutor;
 import dev.langchain4j.service.tool.ToolExecutor;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import com.bbmovie.ai_assistant_service.core.low_level._database._ChatHistory;
-import com.bbmovie.ai_assistant_service.core.low_level._database._ChatHistoryRepository;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._ChatHistory;
+import com.bbmovie.ai_assistant_service.core.low_level._repository._ChatHistoryRepository;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -56,7 +56,7 @@ public class _AdminAssistant {
             @Qualifier("_StreamingChatModel") StreamingChatModel chatModel,
             @Qualifier("_ChatMemoryProvider") ChatMemoryProvider chatMemoryProvider,
             @Qualifier("_AdminTool") List<_AiTool> toolBeans,
-            @Qualifier("_ChatHistoryRepository") _ChatHistoryRepository chatHistoryRepository) { // <-- Inject all beans that implement AiTool
+            @Qualifier("_ChatHistoryRepository") _ChatHistoryRepository chatHistoryRepository) {
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
         this.chatHistoryRepository = chatHistoryRepository;
