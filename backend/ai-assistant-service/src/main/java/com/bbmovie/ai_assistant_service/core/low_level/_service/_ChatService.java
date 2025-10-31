@@ -42,9 +42,8 @@ public class _ChatService {
     }
 
     public Flux<String> chat(UUID sessionId, String message, AssistantType assistantType, Jwt jwt) {
-        UUID userId = jwt.getClaim(SUB);
-        // TODO: Extract user role from Principal
-        String userRole = jwt.getClaim(ROLE);
+        UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
+        String userRole = jwt.getClaimAsString(ROLE);
 
         return validateSessionOwnership(sessionId, userId)
                 .flatMapMany(session -> {
@@ -79,7 +78,7 @@ public class _ChatService {
 
     private Mono<_ChatSession> validateSessionOwnership(UUID sessionId, UUID userId) {
         return sessionRepository.findById(sessionId)
-                .switchIfEmpty(Mono.error(new _SessionNotFoundException("Session not found")))
+                .switchIfEmpty(Mono.error(new _SessionNotFoundException("Session not found: " + sessionId)))
                 .flatMap(session -> {
                     if (!session.getUserId().equals(userId)) {
                         log.warn("Access denied: User {} attempted to access session {} owned by {}",

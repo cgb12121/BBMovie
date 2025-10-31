@@ -30,19 +30,19 @@ public class _ChatController {
 
     @GetMapping("/sessions")
     public Flux<_ChatSession> getSessions(@AuthenticationPrincipal Jwt jwt) {
-        return chatService.listSessionsForUser(jwt.getClaim(SUB));
+        return chatService.listSessionsForUser(UUID.fromString(jwt.getClaimAsString(SUB)));
     }
 
     @PostMapping("/sessions")
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<_ChatSession> createSession(@RequestBody CreateSessionDto dto, @AuthenticationPrincipal Jwt jwt) {
-        return chatService.createSession(jwt.getClaim(SUB), dto.getSessionName());
+        return chatService.createSession(UUID.fromString(jwt.getClaimAsString(SUB)), dto.getSessionName());
     }
 
     @DeleteMapping("/sessions/{sessionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public Mono<Void> deleteSession(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
-        return chatService.deleteSession(sessionId, jwt.getClaim(SUB));
+        return chatService.deleteSession(sessionId, UUID.fromString(jwt.getClaimAsString(SUB)));
     }
 
     @PostMapping(value = "/chat/{sessionId}/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)

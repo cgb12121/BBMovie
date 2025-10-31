@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -31,6 +32,7 @@ public class _AuditService {
                     .details(detailsJson)
                     .build();
         })
+        .subscribeOn(Schedulers.boundedElastic())
         .flatMap(repository::save)
         .doOnSuccess(saved -> log.debug("Audit record saved: {}", saved.getId()))
         .doOnError(e -> log.error("Failed to save audit record for session {}", sessionId, e))

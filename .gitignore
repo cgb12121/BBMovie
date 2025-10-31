@@ -8,3 +8,6 @@ node_modules
 .cursor
 .resourceCache
 e2e-tests
+
+.gemini/
+gha-creds-*.json
