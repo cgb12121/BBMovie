@@ -98,7 +98,7 @@ public class JoseConstraint {
         public static final String SID = "sid";
 
         /**
-         * Subject (or username) of the authenticated user.
+         * Subject (or username/id) of the authenticated user.
          */
         public static final String SUB = "sub";
 

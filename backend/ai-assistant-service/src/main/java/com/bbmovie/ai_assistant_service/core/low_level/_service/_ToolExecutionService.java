@@ -10,6 +10,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.util.UUID;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -17,7 +19,7 @@ public class _ToolExecutionService {
 
     private final _ChatMessageService messageService;
 
-    public Mono<ToolExecutionResultMessage> executeAndSave(String sessionId, ToolExecutionRequest request, _ToolRegistry toolRegistry, ChatMemory chatMemory) {
+    public Mono<ToolExecutionResultMessage> executeAndSave(UUID sessionId, ToolExecutionRequest request, _ToolRegistry toolRegistry, ChatMemory chatMemory) {
         log.info("[tool] Model requested tool={} args={}", request.name(), request.arguments());
         ToolExecutor toolExecutor = toolRegistry.getExecutor(request.name());
 

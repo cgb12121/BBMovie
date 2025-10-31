@@ -1,7 +1,9 @@
 package com.bbmovie.ai_assistant_service.core.low_level._assistant;
 
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantMetadata;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
-import com.bbmovie.ai_assistant_service.core.low_level._model.AssistantMetadata;
+import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatMessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._tool._ToolRegistry;
 import dev.langchain4j.data.message.ChatMessage;
@@ -13,7 +15,6 @@ import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.experimental.SuperBuilder;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -22,6 +23,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 @Getter(AccessLevel.PROTECTED)
@@ -30,14 +32,16 @@ public abstract class _BaseAssistant implements _Assistant {
     private final StreamingChatModel chatModel;
     private final ChatMemoryProvider chatMemoryProvider;
     private final _ChatMessageService chatMessageService;
+    private final _AuditService auditService;
     private final _ToolRegistry toolRegistry;
     private final SystemMessage systemPrompt;
     private final AssistantMetadata metadata;
 
-    protected _BaseAssistant(StreamingChatModel chatModel, ChatMemoryProvider chatMemoryProvider, _ChatMessageService chatMessageService, _ToolRegistry toolRegistry, SystemMessage systemPrompt, AssistantMetadata metadata) {
+    protected _BaseAssistant(StreamingChatModel chatModel, ChatMemoryProvider chatMemoryProvider, _ChatMessageService chatMessageService, _AuditService auditService, _ToolRegistry toolRegistry, SystemMessage systemPrompt, AssistantMetadata metadata) {
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
         this.chatMessageService = chatMessageService;
+        this.auditService = auditService;
         this.toolRegistry = toolRegistry;
         this.systemPrompt = systemPrompt;
         this.metadata = metadata;
@@ -51,16 +55,17 @@ public abstract class _BaseAssistant implements _Assistant {
     }
 
     @Override
-    public Flux<String> processMessage(String sessionId, String message, String userRole) {
+    public Flux<String> processMessage(UUID sessionId, String message, String userRole) {
         log.info("[streaming] session={} type={} role={} message={}",
                 sessionId, getType(), userRole, message);
 
-        return chatMessageService.saveUserMessage(sessionId, message)
+        return auditService.recordInteraction(sessionId, _InteractionType.USER_MESSAGE, message)
+                .then(chatMessageService.saveUserMessage(sessionId, message))
                 .log()
                 .flatMapMany(savedHistory -> {
                     log.info("[streaming] User message saved (id={}), proceeding to AI chat.", savedHistory.getId());
 
-                    ChatMemory chatMemory = chatMemoryProvider.get(sessionId);
+                    ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
                     List<ChatMessage> messages = new ArrayList<>();
                     messages.add(systemPrompt);
                     messages.addAll(chatMemory.messages());
@@ -82,9 +87,9 @@ public abstract class _BaseAssistant implements _Assistant {
                         sessionId, ex.getMessage(), ex));
     }
 
-    private Mono<Void> processChatRecursive(String sessionId, ChatRequest chatRequest, FluxSink<String> sink) {
+    private Mono<Void> processChatRecursive(UUID sessionId, ChatRequest chatRequest, FluxSink<String> sink) {
         return Mono.create(monoSink -> {
-            ChatMemory chatMemory = chatMemoryProvider.get(sessionId);
+            ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
             chatModel.chat(chatRequest, getHandlerFactory().create(sessionId, chatMemory, sink, monoSink));
         });
     }

@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._model;
+package com.bbmovie.ai_assistant_service.core.low_level._entity._model;
 
 import lombok.Builder;
 import lombok.Data;

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -15,23 +16,23 @@ public class _ChatMessageService {
 
     private final _ChatMessageRepository repository;
 
-    public Mono<_ChatMessage> saveUserMessage(String sessionId, String message) {
+    public Mono<_ChatMessage> saveUserMessage(UUID sessionId, String message) {
         return createAndSaveMessage(sessionId, _Sender.USER, message);
     }
 
-    public Mono<_ChatMessage> saveAiResponse(String sessionId, String content) {
+    public Mono<_ChatMessage> saveAiResponse(UUID sessionId, String content) {
         return createAndSaveMessage(sessionId, _Sender.AI, content);
     }
 
-    public Mono<_ChatMessage> saveToolRequest(String sessionId, String content) {
+    public Mono<_ChatMessage> saveToolRequest(UUID sessionId, String content) {
         return createAndSaveMessage(sessionId, _Sender.TOOL_REQUEST, content);
     }
 
-    public Mono<_ChatMessage> saveToolResult(String sessionId, String content) {
+    public Mono<_ChatMessage> saveToolResult(UUID sessionId, String content) {
         return createAndSaveMessage(sessionId, _Sender.TOOL_RESULT, content);
     }
 
-    private Mono<_ChatMessage> createAndSaveMessage(String sessionId, _Sender sender, String content) {
+    private Mono<_ChatMessage> createAndSaveMessage(UUID sessionId, _Sender sender, String content) {
         _ChatMessage message = _ChatMessage.builder()
                 .sessionId(sessionId)
                 .sender(sender)

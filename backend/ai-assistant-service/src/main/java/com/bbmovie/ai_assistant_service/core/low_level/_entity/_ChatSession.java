@@ -37,6 +37,6 @@ public class _ChatSession {
     private Instant createdAt;
 
     @LastModifiedDate
-    @Column("update_at")
+    @Column("updated_at")
     private Instant updatedAt;
 }

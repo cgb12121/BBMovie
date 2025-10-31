@@ -1,8 +1,9 @@
 package com.bbmovie.ai_assistant_service.core.low_level._assistant;
 
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantMetadata;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
-import com.bbmovie.ai_assistant_service.core.low_level._model.AssistantMetadata;
-import com.bbmovie.ai_assistant_service.core.low_level._model.AssistantType;
+import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatMessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._tool._ToolRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._AiModel;
@@ -11,8 +12,6 @@ import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 @Component
 public class _AdminAssistant extends _BaseAssistant {
@@ -24,8 +23,9 @@ public class _AdminAssistant extends _BaseAssistant {
             @Qualifier("_ChatMemoryProvider") ChatMemoryProvider chatMemoryProvider,
             @Qualifier("_AdminToolRegistry") _ToolRegistry toolRegistry,
             @Qualifier("_AdminHandlerFactory") _ChatResponseHandlerFactory handlerFactory,
-            _ChatMessageService chatMessageService) {
-        super(chatModel, chatMemoryProvider, chatMessageService, toolRegistry,
+            _ChatMessageService chatMessageService,
+            _AuditService auditService) {
+        super(chatModel, chatMemoryProvider, chatMessageService, auditService, toolRegistry,
                 _PromptLoader.loadSystemPrompt(true, _AiModel.LLAMA3, null),
                 buildMetadata(chatModel, toolRegistry));
         this.handlerFactory = handlerFactory;

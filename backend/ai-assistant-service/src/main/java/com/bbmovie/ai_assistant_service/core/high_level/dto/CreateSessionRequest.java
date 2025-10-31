@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.dto;
+package com.bbmovie.ai_assistant_service.core.high_level.dto;
 
 import lombok.Data;
 

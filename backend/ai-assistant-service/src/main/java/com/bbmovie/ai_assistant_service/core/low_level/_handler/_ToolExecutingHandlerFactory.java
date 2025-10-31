@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._handler;
 
+import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatMessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
 import com.bbmovie.ai_assistant_service.core.low_level._tool._ToolRegistry;
@@ -11,17 +12,20 @@ import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.MonoSink;
 
+import java.util.UUID;
+
 @RequiredArgsConstructor
 public class _ToolExecutingHandlerFactory implements _ChatResponseHandlerFactory {
 
     private final _ToolRegistry toolRegistry;
     private final _ChatMessageService chatMessageService;
     private final _ToolExecutionService toolExecutionService;
+    private final _AuditService auditService;
     private final StreamingChatModel chatModel;
     private final SystemMessage systemPrompt;
 
     @Override
-    public StreamingChatResponseHandler create(String sessionId, ChatMemory memory, FluxSink<String> sink, MonoSink<Void> monoSink) {
+    public StreamingChatResponseHandler create(UUID sessionId, ChatMemory memory, FluxSink<String> sink, MonoSink<Void> monoSink) {
         return new _ToolExecutingResponseHandler(
                 sessionId,
                 memory,
@@ -31,7 +35,8 @@ public class _ToolExecutingHandlerFactory implements _ChatResponseHandlerFactory
                 systemPrompt,
                 toolRegistry,
                 chatMessageService,
-                toolExecutionService
+                toolExecutionService,
+                auditService
         );
     }
 }
