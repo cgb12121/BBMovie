@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._assistant;
 
+import com.bbmovie.ai_assistant_service.core.low_level._entity._Sender;
 import com.bbmovie.ai_assistant_service.core.low_level._tool._AiTool;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._AiModel;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._PromptLoader;
@@ -18,8 +19,8 @@ import dev.langchain4j.service.tool.DefaultToolExecutor;
 import dev.langchain4j.service.tool.ToolExecutor;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import com.bbmovie.ai_assistant_service.core.low_level._entity._ChatHistory;
-import com.bbmovie.ai_assistant_service.core.low_level._repository._ChatHistoryRepository;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._ChatMessage;
+import com.bbmovie.ai_assistant_service.core.low_level._repository._ChatMessageRepository;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -36,6 +37,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.bbmovie.ai_assistant_service.core.low_level._entity._Sender.*;
+
 @Slf4j
 @Service
 @Qualifier("_AdminAssistant")
@@ -43,7 +46,7 @@ public class _AdminAssistant {
 
     private final StreamingChatModel chatModel;
     private final ChatMemoryProvider chatMemoryProvider;
-    private final _ChatHistoryRepository chatHistoryRepository;
+    private final _ChatMessageRepository chatHistoryRepository;
     // A registry to hold all discovered tool executors, mapped by tool name
     private final Map<String, ToolExecutor> toolExecutors = new HashMap<>();
     // A list of all specifications for the model
@@ -56,7 +59,7 @@ public class _AdminAssistant {
             @Qualifier("_StreamingChatModel") StreamingChatModel chatModel,
             @Qualifier("_ChatMemoryProvider") ChatMemoryProvider chatMemoryProvider,
             @Qualifier("_AdminTool") List<_AiTool> toolBeans,
-            @Qualifier("_ChatHistoryRepository") _ChatHistoryRepository chatHistoryRepository) {
+            @Qualifier("_ChatMessageRepository") _ChatMessageRepository chatHistoryRepository) {
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
         this.chatHistoryRepository = chatHistoryRepository;
@@ -98,7 +101,7 @@ public class _AdminAssistant {
     public Flux<String> chat(String sessionId, String message, String userRole) {
         log.info("[streaming] session={} role={} message={}", sessionId, userRole, message);
 
-        _ChatHistory userMessageHistory = createChatHistory(sessionId, "USER", message, Instant.now());
+        _ChatMessage userMessageHistory = createChatHistory(sessionId, USER, message, Instant.now());
 
         return chatHistoryRepository.save(userMessageHistory)
                 .log()
@@ -158,7 +161,7 @@ public class _AdminAssistant {
                     Flux.fromIterable(aiMsg.toolExecutionRequests())
                             .concatMap(req ->
                                     // This inner chain runs for each tool request, one after another
-                                    saveHistory(sessionId, "AI_TOOL_REQUEST", content)
+                                    saveHistory(sessionId, TOOL_REQUEST, content)
                                             .then(executeAndSaveTool(sessionId, req, chatMemory))
                             )
                             .collectList() // Wait for all tools to execute
@@ -189,7 +192,7 @@ public class _AdminAssistant {
                 } else {
                     // --- NORMAL AI RESPONSE ---
                     chatMemory.add(aiMsg);
-                    saveHistory(sessionId, "AI_RESPONSE", aiMsg.text())
+                    saveHistory(sessionId, AI, aiMsg.text())
                             .then(Mono.fromRunnable(monoSink::success))
                             .doOnError(monoSink::error) // Explicitly pass errors
                             .subscribe(); // Subscribe to kick off this inner chain
@@ -218,21 +221,21 @@ public class _AdminAssistant {
             log.error("[tool] Could not find executor for tool={}", req.name());
             String error = "Tool '" + req.name() + "' not found.";
             toolResultMono = Mono.just(ToolExecutionResultMessage.from(req, error))
-                    .flatMap(result -> saveHistory(sessionId, "TOOL_ERROR", error)
+                    .flatMap(result -> saveHistory(sessionId, TOOL_RESULT, error)
                     .thenReturn(result)); // Return the result after saving
         } else {
             // Execute the tool and save the result
             try {
                 String executionResult = toolExecutor.execute(req, sessionId);
                 toolResultMono = Mono.just(ToolExecutionResultMessage.from(req, executionResult))
-                        .flatMap(result -> saveHistory(sessionId, "TOOL_RESULT", executionResult)
+                        .flatMap(result -> saveHistory(sessionId, TOOL_RESULT, executionResult)
                         .thenReturn(result)); // Return the result after saving
                 log.info("[tool] Tool '{}' executed: {}", req.name(), executionResult);
             } catch (Exception e) {
                 log.error("[tool] Error executing tool '{}': {}", req.name(), e.getMessage(), e);
                 String error = "Error executing tool '" + req.name() + "': " + e.getMessage();
                 toolResultMono = Mono.just(ToolExecutionResultMessage.from(req, error))
-                        .flatMap(result -> saveHistory(sessionId, "TOOL_ERROR", error)
+                        .flatMap(result -> saveHistory(sessionId, TOOL_RESULT, error)
                         .thenReturn(result));
             }
         }
@@ -244,16 +247,16 @@ public class _AdminAssistant {
     /**
      * Helper method to save chat history and return a Mono<Void>
      */
-    private Mono<Void> saveHistory(String sessionId, String messageType, String content) {
-        return chatHistoryRepository.save(createChatHistory(sessionId, messageType, content, Instant.now()))
+    private Mono<Void> saveHistory(String sessionId, _Sender sender, String content) {
+        return chatHistoryRepository.save(createChatHistory(sessionId, sender, content, Instant.now()))
                 .log() // Log the save operation
                 .then(); // Convert to Mono<Void>
     }
 
-    private _ChatHistory createChatHistory(String sessionId, String messageType, String content, Instant timestamp) {
-        return _ChatHistory.builder()
+    private _ChatMessage createChatHistory(String sessionId, _Sender sender, String content, Instant timestamp) {
+        return _ChatMessage.builder()
                 .sessionId(sessionId)
-                .messageType(messageType)
+                .sender(sender)
                 .content(content)
                 .timestamp(timestamp)
                 .build();
