@@ -14,8 +14,8 @@ import java.time.Instant;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Table("ai_chat_history")
-public class _ChatHistory {
+@Table("chat_message")
+public class _ChatMessage {
 
     @Id
     private Long id;
@@ -23,9 +23,10 @@ public class _ChatHistory {
     @Column("session_id")
     private String sessionId;
 
-    @Column("message_type")
-    private String messageType; // e.g., "USER", "AI", "TOOL_REQUEST", "TOOL_RESULT", "AI_THINKING"
+    @Column("sender")
+    private _Sender sender;
 
+    // Json
     @Column("content")
     private String content;
 
