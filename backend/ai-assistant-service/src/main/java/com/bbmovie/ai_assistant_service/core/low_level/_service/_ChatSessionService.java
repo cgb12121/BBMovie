@@ -34,7 +34,7 @@ public class _ChatSessionService {
         int offset = page * size;
 
         Query query = Query.empty()
-                .sort(by(desc("update_at"))) //newest chat
+                .sort(by(desc("updated_at"))) //newest chat
                 .limit(size)
                 .offset(offset);
 
