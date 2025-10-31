@@ -2,7 +2,7 @@ package com.bbmovie.ai_assistant_service.core.low_level._controller;
 
 import com.bbmovie.ai_assistant_service.core.low_level._entity._ChatSession;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatSessionService;
-import com.bbmovie.ai_assistant_service.dto.ApiResponse;
+import com.bbmovie.ai_assistant_service.shared_dto.ApiResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -35,18 +35,18 @@ public class _SessionController {
         return ResponseEntity.ok(ApiResponse.success(sessionService.findAll(page, size)));
     }
 
-    @DeleteMapping
-    public ResponseEntity<ApiResponse<Mono<Void>>> deleteSession(UUID sessionId) {
+    @DeleteMapping("/{sessionId}")
+    public ResponseEntity<ApiResponse<Mono<Void>>> deleteSession(@PathVariable UUID sessionId) {
         return ResponseEntity.ok(ApiResponse.success(sessionService.deleteSession(sessionId)));
     }
 
-    @DeleteMapping
-    public ResponseEntity<ApiResponse<Mono<Void>>> archiveSession(UUID sessionId) {
+    @PutMapping("/{sessionId}/archive")
+    public ResponseEntity<ApiResponse<Mono<Void>>> archiveSession(@PathVariable UUID sessionId) {
         return ResponseEntity.ok(ApiResponse.success(sessionService.archiveSession(sessionId)));
     }
 
-    @PostMapping
-    public ResponseEntity<ApiResponse<Mono<_ChatSession>>> renameSession(UUID sessionId, String newName) {
+    @PutMapping("/{sessionId}")
+    public ResponseEntity<ApiResponse<Mono<_ChatSession>>> renameSession(@PathVariable UUID sessionId, @RequestBody String newName) {
         return ResponseEntity.ok(ApiResponse.success(sessionService.renameSession(sessionId, newName)));
     }
 }

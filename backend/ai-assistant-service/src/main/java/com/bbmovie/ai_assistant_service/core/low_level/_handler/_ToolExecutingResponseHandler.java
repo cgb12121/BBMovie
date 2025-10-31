@@ -1,5 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._handler;
 
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
+import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatMessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
 import com.bbmovie.ai_assistant_service.core.low_level._tool._ToolRegistry;
@@ -18,19 +20,24 @@ import reactor.core.publisher.MonoSink;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Slf4j
 public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
 
-    private final String sessionId;
+    private final UUID sessionId;
     private final ChatMemory chatMemory;
     private final StreamingChatModel chatModel;
     private final SystemMessage systemPrompt;
     private final _ToolRegistry toolRegistry;
     private final _ChatMessageService chatMessageService;
     private final _ToolExecutionService toolExecutionService;
+    private final _AuditService auditService;
 
-    public _ToolExecutingResponseHandler(String sessionId, ChatMemory chatMemory, FluxSink<String> sink, MonoSink<Void> monoSink, StreamingChatModel chatModel, SystemMessage systemPrompt, _ToolRegistry toolRegistry, _ChatMessageService chatMessageService, _ToolExecutionService toolExecutionService) {
+    public _ToolExecutingResponseHandler(
+            UUID sessionId, ChatMemory chatMemory, FluxSink<String> sink, MonoSink<Void> monoSink,
+            StreamingChatModel chatModel, SystemMessage systemPrompt, _ToolRegistry toolRegistry,
+            _ChatMessageService chatMessageService, _ToolExecutionService toolExecutionService, _AuditService auditService) {
         super(sink, monoSink);
         this.sessionId = sessionId;
         this.chatMemory = chatMemory;
@@ -39,6 +46,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
         this.toolRegistry = toolRegistry;
         this.chatMessageService = chatMessageService;
         this.toolExecutionService = toolExecutionService;
+        this.auditService = auditService;
     }
 
     @Override
@@ -54,7 +62,8 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
 
     private void handleSimpleResponse(AiMessage aiMsg) {
         chatMemory.add(aiMsg);
-        chatMessageService.saveAiResponse(sessionId, aiMsg.text())
+        auditService.recordInteraction(sessionId, _InteractionType.AI_COMPLETE_RESPONSE, aiMsg.text())
+                .then(chatMessageService.saveAiResponse(sessionId, aiMsg.text()))
                 .then(Mono.fromRunnable(monoSink::success))
                 .doOnError(monoSink::error)
                 .subscribe();
@@ -64,7 +73,8 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
         chatMemory.add(aiMsg);
         String thinkingContent = aiMsg.text() + " " + aiMsg.toolExecutionRequests().toString();
 
-        chatMessageService.saveToolRequest(sessionId, thinkingContent)
+        auditService.recordInteraction(sessionId, _InteractionType.TOOL_EXECUTION_REQUEST, aiMsg.toolExecutionRequests())
+                .then(chatMessageService.saveToolRequest(sessionId, thinkingContent))
                 .thenMany(Flux.fromIterable(aiMsg.toolExecutionRequests()))
                 .concatMap(req -> toolExecutionService.executeAndSave(sessionId, req, toolRegistry, chatMemory))
                 .collectList()
@@ -73,6 +83,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
                     if (chatMemory.messages().stream().noneMatch(m -> m instanceof SystemMessage)) {
                         newMessages.add(systemPrompt);
                     }
+
                     newMessages.addAll(chatMemory.messages());
 
                     ChatRequest afterToolRequest = ChatRequest.builder()
@@ -91,7 +102,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
         return Mono.create(recursiveSink ->
                 chatModel.chat(chatRequest, new _ToolExecutingResponseHandler(
                         sessionId, chatMemory, sink, recursiveSink, chatModel, systemPrompt,
-                        toolRegistry, chatMessageService, toolExecutionService
+                        toolRegistry, chatMessageService, toolExecutionService, auditService
                 ))
         );
     }

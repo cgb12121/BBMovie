@@ -2,8 +2,8 @@ package com.bbmovie.ai_assistant_service.core.high_level.controller;
 
 import com.bbmovie.ai_assistant_service.core.high_level.agent.AdminAssistant;
 import com.bbmovie.ai_assistant_service.core.high_level.agent.UserAssistant;
-import com.bbmovie.ai_assistant_service.dto.ApiResponse;
-import com.bbmovie.ai_assistant_service.dto.ChatRequest;
+import com.bbmovie.ai_assistant_service.shared_dto.ApiResponse;
+import com.bbmovie.ai_assistant_service.core.high_level.dto.ChatRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;

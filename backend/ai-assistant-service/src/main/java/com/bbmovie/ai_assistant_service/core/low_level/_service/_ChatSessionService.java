@@ -5,7 +5,8 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._ChatSession;
 import com.bbmovie.ai_assistant_service.core.low_level._repository._ChatSessionRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.data.r2dbc.core.R2dbcEntityOperations;
 import org.springframework.data.relational.core.query.Query;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -21,10 +22,10 @@ import static org.springframework.data.domain.Sort.Order.*;
 public class _ChatSessionService {
 
     private final _ChatSessionRepository repository;
-    private final R2dbcEntityTemplate template;
+    private final R2dbcEntityOperations template;
 
     @Autowired
-    public _ChatSessionService(_ChatSessionRepository repository, R2dbcEntityTemplate template) {
+    public _ChatSessionService(_ChatSessionRepository repository, @Qualifier("_EntityOperations") R2dbcEntityOperations template) {
         this.repository = repository;
         this.template = template;
     }
@@ -33,7 +34,7 @@ public class _ChatSessionService {
         int offset = page * size;
 
         Query query = Query.empty()
-                .sort(by(asc("update_at"))) //newest chat
+                .sort(by(desc("update_at"))) //newest chat
                 .limit(size)
                 .offset(offset);
 

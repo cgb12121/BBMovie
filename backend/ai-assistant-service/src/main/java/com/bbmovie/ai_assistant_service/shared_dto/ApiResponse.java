@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.dto;
+package com.bbmovie.ai_assistant_service.shared_dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;

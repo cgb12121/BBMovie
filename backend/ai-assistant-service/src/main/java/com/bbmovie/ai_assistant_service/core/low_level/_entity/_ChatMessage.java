@@ -9,6 +9,7 @@ import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.Instant;
+import java.util.UUID;
 
 @Data
 @Builder
@@ -21,12 +22,11 @@ public class _ChatMessage {
     private Long id;
 
     @Column("session_id")
-    private String sessionId;
+    private UUID sessionId;
 
     @Column("sender")
     private _Sender sender;
 
-    // Json
     @Column("content")
     private String content;
 

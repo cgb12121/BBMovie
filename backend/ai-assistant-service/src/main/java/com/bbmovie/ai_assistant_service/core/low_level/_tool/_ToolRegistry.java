@@ -52,8 +52,4 @@ public class _ToolRegistry {
     public ToolExecutor getExecutor(String toolName) {
         return executors.get(toolName);
     }
-
-    public boolean hasExecutor(String toolName) {
-        return executors.containsKey(toolName);
-    }
 }

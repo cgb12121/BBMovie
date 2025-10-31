@@ -1,8 +1,8 @@
 package com.bbmovie.ai_assistant_service.core.high_level.controller;
 
 import com.bbmovie.ai_assistant_service.core.high_level.agent.domain.entity.ChatSession;
-import com.bbmovie.ai_assistant_service.dto.ApiResponse;
-import com.bbmovie.ai_assistant_service.dto.CreateSessionRequest;
+import com.bbmovie.ai_assistant_service.shared_dto.ApiResponse;
+import com.bbmovie.ai_assistant_service.core.high_level.dto.CreateSessionRequest;
 import com.bbmovie.ai_assistant_service.core.high_level.repository.ChatMessageRepository;
 import com.bbmovie.ai_assistant_service.core.high_level.repository.ChatSessionRepository;
 import lombok.RequiredArgsConstructor;

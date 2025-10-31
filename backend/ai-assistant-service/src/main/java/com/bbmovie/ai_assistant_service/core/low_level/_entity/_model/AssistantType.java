@@ -1,7 +1,10 @@
-package com.bbmovie.ai_assistant_service.core.low_level._model;
+package com.bbmovie.ai_assistant_service.core.low_level._entity._model;
+
+import lombok.Getter;
 
 import java.util.Arrays;
 
+@Getter
 public enum AssistantType {
     ADMIN("admin"),
     USER("user");
@@ -10,10 +13,6 @@ public enum AssistantType {
 
     AssistantType(String code) {
         this.code = code;
-    }
-
-    public String getCode() {
-        return code;
     }
 
     public static AssistantType fromCode(String code) {
