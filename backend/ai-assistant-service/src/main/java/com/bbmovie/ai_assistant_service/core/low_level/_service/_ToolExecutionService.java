@@ -5,8 +5,8 @@ import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.service.tool.ToolExecutor;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -14,26 +14,31 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class _ToolExecutionService {
 
-    private final _ChatMessageService messageService;
+    private final _MessageService messageService;
 
-    public Mono<ToolExecutionResultMessage> executeAndSave(UUID sessionId, ToolExecutionRequest request, _ToolRegistry toolRegistry, ChatMemory chatMemory) {
+    @Autowired
+    public _ToolExecutionService(_MessageService messageService) {
+        this.messageService = messageService;
+    }
+
+    public Mono<ToolExecutionResultMessage> executeAndSave(
+            UUID sessionId, ToolExecutionRequest request, _ToolRegistry toolRegistry, ChatMemory chatMemory) {
         log.info("[tool] Model requested tool={} args={}", request.name(), request.arguments());
         ToolExecutor toolExecutor = toolRegistry.getExecutor(request.name());
 
         Mono<ToolExecutionResultMessage> toolResultMono;
 
         if (toolExecutor == null) {
-            log.error("[tool] Could not find executor for tool={}", request.name());
+            log.debug("[tool] Could not find executor for tool={}", request.name());
             String error = "Tool '" + request.name() + "' not found.";
             toolResultMono = messageService.saveToolResult(sessionId, error)
                     .thenReturn(ToolExecutionResultMessage.from(request, error));
         } else {
             try {
                 String executionResult = toolExecutor.execute(request, sessionId);
-                log.info("[tool] Tool '{}' executed: {}", request.name(), executionResult);
+                log.debug("[tool] Tool '{}' executed: {}", request.name(), executionResult);
                 toolResultMono = messageService.saveToolResult(sessionId, executionResult)
                         .thenReturn(ToolExecutionResultMessage.from(request, executionResult));
             } catch (Exception e) {

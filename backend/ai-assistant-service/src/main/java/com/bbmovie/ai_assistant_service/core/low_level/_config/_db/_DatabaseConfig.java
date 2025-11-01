@@ -1,31 +1,33 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config._db;
 
+import com.bbmovie.ai_assistant_service.core.low_level._config._db._converter.StringToUuidConverter;
+import com.bbmovie.ai_assistant_service.core.low_level._config._db._converter.UuidToStringConverter;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.r2dbc.config.EnableR2dbcAuditing;
+import org.springframework.data.r2dbc.convert.MappingR2dbcConverter;
+import org.springframework.data.r2dbc.convert.R2dbcConverter;
+import org.springframework.data.r2dbc.convert.R2dbcCustomConversions;
 import org.springframework.data.r2dbc.core.R2dbcEntityOperations;
 import org.springframework.data.r2dbc.core.R2dbcEntityTemplate;
 import org.springframework.data.r2dbc.dialect.DialectResolver;
 import org.springframework.data.r2dbc.dialect.R2dbcDialect;
+import org.springframework.data.r2dbc.mapping.R2dbcMappingContext;
 import org.springframework.data.r2dbc.repository.config.EnableR2dbcRepositories;
 import org.springframework.r2dbc.connection.R2dbcTransactionManager;
-import org.springframework.r2dbc.core.DatabaseClient;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.r2dbc.connection.init.ConnectionFactoryInitializer;
 import org.springframework.r2dbc.connection.init.ResourceDatabasePopulator;
+import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.transaction.ReactiveTransactionManager;
 
-/**
- * Configuration for the secondary R2DBC database.
- * <p>
- * We must explicitly define all beans (@Qualifier) and tell the annotations
- * (@EnableR2dbcRepositories, @EnableR2dbcAuditing) which beans are to use
- * to avoid conflicts with the primary database autoconfiguration.
- */
+import java.util.ArrayList;
+import java.util.List;
+
 @Configuration
 @EnableR2dbcRepositories(
         basePackages = "com.bbmovie.ai_assistant_service.core.low_level._repository",
@@ -33,10 +35,7 @@ import org.springframework.transaction.ReactiveTransactionManager;
 )
 @EnableR2dbcAuditing
 public class _DatabaseConfig {
-    /**
-     * Creates the ConnectionFactory for the experimental DB.
-     * We use @Qualifier to make it unique.
-     */
+
     @Bean
     @Qualifier("_ConnectionFactory")
     public ConnectionFactory _ConnectionFactory(_R2dbcProperties properties) {
@@ -48,19 +47,30 @@ public class _DatabaseConfig {
                 .option(ConnectionFactoryOptions.PASSWORD, properties.getPassword())
                 .option(ConnectionFactoryOptions.DATABASE, properties.getDatabase())
                 .build();
-        // Use ConnectionFactories (plural) to get the provider
         return ConnectionFactories.get(options);
     }
 
-    /**
-     * Creates a DatabaseClient for the experimental DB.
-     * This is what repositories use to execute queries.
-     * We MUST @Qualifier the ConnectionFactory it depends on.
-     */
+    @Bean
+    @Qualifier("_CustomConversions")
+    public R2dbcCustomConversions _CustomConversions() {
+        List<Object> converters = new ArrayList<>();
+        converters.add(UuidToStringConverter.INSTANCE);
+        converters.add(StringToUuidConverter.INSTANCE);
+        return new R2dbcCustomConversions(R2dbcCustomConversions.StoreConversions.NONE, converters);
+    }
+
+    @Bean
+    @Qualifier("_R2dbcConverter")
+    public R2dbcConverter _R2dbcConverter(
+            @Qualifier("_CustomConversions") R2dbcCustomConversions customConversions) {
+        R2dbcMappingContext mappingContext = new R2dbcMappingContext();
+        mappingContext.afterPropertiesSet();
+        return new MappingR2dbcConverter(mappingContext, customConversions);
+    }
+
     @Bean
     @Qualifier("_DatabaseClient")
-    public DatabaseClient _DatabaseClient(
-            @Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory) {
+    public DatabaseClient _DatabaseClient(@Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory) {
         return DatabaseClient.create(connectionFactory);
     }
 
@@ -68,19 +78,12 @@ public class _DatabaseConfig {
     @Qualifier("_EntityOperations")
     public R2dbcEntityOperations _EntityOperations(
             @Qualifier("_DatabaseClient") DatabaseClient databaseClient,
-            @Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory) {
-
-        // Resolve the dialect from the connection factory
+            @Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory,
+            @Qualifier("_R2dbcConverter") R2dbcConverter r2dbcConverter) {
         R2dbcDialect dialect = DialectResolver.getDialect(connectionFactory);
-
-        // R2dbcEntityTemplate is the standard implementation of R2dbcEntityOperations
-        return new R2dbcEntityTemplate(databaseClient, dialect);
+        return new R2dbcEntityTemplate(databaseClient, dialect, r2dbcConverter);
     }
 
-    /**
-     * Creates a TransactionManager for the experimental DB.
-     * We MUST @Qualifier the ConnectionFactory it depends on.
-     */
     @Bean
     @Qualifier("_TransactionManager")
     public ReactiveTransactionManager _TransactionManager(
@@ -88,21 +91,19 @@ public class _DatabaseConfig {
         return new R2dbcTransactionManager(connectionFactory);
     }
 
-    /**
-     * Initializes the experimental database schema on startup.
-     * It runs the '_schema.sql' script.
-     */
     @Bean
     @Qualifier("_DbInitializer")
-    public ConnectionFactoryInitializer _DbInitializer(
-            @Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory) {
-        ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
-        initializer.setConnectionFactory(connectionFactory);
-
-        ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
-        populator.addScript(new ClassPathResource("db/_schema.sql"));
-        initializer.setDatabasePopulator(populator);
-
-        return initializer;
+    public ConnectionFactoryInitializer _DbInitializer(@Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory) {
+        try {
+            ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
+            initializer.setConnectionFactory(connectionFactory);
+            ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
+            populator.addScript(new ClassPathResource("db/_schema.sql"));
+            populator.addScript(new ClassPathResource("db/_data.sql"));
+            initializer.setDatabasePopulator(populator);
+            return initializer;
+        } catch (Exception e) {
+            return null; // Fail silently
+        }
     }
 }

@@ -1,5 +1,6 @@
-package com.bbmovie.ai_assistant_service.security;
+package com.bbmovie.ai_assistant_service.global_config.security;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -19,6 +20,7 @@ import org.springframework.security.core.GrantedAuthority;
 import static com.example.common.entity.JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER;
 import static com.example.common.entity.JoseConstraint.JosePayload.ROLE;
 
+@Slf4j
 @Configuration
 @EnableWebFluxSecurity
 @ConditionalOnBooleanProperty(name = "spring.security.enabled", matchIfMissing = true)
@@ -33,6 +35,7 @@ public class SecurityConfig {
             .authorizeExchange(exchanges -> exchanges
                 .pathMatchers("/admin/**").hasAnyRole("ROLE_ADMIN", "ADMIN")
                 .pathMatchers("/experimental/**").permitAll()
+                .pathMatchers("/api/v1/**").permitAll() // Allow access to the new API
                 .anyExchange().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2

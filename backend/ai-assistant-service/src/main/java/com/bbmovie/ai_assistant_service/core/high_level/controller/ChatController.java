@@ -2,8 +2,8 @@ package com.bbmovie.ai_assistant_service.core.high_level.controller;
 
 import com.bbmovie.ai_assistant_service.core.high_level.agent.AdminAssistant;
 import com.bbmovie.ai_assistant_service.core.high_level.agent.UserAssistant;
-import com.bbmovie.ai_assistant_service.shared_dto.ApiResponse;
 import com.bbmovie.ai_assistant_service.core.high_level.dto.ChatRequest;
+import com.example.common.dtos.ApiResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -14,7 +14,6 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.util.Collection;
 
@@ -45,11 +44,7 @@ public class ChatController {
         String role = jwt.getClaimAsString(ROLE);
 
         return userAssistant.chat(request.getSessionId(), request.getMessage(), role, tier)
-                .map(ApiResponse::success)
-                .onErrorResume(e -> {
-                    log.error("Error in user chat", e);
-                    return Mono.just(ApiResponse.error("Unexpected error happened, please try again later."));
-                });
+                .map(ApiResponse::success);
     }
 
     @PostMapping(value = "/admin", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -61,11 +56,7 @@ public class ChatController {
         String role = jwt.getClaimAsString(ROLE);
 
         return adminAssistant.chat(request.getSessionId(), request.getMessage(), role)
-                .map(ApiResponse::success)
-                .onErrorResume(e -> {
-                    log.error("Error in admin chat", e);
-                    return Mono.just(ApiResponse.error("Unexpected error happened."));
-                });
+                .map(ApiResponse::success);
     }
 
     @GetMapping("/test")

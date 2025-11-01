@@ -8,7 +8,6 @@ import reactor.core.publisher.MonoSink;
 import java.util.UUID;
 
 public interface _ChatResponseHandlerFactory {
-
     StreamingChatResponseHandler create(
             UUID sessionId,
             ChatMemory memory,

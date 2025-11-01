@@ -4,7 +4,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantM
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
-import com.bbmovie.ai_assistant_service.core.low_level._service._ChatMessageService;
+import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._tool._ToolRegistry;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -31,16 +31,19 @@ public abstract class _BaseAssistant implements _Assistant {
 
     private final StreamingChatModel chatModel;
     private final ChatMemoryProvider chatMemoryProvider;
-    private final _ChatMessageService chatMessageService;
+    private final _MessageService messageService;
     private final _AuditService auditService;
     private final _ToolRegistry toolRegistry;
     private final SystemMessage systemPrompt;
     private final AssistantMetadata metadata;
 
-    protected _BaseAssistant(StreamingChatModel chatModel, ChatMemoryProvider chatMemoryProvider, _ChatMessageService chatMessageService, _AuditService auditService, _ToolRegistry toolRegistry, SystemMessage systemPrompt, AssistantMetadata metadata) {
+    protected _BaseAssistant(
+            StreamingChatModel chatModel, ChatMemoryProvider chatMemoryProvider,
+            _MessageService messageService, _AuditService auditService,
+            _ToolRegistry toolRegistry, SystemMessage systemPrompt, AssistantMetadata metadata) {
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;
-        this.chatMessageService = chatMessageService;
+        this.messageService = messageService;
         this.auditService = auditService;
         this.toolRegistry = toolRegistry;
         this.systemPrompt = systemPrompt;
@@ -50,20 +53,15 @@ public abstract class _BaseAssistant implements _Assistant {
     protected abstract _ChatResponseHandlerFactory getHandlerFactory();
 
     @Override
-    public AssistantMetadata getMetadata() {
-        return this.metadata;
-    }
-
-    @Override
     public Flux<String> processMessage(UUID sessionId, String message, String userRole) {
-        log.info("[streaming] session={} type={} role={} message={}",
+        log.debug("[streaming] session={} type={} role={} message={}",
                 sessionId, getType(), userRole, message);
 
         return auditService.recordInteraction(sessionId, _InteractionType.USER_MESSAGE, message)
-                .then(chatMessageService.saveUserMessage(sessionId, message))
+                .then(messageService.saveUserMessage(sessionId, message))
                 .log()
                 .flatMapMany(savedHistory -> {
-                    log.info("[streaming] User message saved (id={}), proceeding to AI chat.", savedHistory.getId());
+                    log.debug("[streaming] User message saved (id={}), proceeding to AI chat.", savedHistory.getId());
 
                     ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
                     List<ChatMessage> messages = new ArrayList<>();
