@@ -22,7 +22,7 @@ public class _ChatListener implements ChatModelListener {
         ChatRequest request = requestContext.chatRequest();
         List<ChatMessage> messages = request.messages();
         List<ToolSpecification> tools = request.toolSpecifications();
-        log.info("[listener] Request to {}: \n{} \n tools[{}] ", provider, messages, tools);
+        log.debug("[listener] Request to {}: \n{} \n tools[{}] ", provider, messages, tools);
     }
 
     @Override

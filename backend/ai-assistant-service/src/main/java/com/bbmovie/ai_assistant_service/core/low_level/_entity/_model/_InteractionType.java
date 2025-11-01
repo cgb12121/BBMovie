@@ -6,5 +6,5 @@ public enum _InteractionType {
     AI_COMPLETE_RESPONSE,
     TOOL_EXECUTION_REQUEST,
     TOOL_EXECUTION_RESULT,
-    STREAMING_ERROR
+    ERROR
 }

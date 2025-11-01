@@ -16,6 +16,7 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
@@ -52,6 +53,7 @@ public abstract class _BaseAssistant implements _Assistant {
 
     protected abstract _ChatResponseHandlerFactory getHandlerFactory();
 
+    @Transactional  // Transaction boundary for full orchestration
     @Override
     public Flux<String> processMessage(UUID sessionId, String message, String userRole) {
         log.debug("[streaming] session={} type={} role={} message={}",
@@ -59,7 +61,6 @@ public abstract class _BaseAssistant implements _Assistant {
 
         return auditService.recordInteraction(sessionId, _InteractionType.USER_MESSAGE, message)
                 .then(messageService.saveUserMessage(sessionId, message))
-                .log()
                 .flatMapMany(savedHistory -> {
                     log.debug("[streaming] User message saved (id={}), proceeding to AI chat.", savedHistory.getId());
 

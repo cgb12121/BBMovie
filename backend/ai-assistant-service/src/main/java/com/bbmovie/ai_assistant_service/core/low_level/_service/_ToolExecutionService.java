@@ -1,5 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._service;
 
+import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatMetrics;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._tool._ToolRegistry;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
@@ -9,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.UUID;
 
@@ -16,39 +19,83 @@ import java.util.UUID;
 @Service
 public class _ToolExecutionService {
 
-    private final _MessageService messageService;
+    private final _AuditService auditService;
 
     @Autowired
-    public _ToolExecutionService(_MessageService messageService) {
-        this.messageService = messageService;
+    public _ToolExecutionService(_AuditService auditService) {
+        this.auditService = auditService;
     }
 
-    public Mono<ToolExecutionResultMessage> executeAndSave(
-            UUID sessionId, ToolExecutionRequest request, _ToolRegistry toolRegistry, ChatMemory chatMemory) {
-        log.info("[tool] Model requested tool={} args={}", request.name(), request.arguments());
-        ToolExecutor toolExecutor = toolRegistry.getExecutor(request.name());
+    public Mono<ToolExecutionResultMessage> execute(
+            UUID sessionId, ToolExecutionRequest request,
+            _ToolRegistry toolRegistry, ChatMemory chatMemory) {
 
-        Mono<ToolExecutionResultMessage> toolResultMono;
+        ToolExecutor toolExecutor = toolRegistry.getExecutor(request.name());
 
         if (toolExecutor == null) {
             log.debug("[tool] Could not find executor for tool={}", request.name());
             String error = "Tool '" + request.name() + "' not found.";
-            toolResultMono = messageService.saveToolResult(sessionId, error)
-                    .thenReturn(ToolExecutionResultMessage.from(request, error));
-        } else {
-            try {
-                String executionResult = toolExecutor.execute(request, sessionId);
-                log.debug("[tool] Tool '{}' executed: {}", request.name(), executionResult);
-                toolResultMono = messageService.saveToolResult(sessionId, executionResult)
-                        .thenReturn(ToolExecutionResultMessage.from(request, executionResult));
-            } catch (Exception e) {
-                log.error("[tool] Error executing tool '{}': {}", request.name(), e.getMessage(), e);
-                String error = "Error executing tool '" + request.name() + "': " + e.getMessage();
-                toolResultMono = messageService.saveToolResult(sessionId, error)
-                        .thenReturn(ToolExecutionResultMessage.from(request, error));
-            }
+
+            return auditService.recordInteraction(sessionId, _InteractionType.ERROR, error)
+                    .thenReturn(ToolExecutionResultMessage.from(request, error))
+                    .doOnNext(chatMemory::add);
         }
 
-        return toolResultMono.doOnNext(chatMemory::add);
+        long start = System.currentTimeMillis();
+
+        return Mono.fromCallable(() -> {
+                    try {
+                        String executionResult = toolExecutor.execute(request, sessionId);
+                        long latency = System.currentTimeMillis() - start;
+
+                        _ChatMetrics metrics = _ChatMetrics.builder()
+                                .latencyMs(latency)
+                                .tool(request.name())
+                                .build();
+
+                        log.debug("[tool] Tool '{}' executed in {}ms: {}",
+                                request.name(), latency, executionResult);
+
+                        // Create result and metrics together
+                        return new ToolExecutionResult(
+                                ToolExecutionResultMessage.from(request, executionResult),
+                                metrics,
+                                null
+                        );
+                    } catch (Exception exception) {
+                        long latency = System.currentTimeMillis() - start;
+                        log.error("[tool] Error executing tool '{}': {}", request.name(), exception.getMessage(), exception);
+
+                        _ChatMetrics metrics = _ChatMetrics.builder()
+                                .latencyMs(latency)
+                                .tool(request.name())
+                                .build();
+
+                        String errorMsg = "Error: " + exception.getMessage();
+                        return new ToolExecutionResult(
+                                ToolExecutionResultMessage.from(request, errorMsg),
+                                metrics,
+                                exception
+                        );
+                    }
+                })
+                .subscribeOn(Schedulers.boundedElastic()) // Tool execution might be blocking
+                .flatMap(result -> {
+                    // Record audit based on success/failure
+                    _InteractionType type = result.error != null
+                            ? _InteractionType.ERROR
+                            : _InteractionType.TOOL_EXECUTION_RESULT;
+
+                    Object details = result.error != null
+                            ? result.error.getMessage()
+                            : request;
+
+                    return auditService.recordInteraction(sessionId, type, details, result.metrics)
+                            .thenReturn(result.message);
+                })
+                .doOnNext(chatMemory::add);
+    }
+
+        private record ToolExecutionResult(ToolExecutionResultMessage message, _ChatMetrics metrics, Exception error) {
     }
 }

@@ -25,6 +25,9 @@ import org.springframework.r2dbc.connection.init.ConnectionFactoryInitializer;
 import org.springframework.r2dbc.connection.init.ResourceDatabasePopulator;
 import org.springframework.r2dbc.core.DatabaseClient;
 import org.springframework.transaction.ReactiveTransactionManager;
+import org.springframework.transaction.annotation.EnableTransactionManagement;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -35,6 +38,7 @@ import java.util.List;
         basePackages = "com.bbmovie.ai_assistant_service.core.low_level._repository",
         entityOperationsRef = "_EntityOperations"
 )
+@EnableTransactionManagement
 @EnableR2dbcAuditing
 public class _DatabaseConfig {
 
@@ -104,14 +108,61 @@ public class _DatabaseConfig {
         schemaPopulator.addScript(new ClassPathResource("db/_schema.sql"));
         initializer.setDatabasePopulator(schemaPopulator);
 
-        try {
-            ResourceDatabasePopulator dataPopulator = new ResourceDatabasePopulator();
-            dataPopulator.addScript(new ClassPathResource("db/_data.sql"));
-            initializer.setDatabasePopulator(dataPopulator);
-        } catch (Exception e) {
-            log.warn("Data population failed, but schema initialization succeeded.", e);
-        }
+        DatabaseClient client = DatabaseClient.create(connectionFactory);
+
+        // --- Define concurrent tasks ---
+        Mono<Void> chatSessionCheck = populateSampleDataIfEmpty(
+                client, connectionFactory,
+                "chat_session",
+                "db/_sample/_chat_session.sql"
+        );
+
+        Mono<Void> chatMessageCheck = populateSampleDataIfEmpty(
+                client, connectionFactory,
+                "chat_message",
+                "db/_sample/_chat_message.sql"
+        );
+
+        Mono<Void> auditCheck = populateSampleDataIfEmpty(
+                client, connectionFactory,
+                "ai_interaction_audit",
+                "db/_sample/_ai_interaction_audit.sql"
+        );
+
+        // --- Run all concurrently ---
+        Flux.merge(chatSessionCheck, chatMessageCheck, auditCheck)
+                .doOnComplete(() -> log.info("Database initialization finished."))
+                .doOnError(e -> log.error("Error during database initialization", e))
+                .subscribe();
 
         return initializer;
+    }
+
+    /**
+     * Conditionally populates a table if it's empty.
+     */
+    private Mono<Void> populateSampleDataIfEmpty(
+            DatabaseClient client, ConnectionFactory connectionFactory, String tableName, String scriptPath) {
+        return client.sql("SELECT COUNT(*) AS cnt FROM " + tableName)
+                .map(row -> row.get("cnt", Long.class))
+                .first()
+                .defaultIfEmpty(0L)
+                .flatMap(count -> {
+                    if (count == 0) {
+                        log.info("No existing data found in '{}'. Populating sample data...", tableName);
+                        ResourceDatabasePopulator populator =
+                                new ResourceDatabasePopulator(new ClassPathResource(scriptPath));
+                        return Mono.fromRunnable(() -> populator.populate(connectionFactory).block())
+                                .doOnSuccess(v ->
+                                        log.info("Sample data inserted into '{}'.", tableName))
+                                .doOnError(e ->
+                                        log.error("Failed to populate sample data for '{}'.", tableName, e))
+                                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                                .then();
+                    } else {
+                        log.info("Table '{}' already has data — skipping population.", tableName);
+                        return Mono.empty();
+                    }
+                });
     }
 }

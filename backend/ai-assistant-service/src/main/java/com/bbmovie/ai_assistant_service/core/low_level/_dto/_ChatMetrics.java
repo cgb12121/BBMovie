@@ -1,0 +1,18 @@
+package com.bbmovie.ai_assistant_service.core.low_level._dto;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+public class _ChatMetrics {
+    private Long latencyMs;
+    private Integer promptTokens;
+    private Integer responseTokens;
+    private String modelName;
+    private String tool;  // Tool name if this is a tool execution
+}

@@ -98,7 +98,6 @@ public class _SessionService {
 
     public Mono<_ChatSession> getAndValidateSessionOwnership(UUID sessionId, UUID userId) {
         return sessionRepository.findById(sessionId)
-                .log()
                 .switchIfEmpty(Mono.error(new _SessionNotFoundException("Session not found: " + sessionId)))
                 .flatMap(session -> {
                     if (!session.getUserId().equals(userId)) {

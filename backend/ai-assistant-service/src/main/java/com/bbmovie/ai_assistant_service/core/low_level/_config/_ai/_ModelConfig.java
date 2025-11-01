@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config._ai;
 
+import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.ollama.OllamaStreamingChatModel;

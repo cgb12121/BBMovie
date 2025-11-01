@@ -43,14 +43,6 @@ public class _MessageService {
         return createAndSaveMessage(sessionId, _Sender.AI, content);
     }
 
-    public Mono<_ChatMessage> saveToolRequest(UUID sessionId, String content) {
-        return createAndSaveMessage(sessionId, _Sender.TOOL_REQUEST, content);
-    }
-
-    public Mono<_ChatMessage> saveToolResult(UUID sessionId, String content) {
-        return createAndSaveMessage(sessionId, _Sender.TOOL_RESULT, content);
-    }
-
     private Mono<_ChatMessage> createAndSaveMessage(UUID sessionId, _Sender sender, String content) {
         _ChatMessage message = _ChatMessage.builder()
                 .sessionId(sessionId)

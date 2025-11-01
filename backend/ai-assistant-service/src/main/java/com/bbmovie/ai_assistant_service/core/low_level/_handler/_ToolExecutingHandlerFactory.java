@@ -38,16 +38,9 @@ public class _ToolExecutingHandlerFactory implements _ChatResponseHandlerFactory
     public StreamingChatResponseHandler create(
             UUID sessionId, ChatMemory memory, FluxSink<String> sink, MonoSink<Void> monoSink) {
         return new _ToolExecutingResponseHandler(
-                sessionId,
-                memory,
-                sink,
-                monoSink,
-                chatModel,
-                systemPrompt,
-                toolRegistry,
-                messageService,
-                toolExecutionService,
-                auditService
+                sessionId, memory, sink, monoSink, chatModel, systemPrompt,
+                toolRegistry, messageService, toolExecutionService, auditService,
+                System.currentTimeMillis()
         );
     }
 }
