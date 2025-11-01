@@ -1,5 +1,6 @@
 package com.bbmovie.auth.utils;
 
+import com.bbmovie.auth.entity.enumerate.SubscriptionTier;
 import com.bbmovie.auth.entity.jose.JoseKey;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
@@ -29,6 +30,7 @@ import java.util.UUID;
 
 import java.util.Map;
 
+import static com.bbmovie.auth.entity.enumerate.Role.ADMIN;
 import static com.example.common.entity.JoseConstraint.JosePayload.*;
 
 public class AdminTokenGenerator {
@@ -84,13 +86,13 @@ public class AdminTokenGenerator {
         long exp = LocalDateTime.now().plusYears(1).toEpochSecond(ZoneOffset.UTC);
 
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                .subject("admin")
+                .subject("8a8b3c51-7fdb-409c-a3d9-5458b2d05e31")
                 .issuer("bbmovie-admin-util")
-                .claim(ROLE, "ADMIN")
+                .claim(ROLE, ADMIN)
                 .claim(IAT, iat)
                 .claim(EXP, exp)
-                .claim(ABAC.SUBSCRIPTION_TIER, "PREMIUM")
-                .jwtID(UUID.randomUUID().toString())
+                .claim(ABAC.SUBSCRIPTION_TIER, SubscriptionTier.PREMIUM)
+                .jwtID("2f893bb5-1ca0-473d-99b8-6d0a09d815a6")
                 .build();
 
         SignedJWT signedJWT = new SignedJWT(

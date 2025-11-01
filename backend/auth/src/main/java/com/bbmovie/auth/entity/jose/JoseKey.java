@@ -31,6 +31,7 @@ public class JoseKey extends BaseEntity {
 
     @JsonProperty("is_active")
     @Builder.Default
+    @Column(name = "is_active")
     private boolean isActive = true;
 
     @Override
