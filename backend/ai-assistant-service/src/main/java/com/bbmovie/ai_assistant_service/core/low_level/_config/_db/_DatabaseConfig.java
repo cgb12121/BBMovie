@@ -5,6 +5,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._config._db._converter.Uu
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -28,6 +29,7 @@ import org.springframework.transaction.ReactiveTransactionManager;
 import java.util.ArrayList;
 import java.util.List;
 
+@Slf4j
 @Configuration
 @EnableR2dbcRepositories(
         basePackages = "com.bbmovie.ai_assistant_service.core.low_level._repository",
@@ -93,17 +95,23 @@ public class _DatabaseConfig {
 
     @Bean
     @Qualifier("_DbInitializer")
-    public ConnectionFactoryInitializer _DbInitializer(@Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory) {
+    public ConnectionFactoryInitializer _DbInitializerWithSchemaValidation(
+            @Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory) {
+        ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
+        initializer.setConnectionFactory(connectionFactory);
+
+        ResourceDatabasePopulator schemaPopulator = new ResourceDatabasePopulator();
+        schemaPopulator.addScript(new ClassPathResource("db/_schema.sql"));
+        initializer.setDatabasePopulator(schemaPopulator);
+
         try {
-            ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
-            initializer.setConnectionFactory(connectionFactory);
-            ResourceDatabasePopulator populator = new ResourceDatabasePopulator();
-            populator.addScript(new ClassPathResource("db/_schema.sql"));
-            populator.addScript(new ClassPathResource("db/_data.sql"));
-            initializer.setDatabasePopulator(populator);
-            return initializer;
+            ResourceDatabasePopulator dataPopulator = new ResourceDatabasePopulator();
+            dataPopulator.addScript(new ClassPathResource("db/_data.sql"));
+            initializer.setDatabasePopulator(dataPopulator);
         } catch (Exception e) {
-            return null; // Fail silently
+            log.warn("Data population failed, but schema initialization succeeded.", e);
         }
+
+        return initializer;
     }
 }

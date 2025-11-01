@@ -47,7 +47,7 @@ public class _SessionController {
     }
 
     @DeleteMapping("/{sessionId}")
-    public Mono<ApiResponse<Void>> deleteSession(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
+    public Mono<ApiResponse<String>> deleteSession(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         return sessionService.deleteSession(sessionId, userId)
                 .then(Mono.fromCallable(() -> ApiResponse.success("Session deleted successfully")));
