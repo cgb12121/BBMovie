@@ -30,7 +30,8 @@ public class _PromptLoader {
             personaPrompt = loadText(PERSONAL_DIR + model.getPersonaPromptPath());
         }
 
-        String combined = String.join("\n\n---\n\n", generalSystemPrompt, securityPolicyPrompt, personaPrompt).trim();
+        String combined = String.join("\n\n---\n\n", generalSystemPrompt, securityPolicyPrompt, personaPrompt)
+                .trim();
 
         vars = (vars == null) ? Map.of() : vars;
         String rendered = PromptTemplate.from(combined).apply(vars).text();

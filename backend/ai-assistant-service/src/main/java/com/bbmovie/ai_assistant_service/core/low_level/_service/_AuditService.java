@@ -4,8 +4,9 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._AiInteractionAud
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._repository._AiInteractionAuditRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -15,11 +16,18 @@ import java.util.UUID;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class _AuditService {
 
     private final _AiInteractionAuditRepository repository;
     private final ObjectMapper objectMapper;
+
+    @Autowired
+    public _AuditService(
+            _AiInteractionAuditRepository repository,
+            @Qualifier("_ObjectMapper") ObjectMapper objectMapper) {
+        this.repository = repository;
+        this.objectMapper = objectMapper;
+    }
 
     public Mono<Void> recordInteraction(UUID sessionId, _InteractionType type, Object details) {
         return Mono.fromCallable(() -> {

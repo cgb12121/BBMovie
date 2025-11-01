@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.config;
+package com.bbmovie.ai_assistant_service.global_config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

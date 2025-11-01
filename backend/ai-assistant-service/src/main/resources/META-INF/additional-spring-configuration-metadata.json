@@ -1,0 +1,9 @@
+{
+  "properties": [
+    {
+      "name": "ai.mode",
+      "type": "java.lang.String",
+      "description": "Description for ai.mode."
+    }
+  ]
+}

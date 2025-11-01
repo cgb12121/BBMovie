@@ -1,12 +1,11 @@
-package com.bbmovie.ai_assistant_service.core.low_level._config;
+package com.bbmovie.ai_assistant_service.global_config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-public class _JsonConfig {
-
+public class JsonMapper {
     @Bean
     public ObjectMapper objectMapper() {
         return new ObjectMapper();

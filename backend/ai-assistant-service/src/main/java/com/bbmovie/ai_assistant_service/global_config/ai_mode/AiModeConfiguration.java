@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.config;
+package com.bbmovie.ai_assistant_service.global_config.ai_mode;
 
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.ComponentScan;
