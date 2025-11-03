@@ -24,6 +24,7 @@ public class SystemInfo {
     private final boolean logGeneral;
     private final boolean logDjl;
     private final boolean logCuda;
+    private final boolean dangerousLogging;
 
     @Autowired
     public SystemInfo(Environment environment) {
@@ -31,6 +32,7 @@ public class SystemInfo {
         this.logGeneral = environment.getProperty("log.system.info.general.enabled", Boolean.class, true);
         this.logDjl = environment.getProperty("log.system.info.djl.enabled", Boolean.class, true);
         this.logCuda = environment.getProperty("log.system.info.cuda.enabled", Boolean.class, true);
+        this.dangerousLogging = environment.getProperty("log.system.info.dangerous.enabled", Boolean.class, false);
     }
 
     @PostConstruct
@@ -57,6 +59,12 @@ public class SystemInfo {
         }
         if (logCuda) {
             logCudaInfo();
+        }
+
+        if (dangerousLogging) {
+            log.fatal("☠️☠️☠️☠️☠️☠️☠️☠️☠️DANGEROUS LOGGING ENABLED!☠️☠️☠️☠️☠️☠️☠️☠️☠️");
+            log.info("---------- System Info ----------");
+            System.getProperties().list(System.out);
         }
     }
 

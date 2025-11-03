@@ -26,7 +26,7 @@ public class _EmbeddingConfig {
                 .baseUrl(ollama_url)
                 .modelName(embeddingSelector.getModelName())
                 .logRequests(true)
-                .logResponses(true)
+                .logResponses(false) // Should not log massive embeddings (384 dimensions means a float array of 384)
                 .build();
     }
 }

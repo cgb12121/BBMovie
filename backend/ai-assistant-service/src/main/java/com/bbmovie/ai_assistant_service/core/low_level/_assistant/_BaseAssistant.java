@@ -63,33 +63,30 @@ public abstract class _BaseAssistant implements _Assistant {
         log.debug("[streaming] session={} type={} role={} message={}", sessionId, getType(), userRole, message);
 
         return ragService.retrieveMovieContext(sessionId, message, 5)
-                .onErrorResume(ex -> {
-                    log.warn("[rag] Retrieval failed: {}", ex.getMessage());
-                    // empty fallback allows Failure Gracefully, RAG should not stop the chat pipeline on failure
-                    return Mono.just(List.of());
-                })
-                .flatMapMany(contexts -> {
-                    //  Build context injection
-                    final String contextSummary = String.join("\n", contexts);
-                    final String enrichedMessage = contexts.isEmpty()
-                            ? message
-                            : message + "\n\n[Contextual Info]\n" + contextSummary;
-                    // Save + audit after retrieval
-                    return ragService.indexConversationFragment(sessionId, message)
+                .flatMapMany(ragResult -> {
+                    final String contextSummary = ragResult.summaryText();
+                    final boolean hasContext = contextSummary != null && !contextSummary.isBlank();
+                    final String enrichedMessage = hasContext
+                            ? message + "\n\n[Movie Context]\n" + contextSummary
+                            : message;
+
+                    // Index conversation asynchronously
+                    ragService.indexConversationFragment(sessionId, message)
                             .onErrorResume(ex -> {
-                                // empty fallback allows Failure Gracefully, RAG should not stop the chat pipeline on failure
                                 log.warn("[rag] Indexing skipped due to: {}", ex.getMessage());
                                 return Mono.empty();
                             })
-                            .then(auditService.recordInteraction(sessionId, _InteractionType.USER_MESSAGE, message))
+                            .subscribe();
+
+                    // Audit & save a user message
+                    return auditService.recordInteraction(sessionId, _InteractionType.USER_MESSAGE, message)
                             .then(messageService.saveUserMessage(sessionId, enrichedMessage))
                             .flatMapMany(savedHistory -> {
                                 log.debug("[streaming] User message saved (id={}), proceeding to AI chat.", savedHistory.getId());
 
-                                ChatRequest request = prepareChatRequest(sessionId, contexts, contextSummary, enrichedMessage);
-
-                                return Flux.create((FluxSink<String> sink) ->
-                                        processChatRecursive(sessionId, request, sink)
+                                ChatRequest chatRequest = prepareChatRequest(sessionId, contextSummary, enrichedMessage);
+                                return Flux.<String>create(sink ->
+                                        processChatRecursive(sessionId, chatRequest, sink)
                                                 .doOnError(sink::error)
                                                 .doOnSuccess(v -> sink.complete())
                                                 .subscribeOn(Schedulers.boundedElastic())
@@ -101,23 +98,14 @@ public abstract class _BaseAssistant implements _Assistant {
                 );
     }
 
-    private Mono<Void> processChatRecursive(UUID sessionId, ChatRequest chatRequest, FluxSink<String> sink) {
-        return Mono.create(monoSink -> {
-            ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
-            chatModel.chat(chatRequest, getHandlerFactory().create(sessionId, chatMemory, sink, monoSink));
-        });
-    }
-
-    private ChatRequest prepareChatRequest(
-            UUID sessionId, List<String> contexts, String contextSummary, String enrichedMessage) {
+    private ChatRequest prepareChatRequest(UUID sessionId, String contextSummary, String enrichedMessage) {
         ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
-
         List<ChatMessage> messages = new ArrayList<>();
+
         messages.add(systemPrompt);
 
-        // Inject context explicitly into the conversation memory
-        if (!contexts.isEmpty()) {
-            SystemMessage summarizedContext = SystemMessage.from("Relevant context (summarized):\n" + contextSummary);
+        if (contextSummary != null && !contextSummary.isBlank()) {
+            SystemMessage summarizedContext = SystemMessage.from("Relevant movie context:\n" + contextSummary);
             messages.add(summarizedContext);
         }
 
@@ -128,6 +116,13 @@ public abstract class _BaseAssistant implements _Assistant {
                 .messages(messages)
                 .toolSpecifications(toolRegistry.getToolSpecifications())
                 .build();
+    }
+
+    private Mono<Void> processChatRecursive(UUID sessionId, ChatRequest chatRequest, FluxSink<String> sink) {
+        return Mono.create(monoSink -> {
+            ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
+            chatModel.chat(chatRequest, getHandlerFactory().create(sessionId, chatMemory, sink, monoSink));
+        });
     }
 }
 

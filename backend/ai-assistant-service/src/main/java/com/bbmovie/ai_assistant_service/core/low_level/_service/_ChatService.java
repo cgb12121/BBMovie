@@ -26,8 +26,7 @@ public class _ChatService {
 
     @Autowired
     public _ChatService(List<_Assistant> assistantList, _SessionService sessionService) {
-        this.assistants = assistantList.stream()
-                .collect(Collectors.toUnmodifiableMap(_Assistant::getType, Function.identity()));
+        this.assistants = assistantList.stream().collect(Collectors.toUnmodifiableMap(_Assistant::getType, Function.identity()));
         this.sessionService = sessionService;
         log.info("Initialized ChatService with assistants: {}", this.assistants.keySet());
     }

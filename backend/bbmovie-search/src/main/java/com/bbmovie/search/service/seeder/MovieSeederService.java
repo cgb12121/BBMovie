@@ -41,7 +41,7 @@ public class MovieSeederService {
     @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
     private String indexName;
     private boolean seedingComplete = false;
-    private static final int SAMPLE_COUNT = 100;
+    private static final int SAMPLE_COUNT = 1000;
 
     @Autowired
     public MovieSeederService(
