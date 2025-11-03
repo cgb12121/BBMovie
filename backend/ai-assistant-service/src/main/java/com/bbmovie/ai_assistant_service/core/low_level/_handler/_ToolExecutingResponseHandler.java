@@ -44,7 +44,8 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
     public _ToolExecutingResponseHandler(
             UUID sessionId, ChatMemory chatMemory, FluxSink<String> sink, MonoSink<Void> monoSink,
             StreamingChatModel chatModel, SystemMessage systemPrompt, _ToolRegistry toolRegistry,
-            _MessageService messageService, _ToolExecutionService toolExecutionService, _AuditService auditService, long requestStartTime) {
+            _MessageService messageService, _ToolExecutionService toolExecutionService,
+            _AuditService auditService, long requestStartTime) {
         super(sink, monoSink);
         this.sessionId = sessionId;
         this.chatMemory = chatMemory;
@@ -95,7 +96,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
         // Record audit and save the message in parallel
         Mono<Void> auditMono = auditService.recordInteraction(
                 sessionId,
-                _InteractionType.AI_COMPLETE_RESPONSE,
+                _InteractionType.AI_COMPLETE_RESULT,
                 aiMsg.text(),
                 metrics
         );

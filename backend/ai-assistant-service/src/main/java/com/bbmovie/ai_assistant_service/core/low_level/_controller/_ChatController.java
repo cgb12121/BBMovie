@@ -37,7 +37,7 @@ public class _ChatController {
                 .doOnError(ex -> log.error("Streaming error for session {}: {}", sessionId, ex.getMessage()));
     }
 
-    @PostMapping("/v0/{sessionId}/")
+    @PostMapping("/{sessionId}/test")
     public Flux<String> nonStreamChat(
             @PathVariable UUID sessionId,
             @RequestBody _ChatRequestDto request,

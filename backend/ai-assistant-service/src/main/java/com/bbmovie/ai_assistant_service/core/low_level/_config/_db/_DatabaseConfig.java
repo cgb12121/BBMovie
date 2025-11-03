@@ -108,6 +108,12 @@ public class _DatabaseConfig {
         schemaPopulator.addScript(new ClassPathResource("db/_schema.sql"));
         initializer.setDatabasePopulator(schemaPopulator);
 
+        insertSampleData(connectionFactory);
+
+        return initializer;
+    }
+
+    private void insertSampleData(ConnectionFactory connectionFactory) {
         DatabaseClient client = DatabaseClient.create(connectionFactory);
 
         // --- Define concurrent tasks ---
@@ -134,8 +140,6 @@ public class _DatabaseConfig {
                 .doOnComplete(() -> log.info("Database initialization finished."))
                 .doOnError(e -> log.error("Error during database initialization", e))
                 .subscribe();
-
-        return initializer;
     }
 
     /**
