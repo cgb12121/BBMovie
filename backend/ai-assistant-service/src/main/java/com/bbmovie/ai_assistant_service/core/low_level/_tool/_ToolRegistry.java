@@ -27,7 +27,6 @@ public class _ToolRegistry {
     }
 
     private void discoverTools(List<_AiTool> toolBeans) {
-        log.info("Discovering tools...");
         for (Object toolBean : toolBeans) {
             Class<?> toolClass = AopUtils.getTargetClass(toolBean);
             for (Method method : toolClass.getDeclaredMethods()) {
@@ -42,7 +41,7 @@ public class _ToolRegistry {
                 }
             }
         }
-        log.info("Discovered {} tools in total.", this.executors.size());
+        log.info("Discovered {} tools in total: {}", this.executors.size(), executors.keySet());
     }
 
     public List<ToolSpecification> getToolSpecifications() {

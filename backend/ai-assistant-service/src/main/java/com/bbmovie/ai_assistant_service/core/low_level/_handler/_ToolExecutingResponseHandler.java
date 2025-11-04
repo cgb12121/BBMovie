@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._handler;
 
-import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatMetrics;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
@@ -75,7 +75,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
     public void onError(Throwable error) {
         long latency = System.currentTimeMillis() - requestStartTime;
 
-        _ChatMetrics metrics = _ChatMetrics.builder()
+        _Metrics metrics = _Metrics.builder()
                 .latencyMs(latency)
                 .build();
 
@@ -91,7 +91,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
     private void handleSimpleResponse(AiMessage aiMsg, long latency, ChatResponseMetadata metadata) {
         chatMemory.add(aiMsg);
 
-        _ChatMetrics metrics = getChatMetrics(latency, metadata, aiMsg.toolExecutionRequests());
+        _Metrics metrics = getChatMetrics(latency, metadata, aiMsg.toolExecutionRequests());
 
         // Record audit and save the message in parallel
         Mono<Void> auditMono = auditService.recordInteraction(
@@ -118,7 +118,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
     private void handleToolExecution(AiMessage aiMsg, long latency, ChatResponseMetadata metadata) {
         chatMemory.add(aiMsg);
 
-        _ChatMetrics metrics = getChatMetrics(latency, metadata, aiMsg.toolExecutionRequests());
+        _Metrics metrics = getChatMetrics(latency, metadata, aiMsg.toolExecutionRequests());
 
         // Record tool request audit
         auditService.recordInteraction(
@@ -163,7 +163,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
         );
     }
 
-    private static _ChatMetrics getChatMetrics(
+    private static _Metrics getChatMetrics(
             long latency, ChatResponseMetadata metadata, List<ToolExecutionRequest> toolRequests) {
         Integer promptTokens = Optional.ofNullable(metadata)
                 .map(ChatResponseMetadata::tokenUsage)
@@ -183,7 +183,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
                         .toList()
         );
 
-        return _ChatMetrics.builder()
+        return _Metrics.builder()
                 .latencyMs(latency)
                 .promptTokens(promptTokens)
                 .responseTokens(responseTokens)

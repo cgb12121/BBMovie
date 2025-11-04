@@ -6,17 +6,19 @@ import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.json.JsonData;
 import com.bbmovie.ai_assistant_service.core.low_level._config._embedding._EmbeddingSelector;
-import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatMetrics;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._RagMovieDto;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._RagRetrievalResult;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.TokenUsage;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -50,9 +52,7 @@ public class _RagServiceImpl implements _RagService {
         this.auditService = auditService;
     }
 
-    // ------------------------------------------------------------
-    // 🔹 1. Hybrid Movie Context Retrieval
-    // ------------------------------------------------------------
+    // Hybrid Movie Context Retrieval
     @Override
     public Mono<_RagRetrievalResult> retrieveMovieContext(UUID sessionId, String query, int topK) {
         return embedText(sessionId, query, _InteractionType.EMBEDDING)
@@ -65,15 +65,7 @@ public class _RagServiceImpl implements _RagService {
                     log.debug("[rag] Retrieved movies: {}", movies);
                     // Build textual summary for LLM
                     String contextText = movies.stream()
-                            .map(m -> String.format(
-                                    "%s (%s) — %s\nDirector(s): %s\nDescription: %s\nID: %s",
-                                    m.getTitle(),
-                                    m.getReleaseYear() != null ? m.getReleaseYear() : "N/A",
-                                    String.join(", ", m.getGenres() != null ? m.getGenres() : List.of("unknown genre")),
-                                    m.getDirectors() != null ? String.join(", ", m.getDirectors()) : "N/A",
-                                    m.getDescription(),
-                                    m.getId()
-                            ))
+                            .map(_RagServiceImpl::formatMovieDetails)
                             .collect(Collectors.joining("\n\n"));
 
                     return new _RagRetrievalResult(contextText, movies);
@@ -84,29 +76,19 @@ public class _RagServiceImpl implements _RagService {
                 });
     }
 
-
-    // ------------------------------------------------------------
-    // 🔹 2. Index Conversation Fragment
-    // ------------------------------------------------------------
+    // Index Conversation Fragment
     @Override
     public Mono<Void> indexConversationFragment(UUID sessionId, String text, List<_RagMovieDto> pastResults) {
         String pastResultsString = pastResults.stream()
-                .flatMap(m -> Stream.of(
-                        "Title: " + m.getTitle(),
-                        "Release Year: " + (m.getReleaseYear() != null ? m.getReleaseYear() : "N/A"),
-                        "Genres: " + (m.getGenres() != null ? String.join(", ", m.getGenres()) : "N/A"),
-                        "Directors: " + (m.getDirectors() != null ? String.join(", ", m.getDirectors()) : "N/A"),
-                        "Description: " + m.getDescription(),
-                        "ID: " + m.getId(),
-                        ""
-                ))
+                .flatMap(_RagServiceImpl::getMovieOverview)
                 .collect(Collectors.joining("\n"));
         return embedText(sessionId, text + pastResultsString, _InteractionType.EMBEDDING_INDEX)
                 .flatMap(vector -> {
                     if (embeddingSelector.getDimension() != vector.length) {
                         return Mono.error(new IllegalArgumentException(
                                 "Embedding dimension mismatch: expected " +
-                                        embeddingSelector.getDimension() + " but got " + vector.length));
+                                        embeddingSelector.getDimension() + " but got " + vector.length)
+                        );
                     }
 
                     Map<String, Object> doc = Map.of(
@@ -124,23 +106,20 @@ public class _RagServiceImpl implements _RagService {
                     );
 
                     return Mono.fromFuture(esClient.index(request))
-                            .doOnSuccess(r -> log.debug("[rag] Indexed chat fragment into '{}'", embeddingSelector.getRagIndex()))
+                            .doOnSuccess(r -> {
+                                String ragIndex = embeddingSelector.getRagIndex();
+                                log.debug("[rag] Indexed chat fragment into '{}'", ragIndex);
+                            })
                             .then(auditService.recordInteraction(
-                                    sessionId,
-                                    _InteractionType.EMBEDDING_INDEX,
+                                    sessionId, _InteractionType.EMBEDDING_INDEX,
                                     Map.of("text", text.substring(0, Math.min(80, text.length())) + "..."),
-                                    _ChatMetrics.builder()
-                                            .modelName(embeddingSelector.getModelName())
-                                            .tool("embedding-index")
-                                            .build()
+                                    _MetricsUtil.get(0L, null, embeddingSelector.getModelName(), "rag-index")
                             ));
                 })
                 .doOnError(e -> log.error("[rag] Failed to index fragment: {}", e.getMessage()));
     }
 
-    // ------------------------------------------------------------
-    // 🔹 3. Hybrid Search — combines movies + memory indices (not memory rn)
-    // ------------------------------------------------------------
+    // Hybrid Search — combines movies + memory indices (not memory rn)
     private Mono<List<_RagMovieDto>> hybridSearch(UUID sessionId, float[] embedding, int topK) {
         long start = System.currentTimeMillis();
 
@@ -149,12 +128,8 @@ public class _RagServiceImpl implements _RagService {
                 .flatMap(results -> {
                     long latency = System.currentTimeMillis() - start;
 
-                    _ChatMetrics metrics = _ChatMetrics.builder()
-                            .latencyMs(latency)
-                            .tool("rag-movie-search")
-                            .modelName(embeddingSelector.getModelName())
-                            .responseTokens(results.size())
-                            .build();
+                    _Metrics metrics = _MetricsUtil.get(latency, null,
+                            embeddingSelector.getModelName(), "rag-movie-search");
 
                     return auditService.recordInteraction(
                                     sessionId,
@@ -168,15 +143,15 @@ public class _RagServiceImpl implements _RagService {
                             )
                             .thenReturn(results);
                 })
-                .doOnSuccess(results -> log.debug("[rag] Movie retrieval completed, {} results", results.size()))
+                .doOnSuccess(results -> log.debug("[rag] Movie retrieval completed."))
                 .doOnError(e -> log.error("[rag] Error during movie search: {}", e.getMessage(), e));
     }
 
 
-    // ------------------------------------------------------------
-    // 🔹 4. Perform a Vector Search on a Specific Index
-    // ------------------------------------------------------------
-    private Mono<List<_RagMovieDto>> performSearch(UUID sessionId, float[] embedding, int topK, String index, String label) {
+    // Perform a Vector Search on a Specific Index
+    @SuppressWarnings("SameParameterValue") // Will be used for hybrid search
+    private Mono<List<_RagMovieDto>> performSearch(
+            UUID sessionId, float[] embedding, int topK, String index, String label) {
         long start = System.currentTimeMillis();
 
         Query query = Query.of(q -> q.scriptScore(ss -> ss
@@ -192,32 +167,31 @@ public class _RagServiceImpl implements _RagService {
                 .map(resp -> resp.hits()
                         .hits()
                         .stream()
-                        .map(hit -> toRagMovieDto(hit.source()))
+                        .map(hit -> {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> source = hit.source();
+                            return toRagMovieDto(source);
+                        })
                         .filter(Objects::nonNull)
                         .toList())
                 .flatMap(results -> {
                     long latency = System.currentTimeMillis() - start;
-                    _ChatMetrics metrics = _ChatMetrics.builder()
-                            .latencyMs(latency)
-                            .modelName(embeddingSelector.getModelName())
-                            .tool("rag-search-" + label)
-                            .responseTokens(results.size())
-                            .build();
+                    _Metrics metrics = _MetricsUtil.get(latency, null,
+                            embeddingSelector.getModelName(),"rag-search-" + label);
 
                     return auditService.recordInteraction(
-                                    sessionId,
-                                    _InteractionType.RETRIEVAL,
-                                    Map.of("index", index, "hits", results.size()),
-                                    metrics)
+                            sessionId, _InteractionType.RETRIEVAL,
+                            Map.of(
+                                    "index", index,
+                                    "hits", results.size()
+                            ), metrics)
                             .thenReturn(results);
                 })
                 .doOnSuccess(list -> log.debug("[rag] [{}] Found {} hits", label, list.size()))
                 .doOnError(e -> log.error("[rag] [{}] Search failed: {}", label, e.getMessage()));
     }
 
-    // ------------------------------------------------------------
-    // 🔹 5. Embedding helper — clean separation
-    // ------------------------------------------------------------
+    //   Embedding helper — clean separation
     private Mono<float[]> embedText(UUID sessionId, String text, _InteractionType type) {
         long start = System.currentTimeMillis();
 
@@ -227,26 +201,38 @@ public class _RagServiceImpl implements _RagService {
                     long latency = System.currentTimeMillis() - start;
                     TokenUsage usage = embedding.tokenUsage();
 
-                    _ChatMetrics metrics = _ChatMetrics.builder()
-                            .latencyMs(latency)
-                            .promptTokens(Optional.ofNullable(usage).map(TokenUsage::inputTokenCount).orElse(0))
-                            .responseTokens(Optional.ofNullable(usage).map(TokenUsage::outputTokenCount).orElse(0))
-                            .modelName(embeddingSelector.getModelName())
-                            .tool("embedding")
-                            .build();
+                    _Metrics metrics = _MetricsUtil.get(latency, usage,
+                            embeddingSelector.getModelName(), "embedding");
 
-                    return auditService.recordInteraction(
-                                    sessionId,
-                                    type,
-                                    Map.of("text", text.substring(0, Math.min(80, text.length())) + "..."),
-                                    metrics)
+                    return auditService.recordInteraction(sessionId, type, Map.of("text", text), metrics)
                             .thenReturn(embedding.content().vector());
                 });
     }
 
-    // ------------------------------------------------------------
-    // 🔹 6. Safe Mapping to DTO
-    // ------------------------------------------------------------
+    private static @NonNull Stream<String> getMovieOverview(_RagMovieDto m) {
+        return Stream.of(
+                "Title: " + m.getTitle(),
+                "Release Year: " + (m.getReleaseYear() != null ? m.getReleaseYear() : "N/A"),
+                "Genres: " + (m.getGenres() != null ? String.join(", ", m.getGenres()) : "N/A"),
+                "Directors: " + (m.getDirectors() != null ? String.join(", ", m.getDirectors()) : "N/A"),
+                "Description: " + m.getDescription(),
+                "ID: " + m.getId(),
+                ""
+        );
+    }
+
+    private static @NonNull String formatMovieDetails(_RagMovieDto m) {
+        return String.format(
+                "%s (%s) — %s\nDirector(s): %s\nDescription: %s\nID: %s",
+                m.getTitle(),
+                m.getReleaseYear() != null ? m.getReleaseYear() : "N/A",
+                String.join(", ", m.getGenres() != null ? m.getGenres() : List.of("unknown genre")),
+                m.getDirectors() != null ? String.join(", ", m.getDirectors()) : "N/A",
+                m.getDescription(),
+                m.getId()
+        );
+    }
+
     private _RagMovieDto toRagMovieDto(Map<String, Object> source) {
         try {
             return objectMapper.convertValue(source, _RagMovieDto.class);

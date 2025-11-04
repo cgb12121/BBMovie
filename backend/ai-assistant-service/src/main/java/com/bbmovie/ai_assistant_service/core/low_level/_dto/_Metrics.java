@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class _ChatMetrics {
+public class _Metrics {
     private Long latencyMs;
     private Integer promptTokens;
     private Integer responseTokens;

@@ -1,7 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._service;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelSelector;
-import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatMetrics;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._AiInteractionAudit;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._repository._AiInteractionAuditRepository;
@@ -39,7 +39,7 @@ public class _AuditService {
     }
 
     public Mono<Void> recordInteraction(
-            UUID sessionId, _InteractionType type, Object details, _ChatMetrics metrics) {
+            UUID sessionId, _InteractionType type, Object details, _Metrics metrics) {
         return Mono.fromCallable(() -> {
                     try {
                         String detailsJson = details != null
