@@ -75,7 +75,7 @@ public class VideoEventConsumer extends AbstractNatsJetStreamService {
         return movieMetadataRepository.findById(movieId)
                 .flatMap(movieDocument -> {
                     log.info("Found movie document with id {}, updating posterUrl.", movieDocument.getId());
-                    movieDocument.setPosterUrl(videoMetadata.getPosterUrl());
+                    movieDocument.setPoster(videoMetadata.getPosterUrl());
                     return movieMetadataRepository.save(movieDocument);
                 })
                 .switchIfEmpty(Mono.defer(() -> {
@@ -88,10 +88,10 @@ public class VideoEventConsumer extends AbstractNatsJetStreamService {
                                     .id(String.valueOf(videoMetadata.getMovieId()))
                                     .title(videoMetadata.getTitle())
                                     .description(videoMetadata.getDescription())
-                                    .categories(videoMetadata.getCategories())
+                                    .genres(videoMetadata.getCategories())
                                     .country(videoMetadata.getCountry())
                                     .type(videoMetadata.getMovieType())
-                                    .posterUrl(videoMetadata.getPosterUrl())
+                                    .poster(videoMetadata.getPosterUrl())
                                     .releaseDate(videoMetadata.getReleaseDate())
                                     .embedding(embedding)
                                     .build()

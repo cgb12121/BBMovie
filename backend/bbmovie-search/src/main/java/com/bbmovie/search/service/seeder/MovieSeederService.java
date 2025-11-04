@@ -3,8 +3,7 @@ package com.bbmovie.search.service.seeder;
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
-import co.elastic.clients.elasticsearch.core.SearchResponse;
-import com.bbmovie.search.dto.event.ElasticsearchUpEvent;
+import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import com.bbmovie.search.entity.MovieDocument;
 import com.bbmovie.search.service.embedding.DjLEmbeddingService;
 import lombok.extern.slf4j.Slf4j;
@@ -21,10 +20,7 @@ import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
@@ -40,8 +36,11 @@ public class MovieSeederService {
 
     @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
     private String indexName;
+
+    private static final int SAMPLE_COUNT = 500;
+    private static final int EMBEDDING_DIM = 384;
+
     private boolean seedingComplete = false;
-    private static final int SAMPLE_COUNT = 1000;
 
     @Autowired
     public MovieSeederService(
@@ -55,192 +54,228 @@ public class MovieSeederService {
         this.environment = environment;
     }
 
-    @EventListener({ ApplicationReadyEvent.class, ElasticsearchUpEvent.class })
+    @EventListener(ApplicationReadyEvent.class)
     public void seedIfEmpty() {
-        String[] activeProfiles = environment.getActiveProfiles();
-
-        for (String profile : activeProfiles) {
-            if ("prod".equals(profile) || "production".equals(profile)) {
-                return;
-            }
-        }
-
-        if (seedingComplete) {
-            return;
-        }
+        if (isProdProfile()) return;
+        if (seedingComplete) return;
 
         try {
             if (!indexExists()) {
-                log.warn("Index '{}' not found — creating it...", indexName);
+                log.warn("Index '{}' not found — creating...", indexName);
                 createIndex();
             }
 
             if (isIndexEmpty()) {
                 log.info("Index '{}' is empty — inserting {} sample movies...", indexName, SAMPLE_COUNT);
-                insertSamples()
-                        .doOnSuccess(v -> log.info("Seeding complete!"))
-                        .doOnError(e -> log.error("Error during reactive seeding: ", e))
-                        .block();
+                insertSamples().block();
             } else {
-                log.info("Index '{}' already has data — skipping seeding.", indexName);
+                log.info("Index '{}' already contains data — skipping seeding.", indexName);
             }
+
         } catch (Exception e) {
-            log.error("Error during seeding setup: ", e);
+            log.error("Error during seeding: ", e);
         } finally {
             seedingComplete = true;
         }
     }
 
+    private boolean isProdProfile() {
+        return Arrays.stream(environment.getActiveProfiles())
+                .anyMatch(p -> p.equalsIgnoreCase("prod") || p.equalsIgnoreCase("production"));
+    }
+
     private boolean indexExists() throws IOException {
-        return elasticsearchClient
-                .indices()
-                .exists(e -> e.index(indexName))
-                .value();
-    }
-
-    //Only use when testing/developing
-    @SuppressWarnings("unused")
-    private void deleteIndex() throws Exception {
-        if (indexExists()) {
-            elasticsearchClient
-                    .indices()
-                    .delete(d -> d.index(indexName));
-            log.info("Index '{}' deleted successfully.", indexName);
-        } else {
-            log.info("Index '{}' does not exist, skipping deletion.", indexName);
-        }
-    }
-
-    private void createIndex() throws Exception {
-        elasticsearchClient
-                .indices()
-                .create(c -> c
-                    .index(indexName)
-                    .settings(s -> s
-                            .numberOfShards("1")
-                            .numberOfReplicas("0")
-                    )
-                    .mappings(m -> m
-                            .properties("id", p -> p.keyword(k -> k))
-                            .properties("title", p -> p.text(t -> t.analyzer("standard")))
-                            .properties("description", p -> p.text(t -> t.analyzer("standard")))
-                            .properties("categories", p -> p.keyword(k -> k))
-                            .properties("posterUrl", p -> p.keyword(k -> k))
-                            .properties("type", p -> p.keyword(k -> k))
-                            .properties("rating", p -> p.double_(d -> d))
-                            .properties("releaseDate", p -> p.date(d -> d))
-                            .properties("embedding", p -> p.denseVector(v -> v
-                                    .dims(384)
-                                    .index(true)
-                                    .similarity("cosine")
-                                    .indexOptions(io -> io
-                                            .type("int8_hnsw")
-                                            .m(16)
-                                            .efConstruction(100)
-                                    )
-                            ))
-                    )
-                );
-        log.info("Index '{}' created successfully.", indexName);
+        return elasticsearchClient.indices().exists(e -> e.index(indexName)).value();
     }
 
     private boolean isIndexEmpty() throws IOException {
-        SearchResponse<Void> response = elasticsearchClient
-                .search(s -> s
-                    .index(indexName)
-                    .size(0)
-                    .query(q -> q.matchAll(m -> m))
-                , Void.class);
-
-        long count = response.hits().total() != null
-                ? response.hits().total().value()
-                : 0;
+        var response = elasticsearchClient.search(s -> s.index(indexName)
+                .size(0)
+                .query(q -> q
+                        .matchAll(m -> m)
+                ), Void.class
+        );
+        long count = Optional.ofNullable(response.hits().total())
+                .map(TotalHits::value)
+                .orElse(0L);
         return count == 0;
     }
 
+    private void createIndex() throws IOException {
+        // If the index already exists, skip creation
+        boolean exists = elasticsearchClient.indices()
+                .exists(e -> e.index(indexName))
+                .value();
+        if (exists) {
+            log.info("Index '{}' already exists — skipping creation.", indexName);
+            return;
+        }
+
+        elasticsearchClient.indices().create(c -> c
+                .index(indexName)
+                .settings(s -> s.numberOfShards("1").numberOfReplicas("0"))
+                .mappings(m -> m
+                        .properties("id", p -> p.keyword(k -> k))
+                        .properties("title", p -> p.text(t -> t.analyzer("standard")))
+                        .properties("description", p -> p.text(t -> t.analyzer("standard")))
+                        .properties("genres", p -> p.keyword(k -> k))
+                        .properties("actors", p -> p.keyword(k -> k))
+                        .properties("directors", p -> p.keyword(k -> k))
+                        .properties("poster", p -> p.keyword(k -> k))
+                        .properties("releaseYear", p -> p.integer(i -> i))
+                        .properties("releaseDate", p -> p.date(d -> d))
+                        .properties("rating", p -> p.double_(d -> d))
+                        .properties("country", p -> p.keyword(k -> k))
+                        .properties("type", p -> p.keyword(k -> k))
+                        .properties("embedding", p -> p.denseVector(v -> v
+                                .dims(EMBEDDING_DIM)
+                                .index(true)
+                                .similarity("cosine")))
+                        // This will be used for rag audit at AI Assistant Service
+//                        .properties("audit", p -> p.object(o -> o
+//                                .properties("latency_ms", pp -> pp.long_(l -> l))
+//                                .properties("prompt_tokens", pp -> pp.integer(i -> i))
+//                                .properties("response_tokens", pp -> pp.integer(i -> i))
+//                                .properties("interaction_type", pp -> pp.keyword(k -> k))
+//                                .properties("timestamp", pp -> pp.date(d -> d))
+//                        ))
+                )
+        );
+        log.info("Index '{}' created.", indexName);
+    }
+
     private Mono<Void> insertSamples() {
-        List<MovieDocument> movies = generateSampleMovies();
-        int batchSize = 20; // Process 20 movies at a time
-        int totalMovies = movies.size();
-        AtomicInteger insertedCount = new AtomicInteger(0);
+        List<MovieDocument> movies = generateMovies();
+        int batchSize = 20;
+        AtomicInteger inserted = new AtomicInteger();
 
         return Flux.fromIterable(movies)
                 .buffer(batchSize)
                 .concatMap(batch ->
                         Mono.fromCallable(() -> {
-                                    BulkRequest.Builder br = buildBulkRequest(batch);
-                                    BulkResponse bulkResponse = elasticsearchClient.bulk(br.build());
-                                    if (bulkResponse.errors()) {
-                                        log.warn("Some bulk operations failed in this batch.");
+                                    BulkRequest.Builder br = createBatchRequest(batch);
+                                    BulkResponse bulk = elasticsearchClient.bulk(br.build());
+                                    if (bulk.errors()) {
+                                        log.warn("Bulk insert had errors.");
                                     }
                                     return batch.size();
                                 })
                                 .subscribeOn(Schedulers.boundedElastic())
                                 .doOnSuccess(count -> {
-                                    int currentTotal = insertedCount.addAndGet(count);
-                                    log.info("Inserted {}/{} movies...", currentTotal, totalMovies);
+                                    int total = inserted.addAndGet(count);
+                                    log.info("Inserted {}/{} movies...", total, movies.size());
                                 })
                 )
                 .then();
     }
 
-    private BulkRequest.Builder buildBulkRequest(List<MovieDocument> batch) {
+    private BulkRequest.Builder createBatchRequest(List<MovieDocument> batch) {
         BulkRequest.Builder br = new BulkRequest.Builder();
         for (MovieDocument movie : batch) {
             br.operations(op -> op
                     .index(idx -> idx
                             .index(indexName)
                             .id(movie.getId())
-                            .document(movie)
-                    )
-            );
+                            .document(movie)));
         }
         return br;
     }
 
-    private List<MovieDocument> generateSampleMovies() {
-        String[] sampleCategories = {"Action", "Drama", "Comedy", "Sci-Fi", "Romance", "Thriller", "Fantasy"};
-        String[] movieTypes = {"movie", "series"};
-        List<MovieDocument> list = new ArrayList<>();
+    private List<MovieDocument> generateMovies() {
+        List<MovieDocument> docs = new ArrayList<>();
+        String[] genres = {"Sci-Fi", "Drama", "Romance", "Action", "Thriller", "Comedy", "Fantasy", "Mystery"};
+        String[] directors = {"Christopher Nolan", "Ridley Scott", "Denis Villeneuve", "James Cameron", "Patty Jenkins"};
+        String[] actors = {"Tom Hanks", "Natalie Portman", "Ryan Gosling", "Emma Stone", "Matt Damon", "Scarlett Johansson"};
+        String[] countries = {"United States", "United Kingdom", "Japan", "France", "South Korea", "Canada"};
+        String[] types = {"movie", "series"};
+
+        String[] titleTemplates = {
+                "The {adjective} {noun}",
+                "{adjective} of {place}",
+                "Echoes of {noun}",
+                "Rise of the {adjective} {noun}",
+                "{place} Diaries"
+        };
+        String[] adjectives = {"Silent", "Hidden", "Eternal", "Neon", "Lost", "Crimson", "Forgotten", "Infinite"};
+        String[] nouns = {"Dreams", "Empire", "Voyage", "Legacy", "Code", "Mind", "Horizon"};
+        String[] places = {"Mars", "Tokyo", "Tomorrow", "Atlantis", "Eden", "The Stars"};
+
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
         IntStream.range(0, SAMPLE_COUNT).forEach(i -> {
-            String title = "Sample Movie " + (i + 1);
-            String description = "A thrilling adventure of movie number " + (i + 1);
-            List<String> categories = List.of(
-                    sampleCategories[ThreadLocalRandom.current().nextInt(sampleCategories.length)]
+            String titleTemplate = titleTemplates[rnd.nextInt(titleTemplates.length)];
+            String title = titleTemplate
+                    .replace("{adjective}", adjectives[rnd.nextInt(adjectives.length)])
+                    .replace("{noun}", nouns[rnd.nextInt(nouns.length)])
+                    .replace("{place}", places[rnd.nextInt(places.length)]);
+
+            String genre = genres[rnd.nextInt(genres.length)];
+            List<String> cast = List.of(
+                    actors[rnd.nextInt(actors.length)],
+                    actors[rnd.nextInt(actors.length)]
             );
-            String types = movieTypes[ThreadLocalRandom.current().nextInt(movieTypes.length)];
+            List<String> dir = List.of(directors[rnd.nextInt(directors.length)]);
+            String country = countries[rnd.nextInt(countries.length)];
+            String type = types[rnd.nextInt(types.length)];
 
-            double rating = ThreadLocalRandom.current().nextDouble(1, 5);
-            String posterUrl = "https://picsum.photos/seed/" + i + "/200/300";
-            LocalDateTime releaseDate = LocalDateTime.now().minusDays(ThreadLocalRandom.current().nextInt(0, 2000));
+            String description = String.format(
+                    "In this %s %s film, %s and %s explore the depths of %s — a story about %s, sacrifice, and discovery.",
+                    country,
+                    genre.toLowerCase(),
+                    cast.get(0),
+                    cast.get(1),
+                    places[rnd.nextInt(places.length)],
+                    nouns[rnd.nextInt(nouns.length)]
+            );
 
-            // Create embedding
-            float[] embedding = new float[384]; // Default to empty embedding
+            int releaseYear = rnd.nextInt(1980, 2025);
+            String poster = "https://picsum.photos/seed/" + i + "/300/400";
+            LocalDateTime releaseDate = LocalDateTime.now().minusDays(rnd.nextInt(0, 2000));
+            double rating = Math.round(rnd.nextDouble(1.0, 5.0) * 10.0) / 10.0;
 
-            if (djlEmbeddingService.isPresent()) {
-                embedding = djlEmbeddingService.get().generateEmbedding(title + " " + description).block();
-                log.debug("Generated embedding using DJL for movie: {}", title);
-            } else if (embeddingModel.isPresent()) {
-                embedding = embeddingModel.get().embed(title + " " + description);
-                log.debug("Generated embedding using Spring AI EmbeddingModel for movie: {}", title);
-            } else {
-                log.warn("No embedding provider available. Using empty embedding for movie: {}", title);
-            }
+            float[] embedding = generateEmbedding(title + " " + description);
 
-            list.add(MovieDocument.builder()
+            docs.add(MovieDocument.builder()
                     .id(UUID.randomUUID().toString())
                     .title(title)
                     .description(description)
-                    .embedding(embedding)
-                    .type(types)
+                    .genres(List.of(genre))
+                    .actors(cast)
+                    .directors(dir)
+                    .releaseYear(releaseYear)
+                    .poster(poster)
+                    .country(country)
+                    .type(type)
                     .rating(rating)
-                    .categories(categories)
-                    .posterUrl(posterUrl)
                     .releaseDate(releaseDate)
+                    .embedding(embedding)
                     .build());
         });
 
-        return list;
+        return docs;
+    }
+
+
+    private float[] generateEmbedding(String text) {
+        try {
+            if (djlEmbeddingService.isPresent()) {
+                return djlEmbeddingService.get().generateEmbedding(text).block();
+            } else if (embeddingModel.isPresent()) {
+                return embeddingModel.get().embed(text);
+            } else {
+                // fallback: random small floats (deterministic shape)
+                float[] vec = new float[EMBEDDING_DIM];
+                for (int i = 0; i < vec.length; i++) {
+                    vec[i] = ThreadLocalRandom.current().nextFloat(-1f, 1f);
+                }
+                return vec;
+            }
+        } catch (Exception e) {
+            log.warn("Embedding failed for '{}': {}", text, e.getMessage());
+            float[] fallback = new float[EMBEDDING_DIM];
+            Arrays.fill(fallback, 0.01f);
+            return fallback;
+        }
     }
 }
+

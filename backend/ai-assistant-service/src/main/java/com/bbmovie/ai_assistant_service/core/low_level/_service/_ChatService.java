@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._service;
 
 import com.bbmovie.ai_assistant_service.core.low_level._assistant._Assistant;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantType;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +32,7 @@ public class _ChatService {
         log.info("Initialized ChatService with assistants: {}", this.assistants.keySet());
     }
 
-    public Flux<String> chat(UUID sessionId, String message, AssistantType assistantType, Jwt jwt) {
+    public Flux<_ChatStreamChunk> chat(UUID sessionId, String message, AssistantType assistantType, Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         String userRole = jwt.getClaimAsString(ROLE);
 
@@ -41,7 +42,11 @@ public class _ChatService {
                     if (assistant == null) {
                         return Flux.error(new IllegalArgumentException("Unknown assistant type: " + assistantType));
                     }
-                    return assistant.processMessage(sessionId, message, userRole);
+
+                    return assistant.processMessage(sessionId, message, userRole)
+                            .startWith(_ChatStreamChunk.system("Assistant is thinking..."))
+                            .concatWithValues(_ChatStreamChunk.system("Done"));
                 });
     }
+
 }
