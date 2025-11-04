@@ -130,7 +130,13 @@ public class MovieSeederService {
                         .properties("embedding", p -> p.denseVector(v -> v
                                 .dims(EMBEDDING_DIM)
                                 .index(true)
-                                .similarity("cosine")))
+                                .similarity("cosine")
+                                .indexOptions(io -> io
+                                        .type("hnsw")
+                                        .m(16)
+                                        .efConstruction(100)
+                                )))
+
                         // This will be used for rag audit at AI Assistant Service
 //                        .properties("audit", p -> p.object(o -> o
 //                                .properties("latency_ms", pp -> pp.long_(l -> l))
