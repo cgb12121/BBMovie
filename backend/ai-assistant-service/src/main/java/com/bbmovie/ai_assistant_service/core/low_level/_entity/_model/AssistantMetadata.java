@@ -8,7 +8,7 @@ import java.util.List;
 @Data
 @Builder
 public class AssistantMetadata {
-    private AssistantType type;
+    private _AssistantType type;
     private String modelName;
     private String description;
     private List<String> capabilities;

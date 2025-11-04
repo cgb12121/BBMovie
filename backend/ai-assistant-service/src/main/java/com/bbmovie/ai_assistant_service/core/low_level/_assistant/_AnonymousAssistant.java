@@ -4,8 +4,8 @@ import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelSelecto
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantMetadata;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
-import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
-import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
+import com.bbmovie.ai_assistant_service.core.low_level._service._impl._AuditServiceImpl;
+import com.bbmovie.ai_assistant_service.core.low_level._service._impl._MessageServiceImpl;
 import com.bbmovie.ai_assistant_service.core.low_level._service._RagService;
 import com.bbmovie.ai_assistant_service.core.low_level._config._ToolsRegistry;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
@@ -15,34 +15,34 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 @Component
-public class _AdminAssistant extends _BaseAssistant {
+public class _AnonymousAssistant extends _BaseAssistant {
 
     private final _ChatResponseHandlerFactory handlerFactory;
 
     @Autowired
-    public _AdminAssistant(
+    public _AnonymousAssistant(
             @Qualifier("_StreamingChatModel") StreamingChatModel chatModel,
             @Qualifier("_ChatMemoryProvider") ChatMemoryProvider chatMemoryProvider,
-            @Qualifier("_AdminToolRegistry") _ToolsRegistry toolRegistry,
-            @Qualifier("_AdminHandlerFactory") _ChatResponseHandlerFactory handlerFactory,
-            _MessageService chatMessageService, _AuditService auditService,
+            @Qualifier("_UserToolRegistry") _ToolsRegistry toolRegistry,
+            @Qualifier("_SimpleHandlerFactory") _ChatResponseHandlerFactory handlerFactory,
+            _MessageServiceImpl chatMessageService, _AuditServiceImpl auditService,
             _ModelSelector aiSelector, _RagService ragService) {
         super(
-            chatModel,
-            chatMemoryProvider,
-            chatMessageService,
-            auditService,
-            toolRegistry,
-            aiSelector.getSystemPrompt(null),
-            buildMetadata(chatModel, toolRegistry),
-            ragService
+                chatModel,
+                chatMemoryProvider,
+                chatMessageService,
+                auditService,
+                toolRegistry,
+                aiSelector.getSystemPrompt(null),
+                buildMetadata(chatModel, toolRegistry),
+                ragService
         );
         this.handlerFactory = handlerFactory;
     }
 
     @Override
     public _AssistantType getType() {
-        return _AssistantType.ADMIN;
+        return _AssistantType.ANONYMOUS;
     }
 
     @Override
@@ -52,9 +52,9 @@ public class _AdminAssistant extends _BaseAssistant {
 
     private static AssistantMetadata buildMetadata(StreamingChatModel model, _ToolsRegistry registry) {
         return AssistantMetadata.builder()
-                .type(_AssistantType.ADMIN)
+                .type(_AssistantType.ANONYMOUS)
                 .modelName(model.toString())
-                .description("Administrative assistant with tool execution capabilities.")
+                .description("Customer-facing assistant for movie information and recommendations.")
                 .capabilities(registry.getToolSpecifications()
                         .stream()
                         .map(spec -> spec.name() + ": " + spec.description())

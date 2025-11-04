@@ -5,17 +5,19 @@ import lombok.Getter;
 import java.util.Arrays;
 
 @Getter
-public enum AssistantType {
+public enum _AssistantType {
     ADMIN("admin"),
-    USER("user");
+    MOD("mod"),
+    USER("user"),
+    ANONYMOUS("anonymous");
 
     private final String code;
 
-    AssistantType(String code) {
+    _AssistantType(String code) {
         this.code = code;
     }
 
-    public static AssistantType fromCode(String code) {
+    public static _AssistantType fromCode(String code) {
         return Arrays.stream(values())
                 .filter(type -> type.code.equalsIgnoreCase(code))
                 .findFirst()

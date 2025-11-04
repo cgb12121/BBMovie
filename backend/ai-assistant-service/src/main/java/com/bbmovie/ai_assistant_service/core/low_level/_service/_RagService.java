@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._service._rag;
+package com.bbmovie.ai_assistant_service.core.low_level._service;
 
 import com.bbmovie.ai_assistant_service.core.low_level._dto._RagMovieDto;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._RagRetrievalResult;

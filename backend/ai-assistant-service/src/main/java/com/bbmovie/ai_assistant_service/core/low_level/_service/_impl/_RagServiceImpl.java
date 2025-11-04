@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._service._rag;
+package com.bbmovie.ai_assistant_service.core.low_level._service._impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
@@ -11,6 +11,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._dto._RagMovieDto;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._RagRetrievalResult;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
+import com.bbmovie.ai_assistant_service.core.low_level._service._RagService;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.embedding.EmbeddingModel;

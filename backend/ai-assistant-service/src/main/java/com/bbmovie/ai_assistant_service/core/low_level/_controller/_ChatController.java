@@ -2,7 +2,7 @@ package com.bbmovie.ai_assistant_service.core.low_level._controller;
 
 import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatRequestDto;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatStreamChunk;
-import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantType;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,18 +32,19 @@ public class _ChatController {
             @PathVariable UUID sessionId,
             @RequestBody _ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {
-        AssistantType assistantType = AssistantType.fromCode(request.getAssistantType());
+        _AssistantType assistantType = _AssistantType.fromCode(request.getAssistantType());
         return chatService.chat(sessionId, request.getMessage(), assistantType, jwt)
                 .map(chunk -> ServerSentEvent.builder(chunk).build())
                 .doOnError(ex -> log.error("Streaming error for session {}: {}", sessionId, ex.getMessage()));
     }
 
+    // blocked stream for better postman testing
     @PostMapping("/{sessionId}/test")
     public Flux<_ChatStreamChunk> nonStreamChat(
             @PathVariable UUID sessionId,
             @RequestBody _ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {
-        AssistantType assistantType = AssistantType.fromCode(request.getAssistantType());
+        _AssistantType assistantType = _AssistantType.fromCode(request.getAssistantType());
         return chatService.chat(sessionId, request.getMessage(), assistantType, jwt);
     }
 }

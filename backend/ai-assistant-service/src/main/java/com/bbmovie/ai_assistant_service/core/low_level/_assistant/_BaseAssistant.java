@@ -8,8 +8,8 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._model._Interacti
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
-import com.bbmovie.ai_assistant_service.core.low_level._service._rag._RagService;
-import com.bbmovie.ai_assistant_service.core.low_level._tool._ToolRegistry;
+import com.bbmovie.ai_assistant_service.core.low_level._service._RagService;
+import com.bbmovie.ai_assistant_service.core.low_level._config._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -39,7 +39,7 @@ public abstract class _BaseAssistant implements _Assistant {
     private final ChatMemoryProvider chatMemoryProvider;
     private final _MessageService messageService;
     private final _AuditService auditService;
-    private final _ToolRegistry toolRegistry;
+    private final _ToolsRegistry toolRegistry;
     private final SystemMessage systemPrompt;
     private final AssistantMetadata metadata;
     private final _RagService ragService;
@@ -47,7 +47,7 @@ public abstract class _BaseAssistant implements _Assistant {
     protected _BaseAssistant(
             StreamingChatModel chatModel, ChatMemoryProvider chatMemoryProvider,
             _MessageService messageService, _AuditService auditService,
-            _ToolRegistry toolRegistry, SystemMessage systemPrompt,
+            _ToolsRegistry toolRegistry, SystemMessage systemPrompt,
             AssistantMetadata metadata, _RagService ragService) {
         this.chatModel = chatModel;
         this.chatMemoryProvider = chatMemoryProvider;

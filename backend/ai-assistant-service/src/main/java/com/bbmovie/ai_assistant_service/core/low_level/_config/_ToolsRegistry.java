@@ -1,5 +1,6 @@
-package com.bbmovie.ai_assistant_service.core.low_level._tool;
+package com.bbmovie.ai_assistant_service.core.low_level._config;
 
+import com.bbmovie.ai_assistant_service.core.low_level._tool._AiTools;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.agent.tool.ToolSpecifications;
@@ -15,18 +16,18 @@ import java.util.List;
 import java.util.Map;
 
 @Slf4j
-public class _ToolRegistry {
+public class _ToolsRegistry {
 
     private final Map<String, ToolExecutor> executors;
     private final List<ToolSpecification> specifications;
 
-    public _ToolRegistry(List<_AiTool> tools) {
+    public _ToolsRegistry(List<_AiTools> tools) {
         this.executors = new HashMap<>();
         this.specifications = new ArrayList<>();
         discoverTools(tools);
     }
 
-    private void discoverTools(List<_AiTool> toolBeans) {
+    private void discoverTools(List<_AiTools> toolBeans) {
         for (Object toolBean : toolBeans) {
             Class<?> toolClass = AopUtils.getTargetClass(toolBean);
             for (Method method : toolClass.getDeclaredMethods()) {
