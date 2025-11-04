@@ -112,7 +112,7 @@ public abstract class _BaseAssistant implements _Assistant {
                 })
                 .onErrorResume(ex -> {
                     log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage(), ex);
-                    return Flux.just(_ChatStreamChunk.system("❌ Something went wrong: " + ex.getMessage()));
+                    return Flux.just(_ChatStreamChunk.system("❌ Something went wrong. Please try again later."));
                 });
     }
 
