@@ -1,5 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._assistant;
 
+import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatStreamChunk;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._RagMovieDto;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantMetadata;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
@@ -59,44 +61,61 @@ public abstract class _BaseAssistant implements _Assistant {
 
     @Transactional
     @Override
-    public Flux<String> processMessage(UUID sessionId, String message, String userRole) {
+    public Flux<_ChatStreamChunk> processMessage(UUID sessionId, String message, String userRole) {
         log.debug("[streaming] session={} type={} role={} message={}", sessionId, getType(), userRole, message);
 
         return ragService.retrieveMovieContext(sessionId, message, 5)
                 .flatMapMany(ragResult -> {
+                    final List<_RagMovieDto> movieDocs = ragResult.documents().stream()
+                            .filter(doc -> doc.getTitle() != null && doc.getPoster() != null)
+                            .toList();
                     final String contextSummary = ragResult.summaryText();
                     final boolean hasContext = contextSummary != null && !contextSummary.isBlank();
                     final String enrichedMessage = hasContext
                             ? message + "\n\n[Movie Context]\n" + contextSummary
                             : message;
 
-                    // Index conversation asynchronously
-                    ragService.indexConversationFragment(sessionId, message)
+                    // Fire & forget index
+                    ragService.indexConversationFragment(sessionId, message, movieDocs)
                             .onErrorResume(ex -> {
                                 log.warn("[rag] Indexing skipped due to: {}", ex.getMessage());
                                 return Mono.empty();
                             })
                             .subscribe();
 
-                    // Audit & save a user message
+                    // Record audit + save a user message
                     return auditService.recordInteraction(sessionId, _InteractionType.USER_MESSAGE, message)
                             .then(messageService.saveUserMessage(sessionId, enrichedMessage))
                             .flatMapMany(savedHistory -> {
                                 log.debug("[streaming] User message saved (id={}), proceeding to AI chat.", savedHistory.getId());
 
                                 ChatRequest chatRequest = prepareChatRequest(sessionId, contextSummary, enrichedMessage);
-                                return Flux.<String>create(sink ->
-                                        processChatRecursive(sessionId, chatRequest, sink)
-                                                .doOnError(sink::error)
-                                                .doOnSuccess(v -> sink.complete())
-                                                .subscribeOn(Schedulers.boundedElastic())
-                                                .subscribe());
+
+                                Flux<_ChatStreamChunk> ragChunk = movieDocs.isEmpty()
+                                        ? Flux.empty()
+                                        : Flux.just(
+                                        _ChatStreamChunk.system("🎬 Movie context retrieved."),
+                                        _ChatStreamChunk.ragResult(movieDocs)
+                                );
+
+                                Flux<_ChatStreamChunk> aiChunks = Flux.<String>create(sink ->
+                                                processChatRecursive(sessionId, chatRequest, sink)
+                                                        .doOnError(sink::error)
+                                                        .doOnSuccess(v -> sink.complete())
+                                                        .subscribeOn(Schedulers.boundedElastic())
+                                                        .subscribe())
+                                        .map(_ChatStreamChunk::assistant);
+
+                                // Emit RAG results first, then AI stream
+                                return ragChunk.concatWith(aiChunks);
                             });
                 })
-                .doOnError(ex -> log.error("[streaming] Error in chat pipeline for session={}: {}",
-                        sessionId, ex.getMessage(), ex)
-                );
+                .onErrorResume(ex -> {
+                    log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage(), ex);
+                    return Flux.just(_ChatStreamChunk.system("❌ Something went wrong. Please try again later."));
+                });
     }
+
 
     private ChatRequest prepareChatRequest(UUID sessionId, String contextSummary, String enrichedMessage) {
         ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());

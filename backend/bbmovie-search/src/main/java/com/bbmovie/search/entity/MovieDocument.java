@@ -29,7 +29,19 @@ public class MovieDocument {
     private String description;
 
     @Field(type = FieldType.Keyword)
-    private List<String> categories;
+    private List<String> genres;
+
+    @Field(type = FieldType.Keyword)
+    private List<String> actors;
+
+    @Field(type = FieldType.Keyword)
+    private List<String> directors;
+
+    @Field(type = FieldType.Integer)
+    private int releaseYear;
+
+    @Field(type = FieldType.Keyword)
+    private String poster;
 
     @Field(type = FieldType.Keyword)
     private String country;
@@ -39,9 +51,6 @@ public class MovieDocument {
 
     @Field(type = FieldType.Double)
     private Double rating;
-
-    @Field(type = FieldType.Keyword)
-    private String posterUrl;
 
     @Field(type = FieldType.Date, storeNullValue = true)
     private LocalDateTime releaseDate;

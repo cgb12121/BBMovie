@@ -164,7 +164,7 @@ public class _DatabaseConfig {
                                 .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
                                 .then();
                     } else {
-                        log.info("Table '{}' already has data — skipping population.", tableName);
+                        log.info("Table '{}' already has data - skipping population.", tableName);
                         return Mono.empty();
                     }
                 });

@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._controller;
 
 import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatRequestDto;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatService;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,7 @@ public class _ChatController {
     }
 
     @PostMapping(value = "/{sessionId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<ServerSentEvent<String>> streamChat(
+    public Flux<ServerSentEvent<_ChatStreamChunk>> streamChat(
             @PathVariable UUID sessionId,
             @RequestBody _ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {
@@ -38,7 +39,7 @@ public class _ChatController {
     }
 
     @PostMapping("/{sessionId}/test")
-    public Flux<String> nonStreamChat(
+    public Flux<_ChatStreamChunk> nonStreamChat(
             @PathVariable UUID sessionId,
             @RequestBody _ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {

@@ -25,7 +25,7 @@ public class _RagMovieDto {
     private String description;
     private String poster;
 
-    private List<String> genre;
+    private List<String> genres;
     private List<String> actors;
     private List<String> directors;
 
@@ -33,7 +33,7 @@ public class _RagMovieDto {
     private Integer releaseYear;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
-    private Instant timestamp;
+    private Instant releaseDate;
 
     @Builder.Default
     private Map<String, Object> extra = new HashMap<>();

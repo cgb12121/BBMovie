@@ -62,13 +62,14 @@ public class _RagServiceImpl implements _RagService {
                         return new _RagRetrievalResult("", List.of());
                     }
 
+                    log.debug("[rag] Retrieved movies: {}", movies);
                     // Build textual summary for LLM
                     String contextText = movies.stream()
                             .map(m -> String.format(
                                     "%s (%s) — %s\nDirector(s): %s\nDescription: %s\nID: %s",
                                     m.getTitle(),
-                                    m.getReleaseYear(),
-                                    String.join(", ", m.getGenre() != null ? m.getGenre() : List.of()),
+                                    m.getReleaseYear() != null ? m.getReleaseYear() : "N/A",
+                                    String.join(", ", m.getGenres() != null ? m.getGenres() : List.of("unknown genre")),
                                     m.getDirectors() != null ? String.join(", ", m.getDirectors()) : "N/A",
                                     m.getDescription(),
                                     m.getId()
@@ -88,8 +89,19 @@ public class _RagServiceImpl implements _RagService {
     // 🔹 2. Index Conversation Fragment
     // ------------------------------------------------------------
     @Override
-    public Mono<Void> indexConversationFragment(UUID sessionId, String text) {
-        return embedText(sessionId, text, _InteractionType.EMBEDDING_INDEX)
+    public Mono<Void> indexConversationFragment(UUID sessionId, String text, List<_RagMovieDto> pastResults) {
+        String pastResultsString = pastResults.stream()
+                .flatMap(m -> Stream.of(
+                        "Title: " + m.getTitle(),
+                        "Release Year: " + (m.getReleaseYear() != null ? m.getReleaseYear() : "N/A"),
+                        "Genres: " + (m.getGenres() != null ? String.join(", ", m.getGenres()) : "N/A"),
+                        "Directors: " + (m.getDirectors() != null ? String.join(", ", m.getDirectors()) : "N/A"),
+                        "Description: " + m.getDescription(),
+                        "ID: " + m.getId(),
+                        ""
+                ))
+                .collect(Collectors.joining("\n"));
+        return embedText(sessionId, text + pastResultsString, _InteractionType.EMBEDDING_INDEX)
                 .flatMap(vector -> {
                     if (embeddingSelector.getDimension() != vector.length) {
                         return Mono.error(new IllegalArgumentException(
@@ -102,6 +114,7 @@ public class _RagServiceImpl implements _RagService {
                             "sessionId", sessionId.toString(),
                             "timestamp", Instant.now().toString(),
                             "text", text,
+                            "movie", pastResults,
                             embeddingSelector.getEmbeddingField(), vector
                     );
 
@@ -126,25 +139,19 @@ public class _RagServiceImpl implements _RagService {
     }
 
     // ------------------------------------------------------------
-    // 🔹 3. Hybrid Search — combines movies + memory indices
+    // 🔹 3. Hybrid Search — combines movies + memory indices (not memory rn)
     // ------------------------------------------------------------
     private Mono<List<_RagMovieDto>> hybridSearch(UUID sessionId, float[] embedding, int topK) {
         long start = System.currentTimeMillis();
 
-        Mono<List<_RagMovieDto>> movieSearch = performSearch(sessionId, embedding, topK, embeddingSelector.getMovieIndex(), "movies");
-        Mono<List<_RagMovieDto>> memorySearch = performSearch(sessionId, embedding, topK, embeddingSelector.getRagIndex(), "user-memory");
-
-        return Mono.zipDelayError(movieSearch, memorySearch)
-                .map(tuple -> Stream.concat(tuple.getT1().stream(), tuple.getT2().stream())
-                        .distinct()
-                        .limit(topK)
-                        .toList())
+        // Only search the movie index now
+        return performSearch(sessionId, embedding, topK, embeddingSelector.getMovieIndex(), "movies")
                 .flatMap(results -> {
                     long latency = System.currentTimeMillis() - start;
 
                     _ChatMetrics metrics = _ChatMetrics.builder()
                             .latencyMs(latency)
-                            .tool("hybrid-rag")
+                            .tool("rag-movie-search")
                             .modelName(embeddingSelector.getModelName())
                             .responseTokens(results.size())
                             .build();
@@ -152,12 +159,19 @@ public class _RagServiceImpl implements _RagService {
                     return auditService.recordInteraction(
                                     sessionId,
                                     _InteractionType.RETRIEVAL,
-                                    Map.of("topK", topK, "results", results.size()),
+                                    Map.of(
+                                            "index", embeddingSelector.getMovieIndex(),
+                                            "topK", topK,
+                                            "results", results.size()
+                                    ),
                                     metrics
                             )
                             .thenReturn(results);
-                });
+                })
+                .doOnSuccess(results -> log.debug("[rag] Movie retrieval completed, {} results", results.size()))
+                .doOnError(e -> log.error("[rag] Error during movie search: {}", e.getMessage(), e));
     }
+
 
     // ------------------------------------------------------------
     // 🔹 4. Perform a Vector Search on a Specific Index
@@ -175,7 +189,9 @@ public class _RagServiceImpl implements _RagService {
         SearchRequest request = SearchRequest.of(s -> s.index(index).size(topK).query(query));
 
         return Mono.fromFuture(esClient.search(request, Map.class))
-                .map(resp -> resp.hits().hits().stream()
+                .map(resp -> resp.hits()
+                        .hits()
+                        .stream()
                         .map(hit -> toRagMovieDto(hit.source()))
                         .filter(Objects::nonNull)
                         .toList())
