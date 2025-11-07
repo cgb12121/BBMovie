@@ -4,7 +4,7 @@ This document explains the orchestration pipeline of the AI chat system and how 
 
 ---
 
-##  High-Level Architecture (Fixed Mermaid)
+##  High-Level Architecture
 
 ```mermaid
 flowchart TD

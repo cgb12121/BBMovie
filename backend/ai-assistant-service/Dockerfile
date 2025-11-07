@@ -11,11 +11,6 @@ COPY bbmovie-common ./common-build
 RUN mvn -B -f common-build/pom.xml -DskipTests clean install
 
 # --- 2. Build the main microservice ---
-# ***
-# !!! IMPORTANT: Rename 'my-microservice' in the paths below
-# to match your service's folder name.
-# ***
-
 # Copy the main application's POM and wrapper
 # These paths are also relative to the 'backend' context
 COPY ai-assistant-service/pom.xml ai-assistant-service/mvnw ./service-build/
