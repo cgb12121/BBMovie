@@ -16,8 +16,10 @@ public class _JsonConfig {
     public ObjectMapper objectMapper() {
         return JsonMapper.builder()
                 .findAndAddModules()
+                .addModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
                 .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .addMixIn(_RagMovieDto.class, _IgnoreEmbeddingMixin.class)
                 .addMixIn(ToolExecutionRequest.class, _ToolExecutionRequestMixin.class)
                 .build();

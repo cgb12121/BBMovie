@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 @Getter
 @Setter
 @Configuration
-@ConfigurationProperties(prefix = "embedding.index")
+@ConfigurationProperties(prefix = "ai.embedding.index")
 public class _EmbeddingIndexProperties {
     private String movies;
     private String rag;

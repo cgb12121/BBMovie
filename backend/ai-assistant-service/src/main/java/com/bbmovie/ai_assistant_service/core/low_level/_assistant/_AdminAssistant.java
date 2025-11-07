@@ -7,7 +7,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHan
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._RagService;
-import com.bbmovie.ai_assistant_service.core.low_level._config._ToolsRegistry;
+import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import org.springframework.beans.factory.annotation.Autowired;

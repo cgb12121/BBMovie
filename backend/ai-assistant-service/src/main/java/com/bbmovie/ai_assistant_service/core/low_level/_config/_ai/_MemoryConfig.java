@@ -1,5 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config._ai;
 
+import com.bbmovie.ai_assistant_service.core.low_level._config._cache._RedisProperties;
+import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
@@ -15,14 +17,25 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class _MemoryConfig {
 
-    @Bean("_StreamingChatMemoryStore")
-    public ChatMemoryStore _MemoryStore() {
+    @Bean("_InMemoryMemoryStore")
+    public ChatMemoryStore _InMemoryMemoryStore() {
         return new InMemoryChatMemoryStore();
+    }
+
+    @Bean("_RedisMemoryStore")
+    public ChatMemoryStore _RedisMemoryStore(_RedisProperties properties) {
+        return RedisChatMemoryStore.builder()
+                .prefix("ai-assistant-service:chat-memory:")
+                .host(properties.getHost())
+                .port(properties.getPort())
+                .password(properties.getPassword())
+                .ttl((long) (60 * 30)) // second = > 30 minutes
+                .build();
     }
 
     @Bean("_ChatMemoryProvider")
     public ChatMemoryProvider _ChatMemoryProvider(
-            @Qualifier("_StreamingChatMemoryStore") ChatMemoryStore store) {
+            @Qualifier("_RedisMemoryStore") ChatMemoryStore store) {
         return sessionId -> MessageWindowChatMemory.builder()
                 .id(sessionId)
                 .maxMessages(50)

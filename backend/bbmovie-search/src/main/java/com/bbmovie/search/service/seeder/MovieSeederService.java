@@ -19,7 +19,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -236,7 +236,11 @@ public class MovieSeederService {
 
             int releaseYear = rnd.nextInt(1980, 2025);
             String poster = "https://picsum.photos/seed/" + i + "/300/400";
-            LocalDateTime releaseDate = LocalDateTime.now().minusDays(rnd.nextInt(0, 2000));
+
+            Instant start = Instant.parse("2000-01-01T00:00:00Z");
+            Instant end = Instant.parse("2025-01-01T00:00:00Z");
+            Instant releaseDate = generateRandomInstant(start, end);
+
             double rating = Math.round(rnd.nextDouble(1.0, 5.0) * 10.0) / 10.0;
 
             float[] embedding = generateEmbedding(title + " " + description);
@@ -261,7 +265,6 @@ public class MovieSeederService {
         return docs;
     }
 
-
     private float[] generateEmbedding(String text) {
         try {
             if (djlEmbeddingService.isPresent()) {
@@ -282,6 +285,13 @@ public class MovieSeederService {
             Arrays.fill(fallback, 0.01f);
             return fallback;
         }
+    }
+
+    public static Instant generateRandomInstant(Instant startInclusive, Instant endExclusive) {
+        long startMillis = startInclusive.toEpochMilli();
+        long endMillis = endExclusive.toEpochMilli();
+        long randomMillis = ThreadLocalRandom.current().nextLong(startMillis, endMillis);
+        return Instant.ofEpochMilli(randomMillis);
     }
 }
 

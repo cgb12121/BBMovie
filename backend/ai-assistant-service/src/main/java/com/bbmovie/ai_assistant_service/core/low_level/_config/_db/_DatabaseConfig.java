@@ -100,7 +100,7 @@ public class _DatabaseConfig {
     @Bean
     @Qualifier("_DbInitializer")
     public ConnectionFactoryInitializer _DbInitializerWithSchemaValidation(
-            @Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory) {
+            _R2dbcProperties properties, @Qualifier("_ConnectionFactory") ConnectionFactory connectionFactory) {
         ConnectionFactoryInitializer initializer = new ConnectionFactoryInitializer();
         initializer.setConnectionFactory(connectionFactory);
 
@@ -108,7 +108,9 @@ public class _DatabaseConfig {
         schemaPopulator.addScript(new ClassPathResource("db/_schema.sql"));
         initializer.setDatabasePopulator(schemaPopulator);
 
-        insertSampleData(connectionFactory);
+        if (properties.isLoadSamples()) {
+            insertSampleData(connectionFactory);
+        }
 
         return initializer;
     }

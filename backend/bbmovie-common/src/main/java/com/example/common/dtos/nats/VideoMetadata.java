@@ -5,7 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.Set;
 
@@ -20,7 +20,7 @@ public class VideoMetadata {
     private List<String> categories;
     private String country;
     private String movieType;
-    private LocalDateTime releaseDate;
+    private Instant releaseDate;
     private String videoUrl;
     private String videoPublicId;
     private String trailerUrl;

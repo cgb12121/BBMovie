@@ -6,7 +6,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.*;
 
-import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,7 +33,7 @@ public class _RagMovieDto {
     private Integer releaseYear;
 
     @JsonFormat(shape = JsonFormat.Shape.STRING)
-    private Instant releaseDate;
+    private LocalDateTime releaseDate;
 
     @Builder.Default
     private Map<String, Object> extra = new HashMap<>();

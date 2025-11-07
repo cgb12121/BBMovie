@@ -6,20 +6,18 @@ import org.springframework.stereotype.Component;
 
 /**
  * A simple POJO (Data Class) to hold the configuration properties for the
- * experimental datasource. Spring Boot's @ConfigurationProperties will
+ *  datasource. Spring Boot's @ConfigurationProperties will
  * bind values to this object using its setter methods.
- * <p>
- * We do NOT put @ConfigurationProperties here, as we are creating it
- * as a @Bean in the _DatabaseConfig class.
  */
 @Data
 @Component
-@ConfigurationProperties("ai.experimental.datasource")
+@ConfigurationProperties("ai.datasource")
 public class _R2dbcProperties {
-    private String driver = "mysql"; // Default driver
-    private String host = "localhost";
-    private Integer port = 3306;     // Default port
+    private String driver;
+    private String host;
+    private Integer port = 3306;
     private String username;
     private String password;
-    private String database = "bbmovie_experimental"; // Default database
+    private String database;
+    private boolean loadSamples;
 }

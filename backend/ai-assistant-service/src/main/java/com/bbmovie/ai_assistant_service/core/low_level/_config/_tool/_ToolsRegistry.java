@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._config;
+package com.bbmovie.ai_assistant_service.core.low_level._config._tool;
 
 import com.bbmovie.ai_assistant_service.core.low_level._tool._AiTools;
 import dev.langchain4j.agent.tool.Tool;

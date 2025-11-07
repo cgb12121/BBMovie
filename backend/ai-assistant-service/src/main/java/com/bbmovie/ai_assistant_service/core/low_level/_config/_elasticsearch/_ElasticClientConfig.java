@@ -10,7 +10,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.Node;
 import org.elasticsearch.client.RestClient;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -28,11 +27,10 @@ public class _ElasticClientConfig {
     }
 
     @Bean(destroyMethod = "close")
-    public RestClient restClient(
-            @Value("${elasticsearch.host:localhost}") String host,
-            @Value("${elasticsearch.port:9200}") int port,
-            @Value("${elasticsearch.scheme:http}") String scheme
-    ) {
+    public RestClient restClient(_ESProperties properties) {
+        String host = properties.getHost();
+        int port = properties.getPort();
+        String scheme = properties.getScheme();
         return RestClient.builder(new HttpHost(host, port, scheme))
                 .setRequestConfigCallback(requestConfigBuilder ->
                         requestConfigBuilder

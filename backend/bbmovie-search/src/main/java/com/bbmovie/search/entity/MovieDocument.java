@@ -9,7 +9,7 @@ import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 
 @Document(indexName = "#{@environment.getProperty('spring.ai.vectorstore.elasticsearch.index-name')}")
@@ -53,7 +53,7 @@ public class MovieDocument {
     private Double rating;
 
     @Field(type = FieldType.Date, storeNullValue = true)
-    private LocalDateTime releaseDate;
+    private Instant releaseDate;
 
     @Field(type = FieldType.Dense_Vector, dims = 384)
     private float[] embedding;

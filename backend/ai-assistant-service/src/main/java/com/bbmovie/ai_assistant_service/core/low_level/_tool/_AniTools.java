@@ -229,7 +229,7 @@ public class _AniTools implements _AiTools {
         ).doOnNext(ignored -> storeSecretForSession(sessionId , secret));
     }
 
-    // Helper – placeholder; replace with real session storage
+    // Helper – placeholder; replace it with real session storage
     private void storeSecretForSession(String sessionId, int secret) {
         // e.g. Map<String, Integer> secrets = ...
     }

@@ -12,8 +12,11 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -40,11 +43,37 @@ public class _ChatController {
 
     // blocked stream for better postman testing
     @PostMapping("/{sessionId}/test")
-    public Flux<_ChatStreamChunk> nonStreamChat(
+    public Mono<Map<String, Object>> nonStreamChat(
             @PathVariable UUID sessionId,
             @RequestBody _ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {
         _AssistantType assistantType = _AssistantType.fromCode(request.getAssistantType());
-        return chatService.chat(sessionId, request.getMessage(), assistantType, jwt);
+
+        return chatService.chat(sessionId, request.getMessage(), assistantType, jwt)
+                .collectList()
+                .flatMap(chunks -> {
+                    String combinedContent = chunks.stream()
+                            .filter(chunk -> "assistant".equals(chunk.getType()))
+                            .map(_ChatStreamChunk::getContent)
+                            .collect(Collectors.joining());
+                    Map<String, Object> metadata = chunks.stream()
+                            .filter(chunk -> "assistant".equals(chunk.getType()))
+                            .map(_ChatStreamChunk::getMetadata)
+                            .flatMap(m -> m.entrySet().stream())
+                            .collect(Collectors.toMap(
+                                    Map.Entry::getKey,
+                                    Map.Entry::getValue,
+                                    (a, b) -> b)
+                            );
+
+                    Map<String, Object> response = Map.of(
+                            "type", "assistant",
+                            "content", combinedContent,
+                            "metadata", metadata
+                    );
+
+                    return Mono.just(response);
+                });
     }
+
 }

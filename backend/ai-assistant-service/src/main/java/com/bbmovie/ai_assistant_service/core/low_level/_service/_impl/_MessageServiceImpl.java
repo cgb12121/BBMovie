@@ -6,6 +6,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._repository._ChatMessageR
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._SessionService;
 import com.example.common.dtos.CursorPageResponse;
+import dev.langchain4j.data.message.ChatMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Sort;
@@ -104,5 +105,10 @@ public class _MessageServiceImpl implements _MessageService {
                                         .build();
                             });
                 });
+    }
+
+    @Override
+    public List<ChatMessage> loadRecentMessages(UUID sessionId, int numMessages) {
+        return List.of();
     }
 }

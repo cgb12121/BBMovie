@@ -3,7 +3,7 @@ package com.bbmovie.ai_assistant_service.core.low_level._handler;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
-import com.bbmovie.ai_assistant_service.core.low_level._config._ToolsRegistry;
+import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.StreamingChatModel;

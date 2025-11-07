@@ -180,7 +180,7 @@ public class _ModelConfig {
         this.aiSelector = aiSelector;
     }
 
-    @Value("${langchain4j.ollama.url}")
+    @Value("${ai.ollama.url}")
     private String ollama_url;
 
     @Bean("_StreamingChatModel")

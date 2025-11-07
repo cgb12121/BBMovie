@@ -100,6 +100,7 @@ public class SecurityConfig {
         return activeProfile == null ||
                 activeProfile.isBlank() ||
                 activeProfile.equalsIgnoreCase("dev") ||
+                activeProfile.equalsIgnoreCase("docker") ||
                 activeProfile.equalsIgnoreCase("default") ||
                 activeProfile.equalsIgnoreCase("local");
     }

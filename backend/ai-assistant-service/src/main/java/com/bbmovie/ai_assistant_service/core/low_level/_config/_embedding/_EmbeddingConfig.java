@@ -17,7 +17,7 @@ public class _EmbeddingConfig {
         this.embeddingSelector = embeddingSelector;
     }
 
-    @Value("${langchain4j.ollama.url}")
+    @Value("${ai.ollama.url}")
     private String ollama_url;
 
     @Bean("_EmbeddingModel")

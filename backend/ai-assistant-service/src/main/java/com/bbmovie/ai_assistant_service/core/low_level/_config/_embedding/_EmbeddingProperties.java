@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 @Getter
 @Setter
 @Configuration
-@ConfigurationProperties(prefix = "embedding")
+@ConfigurationProperties(prefix = "ai.embedding")
 public class _EmbeddingProperties {
     private String modelName;
     private String index;

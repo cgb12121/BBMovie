@@ -77,6 +77,11 @@
             <artifactId>langchain4j-elasticsearch</artifactId>
             <version>${langchain4j.version}</version>
         </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-community-redis</artifactId>
+            <version>${langchain4j.version}</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/dev.langchain4j/langchain4j-experimental-sql -->
 <!--        <dependency>-->
 <!--            <groupId>dev.langchain4j</groupId>-->
@@ -137,6 +142,10 @@
             <groupId>io.asyncer</groupId>
             <artifactId>r2dbc-mysql</artifactId>
             <version>1.4.1</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

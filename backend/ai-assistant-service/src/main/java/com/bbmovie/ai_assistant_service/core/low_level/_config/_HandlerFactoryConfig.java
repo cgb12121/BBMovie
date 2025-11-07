@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelSelector;
+import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._SimpleStreamingHandlerFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ToolExecutingHandlerFactory;

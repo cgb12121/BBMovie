@@ -5,7 +5,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._model._Interacti
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
-import com.bbmovie.ai_assistant_service.core.low_level._config._ToolsRegistry;
+import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
@@ -20,6 +20,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.MonoSink;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -145,6 +146,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
 
                     return processToolRequestRecursively(afterToolRequest);
                 })
+                .subscribeOn(Schedulers.boundedElastic())
                 .then(Mono.fromRunnable(monoSink::success))
                 .doOnError(monoSink::error)
                 .subscribe();
