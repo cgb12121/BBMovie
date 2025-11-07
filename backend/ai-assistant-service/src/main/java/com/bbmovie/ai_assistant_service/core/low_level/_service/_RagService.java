@@ -1,7 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._service;
 
-import com.bbmovie.ai_assistant_service.core.low_level._dto._RagMovieDto;
-import com.bbmovie.ai_assistant_service.core.low_level._dto._RagRetrievalResult;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._RagMovieDto;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._RagRetrievalResult;
 import reactor.core.publisher.Mono;
 
 import java.util.List;

@@ -1,7 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._controller;
 
-import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatRequestDto;
-import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatStreamChunk;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._request._ChatRequestDto;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatService;
 import lombok.extern.slf4j.Slf4j;

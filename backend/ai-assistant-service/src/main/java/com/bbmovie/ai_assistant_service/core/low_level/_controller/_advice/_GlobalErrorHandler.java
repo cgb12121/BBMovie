@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.support.WebExchangeBindException;
+import org.springframework.web.reactive.resource.NoResourceFoundException;
 import org.springframework.web.server.ServerWebInputException;
 import reactor.core.publisher.Mono;
 
@@ -23,11 +24,13 @@ public class _GlobalErrorHandler {
     @ExceptionHandler(_SessionNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Mono<ApiResponse<Void>> handleSessionNotFound(_SessionNotFoundException ex) {
+        log.error("[_SessionNotFoundException] Session not found", ex);
         return Mono.just(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(ServerWebInputException.class)
     public Mono<ResponseEntity<ApiResponse<String>>> handleValidation(ServerWebInputException ex) {
+        log.error("[ServerWebInputException] Validation error: {}", ex.getMessage());
         return Mono.just(ResponseEntity.badRequest()
                 .body(ApiResponse.error(ex.getMessage())));
     }
@@ -41,9 +44,16 @@ public class _GlobalErrorHandler {
                         FieldError::getField,
                         (FieldError e) -> e.getDefaultMessage() != null ? e.getDefaultMessage() : "Invalid value"
                 ));
-
+        log.error("[WebExchangeBindException] Validation error: {}", errors);
         return Mono.just(ResponseEntity.badRequest()
                 .body(ApiResponse.validationError(errors)));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Mono<ApiResponse<Void>> handleResourceNotFound(NoResourceFoundException ex) {
+        log.error("Resource not found", ex);
+        return Mono.just(ApiResponse.error(ex.getMessage()));
     }
 
     @ExceptionHandler(Throwable.class)

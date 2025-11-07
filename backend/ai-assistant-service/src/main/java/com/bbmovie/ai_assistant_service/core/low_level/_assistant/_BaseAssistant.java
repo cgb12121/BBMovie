@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._assistant;
 
-import com.bbmovie.ai_assistant_service.core.low_level._dto._ChatStreamChunk;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantMetadata;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;

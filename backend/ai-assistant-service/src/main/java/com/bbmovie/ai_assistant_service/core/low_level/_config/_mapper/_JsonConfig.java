@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config._mapper;
 
-import com.bbmovie.ai_assistant_service.core.low_level._dto._RagMovieDto;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._RagMovieDto;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -8,10 +8,12 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 
 @Configuration
 public class _JsonConfig {
 
+    @Primary
     @Bean("_ObjectMapper")
     public ObjectMapper objectMapper() {
         return JsonMapper.builder()

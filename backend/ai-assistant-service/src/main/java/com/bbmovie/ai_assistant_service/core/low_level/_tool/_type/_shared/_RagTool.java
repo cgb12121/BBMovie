@@ -1,7 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._tool._type._shared;
 
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
-import com.bbmovie.ai_assistant_service.core.low_level._dto._RagRetrievalResult;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._RagRetrievalResult;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._RagService;

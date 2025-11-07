@@ -7,8 +7,11 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
+import org.springframework.lang.NonNull;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -18,9 +21,9 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table("chat_session")
-public class _ChatSession {
+public class _ChatSession implements Persistable<UUID> {
 
-    @Id
+    @Id @NonNull
     private UUID id;
 
     @Column("user_id")
@@ -39,4 +42,23 @@ public class _ChatSession {
     @LastModifiedDate
     @Column("updated_at")
     private Instant updatedAt;
+
+    @Transient // <-- Add a 'transient' (not saved to DB) flag
+    private boolean isNew;
+
+    @Override
+    @Transient
+    public boolean isNew() {
+        return this.isNew; // Tell Spring if we are new
+    }
+
+    public _ChatSession asNew() {
+        this.isNew = true;
+        return this;
+    }
+
+    @Override
+    public @NonNull UUID getId() {
+        return this.id;
+    }
 }

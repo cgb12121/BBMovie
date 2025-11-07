@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._dto;
+package com.bbmovie.ai_assistant_service.core.low_level._dto._response;
 
 import com.fasterxml.jackson.annotation.JsonAnyGetter;
 import com.fasterxml.jackson.annotation.JsonAnySetter;

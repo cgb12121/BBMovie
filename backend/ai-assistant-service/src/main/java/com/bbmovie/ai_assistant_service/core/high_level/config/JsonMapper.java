@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.global_config;
+package com.bbmovie.ai_assistant_service.core.high_level.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.context.annotation.Bean;
