@@ -15,7 +15,6 @@ public class _PromptLoader {
     private static final String PROMPT_BASE_PATH = "prompts/";
     private static final String SYSTEM_DIR = PROMPT_BASE_PATH + "system/";
     private static final String PERSONAL_DIR = PROMPT_BASE_PATH + "personal/";
-    private static final String TOOL_DIR = PROMPT_BASE_PATH + "tool-instruction/";
 
     private _PromptLoader() {}
 

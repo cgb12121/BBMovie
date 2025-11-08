@@ -13,7 +13,7 @@ import java.util.List;
 
 /**
  * These builder options control how the LLM behaves —
- * affecting creativity, determinism, context size, repetition handling and runtime diagnostics.
+ * affecting creativity, determinism, context size, repetition handling, and runtime diagnostics.
  *
  * <p>All options are optional. If not specified, sensible defaults are used.</p>
  *
@@ -101,7 +101,7 @@ import java.util.List;
  *
  *   <li><b>seed(long)</b> — Random seed for deterministic generation.
  *       <ul>
- *         <li>Same input + same seed = identical output</li>
+ *         <li>Same input and same seed = identical output</li>
  *       </ul>
  *   </li>
  * </ul>
@@ -183,8 +183,23 @@ public class _ModelConfig {
     @Value("${ai.ollama.url}")
     private String ollama_url;
 
-    @Bean("_StreamingChatModel")
-    public StreamingChatModel _StreamingChatModel() {
+    @Bean("_ThinkingModel")
+    public StreamingChatModel _ThinkingModel() {
+        return _baseModel()
+                .think(true)
+                .returnThinking(true)
+                .build();
+    }
+
+    @Bean("_NonThinkingModel")
+    public StreamingChatModel _NonThinkingModel() {
+        return _baseModel()
+                .think(false)
+                .returnThinking(false)
+                .build();
+    }
+
+    public OllamaStreamingChatModel.OllamaStreamingChatModelBuilder _baseModel() {
         return OllamaStreamingChatModel.builder()
                 .baseUrl(ollama_url)
                 .modelName(aiSelector.getModelName())
@@ -196,12 +211,9 @@ public class _ModelConfig {
                 .numPredict(1024)
                 .seed(2004)
                 .responseFormat(ResponseFormat.TEXT) // Can be customized
-                .think(true)
-                .returnThinking(true)
                 .timeout(Duration.ofMinutes(1))
                 .logRequests(true)
                 .logResponses(true)
-                .listeners(List.of(new _ChatListener()))
-                .build();
+                .listeners(List.of(new _ChatListener()));
     }
 }

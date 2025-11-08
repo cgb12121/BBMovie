@@ -5,7 +5,6 @@ import dev.langchain4j.community.store.memory.chat.redis.RedisChatMemoryStore;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.memory.chat.MessageWindowChatMemory;
 import dev.langchain4j.store.memory.chat.ChatMemoryStore;
-import dev.langchain4j.store.memory.chat.InMemoryChatMemoryStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -16,11 +15,6 @@ import org.springframework.context.annotation.Configuration;
  */
 @Configuration
 public class _MemoryConfig {
-
-    @Bean("_InMemoryMemoryStore")
-    public ChatMemoryStore _InMemoryMemoryStore() {
-        return new InMemoryChatMemoryStore();
-    }
 
     @Bean("_RedisMemoryStore")
     public ChatMemoryStore _RedisMemoryStore(_RedisProperties properties) {
@@ -33,12 +27,13 @@ public class _MemoryConfig {
                 .build();
     }
 
+
     @Bean("_ChatMemoryProvider")
     public ChatMemoryProvider _ChatMemoryProvider(
             @Qualifier("_RedisMemoryStore") ChatMemoryStore store) {
         return sessionId -> MessageWindowChatMemory.builder()
                 .id(sessionId)
-                .maxMessages(50)
+                .maxMessages(10)
                 .chatMemoryStore(store)
                 .build();
     }

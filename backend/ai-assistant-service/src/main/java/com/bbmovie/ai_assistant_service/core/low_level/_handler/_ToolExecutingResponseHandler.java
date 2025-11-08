@@ -1,6 +1,8 @@
 package com.bbmovie.ai_assistant_service.core.low_level._handler;
 
+import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AiMode;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
@@ -11,7 +13,6 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;
-import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
@@ -31,7 +32,7 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
 
     private final UUID sessionId;
     private final ChatMemory chatMemory;
-    private final StreamingChatModel chatModel;
+    private final _ModelFactory modelFactory;
     private final SystemMessage systemPrompt;
     private final _ToolsRegistry toolRegistry;
     private final _MessageService messageService;
@@ -42,13 +43,13 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
 
     public _ToolExecutingResponseHandler(
             UUID sessionId, ChatMemory chatMemory, FluxSink<String> sink, MonoSink<Void> monoSink,
-            StreamingChatModel chatModel, SystemMessage systemPrompt, _ToolsRegistry toolRegistry,
+            _ModelFactory modelFactory, SystemMessage systemPrompt, _ToolsRegistry toolRegistry,
             _MessageService messageService, _ToolExecutionService toolExecutionService,
             _AuditService auditService, long requestStartTime) {
         super(sink, monoSink);
         this.sessionId = sessionId;
         this.chatMemory = chatMemory;
-        this.chatModel = chatModel;
+        this.modelFactory = modelFactory;
         this.systemPrompt = systemPrompt;
         this.toolRegistry = toolRegistry;
         this.messageService = messageService;
@@ -107,9 +108,10 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
                             log.error("Audit failed but continuing", e);
                             return Mono.empty();
                         }),
-                        saveMono
+                saveMono
         )
         .then(Mono.fromRunnable(monoSink::success))
+        .doFinally(signal -> monoSink.success())
         .doOnError(monoSink::error)
         .subscribe();
     }
@@ -148,15 +150,16 @@ public class _ToolExecutingResponseHandler extends _BaseResponseHandler {
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .then(Mono.fromRunnable(monoSink::success))
+                .doFinally(signal -> monoSink.success())
                 .doOnError(monoSink::error)
                 .subscribe();
     }
 
     private Mono<Void> processToolRequestRecursively(ChatRequest chatRequest) {
         return Mono.create(recursiveSink ->
-                chatModel.chat(chatRequest, new _ToolExecutingResponseHandler(
+                modelFactory.getModel(_AiMode.THINKING).chat(chatRequest, new _ToolExecutingResponseHandler(
                         sessionId, chatMemory, sink, recursiveSink,
-                        chatModel, systemPrompt, toolRegistry,
+                        modelFactory, systemPrompt, toolRegistry,
                         messageService, toolExecutionService, auditService,
                         System.currentTimeMillis()
                 ))

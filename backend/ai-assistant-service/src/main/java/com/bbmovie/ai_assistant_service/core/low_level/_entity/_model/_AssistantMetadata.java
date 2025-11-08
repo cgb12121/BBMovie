@@ -7,7 +7,7 @@ import java.util.List;
 
 @Data
 @Builder
-public class AssistantMetadata {
+public class _AssistantMetadata {
     private _AssistantType type;
     private String modelName;
     private String description;

@@ -1,7 +1,9 @@
 package com.bbmovie.ai_assistant_service.core.low_level._assistant;
 
+import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelSelector;
-import com.bbmovie.ai_assistant_service.core.low_level._entity._model.AssistantMetadata;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AiMode;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantMetadata;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._service._impl._AuditServiceImpl;
@@ -21,20 +23,20 @@ public class _ModAssistant extends _BaseAssistant {
 
     @Autowired
     public _ModAssistant(
-            @Qualifier("_StreamingChatModel") StreamingChatModel chatModel,
+            _ModelFactory modelFactory,
             @Qualifier("_ChatMemoryProvider") ChatMemoryProvider chatMemoryProvider,
             @Qualifier("_ModToolRegistry") _ToolsRegistry toolRegistry,
             @Qualifier("_ModHandlerFactory") _ChatResponseHandlerFactory handlerFactory,
             _MessageServiceImpl chatMessageService, _AuditServiceImpl auditService,
             _ModelSelector aiSelector, _RagService ragService) {
         super(
-                chatModel,
+                modelFactory,
                 chatMemoryProvider,
                 chatMessageService,
                 auditService,
                 toolRegistry,
                 aiSelector.getSystemPrompt(null),
-                buildMetadata(chatModel, toolRegistry),
+                buildMetadata(modelFactory.getModel(_AiMode.THINKING), toolRegistry),
                 ragService
         );
         this.handlerFactory = handlerFactory;
@@ -50,8 +52,8 @@ public class _ModAssistant extends _BaseAssistant {
         return this.handlerFactory;
     }
 
-    private static AssistantMetadata buildMetadata(StreamingChatModel model, _ToolsRegistry registry) {
-        return AssistantMetadata.builder()
+    private static _AssistantMetadata buildMetadata(StreamingChatModel model, _ToolsRegistry registry) {
+        return _AssistantMetadata.builder()
                 .type(_AssistantType.MOD)
                 .modelName(model.toString())
                 .description("Moderator assistant for content management and user support.")

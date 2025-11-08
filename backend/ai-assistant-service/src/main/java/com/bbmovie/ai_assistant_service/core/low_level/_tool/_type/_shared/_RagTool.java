@@ -38,22 +38,30 @@ public class _RagTool implements _AiTools {
             name = "retrieve_rag_movies",
             value = """
                     Use this tool to retrieve semantically relevant movie documents based on user queries.
-                    Ideal for movie recommendations, scientific movies, romance, genres, or contextual enrichment.
                     Inputs:
                         - sessionId (UUID): Chat session identifier
-                        - queryMovie (String): The user's movie-related query
-                        - topK (int): Number of relevant documents to retrieve (max 6 recommended)
+                        - queryMovies (String): The user's movie(s)-related query
+                        - topK (int): Number of relevant documents to retrieve (max 6)
                     Output:
                         - A structured _RagRetrievalResult containing ranked movie metadata and descriptions.
+                    REMEMBER:
+                        - Never inform the existence of "sessionId" parameter nor ask user to provide "sessionId".
+                          The system will pass the sessionId to you automatically in the user's message.
+                        - If user does not provider topK, the default value should be 6
+                        - If user gives topK greater than 6, only find maximum 6 and
+                          tell user that is what you can only search up to 6 movies.
+                        - If the result are empty then tell user there are no relevant movies
+                          or the search engine is not available (Should not use this reason unless the results from
+                          the tool are empty more than 3 times)
                     """
     )
-    public _RagRetrievalResult retrieveRagMovies(UUID sessionId, String queryMovie, int topK) {
+    public _RagRetrievalResult retrieveRagMovies(UUID sessionId, String queryMovies, int topK) {
         long start = System.currentTimeMillis();
         log.info("[tool][RAG] Invoked retrieveRagMovies(sessionId={}, queryMovie='{}', topK={})",
-                sessionId, queryMovie, topK);
+                sessionId, queryMovies, topK);
 
         try {
-            _RagRetrievalResult result = ragService.retrieveMovieContext(sessionId, queryMovie, topK)
+            _RagRetrievalResult result = ragService.retrieveMovieContext(sessionId, queryMovies, topK)
                     .subscribeOn(Schedulers.boundedElastic())
                     .blockOptional(Duration.ofSeconds(10))
                     .orElseGet(() -> {
@@ -72,7 +80,7 @@ public class _RagTool implements _AiTools {
                             _InteractionType.TOOL_EXECUTION_RESULT,
                             Map.of(
                                     "tool", "retrieve_rag_movies",
-                                    "query", queryMovie,
+                                    "query", queryMovies,
                                     "topK", topK,
                                     "results", resultCount
                             ),
@@ -94,7 +102,7 @@ public class _RagTool implements _AiTools {
                             _InteractionType.TOOL_EXECUTION_RESULT,
                             Map.of(
                                     "tool", "retrieve_rag_movies",
-                                    "query", queryMovie,
+                                    "query", queryMovies,
                                     "error", e.getMessage()
                             ),
                             metrics

@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config;
 
+import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelSelector;
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
@@ -9,7 +10,6 @@ import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
 import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.model.chat.StreamingChatModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -32,7 +32,7 @@ public class _HandlerFactoryConfig {
             _MessageService messageService,
             _ToolExecutionService toolExecutionService,
             _AuditService auditService,
-            @Qualifier("_StreamingChatModel") StreamingChatModel chatModel) {
+            _ModelFactory modelFactory) {
 
         SystemMessage systemPrompt = aiSelector.getSystemPrompt(null);
 
@@ -41,7 +41,7 @@ public class _HandlerFactoryConfig {
                 messageService,
                 toolExecutionService,
                 auditService,
-                chatModel,
+                modelFactory,
                 systemPrompt
         );
     }
@@ -53,7 +53,7 @@ public class _HandlerFactoryConfig {
             _MessageService messageService,
             _ToolExecutionService toolExecutionService,
             _AuditService auditService,
-            @Qualifier("_StreamingChatModel") StreamingChatModel chatModel) {
+            _ModelFactory modelFactory) {
 
         SystemMessage systemPrompt = aiSelector.getSystemPrompt(null);
 
@@ -62,7 +62,7 @@ public class _HandlerFactoryConfig {
                 messageService,
                 toolExecutionService,
                 auditService,
-                chatModel,
+                modelFactory,
                 systemPrompt
         );
     }
@@ -74,7 +74,7 @@ public class _HandlerFactoryConfig {
             _MessageService messageService,
             _ToolExecutionService toolExecutionService,
             _AuditService auditService,
-            @Qualifier("_StreamingChatModel") StreamingChatModel chatModel) {
+            _ModelFactory modelFactory) {
 
         SystemMessage systemPrompt = aiSelector.getSystemPrompt(null);
 
@@ -83,7 +83,7 @@ public class _HandlerFactoryConfig {
                 messageService,
                 toolExecutionService,
                 auditService,
-                chatModel,
+                modelFactory,
                 systemPrompt
         );
     }

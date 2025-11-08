@@ -37,7 +37,7 @@ public class _ChatController {
             @RequestBody @Valid _ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {
         _AssistantType assistantType = _AssistantType.fromCode(request.getAssistantType());
-        return chatService.chat(sessionId, request.getMessage(), assistantType, jwt)
+        return chatService.chat(sessionId, request.getMessage(), request.getAiMode(), assistantType, jwt)
                 .map(chunk -> ServerSentEvent.builder(chunk).build())
                 .doOnError(ex -> log.error("Streaming error for session {}: {}", sessionId, ex.getMessage()));
     }
@@ -50,7 +50,7 @@ public class _ChatController {
             @AuthenticationPrincipal Jwt jwt) {
         _AssistantType assistantType = _AssistantType.fromCode(request.getAssistantType());
 
-        return chatService.chat(sessionId, request.getMessage(), assistantType, jwt)
+        return chatService.chat(sessionId, request.getMessage(), request.getAiMode(), assistantType, jwt)
                 .collectList()
                 .flatMap(chunks -> {
                     String combinedContent = chunks.stream()
@@ -76,5 +76,4 @@ public class _ChatController {
                     return Mono.just(response);
                 });
     }
-
 }

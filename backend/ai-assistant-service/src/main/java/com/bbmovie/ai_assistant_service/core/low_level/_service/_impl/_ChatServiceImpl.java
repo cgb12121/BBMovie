@@ -2,6 +2,7 @@ package com.bbmovie.ai_assistant_service.core.low_level._service._impl;
 
 import com.bbmovie.ai_assistant_service.core.low_level._assistant._Assistant;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AiMode;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._SessionService;
@@ -39,7 +40,7 @@ public class _ChatServiceImpl implements _ChatService {
     }
 
     @Override
-    public Flux<_ChatStreamChunk> chat(UUID sessionId, String message, _AssistantType assistantType, Jwt jwt) {
+    public Flux<_ChatStreamChunk> chat(UUID sessionId, String message, _AiMode aiMode, _AssistantType assistantType, Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         String userRole = jwt.getClaimAsString(ROLE);
 
@@ -50,7 +51,7 @@ public class _ChatServiceImpl implements _ChatService {
                         return Flux.error(new IllegalArgumentException("Unknown assistant type: " + assistantType));
                     }
 
-                    return assistant.processMessage(sessionId, message, userRole)
+                    return assistant.processMessage(sessionId, message, aiMode, userRole)
                             .startWith(_ChatStreamChunk.system("Assistant is thinking..."))
                             .concatWithValues(_ChatStreamChunk.system("Done"));
                 });

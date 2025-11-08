@@ -1,5 +1,6 @@
-package com.bbmovie.ai_assistant_service.core.low_level._tool;
+package com.bbmovie.ai_assistant_service.core.low_level._tool._type._user;
 
+import com.bbmovie.ai_assistant_service.core.low_level._tool._AiTools;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import org.springframework.beans.factory.annotation.Qualifier;
