@@ -13,7 +13,6 @@ public interface _MessageService {
 
     Mono<_ChatMessage> saveAiResponse(UUID sessionId, String content);
 
-    Mono<CursorPageResponse<_ChatMessage>> getMessagesWithCursor(UUID sessionId, UUID userId, String cursor, int size);
-
-    List<ChatMessage> loadRecentMessages(UUID sessionId, int numMessages);
+    Mono<CursorPageResponse<_ChatMessage>> getMessagesWithCursor(
+            UUID sessionId, UUID userId, String cursor, int size);
 }

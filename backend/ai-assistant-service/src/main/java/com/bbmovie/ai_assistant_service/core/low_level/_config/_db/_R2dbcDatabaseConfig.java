@@ -2,6 +2,9 @@ package com.bbmovie.ai_assistant_service.core.low_level._config._db;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._db._converter.StringToUuidConverter;
 import com.bbmovie.ai_assistant_service.core.low_level._config._db._converter.UuidToStringConverter;
+import io.r2dbc.proxy.ProxyConnectionFactory;
+import io.r2dbc.proxy.core.*;
+import io.r2dbc.proxy.listener.ProxyExecutionListener;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
@@ -40,11 +43,11 @@ import java.util.List;
 )
 @EnableTransactionManagement
 @EnableR2dbcAuditing
-public class _DatabaseConfig {
+public class _R2dbcDatabaseConfig {
 
     @Bean
     @Qualifier("_ConnectionFactory")
-    public ConnectionFactory _ConnectionFactory(_R2dbcProperties properties) {
+    public ConnectionFactory _ConnectionFactory(_R2dbcProperties properties, ProxyExecutionListener listener) {
         ConnectionFactoryOptions options = ConnectionFactoryOptions.builder()
                 .option(ConnectionFactoryOptions.DRIVER, properties.getDriver())
                 .option(ConnectionFactoryOptions.HOST, properties.getHost())
@@ -53,7 +56,13 @@ public class _DatabaseConfig {
                 .option(ConnectionFactoryOptions.PASSWORD, properties.getPassword())
                 .option(ConnectionFactoryOptions.DATABASE, properties.getDatabase())
                 .build();
-        return ConnectionFactories.get(options);
+
+        ConnectionFactory base = ConnectionFactories.get(options);
+
+
+        return ProxyConnectionFactory.builder(base)
+                .listener(listener)
+                .build();
     }
 
     @Bean

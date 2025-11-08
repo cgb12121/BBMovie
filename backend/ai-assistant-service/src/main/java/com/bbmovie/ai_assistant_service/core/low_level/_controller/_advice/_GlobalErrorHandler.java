@@ -42,7 +42,9 @@ public class _GlobalErrorHandler {
         Map<String, String> errors = ex.getFieldErrors().stream()
                 .collect(Collectors.toMap(
                         FieldError::getField,
-                        (FieldError e) -> e.getDefaultMessage() != null ? e.getDefaultMessage() : "Invalid value"
+                        (FieldError e) -> e.getDefaultMessage() != null
+                                ? e.getDefaultMessage()
+                                : "Invalid value"
                 ));
         log.error("[WebExchangeBindException] Validation error: {}", errors);
         return Mono.just(ResponseEntity.badRequest()

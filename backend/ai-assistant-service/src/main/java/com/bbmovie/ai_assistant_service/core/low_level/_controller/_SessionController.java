@@ -8,6 +8,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatSessi
 import com.bbmovie.ai_assistant_service.core.low_level._service._SessionService;
 import com.example.common.dtos.ApiResponse;
 import com.example.common.dtos.CursorPageResponse;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -43,14 +44,17 @@ public class _SessionController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<ApiResponse<_ChatSessionResponse>> createSession(
-            @RequestBody _CreateSessionDto dto, @AuthenticationPrincipal Jwt jwt) {
+            @RequestBody @Valid _CreateSessionDto dto,
+            @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         return sessionService.createSession(userId, dto.getSessionName())
                 .map(ApiResponse::success);
     }
 
     @DeleteMapping("/{sessionId}")
-    public Mono<ApiResponse<String>> deleteSession(@PathVariable UUID sessionId, @AuthenticationPrincipal Jwt jwt) {
+    public Mono<ApiResponse<String>> deleteSession(
+            @PathVariable UUID sessionId,
+            @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         return sessionService.deleteSession(sessionId, userId)
                 .then(Mono.fromCallable(() -> ApiResponse.success("Session deleted successfully")));
@@ -59,7 +63,7 @@ public class _SessionController {
     @PatchMapping("/{sessionId}/name")
     public Mono<ApiResponse<_ChatSessionResponse>> updateSessionName(
             @PathVariable UUID sessionId,
-            @RequestBody _UpdateSessionNameDto dto,
+            @RequestBody @Valid _UpdateSessionNameDto dto,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         return sessionService.updateSessionName(sessionId, userId, dto.getNewName())
@@ -69,7 +73,7 @@ public class _SessionController {
     @PatchMapping("/{sessionId}/archived")
     public Mono<ApiResponse<_ChatSessionResponse>> setSessionArchived(
             @PathVariable UUID sessionId,
-            @RequestBody _SetSessionArchivedDto dto,
+            @RequestBody @Valid _SetSessionArchivedDto dto,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         return sessionService.setSessionArchived(sessionId, userId, dto.isArchived())
@@ -88,7 +92,7 @@ public class _SessionController {
 
     @DeleteMapping("/archived")
     public Mono<ApiResponse<String>> deleteArchivedSessions(
-            @RequestBody _DeleteArchivedSessionsDto dto,
+            @RequestBody @Valid _DeleteArchivedSessionsDto dto,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         return sessionService.deleteArchivedSessions(dto.getSessionIds(), userId)

@@ -4,6 +4,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._dto._request._ChatReques
 import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatService;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -33,7 +34,7 @@ public class _ChatController {
     @PostMapping(value = "/{sessionId}", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<_ChatStreamChunk>> streamChat(
             @PathVariable UUID sessionId,
-            @RequestBody _ChatRequestDto request,
+            @RequestBody @Valid _ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {
         _AssistantType assistantType = _AssistantType.fromCode(request.getAssistantType());
         return chatService.chat(sessionId, request.getMessage(), assistantType, jwt)
@@ -45,7 +46,7 @@ public class _ChatController {
     @PostMapping("/{sessionId}/test")
     public Mono<Map<String, Object>> nonStreamChat(
             @PathVariable UUID sessionId,
-            @RequestBody _ChatRequestDto request,
+            @RequestBody @Valid _ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {
         _AssistantType assistantType = _AssistantType.fromCode(request.getAssistantType());
 

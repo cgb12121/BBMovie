@@ -9,11 +9,6 @@ import com.bbmovie.ai_assistant_service.core.low_level._service._SessionService;
 import com.example.common.dtos.CursorPageResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.r2dbc.core.R2dbcEntityOperations;
-import org.springframework.data.relational.core.query.Criteria;
-import org.springframework.data.relational.core.query.Query;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -28,15 +23,11 @@ import java.util.UUID;
 @Service
 public class _SessionServiceImpl implements _SessionService {
 
-    private final R2dbcEntityOperations r2dbcOperations;
     private final _ChatSessionRepository sessionRepository;
     private final _ChatMessageRepository messageRepository;
 
     @Autowired
-    public _SessionServiceImpl(
-            @Qualifier("_EntityOperations") R2dbcEntityOperations r2dbcOperations,
-            _ChatSessionRepository sessionRepository, _ChatMessageRepository messageRepository) {
-        this.r2dbcOperations = r2dbcOperations;
+    public _SessionServiceImpl(_ChatSessionRepository sessionRepository, _ChatMessageRepository messageRepository) {
         this.sessionRepository = sessionRepository;
         this.messageRepository = messageRepository;
     }
@@ -44,24 +35,14 @@ public class _SessionServiceImpl implements _SessionService {
     @Override
     public Mono<CursorPageResponse<_ChatSessionResponse>> activeSessionsWithCursor(
             UUID userId, String cursor, int size) {
+
         Instant cursorTime = cursor != null
                 ? Instant.parse(new String(Base64.getDecoder().decode(cursor)))
                 : Instant.now();
 
-        Criteria criteria = Criteria
-                .where("user_id").is(userId)
-                .and("updated_at").lessThan(cursorTime)
-                .and("is_archived").isFalse();
+        int limit = size + 1;
 
-        Sort sort = Sort.by(Sort.Order.desc("updated_at"));
-        Query query = Query.query(criteria)
-                .sort(sort)
-                .limit(size + 1);  // Fetch one extra to check if more exist
-
-        return r2dbcOperations
-                .select(_ChatSession.class)
-                .matching(query)
-                .all()
+        return sessionRepository.findActiveSessionsWithCursor(userId, cursorTime, limit)
                 .collectList()
                 .map(sessions -> {
                     boolean hasMore = sessions.size() > size;
@@ -169,19 +150,9 @@ public class _SessionServiceImpl implements _SessionService {
                 ? Instant.parse(new String(Base64.getDecoder().decode(cursor)))
                 : Instant.now();
 
-        Criteria criteria = Criteria.where("user_id").is(userId)
-                .and("is_archived").isTrue()
-                .and("updated_at").lessThan(cursorTime);
+        int limit = size + 1;
 
-        Sort sort = Sort.by(Sort.Order.desc("updated_at"));
-        Query query = Query.query(criteria)
-                .sort(sort)
-                .limit(size + 1);  // Fetch one extra
-
-        return r2dbcOperations
-                .select(_ChatSession.class)
-                .matching(query)
-                .all()
+        return  sessionRepository.findArchivedSessionsWithCursor(userId, cursorTime, limit)
                 .collectList()
                 .map(sessions -> {
                     boolean hasMore = sessions.size() > size;
