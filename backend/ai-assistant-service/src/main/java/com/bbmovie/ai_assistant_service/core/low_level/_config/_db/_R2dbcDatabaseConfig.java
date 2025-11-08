@@ -9,6 +9,7 @@ import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,7 +48,8 @@ public class _R2dbcDatabaseConfig {
 
     @Bean
     @Qualifier("_ConnectionFactory")
-    public ConnectionFactory _ConnectionFactory(_R2dbcProperties properties, ProxyExecutionListener listener) {
+    public ConnectionFactory _ConnectionFactory(
+            _R2dbcProperties properties, ObjectProvider<ProxyExecutionListener> listenerProvider) {
         ConnectionFactoryOptions options = ConnectionFactoryOptions.builder()
                 .option(ConnectionFactoryOptions.DRIVER, properties.getDriver())
                 .option(ConnectionFactoryOptions.HOST, properties.getHost())
@@ -59,6 +61,13 @@ public class _R2dbcDatabaseConfig {
 
         ConnectionFactory base = ConnectionFactories.get(options);
 
+        ProxyExecutionListener listener = listenerProvider.getIfAvailable();
+
+        if (listener == null) {
+            return ProxyConnectionFactory
+                    .builder(base)
+                    .build();
+        }
 
         return ProxyConnectionFactory.builder(base)
                 .listener(listener)
