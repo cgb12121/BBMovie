@@ -12,7 +12,7 @@ import java.util.List;
  * Anonymous tools are not registered as the anonymous users don't have access to tools.
  */
 @Configuration
-public class _ToolFactory {
+public class _ToolFactoryConfig {
 
     @Bean
     @Qualifier("_AdminToolRegistry")

@@ -18,6 +18,7 @@ import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
 import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -127,7 +128,9 @@ public abstract class _BaseAssistant implements _Assistant {
         return Mono.create(monoSink -> {
             ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
             try {
-                modelFactory.getModel(aiMode).chat(chatRequest, getHandlerFactory().create(sessionId, chatMemory, sink, monoSink));
+                StreamingChatResponseHandler handler = getHandlerFactory()
+                         .create(sessionId, chatMemory, sink, monoSink, aiMode);
+                modelFactory.getModel(aiMode).chat(chatRequest, handler);
             } catch (Exception ex) {
                 log.error("[streaming] chatModel.chat failed: {}", ex.getMessage(), ex);
                 // Ensure both sinks are terminated on the initial error
