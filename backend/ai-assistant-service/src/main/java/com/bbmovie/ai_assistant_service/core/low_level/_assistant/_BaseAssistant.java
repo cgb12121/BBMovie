@@ -125,10 +125,14 @@ public abstract class _BaseAssistant implements _Assistant {
             messages.addAll(passConversation);
             messages.add(UserMessage.from(finalMessage));
 
-            return ChatRequest.builder()
-                    .messages(messages)
-                    .toolSpecifications(toolRegistry.getToolSpecifications())
-                    .build();
+            ChatRequest.Builder builder = ChatRequest.builder()
+                    .messages(messages);
+
+            if (toolRegistry != null) {
+                builder.toolSpecifications(toolRegistry.getToolSpecifications());
+            }
+
+            return builder.build();
         } catch (Exception e) {
             log.error("[prepareChatRequest] Failed to get memory: {}", e.getMessage(), e);
             throw e;

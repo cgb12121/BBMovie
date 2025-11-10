@@ -12,6 +12,7 @@ import dev.langchain4j.model.chat.response.ChatResponseMetadata;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -81,6 +82,10 @@ public class _SimpleResponseProcessor implements _ResponseProcessor {
         }
 
         public _SimpleResponseProcessor build() {
+            Objects.requireNonNull(sessionId, "sessionId must not be null");
+            Objects.requireNonNull(chatMemory, "chatMemory must not be null");
+            Objects.requireNonNull(auditService, "auditService must not be null");
+            Objects.requireNonNull(messageService, "messageService must not be null");
             return new _SimpleResponseProcessor(this);
         }
     }

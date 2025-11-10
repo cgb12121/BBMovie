@@ -10,6 +10,7 @@ import dev.langchain4j.model.chat.response.ChatResponseMetadata;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
+import java.util.Objects;
 import java.util.UUID;
 
 public class _ToolResponseProcessor implements _ResponseProcessor {
@@ -99,6 +100,12 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
         }
 
         public _ToolResponseProcessor build() {
+            Objects.requireNonNull(sessionId, "sessionId must not be null");
+            Objects.requireNonNull(aiMode, "aiMode must not be null");
+            Objects.requireNonNull(chatMemory, "chatMemory must not be null");
+            Objects.requireNonNull(systemPrompt, "systemPrompt must not be null");
+            Objects.requireNonNull(toolWorkflowFacade, "toolWorkflowFacade must not be null");
+            Objects.requireNonNull(sink, "sink must not be null");
             return new _ToolResponseProcessor(this);
         }
     }
