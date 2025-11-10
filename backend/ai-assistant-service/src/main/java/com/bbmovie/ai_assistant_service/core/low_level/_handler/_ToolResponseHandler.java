@@ -65,7 +65,7 @@ public class _ToolResponseHandler extends _BaseResponseHandler {
         _AuditRecord auditRecord = _AuditRecord.builder()
                 .sessionId(sessionId)
                 .type(_InteractionType.ERROR)
-                .details(error)
+                .details(error.getMessage())
                 .metrics(metrics)
                 .build();
 

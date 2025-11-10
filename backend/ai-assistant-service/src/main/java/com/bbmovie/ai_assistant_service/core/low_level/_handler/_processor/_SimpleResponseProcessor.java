@@ -37,7 +37,7 @@ public class _SimpleResponseProcessor implements _ResponseProcessor {
         _AuditRecord auditRecord = _AuditRecord.builder()
                 .sessionId(sessionId)
                 .type(_InteractionType.AI_COMPLETE_RESULT)
-                .details(aiMessage)
+                .details(aiMessage.text())
                 .metrics(metrics)
                 .build();
 

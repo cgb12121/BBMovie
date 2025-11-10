@@ -31,7 +31,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
+/**
+ * @deprecated Legacy default response handler.
+ * <p>
+ * This God class will stay here for a while when the reworked response handlers work smoothly
+ */
 @Slf4j
+@Deprecated(since = "1.0.0", forRemoval = true)
 public class _DefaultResponseHandler extends _BaseResponseHandler {
 
     private final UUID sessionId;
@@ -85,7 +91,7 @@ public class _DefaultResponseHandler extends _BaseResponseHandler {
         _AuditRecord auditRecord = _AuditRecord.builder()
                 .sessionId(sessionId)
                 .type(_InteractionType.ERROR)
-                .details(error)
+                .details(error.getMessage())
                 .metrics(metrics)
                 .build();
         auditService.recordInteraction(auditRecord)

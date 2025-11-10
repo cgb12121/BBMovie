@@ -1,13 +1,14 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config;
 
-import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelSelector;
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
-import com.bbmovie.ai_assistant_service.core.low_level._handler._DefaultResponseHandler;
+import com.bbmovie.ai_assistant_service.core.low_level._handler._ToolResponseHandler;
+import com.bbmovie.ai_assistant_service.core.low_level._handler._processor._SimpleResponseProcessor;
+import com.bbmovie.ai_assistant_service.core.low_level._handler._processor._ToolResponseProcessor;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
-import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
+import com.bbmovie.ai_assistant_service.core.low_level._service._facade._ToolWorkflowFacade;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._PromptLoader;
 import dev.langchain4j.data.message.SystemMessage;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,16 +23,14 @@ public class _HandlerFactoryConfig {
     public _ChatResponseHandlerFactory adminHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ToolExecutionService toolExecutionService,
-            _ModelFactory modelFactory,
+            _ToolWorkflowFacade toolWorkflowFacade,
             _ModelSelector modelSelector,
             @Qualifier("_AdminToolRegistry") _ToolsRegistry toolRegistry
     ) {
         return createHandlerFactory(
                 auditService,
                 messageService,
-                toolExecutionService,
-                modelFactory,
+                toolWorkflowFacade,
                 modelSelector,
                 toolRegistry,
                 true
@@ -43,16 +42,14 @@ public class _HandlerFactoryConfig {
     public _ChatResponseHandlerFactory modHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ToolExecutionService toolExecutionService,
-            _ModelFactory modelFactory,
+            _ToolWorkflowFacade toolWorkflowFacade,
             _ModelSelector modelSelector,
             @Qualifier("_ModToolRegistry") _ToolsRegistry toolRegistry
     ) {
         return createHandlerFactory(
                 auditService,
                 messageService,
-                toolExecutionService,
-                modelFactory,
+                toolWorkflowFacade,
                 modelSelector,
                 toolRegistry,
                 true
@@ -64,36 +61,32 @@ public class _HandlerFactoryConfig {
     public _ChatResponseHandlerFactory userHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ToolExecutionService toolExecutionService,
-            _ModelFactory modelFactory,
+            _ToolWorkflowFacade toolWorkflowFacade,
             _ModelSelector modelSelector,
             @Qualifier("_UserToolRegistry") _ToolsRegistry toolRegistry
     ) {
         return createHandlerFactory(
                 auditService,
                 messageService,
-                toolExecutionService,
-                modelFactory,
+                toolWorkflowFacade,
                 modelSelector,
                 toolRegistry,
                 true
         );
     }
 
-    // This factory is for assistants that DO NOT use tools.
     @Bean
     @Qualifier("_SimpleHandlerFactory")
     public _ChatResponseHandlerFactory simpleHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ModelFactory modelFactory,
+            _ToolWorkflowFacade toolWorkflowFacade,
             _ModelSelector modelSelector
     ) {
         return createHandlerFactory(
                 auditService,
                 messageService,
-                null,
-                modelFactory,
+                toolWorkflowFacade,
                 modelSelector,
                 null,
                 false
@@ -103,8 +96,7 @@ public class _HandlerFactoryConfig {
     private _ChatResponseHandlerFactory createHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ToolExecutionService toolExecutionService,
-            _ModelFactory modelFactory,
+            _ToolWorkflowFacade toolWorkflowFacade,
             _ModelSelector modelSelector,
             _ToolsRegistry toolRegistry,
             boolean enablePersona) {
@@ -112,20 +104,36 @@ public class _HandlerFactoryConfig {
         SystemMessage systemPrompt = _PromptLoader.loadSystemPrompt(
                 enablePersona, modelSelector.getActiveModel(), null);
 
-        return (sessionId, chatMemory, sink, monoSink, aiMode) ->
-                new _DefaultResponseHandler.Builder()
-                        .sessionId(sessionId)
-                        .aiMode(aiMode)
-                        .chatMemory(chatMemory)
-                        .modelFactory(modelFactory)
-                        .systemPrompt(systemPrompt)
-                        .toolRegistry(toolRegistry)
-                        .messageService(messageService)
-                        .toolExecutionService(toolExecutionService)
-                        .auditService(auditService)
-                        .requestStartTime(System.currentTimeMillis())
-                        .sink(sink)
-                        .monoSink(monoSink)
-                        .build();
+        return (sessionId, chatMemory, sink, monoSink, aiMode) -> {
+            long requestStartTime = System.currentTimeMillis();
+
+            _SimpleResponseProcessor simpleProcessor = new _SimpleResponseProcessor.Builder()
+                    .sessionId(sessionId)
+                    .chatMemory(chatMemory)
+                    .auditService(auditService)
+                    .messageService(messageService)
+                    .build();
+
+            _ToolResponseProcessor toolProcessor = new _ToolResponseProcessor.Builder()
+                    .sessionId(sessionId)
+                    .aiMode(aiMode)
+                    .chatMemory(chatMemory)
+                    .toolRegistry(toolRegistry)
+                    .systemPrompt(systemPrompt)
+                    .toolWorkflowFacade(toolWorkflowFacade)
+                    .sink(sink)
+                    .requestStartTime(requestStartTime)
+                    .build();
+
+            return new _ToolResponseHandler(
+                    sink,
+                    monoSink,
+                    simpleProcessor,
+                    toolProcessor,
+                    requestStartTime,
+                    auditService,
+                    sessionId
+            );
+        };
     }
 }
