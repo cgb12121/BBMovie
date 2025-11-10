@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._tool._type._shared;
 
+import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._response._RagRetrievalResult;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
@@ -74,18 +75,19 @@ public class _RagTool implements _AiTools {
 
             _Metrics metrics = _MetricsUtil.get(latency, null, "rag-tool", "retrieve_rag_movies");
 
-            // Audit successful retrieval
-            auditService.recordInteraction(
-                            sessionId,
-                            _InteractionType.TOOL_EXECUTION_RESULT,
-                            Map.of(
-                                    "tool", "retrieve_rag_movies",
-                                    "query", queryMovies,
-                                    "topK", topK,
-                                    "results", resultCount
-                            ),
-                            metrics
-                    ).doOnSuccess(v -> log.debug("[audit][RAG] Tool audit recorded successfully."))
+            _AuditRecord auditRecord = _AuditRecord.builder()
+                    .sessionId(sessionId)
+                    .type(_InteractionType.TOOL_EXECUTION_RESULT)
+                    .details(Map.of(
+                            "tool", "retrieve_rag_movies",
+                            "query", queryMovies,
+                            "topK", topK,
+                            "results", resultCount
+                    ))
+                    .metrics(metrics)
+                    .build();
+            auditService.recordInteraction(auditRecord)
+                    .doOnSuccess(v -> log.debug("[audit][RAG] Tool audit recorded successfully."))
                     .doOnError(e -> log.warn("[audit][RAG] Failed to record tool audit: {}", e.getMessage()))
                     .subscribe();
 
@@ -96,17 +98,18 @@ public class _RagTool implements _AiTools {
             _Metrics metrics = _MetricsUtil.get(latency, null, "rag-tool", "retrieve_rag_movies");
             log.error("[tool][RAG] Error executing tool: {}", e.getMessage(), e);
 
-            // Audit failure
-            auditService.recordInteraction(
-                            sessionId,
-                            _InteractionType.TOOL_EXECUTION_RESULT,
-                            Map.of(
-                                    "tool", "retrieve_rag_movies",
-                                    "query", queryMovies,
-                                    "error", e.getMessage()
-                            ),
-                            metrics
-                    ).doOnError(ex -> log.warn("[audit][RAG] Failed to record error audit: {}", ex.getMessage()))
+            _AuditRecord auditRecord = _AuditRecord.builder()
+                    .sessionId(sessionId)
+                    .type(_InteractionType.TOOL_EXECUTION_RESULT)
+                    .details(Map.of(
+                            "tool", "retrieve_rag_movies",
+                            "query", queryMovies,
+                            "error", e.getMessage()
+                    ))
+                    .metrics(metrics)
+                    .build();
+            auditService.recordInteraction(auditRecord)
+                    .doOnError(ex -> log.warn("[audit][RAG] Failed to record error audit: {}", ex.getMessage()))
                     .subscribe();
 
             return new _RagRetrievalResult("", List.of());

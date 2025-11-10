@@ -1,16 +1,16 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config;
 
-import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelSelector;
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._ChatResponseHandlerFactory;
-import com.bbmovie.ai_assistant_service.core.low_level._handler._SimpleStreamingHandlerFactory;
-import com.bbmovie.ai_assistant_service.core.low_level._handler._ToolExecutingHandlerFactory;
+import com.bbmovie.ai_assistant_service.core.low_level._handler._ToolResponseHandler;
+import com.bbmovie.ai_assistant_service.core.low_level._handler._processor._SimpleResponseProcessor;
+import com.bbmovie.ai_assistant_service.core.low_level._handler._processor._ToolResponseProcessor;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
-import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
+import com.bbmovie.ai_assistant_service.core.low_level._service._facade._ToolWorkflowFacade;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._PromptLoader;
 import dev.langchain4j.data.message.SystemMessage;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -18,81 +18,122 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class _HandlerFactoryConfig {
 
-    private final _ModelSelector aiSelector;
-
-    @Autowired
-    public _HandlerFactoryConfig(_ModelSelector aiSelector) {
-        this.aiSelector = aiSelector;
-    }
-
     @Bean
     @Qualifier("_AdminHandlerFactory")
     public _ChatResponseHandlerFactory adminHandlerFactory(
-            @Qualifier("_AdminToolRegistry") _ToolsRegistry toolRegistry,
-            _MessageService messageService,
-            _ToolExecutionService toolExecutionService,
             _AuditService auditService,
-            _ModelFactory modelFactory) {
-
-        SystemMessage systemPrompt = aiSelector.getSystemPrompt(null);
-
-        return new _ToolExecutingHandlerFactory(
-                toolRegistry,
-                messageService,
-                toolExecutionService,
+            _MessageService messageService,
+            _ToolWorkflowFacade toolWorkflowFacade,
+            _ModelSelector modelSelector,
+            @Qualifier("_AdminToolRegistry") _ToolsRegistry toolRegistry
+    ) {
+        return createHandlerFactory(
                 auditService,
-                modelFactory,
-                systemPrompt
+                messageService,
+                toolWorkflowFacade,
+                modelSelector,
+                toolRegistry,
+                true
         );
     }
 
     @Bean
     @Qualifier("_ModHandlerFactory")
     public _ChatResponseHandlerFactory modHandlerFactory(
-            @Qualifier("_ModToolRegistry") _ToolsRegistry toolRegistry,
-            _MessageService messageService,
-            _ToolExecutionService toolExecutionService,
             _AuditService auditService,
-            _ModelFactory modelFactory) {
-
-        SystemMessage systemPrompt = aiSelector.getSystemPrompt(null);
-
-        return new _ToolExecutingHandlerFactory(
-                toolRegistry,
-                messageService,
-                toolExecutionService,
+            _MessageService messageService,
+            _ToolWorkflowFacade toolWorkflowFacade,
+            _ModelSelector modelSelector,
+            @Qualifier("_ModToolRegistry") _ToolsRegistry toolRegistry
+    ) {
+        return createHandlerFactory(
                 auditService,
-                modelFactory,
-                systemPrompt
+                messageService,
+                toolWorkflowFacade,
+                modelSelector,
+                toolRegistry,
+                true
         );
     }
 
     @Bean
     @Qualifier("_UserHandlerFactory")
     public _ChatResponseHandlerFactory userHandlerFactory(
-            @Qualifier("_UserToolRegistry") _ToolsRegistry toolRegistry,
-            _MessageService messageService,
-            _ToolExecutionService toolExecutionService,
             _AuditService auditService,
-            _ModelFactory modelFactory) {
-
-        SystemMessage systemPrompt = aiSelector.getSystemPrompt(null);
-
-        return new _ToolExecutingHandlerFactory(
-                toolRegistry,
-                messageService,
-                toolExecutionService,
+            _MessageService messageService,
+            _ToolWorkflowFacade toolWorkflowFacade,
+            _ModelSelector modelSelector,
+            @Qualifier("_UserToolRegistry") _ToolsRegistry toolRegistry
+    ) {
+        return createHandlerFactory(
                 auditService,
-                modelFactory,
-                systemPrompt
+                messageService,
+                toolWorkflowFacade,
+                modelSelector,
+                toolRegistry,
+                true
         );
     }
 
     @Bean
     @Qualifier("_SimpleHandlerFactory")
     public _ChatResponseHandlerFactory simpleHandlerFactory(
+            _AuditService auditService,
             _MessageService messageService,
-            _AuditService auditService) {
-        return new _SimpleStreamingHandlerFactory(messageService, auditService);
+            _ToolWorkflowFacade toolWorkflowFacade,
+            _ModelSelector modelSelector
+    ) {
+        return createHandlerFactory(
+                auditService,
+                messageService,
+                toolWorkflowFacade,
+                modelSelector,
+                null,
+                false
+        );
+    }
+
+    private _ChatResponseHandlerFactory createHandlerFactory(
+            _AuditService auditService,
+            _MessageService messageService,
+            _ToolWorkflowFacade toolWorkflowFacade,
+            _ModelSelector modelSelector,
+            _ToolsRegistry toolRegistry,
+            boolean enablePersona) {
+
+        SystemMessage systemPrompt = _PromptLoader.loadSystemPrompt(
+                enablePersona, modelSelector.getActiveModel(), null);
+
+        return (sessionId, chatMemory, sink, monoSink, aiMode) -> {
+            long requestStartTime = System.currentTimeMillis();
+
+            _SimpleResponseProcessor simpleProcessor = new _SimpleResponseProcessor.Builder()
+                    .sessionId(sessionId)
+                    .chatMemory(chatMemory)
+                    .auditService(auditService)
+                    .messageService(messageService)
+                    .build();
+
+            _ToolResponseProcessor toolProcessor = new _ToolResponseProcessor.Builder()
+                    .sessionId(sessionId)
+                    .aiMode(aiMode)
+                    .chatMemory(chatMemory)
+                    .toolRegistry(toolRegistry)
+                    .systemPrompt(systemPrompt)
+                    .toolWorkflowFacade(toolWorkflowFacade)
+                    .sink(sink)
+                    .requestStartTime(requestStartTime)
+                    .build();
+
+            return new _ToolResponseHandler(
+                    sink,
+                    monoSink,
+                    simpleProcessor,
+                    toolProcessor,
+                    requestStartTime,
+                    auditService,
+                    sessionId
+            );
+        };
     }
 }

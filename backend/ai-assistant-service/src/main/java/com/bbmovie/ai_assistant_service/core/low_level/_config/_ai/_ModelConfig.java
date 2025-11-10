@@ -12,7 +12,7 @@ import java.time.Duration;
 import java.util.List;
 
 /**
- * These builder options control how the LLM behaves —
+ * These Builder options control how the LLM behaves —
  * affecting creativity, determinism, context size, repetition handling, and runtime diagnostics.
  *
  * <p>All options are optional. If not specified, sensible defaults are used.</p>

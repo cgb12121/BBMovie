@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._service._impl;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelSelector;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
@@ -42,7 +43,13 @@ public class _ToolExecutionServiceImpl implements _ToolExecutionService {
             log.debug("[tool] Could not find executor for tool={}", request.name());
             String error = "Tool '" + request.name() + "' not found.";
 
-            return auditService.recordInteraction(sessionId, _InteractionType.ERROR, error, null)
+            _AuditRecord auditRecord = _AuditRecord.builder()
+                    .sessionId(sessionId)
+                    .type(_InteractionType.ERROR)
+                    .details(error)
+                    .metrics(null)
+                    .build();
+            return auditService.recordInteraction(auditRecord)
                     .thenReturn(ToolExecutionResultMessage.from(request, error))
                     .doOnNext(chatMemory::add);
         }
@@ -92,7 +99,13 @@ public class _ToolExecutionServiceImpl implements _ToolExecutionService {
                             ? result.error.getMessage()
                             : request;
 
-                    return auditService.recordInteraction(sessionId, type, details, result.metrics)
+                    _AuditRecord auditRecord = _AuditRecord.builder()
+                            .sessionId(sessionId)
+                            .type(type)
+                            .details(details)
+                            .metrics(result.metrics)
+                            .build();
+                    return auditService.recordInteraction(auditRecord)
                             .thenReturn(result.message);
                 })
                 .doOnNext(chatMemory::add);

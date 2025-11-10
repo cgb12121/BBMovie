@@ -6,6 +6,7 @@ import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
 import co.elastic.clients.json.JsonData;
 import com.bbmovie.ai_assistant_service.core.low_level._config._embedding._EmbeddingSelector;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._response._RagMovieDto;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._response._RagRetrievalResult;
@@ -112,9 +113,12 @@ public class _RagServiceImpl implements _RagService {
                                 log.debug("[rag] Indexed chat fragment into '{}'", ragIndex);
                             })
                             .then(auditService.recordInteraction(
-                                    sessionId, _InteractionType.EMBEDDING_INDEX,
-                                    Map.of("text", text.substring(0, Math.min(80, text.length())) + "..."),
-                                    _MetricsUtil.get(0L, null, embeddingSelector.getModelName(), "rag-index")
+                                    _AuditRecord.builder()
+                                            .sessionId(sessionId)
+                                            .type(_InteractionType.EMBEDDING_INDEX)
+                                            .details(Map.of("text", text.substring(0, Math.min(80, text.length())) + "..."))
+                                            .metrics(_MetricsUtil.get(0L, null, embeddingSelector.getModelName(), "rag-index"))
+                                            .build()
                             ));
                 })
                 .doOnError(e -> log.error("[rag] Failed to index fragment: {}", e.getMessage()));
@@ -132,16 +136,17 @@ public class _RagServiceImpl implements _RagService {
                     _Metrics metrics = _MetricsUtil.get(latency, null,
                             embeddingSelector.getModelName(), "rag-movie-search");
 
-                    return auditService.recordInteraction(
-                                    sessionId,
-                                    _InteractionType.RETRIEVAL,
-                                    Map.of(
-                                            "index", embeddingSelector.getMovieIndex(),
-                                            "topK", topK,
-                                            "results", results.size()
-                                    ),
-                                    metrics
-                            )
+                    _AuditRecord auditRecord = _AuditRecord.builder()
+                            .sessionId(sessionId)
+                            .type(_InteractionType.RETRIEVAL)
+                            .details(Map.of(
+                                    "index", embeddingSelector.getMovieIndex(),
+                                    "topK", topK,
+                                    "results", results.size()
+                            ))
+                            .metrics(metrics)
+                            .build();
+                    return auditService.recordInteraction(auditRecord)
                             .thenReturn(results);
                 })
                 .doOnSuccess(results -> log.debug("[rag] Movie retrieval completed."))
@@ -180,12 +185,16 @@ public class _RagServiceImpl implements _RagService {
                     _Metrics metrics = _MetricsUtil.get(latency, null,
                             embeddingSelector.getModelName(),"rag-search-" + label);
 
-                    return auditService.recordInteraction(
-                            sessionId, _InteractionType.RETRIEVAL,
-                            Map.of(
+                    _AuditRecord auditRecord = _AuditRecord.builder()
+                            .sessionId(sessionId)
+                            .type(_InteractionType.RETRIEVAL)
+                            .details(Map.of(
                                     "index", index,
                                     "hits", results.size()
-                            ), metrics)
+                            ))
+                            .metrics(metrics)
+                            .build();
+                    return auditService.recordInteraction(auditRecord)
                             .thenReturn(results);
                 })
                 .doOnSuccess(list -> log.debug("[rag] [{}] Found {} hits", label, list.size()))
@@ -205,7 +214,13 @@ public class _RagServiceImpl implements _RagService {
                     _Metrics metrics = _MetricsUtil.get(latency, usage,
                             embeddingSelector.getModelName(), "embedding");
 
-                    return auditService.recordInteraction(sessionId, type, Map.of("text", text), metrics)
+                    _AuditRecord auditRecord = _AuditRecord.builder()
+                            .sessionId(sessionId)
+                            .type(type)
+                            .details(Map.of("text", text))
+                            .metrics(metrics)
+                            .build();
+                    return auditService.recordInteraction(auditRecord)
                             .thenReturn(embedding.content().vector());
                 });
     }
