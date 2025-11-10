@@ -2,6 +2,7 @@ package com.bbmovie.ai_assistant_service.core.low_level._handler;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AiMode;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
@@ -12,6 +13,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
+import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
@@ -71,24 +73,76 @@ public class _DefaultResponseHandler extends _BaseResponseHandler {
             processMono = handleSimpleResponse(aiMsg, latency, metadata);
         }
 
-        processMono
-                .then(Mono.fromRunnable(monoSink::success))
+        processMono.then(Mono.fromRunnable(monoSink::success))
                 .doOnError(monoSink::error)
                 .subscribe();
+    }
+
+    @Override
+    public void onError(Throwable error) {
+        long latency = System.currentTimeMillis() - requestStartTime;
+        _Metrics metrics = _Metrics.builder().latencyMs(latency).build();
+        _AuditRecord auditRecord = _AuditRecord.builder()
+                .sessionId(sessionId)
+                .type(_InteractionType.ERROR)
+                .details(error)
+                .metrics(metrics)
+                .build();
+        auditService.recordInteraction(auditRecord)
+                .subscribe(
+                        v -> log.debug("Error audit recorded"),
+                        e -> log.error("Failed to record error audit", e)
+                );
+        super.onError(error);
     }
 
     private Mono<Void> handleSimpleResponse(AiMessage aiMessage, long latency, ChatResponseMetadata metadata) {
         chatMemory.add(aiMessage);
         _Metrics metrics = _MetricsUtil.getChatMetrics(latency, metadata, aiMessage.toolExecutionRequests());
-        Mono<Void> auditMono = auditService.recordInteraction(sessionId, _InteractionType.AI_COMPLETE_RESULT, aiMessage.text(), metrics);
-        Mono<Void> saveMono = messageService.saveAiResponse(sessionId, aiMessage.text()).then();
+        _AuditRecord auditRecord = _AuditRecord.builder()
+                .sessionId(sessionId)
+                .type(_InteractionType.AI_COMPLETE_RESULT)
+                .details(aiMessage.text())
+                .metrics(metrics)
+                .build();
+        Mono<Void> auditMono = auditService.recordInteraction(auditRecord);
+        Mono<Void> saveMono = messageService.saveAiResponse(sessionId, aiMessage.text())
+                .then();
         return Mono.when(auditMono.onErrorResume(e -> Mono.empty()), saveMono);
     }
 
     private Mono<Void> handleToolExecution(AiMessage aiMessage, long latency, ChatResponseMetadata metadata) {
         chatMemory.add(aiMessage);
         _Metrics metrics = _MetricsUtil.getChatMetrics(latency, metadata, aiMessage.toolExecutionRequests());
-        return auditService.recordInteraction(sessionId, _InteractionType.TOOL_EXECUTION_REQUEST, aiMessage.toolExecutionRequests(), metrics)
+
+        // DEFENSIVE CHECK: Handle cases where the AI hallucinates tool usage
+        // for a handler that was not configured with tools.
+        if (toolRegistry == null || toolExecutionService == null) {
+            log.warn("AI attempted to use tools, but no tool registry is configured for this handler. Session: {}", sessionId);
+            // Inform the AI that no tools are available and re-prompt.
+            return Flux.fromIterable(aiMessage.toolExecutionRequests())
+                    .map(req -> ToolExecutionResultMessage.from(req, "Error: No tools are available in the current context."))
+                    .doOnNext(chatMemory::add)
+                    .then(Mono.defer(() -> {
+                        List<ChatMessage> newMessages = new ArrayList<>();
+                        if (chatMemory.messages().stream().noneMatch(m -> m instanceof SystemMessage)) {
+                            newMessages.add(systemPrompt);
+                        }
+                        newMessages.addAll(chatMemory.messages());
+                        ChatRequest afterToolRequest = ChatRequest.builder()
+                                .messages(newMessages)
+                                .build(); // No tool specifications are sent
+                        return processToolRequestRecursively(afterToolRequest);
+                    }));
+        }
+
+        _AuditRecord auditRecord = _AuditRecord.builder()
+                .sessionId(sessionId)
+                .type(_InteractionType.TOOL_EXECUTION_REQUEST)
+                .details(aiMessage.toolExecutionRequests())
+                .metrics(metrics)
+                .build();
+        return auditService.recordInteraction(auditRecord)
                 .then(Flux.fromIterable(aiMessage.toolExecutionRequests())
                         .concatMap(req -> toolExecutionService.execute(sessionId, req, toolRegistry, chatMemory))
                         .collectList()
@@ -109,23 +163,27 @@ public class _DefaultResponseHandler extends _BaseResponseHandler {
 
     private Mono<Void> processToolRequestRecursively(ChatRequest chatRequest) {
         return Mono.create(recursiveSink ->
-                modelFactory.getModel(this.aiMode).chat(chatRequest,
-                        new _DefaultResponseHandler.Builder()
-                                .sessionId(sessionId)
-                                .aiMode(aiMode)
-                                .chatMemory(chatMemory)
-                                .modelFactory(modelFactory)
-                                .systemPrompt(systemPrompt)
-                                .toolRegistry(toolRegistry)
-                                .messageService(messageService)
-                                .toolExecutionService(toolExecutionService)
-                                .auditService(auditService)
-                                .requestStartTime(System.currentTimeMillis())
-                                .sink(sink)
+                modelFactory.getModel(this.aiMode).chat(
+                        chatRequest,
+                        toBuilder().requestStartTime(System.currentTimeMillis())
                                 .monoSink(recursiveSink)
                                 .build()
                 )
         );
+    }
+
+    public Builder toBuilder() {
+        return new Builder()
+                .sessionId(this.sessionId)
+                .aiMode(this.aiMode)
+                .chatMemory(this.chatMemory)
+                .modelFactory(this.modelFactory)
+                .systemPrompt(this.systemPrompt)
+                .toolRegistry(this.toolRegistry)
+                .messageService(this.messageService)
+                .toolExecutionService(this.toolExecutionService)
+                .auditService(this.auditService)
+                .sink(this.sink);
     }
 
     public static class Builder {

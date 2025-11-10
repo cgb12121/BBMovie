@@ -27,25 +27,15 @@ public class _HandlerFactoryConfig {
             _ModelSelector modelSelector,
             @Qualifier("_AdminToolRegistry") _ToolsRegistry toolRegistry
     ) {
-        SystemMessage systemPrompt = _PromptLoader.loadSystemPrompt(
-                true, modelSelector.getActiveModel(), null
+        return createHandlerFactory(
+                auditService,
+                messageService,
+                toolExecutionService,
+                modelFactory,
+                modelSelector,
+                toolRegistry,
+                true
         );
-
-        return (sessionId, chatMemory, sink, monoSink, aiMode) ->
-                new _DefaultResponseHandler.Builder()
-                        .sessionId(sessionId)
-                        .aiMode(aiMode)
-                        .chatMemory(chatMemory)
-                        .modelFactory(modelFactory)
-                        .systemPrompt(systemPrompt)
-                        .toolRegistry(toolRegistry)
-                        .messageService(messageService)
-                        .toolExecutionService(toolExecutionService)
-                        .auditService(auditService)
-                        .requestStartTime(System.currentTimeMillis())
-                        .sink(sink)
-                        .monoSink(monoSink)
-                        .build();
     }
 
     @Bean
@@ -58,25 +48,15 @@ public class _HandlerFactoryConfig {
             _ModelSelector modelSelector,
             @Qualifier("_ModToolRegistry") _ToolsRegistry toolRegistry
     ) {
-        SystemMessage systemPrompt = _PromptLoader.loadSystemPrompt(
-                true, modelSelector.getActiveModel(), null
+        return createHandlerFactory(
+                auditService,
+                messageService,
+                toolExecutionService,
+                modelFactory,
+                modelSelector,
+                toolRegistry,
+                true
         );
-
-        return (sessionId, chatMemory, sink, monoSink, aiMode) ->
-                new _DefaultResponseHandler.Builder()
-                        .sessionId(sessionId)
-                        .aiMode(aiMode)
-                        .chatMemory(chatMemory)
-                        .modelFactory(modelFactory)
-                        .systemPrompt(systemPrompt)
-                        .toolRegistry(toolRegistry)
-                        .messageService(messageService)
-                        .toolExecutionService(toolExecutionService)
-                        .auditService(auditService)
-                        .requestStartTime(System.currentTimeMillis())
-                        .sink(sink)
-                        .monoSink(monoSink)
-                        .build();
     }
 
     @Bean
@@ -89,25 +69,15 @@ public class _HandlerFactoryConfig {
             _ModelSelector modelSelector,
             @Qualifier("_UserToolRegistry") _ToolsRegistry toolRegistry
     ) {
-        SystemMessage systemPrompt = _PromptLoader.loadSystemPrompt(
-                false, modelSelector.getActiveModel(), null
+        return createHandlerFactory(
+                auditService,
+                messageService,
+                toolExecutionService,
+                modelFactory,
+                modelSelector,
+                toolRegistry,
+                true
         );
-
-        return (sessionId, chatMemory, sink, monoSink, aiMode) ->
-                new _DefaultResponseHandler.Builder()
-                        .sessionId(sessionId)
-                        .aiMode(aiMode)
-                        .chatMemory(chatMemory)
-                        .modelFactory(modelFactory)
-                        .systemPrompt(systemPrompt)
-                        .toolRegistry(toolRegistry)
-                        .messageService(messageService)
-                        .toolExecutionService(toolExecutionService)
-                        .auditService(auditService)
-                        .requestStartTime(System.currentTimeMillis())
-                        .sink(sink)
-                        .monoSink(monoSink)
-                        .build();
     }
 
     // This factory is for assistants that DO NOT use tools.
@@ -119,9 +89,28 @@ public class _HandlerFactoryConfig {
             _ModelFactory modelFactory,
             _ModelSelector modelSelector
     ) {
-        SystemMessage systemPrompt = _PromptLoader.loadSystemPrompt(
-                false, modelSelector.getActiveModel(), null
+        return createHandlerFactory(
+                auditService,
+                messageService,
+                null,
+                modelFactory,
+                modelSelector,
+                null,
+                false
         );
+    }
+
+    private _ChatResponseHandlerFactory createHandlerFactory(
+            _AuditService auditService,
+            _MessageService messageService,
+            _ToolExecutionService toolExecutionService,
+            _ModelFactory modelFactory,
+            _ModelSelector modelSelector,
+            _ToolsRegistry toolRegistry,
+            boolean enablePersona) {
+
+        SystemMessage systemPrompt = _PromptLoader.loadSystemPrompt(
+                enablePersona, modelSelector.getActiveModel(), null);
 
         return (sessionId, chatMemory, sink, monoSink, aiMode) ->
                 new _DefaultResponseHandler.Builder()
@@ -130,9 +119,9 @@ public class _HandlerFactoryConfig {
                         .chatMemory(chatMemory)
                         .modelFactory(modelFactory)
                         .systemPrompt(systemPrompt)
-                        .toolRegistry(null)
+                        .toolRegistry(toolRegistry)
                         .messageService(messageService)
-                        .toolExecutionService(null)
+                        .toolExecutionService(toolExecutionService)
                         .auditService(auditService)
                         .requestStartTime(System.currentTimeMillis())
                         .sink(sink)
