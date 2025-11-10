@@ -114,7 +114,10 @@ public class _DefaultResponseHandler extends _BaseResponseHandler {
         Mono<Void> auditMono = auditService.recordInteraction(auditRecord);
         Mono<Void> saveMono = messageService.saveAiResponse(sessionId, aiMessage.text())
                 .then();
-        return Mono.when(auditMono.onErrorResume(e -> Mono.empty()), saveMono);
+        return Mono.when(auditMono.onErrorResume(e -> {
+            log.error("Audit failed for simple response but continuing", e);
+            return Mono.empty();
+        }), saveMono);
     }
 
     private Mono<Void> handleToolExecution(AiMessage aiMessage, long latency, ChatResponseMetadata metadata) {

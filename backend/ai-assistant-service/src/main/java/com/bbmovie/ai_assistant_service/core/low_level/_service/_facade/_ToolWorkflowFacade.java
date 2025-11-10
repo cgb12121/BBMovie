@@ -29,10 +29,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 import java.util.UUID;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -71,15 +68,10 @@ public class _ToolWorkflowFacade {
         // Latency here is for the initial AI response that requested tools
         _Metrics metrics = _MetricsUtil.getChatMetrics(latency, null, toolExecutionRequests);
 
-        // Save the tool request message
-        String thinkingContent = Stream.of(aiMessage.text(), aiMessage.toolExecutionRequests().toString())
-                .filter(Objects::nonNull)
-                .collect(Collectors.joining(" "));
-
         _AuditRecord auditRecord = _AuditRecord.builder()
                 .sessionId(sessionId)
                 .type(_InteractionType.TOOL_EXECUTION_REQUEST)
-                .details(thinkingContent)
+                .details(toolExecutionRequests)
                 .metrics(metrics)
                 .build();
 
