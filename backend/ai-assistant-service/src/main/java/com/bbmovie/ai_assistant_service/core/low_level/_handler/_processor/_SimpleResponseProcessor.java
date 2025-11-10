@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._handler._processor;
 
+import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
@@ -33,15 +34,16 @@ public class _SimpleResponseProcessor implements _ResponseProcessor {
         chatMemory.add(aiMessage);
 
         _Metrics metrics = _MetricsUtil.getChatMetrics(latency, metadata, aiMessage.toolExecutionRequests());
+        _AuditRecord auditRecord = _AuditRecord.builder()
+                .sessionId(sessionId)
+                .type(_InteractionType.AI_COMPLETE_RESULT)
+                .details(aiMessage)
+                .metrics(metrics)
+                .build();
 
-        Mono<Void> auditMono = auditService.recordInteraction(
-                sessionId,
-                _InteractionType.AI_COMPLETE_RESULT,
-                aiMessage.text(),
-                metrics
-        );
-
-        Mono<Void> saveMono = messageService.saveAiResponse(sessionId, aiMessage.text()).then();
+        Mono<Void> auditMono = auditService.recordInteraction(auditRecord);
+        Mono<Void> saveMono = messageService.saveAiResponse(sessionId, aiMessage.text())
+                .then();
 
         return Mono.when(
                 auditMono.onErrorResume(e -> {

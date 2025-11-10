@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._handler;
 
+import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._processor._ResponseProcessor;
@@ -61,8 +62,14 @@ public class _ToolResponseHandler extends _BaseResponseHandler {
         _Metrics metrics = _Metrics.builder()
                 .latencyMs(latency)
                 .build();
+        _AuditRecord auditRecord = _AuditRecord.builder()
+                .sessionId(sessionId)
+                .type(_InteractionType.ERROR)
+                .details(error)
+                .metrics(metrics)
+                .build();
 
-        auditService.recordInteraction(sessionId, _InteractionType.ERROR, error.getMessage(), metrics)
+        auditService.recordInteraction(auditRecord)
                 .subscribe(
                         v -> log.debug("Error audit recorded"),
                         e -> log.error("Failed to record error audit", e)

@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._service._impl;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelSelector;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._AiInteractionAudit;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
@@ -36,8 +37,12 @@ public class _AuditServiceImpl implements _AuditService {
     }
 
     @Override
-    public Mono<Void> recordInteraction(
-            UUID sessionId, _InteractionType type, Object details, _Metrics metrics) {
+    public Mono<Void> recordInteraction(_AuditRecord record) {
+        UUID sessionId = record.getSessionId();
+        _InteractionType type = record.getType();
+        Object details = record.getDetails();
+        _Metrics metrics = record.getMetrics();
+
         return Mono.fromCallable(() -> {
                     try {
                         String detailsJson = details != null

@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._assistant;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelFactory;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AiMode;
@@ -32,6 +33,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 
 @Slf4j
 @Getter(AccessLevel.PROTECTED)
@@ -75,11 +77,20 @@ public abstract class _BaseAssistant implements _Assistant {
 
         return messageService.saveUserMessage(sessionId, message)
                 .flatMap(savedMessage -> {
-                    _Metrics metrics = _MetricsUtil.get(System.currentTimeMillis() - start, null, metadata.getModelName(), metadata.getType().name());
-                    return auditService.recordInteraction(sessionId, _InteractionType.USER_MESSAGE, message, metrics).thenReturn(savedMessage);
+                    long latency = System.currentTimeMillis() - start;
+                    String modelName = metadata.getModelName();
+                    String toolName = metadata.getType().name();
+                    _Metrics metrics = _MetricsUtil.get(latency, null, modelName, toolName);
+                    _AuditRecord auditRecord = _AuditRecord.builder()
+                            .sessionId(sessionId)
+                            .type(_InteractionType.USER_MESSAGE)
+                            .details(message)
+                            .metrics(metrics)
+                            .build();
+                    return auditService.recordInteraction(auditRecord)
+                            .thenReturn(savedMessage);
                 })
                 .flatMapMany(savedMessage -> {
-                    log.debug("[memory] Preparing chat request...");
                     ChatRequest chatRequest = prepareChatRequest(sessionId, message);
 
                     return Flux.<String>create(sink ->
@@ -89,7 +100,7 @@ public abstract class _BaseAssistant implements _Assistant {
                                             .subscribeOn(Schedulers.boundedElastic()) // Offload the blocking AI call
                                             .subscribe()
                             )
-                            .timeout(Duration.ofSeconds(45), Mono.error(new java.util.concurrent.TimeoutException("AI response timed out after 45 seconds.")))
+                            .timeout(Duration.ofSeconds(45), Mono.error(new TimeoutException("AI response timed out after 45 seconds.")))
                             .map(_ChatStreamChunk::assistant)
                             .doOnComplete(() -> log.debug("[streaming] Stream completed for session {}", sessionId));
                 })

@@ -9,7 +9,6 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
 
 import java.util.UUID;
 
@@ -18,22 +17,20 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
     private final UUID sessionId;
     private final _AiMode aiMode;
     private final ChatMemory chatMemory;
-    private final _ToolsRegistry toolRegistry; // Added
-    private final SystemMessage systemPrompt; // Added
+    private final _ToolsRegistry toolRegistry;
+    private final SystemMessage systemPrompt;
     private final _ToolWorkflowFacade toolWorkflowFacade;
     private final FluxSink<String> sink;
-    private final MonoSink<Void> monoSink;
     private final long requestStartTime;
 
     private _ToolResponseProcessor(Builder builder) {
         this.sessionId = builder.sessionId;
         this.aiMode = builder.aiMode;
         this.chatMemory = builder.chatMemory;
-        this.toolRegistry = builder.toolRegistry; // Added
-        this.systemPrompt = builder.systemPrompt; // Added
+        this.toolRegistry = builder.toolRegistry;
+        this.systemPrompt = builder.systemPrompt;
         this.toolWorkflowFacade = builder.toolWorkflowFacade;
         this.sink = builder.sink;
-        this.monoSink = builder.monoSink;
         this.requestStartTime = builder.requestStartTime;
     }
 
@@ -47,7 +44,6 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
                 toolRegistry,
                 systemPrompt,
                 sink,
-                monoSink,
                 requestStartTime
         );
     }
@@ -60,7 +56,6 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
         private SystemMessage systemPrompt;
         private _ToolWorkflowFacade toolWorkflowFacade;
         private FluxSink<String> sink;
-        private MonoSink<Void> monoSink;
         private long requestStartTime;
 
         public Builder sessionId(UUID sessionId) {
@@ -95,11 +90,6 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
 
         public Builder sink(FluxSink<String> sink) {
             this.sink = sink;
-            return this;
-        }
-
-        public Builder monoSink(MonoSink<Void> monoSink) {
-            this.monoSink = monoSink;
             return this;
         }
 
