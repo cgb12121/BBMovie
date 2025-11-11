@@ -13,6 +13,8 @@ import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
@@ -20,7 +22,6 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.request.ChatRequest;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
@@ -31,9 +32,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Slf4j
 @Service
-public class _ToolWorkflowFacade {
+public class _ToolWorkflow {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_ToolWorkflow.class);
 
     private final _ToolExecutionService toolExecutionService;
     private final _ModelFactory modelFactory;
@@ -41,7 +43,7 @@ public class _ToolWorkflowFacade {
     private final _MessageService messageService;
 
     @Autowired
-    public _ToolWorkflowFacade(
+    public _ToolWorkflow(
             _ToolExecutionService toolExecutionService, _ModelFactory modelFactory,
             _AuditService auditService, _MessageService messageService) {
         this.toolExecutionService = toolExecutionService;
@@ -61,7 +63,11 @@ public class _ToolWorkflowFacade {
             long requestStartTime
     ) {
         // Add the AI message (with tool requests) to memory
-        chatMemory.add(aiMessage);
+        try {
+            chatMemory.add(aiMessage);
+        } catch (Exception e) {
+            log.error("Failed to add AI message to chat memory: {}", e.getMessage());
+        }
 
         long latency = System.currentTimeMillis() - requestStartTime;
         List<ToolExecutionRequest> toolExecutionRequests = aiMessage.toolExecutionRequests();
@@ -137,18 +143,17 @@ public class _ToolWorkflowFacade {
                     .sink(sink)
                     .requestStartTime(System.currentTimeMillis())
                     .build();
+            _ToolResponseHandler handler = _ToolResponseHandler.builder()
+                    .sink(sink)
+                    .monoSink(recursiveSink)
+                    .simpleProcessor(simpleProcessor)
+                    .toolProcessor(toolProcessor)
+                    .requestStartTime(System.currentTimeMillis())
+                    .auditService(auditService)
+                    .sessionId(sessionId)
+                    .build();
 
-            modelFactory.getModel(aiMode).chat(afterToolRequest,
-                    new _ToolResponseHandler(
-                            sink,
-                            recursiveSink,
-                            simpleProcessor,
-                            toolProcessor,
-                            System.currentTimeMillis(),
-                            auditService,
-                            sessionId
-                    )
-            );
+            modelFactory.getModel(aiMode).chat(afterToolRequest, handler);
         });
     }
 }

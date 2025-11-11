@@ -4,8 +4,9 @@ import com.bbmovie.ai_assistant_service.core.low_level._dto._request._ChatReques
 import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatService;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import jakarta.validation.Valid;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -19,10 +20,11 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Slf4j
 @RestController
 @RequestMapping("/api/v1/chat")
 public class _ChatController {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_ChatController.class);
 
     private final _ChatService chatService;
 
@@ -42,7 +44,7 @@ public class _ChatController {
                 .doOnError(ex -> log.error("Streaming error for session {}: {}", sessionId, ex.getMessage()));
     }
 
-    // blocked stream for better postman testing
+    // blocked stream for better postman view testing
     @PostMapping("/{sessionId}/test")
     public Mono<Map<String, Object>> nonStreamChat(
             @PathVariable UUID sessionId,

@@ -14,10 +14,11 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._model._Interacti
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._RagService;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.TokenUsage;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.lang.NonNull;
@@ -30,9 +31,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-@Slf4j
 @Service
 public class _RagServiceImpl implements _RagService {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_RagServiceImpl.class);
 
     private final EmbeddingModel embeddingModel;
     private final ElasticsearchAsyncClient esClient;
@@ -64,7 +66,7 @@ public class _RagServiceImpl implements _RagService {
                         return new _RagRetrievalResult("", List.of());
                     }
 
-                    log.debug("[rag] Retrieved movies: {}", movies);
+                    log.debug("[rag] Retrieved movies: {}", movies.size());
                     // Build textual summary for LLM
                     String contextText = movies.stream()
                             .map(_RagServiceImpl::formatMovieDetails)
@@ -87,9 +89,10 @@ public class _RagServiceImpl implements _RagService {
         return embedText(sessionId, text + pastResultsString, _InteractionType.EMBEDDING_INDEX)
                 .flatMap(vector -> {
                     if (embeddingSelector.getDimension() != vector.length) {
-                        return Mono.error(new IllegalArgumentException(
-                                "Embedding dimension mismatch: expected " +
-                                        embeddingSelector.getDimension() + " but got " + vector.length)
+                        String err = "Embedding dimension mismatch: expected %s but got %s"
+                                .formatted(embeddingSelector.getDimension(), vector.length);
+                        log.error("[rag] Embedding index failed: {}", err);
+                        return Mono.error(new IllegalArgumentException(err)
                         );
                     }
 

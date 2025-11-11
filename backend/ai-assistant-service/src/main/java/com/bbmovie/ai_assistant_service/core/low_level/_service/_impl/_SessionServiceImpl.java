@@ -6,8 +6,9 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._ChatSession;
 import com.bbmovie.ai_assistant_service.core.low_level._repository._ChatMessageRepository;
 import com.bbmovie.ai_assistant_service.core.low_level._repository._ChatSessionRepository;
 import com.bbmovie.ai_assistant_service.core.low_level._service._SessionService;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import com.example.common.dtos.CursorPageResponse;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,9 +20,10 @@ import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
-@Slf4j
 @Service
 public class _SessionServiceImpl implements _SessionService {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_SessionServiceImpl.class);
 
     private final _ChatSessionRepository sessionRepository;
     private final _ChatMessageRepository messageRepository;

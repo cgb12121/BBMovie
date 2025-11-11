@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._repository.impl;
+package com.bbmovie.ai_assistant_service.core.low_level._repository._impl;
 
 import com.bbmovie.ai_assistant_service.core.low_level._entity._ChatSession;
 import com.bbmovie.ai_assistant_service.core.low_level._repository._ChatSessionRepositoryCustom;

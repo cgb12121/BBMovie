@@ -37,7 +37,7 @@ public class _ModelSelector {
     }
 
     /**
-     * Convenience: get the model name string for Ollama API.
+     * Convenience: getWithCursor the model name string for Ollama API.
      */
     public String getModelName() {
         return getActiveModel().getModelName();

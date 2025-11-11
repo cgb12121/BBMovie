@@ -7,11 +7,6 @@ import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._SessionService;
 import com.example.common.dtos.CursorPageResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.data.domain.Sort;
-import org.springframework.data.r2dbc.core.R2dbcEntityOperations;
-import org.springframework.data.relational.core.query.Criteria;
-import org.springframework.data.relational.core.query.Query;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -24,15 +19,11 @@ import java.util.UUID;
 @Service
 public class _MessageServiceImpl implements _MessageService {
 
-    private final R2dbcEntityOperations r2dbcOperations;
     private final _ChatMessageRepository repository;
     private final _SessionService sessionService; // For ownership validation
 
     @Autowired
-    public _MessageServiceImpl(
-            @Qualifier("_EntityOperations") R2dbcEntityOperations r2dbcOperations,
-            _ChatMessageRepository repository, _SessionService sessionService) {
-        this.r2dbcOperations = r2dbcOperations;
+    public _MessageServiceImpl(_ChatMessageRepository repository, _SessionService sessionService) {
         this.repository = repository;
         this.sessionService = sessionService;
     }
@@ -66,18 +57,7 @@ public class _MessageServiceImpl implements _MessageService {
                             ? Instant.parse(new String(Base64.getDecoder().decode(cursor)))
                             : Instant.now();
 
-                    Criteria criteria = Criteria.where("session_id").is(sessionId)
-                            .and("timestamp").lessThan(cursorTime);
-
-                    Sort sort = Sort.by(Sort.Order.desc("timestamp"));
-                    Query query = Query.query(criteria)
-                            .sort(sort)
-                            .limit(size + 1);
-
-                    return r2dbcOperations
-                            .select(_ChatMessage.class)
-                            .matching(query)
-                            .all()
+                    return repository.getWithCursor(sessionId, cursorTime, size)
                             .collectList()
                             .map(messages -> {
                                 boolean hasMore = messages.size() > size;
@@ -92,7 +72,7 @@ public class _MessageServiceImpl implements _MessageService {
                                             .encodeToString(last.getTimestamp().toString().getBytes());
                                 }
 
-                                // Reverse to get the oldest -> the newest order for display
+                                // Reverse to getWithCursor the oldest -> the newest order for display
                                 Collections.reverse(content);
 
                                 return CursorPageResponse.<_ChatMessage>builder()

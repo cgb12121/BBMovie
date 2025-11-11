@@ -8,11 +8,12 @@ import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.service.tool.ToolExecutor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -20,9 +21,10 @@ import reactor.core.scheduler.Schedulers;
 
 import java.util.UUID;
 
-@Slf4j
 @Service
 public class _ToolExecutionServiceImpl implements _ToolExecutionService {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_ToolExecutionServiceImpl.class);
 
     private final _AuditService auditService;
     private final _ModelSelector modelSelector;

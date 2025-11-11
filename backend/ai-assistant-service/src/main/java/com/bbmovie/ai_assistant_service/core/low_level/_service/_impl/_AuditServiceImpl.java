@@ -7,9 +7,10 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._AiInteractionAud
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._repository._AiInteractionAuditRepository;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -19,9 +20,10 @@ import reactor.core.scheduler.Schedulers;
 import java.time.Instant;
 import java.util.UUID;
 
-@Slf4j
 @Service
 public class _AuditServiceImpl implements _AuditService {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_AuditServiceImpl.class);
 
     private final _AiInteractionAuditRepository repository;
     private final _ModelSelector modelSelector;

@@ -6,17 +6,19 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._model._Interacti
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
-import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
 
 import java.util.Objects;
 import java.util.UUID;
 
-@Slf4j
 public class _SimpleResponseProcessor implements _ResponseProcessor {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_SimpleResponseProcessor.class);
 
     private final UUID sessionId;
     private final ChatMemory chatMemory;
@@ -32,7 +34,11 @@ public class _SimpleResponseProcessor implements _ResponseProcessor {
 
     @Override
     public Mono<Void> process(AiMessage aiMessage, long latency, ChatResponseMetadata metadata) {
-        chatMemory.add(aiMessage);
+        try {
+            chatMemory.add(aiMessage);
+        } catch (Exception e) {
+            log.error("Failed to add AI message to chat memory: {}", e.getMessage());
+        }
 
         _Metrics metrics = _MetricsUtil.getChatMetrics(latency, metadata, aiMessage.toolExecutionRequests());
         _AuditRecord auditRecord = _AuditRecord.builder()

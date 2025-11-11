@@ -3,19 +3,21 @@ package com.bbmovie.ai_assistant_service.core.low_level._config._elasticsearch;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import lombok.extern.slf4j.Slf4j;
 import org.apache.http.HttpHost;
 import org.elasticsearch.client.Node;
 import org.elasticsearch.client.RestClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-@Slf4j
 @Configuration
 public class _ElasticClientConfig {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_ElasticClientConfig.class);
 
     @Bean("_ElasticsearchAsyncClient")
     public ElasticsearchAsyncClient asyncClient(RestClient restClient) {

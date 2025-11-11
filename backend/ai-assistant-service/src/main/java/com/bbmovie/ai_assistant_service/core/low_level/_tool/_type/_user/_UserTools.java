@@ -28,7 +28,7 @@ public class _UserTools implements _AiTools {
 
     @Tool("Provides personalized or curated movie recommendations based on genre or other criteria.")
     public void getRecommendations(
-            @P("The genre to get recommendations for, e.g., 'horror'.") String genre,
+            @P("The genre to getWithCursor recommendations for, e.g., 'horror'.") String genre,
             @P("Optional: The decade to filter by, e.g., '1990s'.") String decade
     ) {
         // Implementation pending

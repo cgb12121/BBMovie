@@ -49,7 +49,7 @@ public class PersistentChatMemoryStore implements ChatMemoryStore {
                     .toFuture()
                     .join();
         } catch (Exception e) {
-            log.error("Failed to get messages for sessionId={}", memoryId, e);
+            log.error("Failed to getWithCursor messages for sessionId={}", memoryId, e);
             return Collections.emptyList();
         }
     }

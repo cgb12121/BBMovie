@@ -1,12 +1,14 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config._tool;
 
+import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._tool._AiTools;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.agent.tool.ToolSpecifications;
 import dev.langchain4j.service.tool.DefaultToolExecutor;
 import dev.langchain4j.service.tool.ToolExecutor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.aop.support.AopUtils;
 
 import java.lang.reflect.Method;
@@ -15,19 +17,20 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Slf4j
 public class _ToolsRegistry {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_ToolsRegistry.class);
 
     private final Map<String, ToolExecutor> executors;
     private final List<ToolSpecification> specifications;
 
-    public _ToolsRegistry(List<_AiTools> tools) {
+    public _ToolsRegistry(_AssistantType assistantType, List<_AiTools> tools) {
         this.executors = new HashMap<>();
         this.specifications = new ArrayList<>();
-        discoverTools(tools);
+        discoverTools(assistantType, tools);
     }
 
-    private void discoverTools(List<_AiTools> toolBeans) {
+    private void discoverTools(_AssistantType assistantType, List<_AiTools> toolBeans) {
         for (Object toolBean : toolBeans) {
             Class<?> toolClass = AopUtils.getTargetClass(toolBean);
             for (Method method : toolClass.getDeclaredMethods()) {
@@ -37,12 +40,10 @@ public class _ToolsRegistry {
 
                     ToolExecutor executor = new DefaultToolExecutor(toolBean, method);
                     this.executors.put(spec.name(), executor);
-                    log.info("Discovered tool: name='{}', class='{}', method='{}'",
-                            spec.name(), toolClass.getSimpleName(), method.getName());
                 }
             }
         }
-        log.info("Discovered {} tools in total: {}", this.executors.size(), executors.keySet());
+        log.info("[{}] Discovered {} tools in total: {}", assistantType, this.executors.size(),this.executors.keySet());
     }
 
     public List<ToolSpecification> getToolSpecifications() {

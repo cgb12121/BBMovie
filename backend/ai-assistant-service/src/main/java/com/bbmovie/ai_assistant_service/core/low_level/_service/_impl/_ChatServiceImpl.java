@@ -6,7 +6,8 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AiMode;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AssistantType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._SessionService;
-import lombok.extern.slf4j.Slf4j;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -21,9 +22,10 @@ import java.util.stream.Collectors;
 import static com.example.common.entity.JoseConstraint.JosePayload.ROLE;
 import static com.example.common.entity.JoseConstraint.JosePayload.SUB;
 
-@Slf4j
 @Service
 public class _ChatServiceImpl implements _ChatService {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_ChatServiceImpl.class);
 
     private final Map<_AssistantType, _Assistant> assistants;
     private final _SessionService sessionService;

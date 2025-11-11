@@ -5,7 +5,6 @@ import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jwt.SignedJWT;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
@@ -30,7 +29,6 @@ import static com.example.common.entity.JoseConstraint.JosePayload.ROLE;
 @Slf4j
 @Configuration
 @EnableWebFluxSecurity
-@ConditionalOnBooleanProperty(name = "spring.security.enabled", matchIfMissing = true)
 public class SecurityConfig {
 
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")

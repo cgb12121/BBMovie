@@ -13,6 +13,8 @@ import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._RagService;
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -22,7 +24,6 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -35,9 +36,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeoutException;
 
-@Slf4j
 @Getter(AccessLevel.PROTECTED)
 public abstract class _BaseAssistant implements _Assistant {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_BaseAssistant.class);
 
     private final _ModelFactory modelFactory;
     private final ChatMemoryProvider chatMemoryProvider;
@@ -90,53 +92,72 @@ public abstract class _BaseAssistant implements _Assistant {
                     return auditService.recordInteraction(auditRecord)
                             .thenReturn(savedMessage);
                 })
-                .flatMapMany(savedMessage -> {
-                    ChatRequest chatRequest = prepareChatRequest(sessionId, message);
-
-                    return Flux.<String>create(sink ->
-                                    processChatRecursive(sessionId, aiMode, chatRequest, sink)
-                                            .doOnError(sink::error)
-                                            .doOnSuccess(v -> sink.complete())
-                                            .subscribeOn(Schedulers.boundedElastic()) // Offload the blocking AI call
-                                            .subscribe()
-                            )
-                            .timeout(Duration.ofSeconds(45), Mono.error(new TimeoutException("AI response timed out after 45 seconds.")))
-                            .map(_ChatStreamChunk::assistant)
-                            .doOnComplete(() -> log.debug("[streaming] Stream completed for session {}", sessionId));
-                })
+                .flatMapMany(savedMessage ->
+                    prepareChatRequest(sessionId, message)
+                        .flatMapMany(chatRequest ->
+                            Flux.<String>create(sink ->
+                                            processChatRecursive(sessionId, aiMode, chatRequest, sink)
+                                                    .doOnError(sink::error)
+                                                    .doOnSuccess(v -> sink.complete())
+                                                    .subscribeOn(Schedulers.boundedElastic()) // Offload the blocking AI call
+                                                    .subscribe()
+                                    )
+                                    .timeout(
+                                            Duration.ofSeconds(45),
+                                            Mono.error(new TimeoutException("AI response timed out after 45 seconds."))
+                                    )
+                                    .map(_ChatStreamChunk::assistant)
+                                    .doOnComplete(() -> log.debug("[streaming] Stream completed for session {}", sessionId))
+                        )
+                )
                 .onErrorResume(ex -> {
-                    log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage(), ex);
-                    String errorMessage = ex instanceof java.util.concurrent.TimeoutException
+                    log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage());
+                    String errorMessage = ex instanceof TimeoutException
                             ? "AI response timed out. Please try again."
                             : "Something went wrong. Please try again later.";
                     return Flux.just(_ChatStreamChunk.system(errorMessage));
                 });
     }
 
-    private ChatRequest prepareChatRequest(UUID sessionId, String message) {
-        try {
-            ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
-            List<ChatMessage> passConversation = chatMemory.messages();
-            List<ChatMessage> messages = new ArrayList<>();
-            String finalMessage = "[Chat session:" + sessionId + "] " + message;
+    private Mono<ChatRequest> prepareChatRequest(UUID sessionId, String message) {
+        return Mono.fromCallable(() -> {
+                    String finalMessage = "[User's chat session:" + sessionId + "] " + message;
+                    UserMessage userMessage = UserMessage.from(finalMessage);
 
-            messages.add(systemPrompt);
+                    ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
+                    if (chatMemory == null) {
+                        return ChatRequest.builder()
+                                .messages(List.of(systemPrompt, userMessage))
+                                .build();
+                    }
 
-            messages.addAll(passConversation);
-            messages.add(UserMessage.from(finalMessage));
+                    List<ChatMessage> passConversation = chatMemory.messages();
+                    List<ChatMessage> messages = new ArrayList<>();
 
-            ChatRequest.Builder builder = ChatRequest.builder()
-                    .messages(messages);
+                    messages.add(systemPrompt);
+                    messages.addAll(passConversation);
+                    messages.add(userMessage);
 
-            if (toolRegistry != null) {
-                builder.toolSpecifications(toolRegistry.getToolSpecifications());
-            }
+                    ChatRequest.Builder messagesBuilder = ChatRequest.builder()
+                            .messages(messages);
 
-            return builder.build();
-        } catch (Exception e) {
-            log.error("[prepareChatRequest] Failed to get memory: {}", e.getMessage(), e);
-            throw e;
-        }
+                    if (toolRegistry != null) {
+                        messagesBuilder.toolSpecifications(toolRegistry.getToolSpecifications());
+                    }
+
+                    chatMemory.add(userMessage); // Add to the chat memory
+
+                    return messagesBuilder.build();
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.error("[prepareChatRequest] Error in chat pipeline for session={}: {}", sessionId, e.getMessage());
+                    return Mono.just(
+                            ChatRequest.builder()
+                                    .messages(List.of(systemPrompt, UserMessage.from(message)))
+                                    .build()
+                    );
+                });
     }
 
     private Mono<Void> processChatRecursive(UUID sessionId, _AiMode aiMode, ChatRequest chatRequest, FluxSink<String> sink) {
@@ -144,10 +165,10 @@ public abstract class _BaseAssistant implements _Assistant {
             ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
             try {
                 StreamingChatResponseHandler handler = getHandlerFactory()
-                         .create(sessionId, chatMemory, sink, monoSink, aiMode);
+                        .create(sessionId, chatMemory, sink, monoSink, aiMode);
                 modelFactory.getModel(aiMode).chat(chatRequest, handler);
             } catch (Exception ex) {
-                log.error("[streaming] chatModel.chat failed: {}", ex.getMessage(), ex);
+                log.error("[streaming] chatModel.chat failed: {}", ex.getMessage());
                 // Ensure both sinks are terminated on the initial error
                 sink.error(ex);
                 monoSink.error(ex);

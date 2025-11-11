@@ -10,6 +10,8 @@ import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -18,7 +20,6 @@ import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.lang.NonNull;
 import org.springframework.lang.Nullable;
 import reactor.core.publisher.Flux;
@@ -36,9 +37,10 @@ import java.util.UUID;
  * <p>
  * This God class will stay here for a while when the reworked response handlers work smoothly
  */
-@Slf4j
 @Deprecated(since = "1.0.0", forRemoval = true)
 public class _DefaultResponseHandler extends _BaseResponseHandler {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_DefaultResponseHandler.class);
 
     private final UUID sessionId;
     private final _AiMode aiMode;

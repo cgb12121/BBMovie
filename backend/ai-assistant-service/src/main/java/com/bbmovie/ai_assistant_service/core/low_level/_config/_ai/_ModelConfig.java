@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config._ai;
 
+import com.bbmovie.ai_assistant_service.core.low_level._config._ai._logging._Logging;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
@@ -184,22 +185,22 @@ public class _ModelConfig {
     private String ollama_url;
 
     @Bean("_ThinkingModel")
-    public StreamingChatModel _ThinkingModel() {
-        return _baseModel()
+    public StreamingChatModel _ThinkingModel(_Logging listener) {
+        return _baseModel(listener)
                 .think(true)
                 .returnThinking(true)
                 .build();
     }
 
     @Bean("_NonThinkingModel")
-    public StreamingChatModel _NonThinkingModel() {
-        return _baseModel()
+    public StreamingChatModel _NonThinkingModel(_Logging listener) {
+        return _baseModel(listener)
                 .think(false)
                 .returnThinking(false)
                 .build();
     }
 
-    public OllamaStreamingChatModel.OllamaStreamingChatModelBuilder _baseModel() {
+    public OllamaStreamingChatModel.OllamaStreamingChatModelBuilder _baseModel(_Logging listener) {
         return OllamaStreamingChatModel.builder()
                 .baseUrl(ollama_url)
                 .modelName(aiSelector.getModelName())
@@ -207,13 +208,13 @@ public class _ModelConfig {
                 .topK(40)
                 .topP(0.9)
                 .minP(0.05)
-                .numCtx(4096)
+                .numCtx(32768) // maximum context size
                 .numPredict(1024)
                 .seed(2004)
                 .responseFormat(ResponseFormat.TEXT) // Can be customized
                 .timeout(Duration.ofMinutes(1))
-                .logRequests(true)
-                .logResponses(true)
-                .listeners(List.of(new _ChatListener()));
+                .logRequests(false)
+                .logResponses(false)
+                .listeners(List.of(listener));
     }
 }
