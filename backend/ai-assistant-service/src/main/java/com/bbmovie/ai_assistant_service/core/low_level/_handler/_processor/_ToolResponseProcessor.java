@@ -2,7 +2,7 @@ package com.bbmovie.ai_assistant_service.core.low_level._handler._processor;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AiMode;
-import com.bbmovie.ai_assistant_service.core.low_level._service._ToolWorkflowFacade;
+import com.bbmovie.ai_assistant_service.core.low_level._service._facade._ToolWorkflow;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;
@@ -20,7 +20,7 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
     private final ChatMemory chatMemory;
     private final _ToolsRegistry toolRegistry;
     private final SystemMessage systemPrompt;
-    private final _ToolWorkflowFacade toolWorkflowFacade;
+    private final _ToolWorkflow toolWorkflowFacade;
     private final FluxSink<String> sink;
     private final long requestStartTime;
 
@@ -38,8 +38,14 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
     @Override
     public Mono<Void> process(AiMessage aiMessage, long latency, ChatResponseMetadata metadata) {
         return toolWorkflowFacade.executeWorkflow(
-                sessionId, aiMode, aiMessage, chatMemory,
-                toolRegistry, systemPrompt, sink, requestStartTime
+                sessionId,
+                aiMode,
+                aiMessage,
+                chatMemory,
+                toolRegistry,
+                systemPrompt,
+                sink,
+                requestStartTime
         );
     }
 
@@ -49,7 +55,7 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
         private ChatMemory chatMemory;
         private _ToolsRegistry toolRegistry;
         private SystemMessage systemPrompt;
-        private _ToolWorkflowFacade toolWorkflowFacade;
+        private _ToolWorkflow toolWorkflowFacade;
         private FluxSink<String> sink;
         private long requestStartTime;
 
@@ -78,7 +84,7 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
             return this;
         }
 
-        public Builder toolWorkflowFacade(_ToolWorkflowFacade toolWorkflowFacade) {
+        public Builder toolWorkflowFacade(_ToolWorkflow toolWorkflowFacade) {
             this.toolWorkflowFacade = toolWorkflowFacade;
             return this;
         }

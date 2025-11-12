@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.core.low_level._service._impl;
+package com.bbmovie.ai_assistant_service.core.low_level._service._facade;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelFactory;
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
@@ -12,7 +12,6 @@ import com.bbmovie.ai_assistant_service.core.low_level._handler._processor._Tool
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._ToolExecutionService;
-import com.bbmovie.ai_assistant_service.core.low_level._service._ToolWorkflowFacade;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._MetricsUtil;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
@@ -34,9 +33,9 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
-public class _ToolWorkflowImpl implements _ToolWorkflowFacade {
+public class _ToolWorkflow {
 
-    private static final _Logger log = _LoggerFactory.getLogger(_ToolWorkflowImpl.class);
+    private static final _Logger log = _LoggerFactory.getLogger(_ToolWorkflow.class);
 
     private final _ToolExecutionService toolExecutionService;
     private final _ModelFactory modelFactory;
@@ -44,7 +43,7 @@ public class _ToolWorkflowImpl implements _ToolWorkflowFacade {
     private final _MessageService messageService;
 
     @Autowired
-    public _ToolWorkflowImpl(
+    public _ToolWorkflow(
             _ToolExecutionService toolExecutionService, _ModelFactory modelFactory,
             _AuditService auditService, _MessageService messageService) {
         this.toolExecutionService = toolExecutionService;
@@ -53,10 +52,15 @@ public class _ToolWorkflowImpl implements _ToolWorkflowFacade {
         this.messageService = messageService;
     }
 
-    @Override
     public Mono<Void> executeWorkflow(
-            UUID sessionId, _AiMode aiMode, AiMessage aiMessage, ChatMemory chatMemory,
-            _ToolsRegistry toolRegistry, SystemMessage systemPrompt, FluxSink<String> sink, long requestStartTime
+            UUID sessionId,
+            _AiMode aiMode,
+            AiMessage aiMessage,
+            ChatMemory chatMemory,
+            _ToolsRegistry toolRegistry,
+            SystemMessage systemPrompt,
+            FluxSink<String> sink,
+            long requestStartTime
     ) {
         // Add the AI message (with tool requests) to memory
         try {
@@ -98,8 +102,12 @@ public class _ToolWorkflowImpl implements _ToolWorkflowFacade {
     }
 
     private Mono<Void> callModelAfterToolRequest(
-            UUID sessionId, _AiMode aiMode, ChatMemory chatMemory,
-            _ToolsRegistry toolRegistry, SystemMessage systemPrompt, FluxSink<String> sink
+            UUID sessionId,
+            _AiMode aiMode,
+            ChatMemory chatMemory,
+            _ToolsRegistry toolRegistry,
+            SystemMessage systemPrompt,
+            FluxSink<String> sink
     ) {
         List<ChatMessage> newMessages = new ArrayList<>();
         if (chatMemory.messages().stream().noneMatch(m -> m instanceof SystemMessage)) {

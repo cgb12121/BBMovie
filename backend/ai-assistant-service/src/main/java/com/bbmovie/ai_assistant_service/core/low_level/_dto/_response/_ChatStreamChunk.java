@@ -16,17 +16,10 @@ import java.util.Map;
 @Builder
 public class _ChatStreamChunk {
 
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private String type; // "assistant", "user", "tool", "system"
-
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private String content; // partial or complete text
 
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
-    private String thinking;
-
     @Builder.Default
-    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private Map<String, Object> metadata = new HashMap<>();
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -46,17 +39,10 @@ public class _ChatStreamChunk {
                 .build();
     }
 
-    public static _ChatStreamChunk ragResults(List<_RagMovieDto> movies) {
+    public static _ChatStreamChunk ragResult(List<_RagMovieDto> movies) {
         return _ChatStreamChunk.builder()
                 .type("rag_result")
                 .ragResults(movies)
-                .build();
-    }
-
-    public static _ChatStreamChunk thinking(String thinking) {
-        return _ChatStreamChunk.builder()
-                .type("thinking")
-                .thinking(thinking)
                 .build();
     }
 }

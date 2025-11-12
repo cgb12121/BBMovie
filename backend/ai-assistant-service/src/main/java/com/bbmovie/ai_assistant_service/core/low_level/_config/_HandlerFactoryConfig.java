@@ -8,7 +8,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._handler._processor._Simp
 import com.bbmovie.ai_assistant_service.core.low_level._handler._processor._ToolResponseProcessor;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
 import com.bbmovie.ai_assistant_service.core.low_level._service._MessageService;
-import com.bbmovie.ai_assistant_service.core.low_level._service._ToolWorkflowFacade;
+import com.bbmovie.ai_assistant_service.core.low_level._service._facade._ToolWorkflow;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._PromptLoader;
 import dev.langchain4j.data.message.SystemMessage;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,7 +23,7 @@ public class _HandlerFactoryConfig {
     public _ChatResponseHandlerFactory adminHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ToolWorkflowFacade toolWorkflowFacade,
+            _ToolWorkflow toolWorkflowFacade,
             _ModelSelector modelSelector,
             @Qualifier("_AdminToolRegistry") _ToolsRegistry toolRegistry
     ) {
@@ -42,7 +42,7 @@ public class _HandlerFactoryConfig {
     public _ChatResponseHandlerFactory modHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ToolWorkflowFacade toolWorkflowFacade,
+            _ToolWorkflow toolWorkflowFacade,
             _ModelSelector modelSelector,
             @Qualifier("_ModToolRegistry") _ToolsRegistry toolRegistry
     ) {
@@ -61,7 +61,7 @@ public class _HandlerFactoryConfig {
     public _ChatResponseHandlerFactory userHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ToolWorkflowFacade toolWorkflowFacade,
+            _ToolWorkflow toolWorkflowFacade,
             _ModelSelector modelSelector,
             @Qualifier("_UserToolRegistry") _ToolsRegistry toolRegistry
     ) {
@@ -80,7 +80,7 @@ public class _HandlerFactoryConfig {
     public _ChatResponseHandlerFactory simpleHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ToolWorkflowFacade toolWorkflowFacade,
+            _ToolWorkflow toolWorkflowFacade,
             _ModelSelector modelSelector
     ) {
         return createHandlerFactory(
@@ -96,7 +96,7 @@ public class _HandlerFactoryConfig {
     private _ChatResponseHandlerFactory createHandlerFactory(
             _AuditService auditService,
             _MessageService messageService,
-            _ToolWorkflowFacade toolWorkflowFacade,
+            _ToolWorkflow toolWorkflowFacade,
             _ModelSelector modelSelector,
             _ToolsRegistry toolRegistry,
             boolean enablePersona) {
