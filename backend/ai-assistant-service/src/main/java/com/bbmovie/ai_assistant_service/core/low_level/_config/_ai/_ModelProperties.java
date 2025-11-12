@@ -20,4 +20,13 @@ public class _ModelProperties {
      * Whether to include persona prompts.
      */
     private boolean enablePersona = true;
+
+    // ========== AI Model Properties ==========
+    private Double temperature = 0.7;
+    private Integer topK = 40;
+    private Double topP = 0.9;
+    private Double minP = 0.05;
+    private Integer numCtx = 32768;
+    private Integer numPredict = 1024;
+    private Integer seed = 2004;
 }

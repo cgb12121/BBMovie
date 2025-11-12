@@ -204,13 +204,13 @@ public class _ModelConfig {
         return OllamaStreamingChatModel.builder()
                 .baseUrl(ollama_url)
                 .modelName(aiSelector.getModelName())
-                .temperature(0.7)
-                .topK(40)
-                .topP(0.9)
-                .minP(0.05)
-                .numCtx(32768) // maximum context size
-                .numPredict(1024)
-                .seed(2004)
+                .temperature(aiSelector.getTemperature())
+                .topK(aiSelector.getTopK())
+                .topP(aiSelector.getTopP())
+                .minP(aiSelector.getMinP())
+                .numCtx(aiSelector.getNumCtx()) // maximum context size
+                .numPredict(aiSelector.getNumPredict())
+                .seed(aiSelector.getSeed())
                 .responseFormat(ResponseFormat.TEXT) // Can be customized
                 .timeout(Duration.ofMinutes(1))
                 .logRequests(false)

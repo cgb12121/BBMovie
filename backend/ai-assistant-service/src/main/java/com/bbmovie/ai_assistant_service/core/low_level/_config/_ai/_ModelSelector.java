@@ -3,6 +3,7 @@ package com.bbmovie.ai_assistant_service.core.low_level._config._ai;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._AiModel;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._PromptLoader;
 import dev.langchain4j.data.message.SystemMessage;
+import lombok.experimental.Delegate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.lang.Nullable;
@@ -11,6 +12,7 @@ import java.util.Map;
 @Component
 public class _ModelSelector {
 
+    @Delegate
     private final _ModelProperties aiProperties;
 
     @Autowired
@@ -36,9 +38,6 @@ public class _ModelSelector {
         );
     }
 
-    /**
-     * Convenience: getWithCursor the model name string for Ollama API.
-     */
     public String getModelName() {
         return getActiveModel().getModelName();
     }
