@@ -1,6 +1,8 @@
 package com.bbmovie.ai_assistant_service.core.low_level._config._ai._logging.level;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._logging._Logging;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.*;
 import dev.langchain4j.model.ModelProvider;
@@ -9,7 +11,6 @@ import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
 import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
-import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Method;
 import java.util.List;
@@ -22,8 +23,9 @@ import static com.bbmovie.ai_assistant_service.core.low_level._utils._AnsiRainbo
  * Defensive about ChatMessage implementations: it checks known classes, then falls back to reflection,
  * then finally to toString() when nothing else works.
  */
-@Slf4j
 public class _FormalLogging implements _Logging {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_FormalLogging.class);
 
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
@@ -126,7 +128,7 @@ public class _FormalLogging implements _Logging {
         ModelProvider provider = errorContext.modelProvider();
         Throwable error = errorContext.error();
 
-        String header = getLightRainbowUnderlined(String.format("[listener] Error from %s", provider.name()));
+        String header = getErrorLightRedUnderlined(String.format("[listener] Error from %s", provider.name()));
 
         String errorMsg = error != null && error.getMessage() != null
                 ? error.getMessage()
@@ -135,7 +137,7 @@ public class _FormalLogging implements _Logging {
         String sb = "\n" +
                 header +
                 "\n" +
-                getLightRainbow("Message: " + errorMsg) +
+                getErrorLightRed("Message: " + errorMsg) +
                 "\n";
 
         log.error(sb, error);

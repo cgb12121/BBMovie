@@ -2,6 +2,7 @@ package com.bbmovie.ai_assistant_service.core.low_level._handler;
 
 import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._handler._processor._ResponseProcessor;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
@@ -39,6 +40,9 @@ public class _ToolResponseHandler extends _BaseResponseHandler {
     public void onCompleteResponse(ChatResponse completeResponse) {
         long latency = System.currentTimeMillis() - requestStartTime;
         AiMessage aiMsg = completeResponse.aiMessage();
+
+        // Handle thinking (logs for audit, optionally emits to clients)
+        handleThinking(completeResponse);
 
         _ResponseProcessor processor = (aiMsg.toolExecutionRequests() != null && !aiMsg.toolExecutionRequests().isEmpty())
                 ? toolProcessor
@@ -78,7 +82,7 @@ public class _ToolResponseHandler extends _BaseResponseHandler {
     }
 
     public static class Builder {
-        private FluxSink<String> sink;
+        private FluxSink<_ChatStreamChunk> sink;
         private MonoSink<Void> monoSink;
         private _ResponseProcessor simpleProcessor;
         private _ResponseProcessor toolProcessor;
@@ -86,7 +90,7 @@ public class _ToolResponseHandler extends _BaseResponseHandler {
         private _AuditService auditService;
         private UUID sessionId;
 
-        public Builder sink(FluxSink<String> sink) {
+        public Builder sink(FluxSink<_ChatStreamChunk> sink) {
             this.sink = sink;
             return this;
         }

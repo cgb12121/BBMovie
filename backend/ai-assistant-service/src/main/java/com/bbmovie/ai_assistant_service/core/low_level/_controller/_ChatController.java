@@ -6,6 +6,8 @@ import com.bbmovie.ai_assistant_service.core.low_level._entity._model._Assistant
 import com.bbmovie.ai_assistant_service.core.low_level._service._ChatService;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -55,6 +58,13 @@ public class _ChatController {
         return chatService.chat(sessionId, request.getMessage(), request.getAiMode(), assistantType, jwt)
                 .collectList()
                 .flatMap(chunks -> {
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    try {
+                        String prettyJson = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(chunks);
+                        log.info("Non streaming chat for session {}: {}", sessionId, prettyJson);
+                    } catch (JsonProcessingException e) {
+                        log.error("Error converting chunks to pretty json: {}", e.getMessage());
+                    }
                     String combinedContent = chunks.stream()
                             .filter(chunk -> "assistant".equals(chunk.getType()))
                             .map(_ChatStreamChunk::getContent)
@@ -68,12 +78,21 @@ public class _ChatController {
                                     Map.Entry::getValue,
                                     (a, b) -> b)
                             );
+                    String thinking = chunks.stream()
+                            .filter(chunk -> "thinking".equals(chunk.getType()))
+                            .map(_ChatStreamChunk::getThinking)
+                            .filter(t -> t != null && !t.isBlank())
+                            .findFirst()
+                            .orElse(null);
 
-                    Map<String, Object> response = Map.of(
-                            "type", "assistant",
-                            "content", combinedContent,
-                            "metadata", metadata
-                    );
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("sessionId", sessionId.toString());
+                    response.put("type", "assistant");
+                    response.put("thinking", thinking);
+                    response.put("content", combinedContent);
+                    if (!metadata.isEmpty()) {
+                        response.put("metadata", metadata);
+                    }
 
                     return Mono.just(response);
                 });

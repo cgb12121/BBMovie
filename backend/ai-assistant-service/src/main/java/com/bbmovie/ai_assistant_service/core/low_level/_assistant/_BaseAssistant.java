@@ -95,7 +95,7 @@ public abstract class _BaseAssistant implements _Assistant {
                 .flatMapMany(savedMessage ->
                     prepareChatRequest(sessionId, message)
                         .flatMapMany(chatRequest ->
-                            Flux.<String>create(sink ->
+                            Flux.<_ChatStreamChunk>create(sink ->
                                             processChatRecursive(sessionId, aiMode, chatRequest, sink)
                                                     .doOnError(sink::error)
                                                     .doOnSuccess(v -> sink.complete())
@@ -106,17 +106,17 @@ public abstract class _BaseAssistant implements _Assistant {
                                             Duration.ofSeconds(45),
                                             Mono.error(new TimeoutException("AI response timed out after 45 seconds."))
                                     )
-                                    .map(_ChatStreamChunk::assistant)
                                     .doOnComplete(() -> log.debug("[streaming] Stream completed for session {}", sessionId))
                         )
                 )
                 .onErrorResume(ex -> {
-                    log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage());
+                    log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage(), ex);
                     String errorMessage = ex instanceof TimeoutException
                             ? "AI response timed out. Please try again."
                             : "Something went wrong. Please try again later.";
                     return Flux.just(_ChatStreamChunk.system(errorMessage));
-                });
+                })
+                .doOnError(ex -> log.error("[streaming] Unhandled error in stream for session={}: {}", sessionId, ex.getMessage(), ex));
     }
 
     private Mono<ChatRequest> prepareChatRequest(UUID sessionId, String message) {
@@ -160,7 +160,7 @@ public abstract class _BaseAssistant implements _Assistant {
                 });
     }
 
-    private Mono<Void> processChatRecursive(UUID sessionId, _AiMode aiMode, ChatRequest chatRequest, FluxSink<String> sink) {
+    private Mono<Void> processChatRecursive(UUID sessionId, _AiMode aiMode, ChatRequest chatRequest, FluxSink<_ChatStreamChunk> sink) {
         return Mono.create(monoSink -> {
             ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
             try {

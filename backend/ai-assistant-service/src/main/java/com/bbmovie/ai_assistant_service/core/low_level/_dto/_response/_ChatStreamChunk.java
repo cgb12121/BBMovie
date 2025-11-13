@@ -19,7 +19,11 @@ public class _ChatStreamChunk {
     private String type; // "assistant", "user", "tool", "system"
     private String content; // partial or complete text
 
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private String thinking; // AI's thinking process
+
     @Builder.Default
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private Map<String, Object> metadata = new HashMap<>();
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)

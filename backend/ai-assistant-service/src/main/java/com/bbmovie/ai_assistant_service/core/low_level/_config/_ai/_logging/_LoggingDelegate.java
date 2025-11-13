@@ -2,17 +2,19 @@ package com.bbmovie.ai_assistant_service.core.low_level._config._ai._logging;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._logging.level._FormalLogging;
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._logging.level._VerboseLogging;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
 import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @Component
 public class _LoggingDelegate implements _Logging {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_LoggingDelegate.class);
 
     @Value("${ai.logging.mode:INFO}")
     private String mode;

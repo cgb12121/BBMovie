@@ -1,5 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._handler;
 
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._ThinkingSanitizer;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.model.chat.response.*;
@@ -101,7 +103,7 @@ public abstract class _BaseResponseHandler implements StreamingChatResponseHandl
      * Reactive stream emitter for partial model responses (tokens, chunks, etc.).
      * Used to push incremental outputs downstream in a non-blocking way.
      */
-    protected final FluxSink<String> sink;
+    protected final FluxSink<_ChatStreamChunk> sink;
 
     /**
      * Completion signal for the entire AI session.
@@ -116,45 +118,89 @@ public abstract class _BaseResponseHandler implements StreamingChatResponseHandl
      * @param sink     the sink for partial streaming data
      * @param monoSink the sink signaling session completion or failure
      */
-    protected _BaseResponseHandler(FluxSink<String> sink, MonoSink<Void> monoSink) {
+    protected _BaseResponseHandler(FluxSink<_ChatStreamChunk> sink, MonoSink<Void> monoSink) {
         this.sink = sink;
         this.monoSink = monoSink;
     }
 
     /**
      * Called when the model has finished generating the complete response.
-     * The default implementation simply completes both the {@link FluxSink} and {@link MonoSink}.
+     * The default implementation logs thinking for audit purposes (if available),
+     * then completes both the {@link FluxSink} and {@link MonoSink}.
      * <p>
-     * <b>Note:<b/> all subclasses must override this method to handle data correctly.
+     * <b>Note:</b> Thinking is used for audit/logging only, not sent to clients by default.
+     * Content is streamed directly as it arrives via {@link #onPartialResponse(String)}.
+     * <p>
+     * <b>Important:</b> Subclasses that override this method should call
+     * {@link #handleThinking(ChatResponse)} to ensure thinking is logged/emitted properly.
      *
      * @param chatResponse the full AI-generated chat response
      */
     @Override
     public void onCompleteResponse(ChatResponse chatResponse) {
+        // Handle thinking (log for audit, optionally emit to clients)
+        handleThinking(chatResponse);
+        
+        // Default implementation: complete the stream
         sink.complete();
         monoSink.success();
     }
 
     /**
-     * Called each time the model emits a partial token or content fragment.
-     * The default implementation forwards it directly to the {@link FluxSink}.
+     * Handles thinking content: logs it for audit purposes only (never sent to clients).
+     * This method can be called by subclasses to ensure thinking is properly handled.
      *
-     * @param partialResponse a fragment of the AI’s streamed output
+     * @param chatResponse the chat response containing thinking
+     */
+    protected void handleThinking(ChatResponse chatResponse) {
+        String thinking = chatResponse.aiMessage().thinking();
+        if (thinking == null || thinking.isBlank()) {
+            return;
+        }
+
+        // Log thinking for audit purposes only (sanitized, never sent to clients)
+        String sanitizedThinking = _ThinkingSanitizer.sanitize(thinking);
+        if (sanitizedThinking != null && !sanitizedThinking.isBlank()) {
+            log.trace("[thinking][audit] AI thinking trace: {}", sanitizedThinking);
+        }
+    }
+
+    /**
+     * Called each time the model emits a partial token or content fragment.
+     * The default implementation streams content directly to clients in real-time.
+     * 
+     * <p>Note: Thinking is handled separately in {@link #onCompleteResponse(ChatResponse)}
+     * for audit/logging purposes only.
+     *
+     * @param partialResponse a fragment of the AI's streamed output
      */
     @Override
     public void onPartialResponse(String partialResponse) {
-        sink.next(partialResponse);
+        // Stream content directly as it arrives (no buffering needed)
+        sink.next(_ChatStreamChunk.assistant(partialResponse));
     }
 
     /**
      * Called when an unrecoverable error occurs during streaming.
      * Logs the error and signals the {@link MonoSink} with failure.
+     * Note: Error messages are handled by the Flux chain's onErrorResume,
+     * so we don't emit to sink here to avoid duplicate messages.
      *
      * @param error the throwable that caused the failure
      */
     @Override
     public void onError(Throwable error) {
-        log.error("[streaming] Error during streaming: {}", error.getMessage());
+        log.error("[streaming] Error during streaming: {}", error.getMessage(), error);
+        // Don't emit to sink here - let the Flux chain's onErrorResume handle it
+        // to avoid duplicate error messages
+        try {
+            if (!sink.isCancelled()) {
+                sink.complete();
+            }
+        } catch (Exception e) {
+            // Sink might already be completed/errored, ignore
+            log.trace("[streaming] Could not complete sink on error: {}", e.getMessage());
+        }
         monoSink.error(error);
     }
 }

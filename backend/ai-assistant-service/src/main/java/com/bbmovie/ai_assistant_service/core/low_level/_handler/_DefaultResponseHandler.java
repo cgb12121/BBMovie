@@ -4,6 +4,7 @@ import com.bbmovie.ai_assistant_service.core.low_level._config._ai._ModelFactory
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._AuditRecord;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._Metrics;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AiMode;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._InteractionType;
 import com.bbmovie.ai_assistant_service.core.low_level._service._AuditService;
@@ -73,6 +74,9 @@ public class _DefaultResponseHandler extends _BaseResponseHandler {
         long latency = System.currentTimeMillis() - requestStartTime;
         AiMessage aiMsg = completeResponse.aiMessage();
         ChatResponseMetadata metadata = completeResponse.metadata();
+
+        // Handle thinking (logs for audit, optionally emits to clients)
+        handleThinking(completeResponse);
 
         Mono<Void> processMono;
         if (aiMsg.toolExecutionRequests() != null && !aiMsg.toolExecutionRequests().isEmpty()) {
@@ -208,7 +212,7 @@ public class _DefaultResponseHandler extends _BaseResponseHandler {
         private _ToolExecutionService toolExecutionService;
         private _AuditService auditService;
         private long requestStartTime;
-        private FluxSink<String> sink;
+        private FluxSink<_ChatStreamChunk> sink;
         private MonoSink<Void> monoSink;
 
         public Builder sessionId(@NonNull UUID sessionId) {
@@ -261,7 +265,7 @@ public class _DefaultResponseHandler extends _BaseResponseHandler {
             return this;
         }
 
-        public Builder sink(@NonNull FluxSink<String> sink) {
+        public Builder sink(@NonNull FluxSink<_ChatStreamChunk> sink) {
             this.sink = sink;
             return this;
         }

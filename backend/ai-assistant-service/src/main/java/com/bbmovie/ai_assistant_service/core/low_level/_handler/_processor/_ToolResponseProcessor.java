@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._handler._processor;
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._tool._ToolsRegistry;
+import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._model._AiMode;
 import com.bbmovie.ai_assistant_service.core.low_level._service._facade._ToolWorkflow;
 import dev.langchain4j.data.message.AiMessage;
@@ -21,7 +22,7 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
     private final _ToolsRegistry toolRegistry;
     private final SystemMessage systemPrompt;
     private final _ToolWorkflow toolWorkflowFacade;
-    private final FluxSink<String> sink;
+    private final FluxSink<_ChatStreamChunk> sink;
     private final long requestStartTime;
 
     private _ToolResponseProcessor(Builder builder) {
@@ -56,7 +57,7 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
         private _ToolsRegistry toolRegistry;
         private SystemMessage systemPrompt;
         private _ToolWorkflow toolWorkflowFacade;
-        private FluxSink<String> sink;
+        private FluxSink<_ChatStreamChunk> sink;
         private long requestStartTime;
 
         public Builder sessionId(UUID sessionId) {
@@ -89,7 +90,7 @@ public class _ToolResponseProcessor implements _ResponseProcessor {
             return this;
         }
 
-        public Builder sink(FluxSink<String> sink) {
+        public Builder sink(FluxSink<_ChatStreamChunk> sink) {
             this.sink = sink;
             return this;
         }

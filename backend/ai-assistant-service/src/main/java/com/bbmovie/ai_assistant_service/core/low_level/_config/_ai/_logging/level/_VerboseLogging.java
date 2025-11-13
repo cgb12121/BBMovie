@@ -2,6 +2,8 @@ package com.bbmovie.ai_assistant_service.core.low_level._config._ai._logging.lev
 
 import com.bbmovie.ai_assistant_service.core.low_level._config._ai._logging._Logging;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._AnsiRainbowUtil;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
+import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.model.ModelProvider;
@@ -10,15 +12,16 @@ import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
 import dev.langchain4j.model.chat.listener.ChatModelResponseContext;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
-import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.fusesource.jansi.Ansi.ansi;
 
-@Slf4j
 public class _VerboseLogging implements _Logging {
+
+    private static final _Logger log = _LoggerFactory.getLogger(_VerboseLogging.class);
+
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {
         ModelProvider provider = requestContext.modelProvider();
