@@ -8,6 +8,17 @@ This document explains the orchestration pipeline of the AI chat system and how 
 + 4️⃣ Save the message + context to DB
 + 5️⃣ Proceed with chat model orchestration (tool-aware)
 + 6️⃣ Audit every major step
++ 7️⃣ Log AI thinking for audit (sanitized, never sent to clients)
+
+## Response Stream Structure
+
+Responses are streamed as `_ChatStreamChunk` objects with the following fields:
+- **`type`**: Chunk type (`"assistant"`, `"rag_result"`, etc.)
+- **`content`**: Streamed text content (token-by-token)
+- **`thinking`**: AI reasoning (audit/logging only, **not sent to clients**)
+- **`ragResults`**: RAG-retrieved movies (emitted last when RAG is used)
+
+**Note:** The `thinking` field is always sanitized and logged for audit purposes but is never included in client responses.
 
 ```mermaid
 flowchart TD
@@ -24,6 +35,7 @@ flowchart TD
     M --> H[ToolExecutingResponseHandler]
 
     H -->|AI_COMPLETE| AUD
+    H -->|Log thinking `audit only`| AUD
     H --> MSG[MessageService]
     H -->|Tool Calls?| T{ToolExecution?}
 
