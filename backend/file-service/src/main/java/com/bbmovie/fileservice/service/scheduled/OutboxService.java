@@ -3,7 +3,7 @@ package com.bbmovie.fileservice.service.scheduled;
 import com.bbmovie.fileservice.entity.cdc.OutboxStatus;
 import com.bbmovie.fileservice.repository.OutboxEventRepository;
 import com.bbmovie.fileservice.service.nats.ReactiveNatsProducer;
-import com.example.common.dtos.nats.FileUploadEvent;
+import com.bbmovie.common.dtos.nats.FileUploadEvent;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -2,7 +2,7 @@ package com.bbmovie.gateway.security;
 
 import com.bbmovie.gateway.config.ApplicationFilterOrder;
 import com.bbmovie.gateway.exception.InvalidAuthenticationMethodException;
-import com.example.common.entity.JoseConstraint.JwtType;
+import com.bbmovie.common.entity.JoseConstraint.JwtType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;
@@ -27,10 +27,10 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.Optional;
 
-import static com.example.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX;
-import static com.example.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
-import static com.example.common.entity.JoseConstraint.JosePayload.SID;
-import static com.example.common.entity.JoseConstraint.JwtType.JWS;
+import static com.bbmovie.common.entity.JoseConstraint.JWT_ABAC_BLACKLIST_PREFIX;
+import static com.bbmovie.common.entity.JoseConstraint.JWT_LOGOUT_BLACKLIST_PREFIX;
+import static com.bbmovie.common.entity.JoseConstraint.JosePayload.SID;
+import static com.bbmovie.common.entity.JoseConstraint.JwtType.JWS;
 
 @Log4j2
 @Component

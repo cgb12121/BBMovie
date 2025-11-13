@@ -1,7 +1,7 @@
 package com.bbmovie.fileservice.entity;
 
-import com.example.common.enums.EntityType;
-import com.example.common.enums.Storage;
+import com.bbmovie.common.enums.EntityType;
+import com.bbmovie.common.enums.Storage;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

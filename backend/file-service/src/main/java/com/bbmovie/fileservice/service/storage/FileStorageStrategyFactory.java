@@ -1,6 +1,6 @@
 package com.bbmovie.fileservice.service.storage;
 
-import com.example.common.enums.Storage;
+import com.bbmovie.common.enums.Storage;
 import org.springframework.stereotype.Component;
 
 import java.util.List;

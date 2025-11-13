@@ -2,8 +2,8 @@ package com.bbmovie.fileservice.service.storage;
 
 import com.cloudinary.Cloudinary;
 import com.cloudinary.utils.ObjectUtils;
-import com.example.common.dtos.nats.FileUploadResult;
-import com.example.common.enums.Storage;
+import com.bbmovie.common.dtos.nats.FileUploadResult;
+import com.bbmovie.common.enums.Storage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;

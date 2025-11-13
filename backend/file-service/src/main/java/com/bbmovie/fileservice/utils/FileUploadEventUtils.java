@@ -1,9 +1,9 @@
 package com.bbmovie.fileservice.utils;
 
 import com.bbmovie.fileservice.entity.cdc.OutboxFileRecord;
-import com.example.common.dtos.nats.FileUploadEvent;
-import com.example.common.dtos.nats.FileUploadResult;
-import com.example.common.dtos.nats.UploadMetadata;
+import com.bbmovie.common.dtos.nats.FileUploadEvent;
+import com.bbmovie.common.dtos.nats.FileUploadResult;
+import com.bbmovie.common.dtos.nats.UploadMetadata;
 import org.springframework.lang.NonNull;
 
 import java.nio.file.Path;

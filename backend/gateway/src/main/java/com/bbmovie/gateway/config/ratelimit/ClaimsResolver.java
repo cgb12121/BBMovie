@@ -1,6 +1,6 @@
 package com.bbmovie.gateway.config.ratelimit;
 
-import com.example.common.entity.JoseConstraint;
+import com.bbmovie.common.entity.JoseConstraint;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.log4j.Log4j2;

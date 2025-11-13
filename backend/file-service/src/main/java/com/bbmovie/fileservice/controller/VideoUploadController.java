@@ -1,7 +1,7 @@
 package com.bbmovie.fileservice.controller;
 
 import com.bbmovie.fileservice.service.upload.FileUploadService;
-import com.example.common.dtos.nats.UploadMetadata;
+import com.bbmovie.common.dtos.nats.UploadMetadata;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;

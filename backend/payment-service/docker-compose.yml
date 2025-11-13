@@ -1,0 +1,37 @@
+version: '3.8'
+
+# This file defines the Payment service.
+# It expects the shared services network ('backend_bbmovie-net') to be running.
+#
+# To use:
+# 1. Start shared services from the 'backend' directory:
+#    docker-compose -f common/docker-compose.shared.yml up -d
+# 2. From this directory ('payment'), run:
+#    docker-compose up -d
+
+networks:
+  bbmovie-net:
+    name: backend_bbmovie-net # Connect to the network created by the shared compose file
+    external: true
+
+services:
+  payment-service:
+    build:
+      context: .. # The 'backend' directory
+      dockerfile: /Dockerfile
+    container_name: payment-service
+    ports:
+      - "8088:8088"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: jdbc:mysql://mysql:3306/${DB_NAME}?createDatabaseIfNotExist=true
+      DATABASE_USERNAME: ${DB_USERNAME}
+      DATABASE_PASSWORD: ${DB_ROOT_PASSWORD}
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      NATS_SERVER_URL: nats://nats:4222
+    networks:
+      - bbmovie-net
+    restart: on-failure:3
+
+

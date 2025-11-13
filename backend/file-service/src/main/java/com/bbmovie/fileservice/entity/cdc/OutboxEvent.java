@@ -35,6 +35,7 @@ public class OutboxEvent {
     private OutboxStatus status;
 
     @Column("retry_count")
+    @Builder.Default
     private int retryCount = 0;
 
     @Column("created_at")
