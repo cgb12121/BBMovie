@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.core.low_level._service._impl;
 
-import com.bbmovie.ai_assistant_service.core.low_level._SessionNotFoundException;
+import com.bbmovie.ai_assistant_service.core.low_level._exception._SecurityViolationException;
+import com.bbmovie.ai_assistant_service.core.low_level._exception._SessionNotFoundException;
 import com.bbmovie.ai_assistant_service.core.low_level._dto._response._ChatSessionResponse;
 import com.bbmovie.ai_assistant_service.core.low_level._entity._ChatSession;
 import com.bbmovie.ai_assistant_service.core.low_level._repository._ChatMessageRepository;
@@ -46,31 +47,7 @@ public class _SessionServiceImpl implements _SessionService {
 
         return sessionRepository.findActiveSessionsWithCursor(userId, cursorTime, limit)
                 .collectList()
-                .map(sessions -> {
-                    boolean hasMore = sessions.size() > size;
-
-                    List<_ChatSession> content = hasMore
-                            ? sessions.subList(0, size)
-                            : sessions;
-
-                    String nextCursor = null;
-                    if (hasMore && !content.isEmpty()) {
-                        _ChatSession last = content.getLast();
-                        nextCursor = Base64.getEncoder()
-                                .encodeToString(last.getUpdatedAt().toString().getBytes());
-                    }
-
-                    List<_ChatSessionResponse> contentResponse = content.stream()
-                            .map(_ChatSessionResponse::fromEntity)
-                            .toList();
-
-                    return CursorPageResponse.<_ChatSessionResponse>builder()
-                            .content(contentResponse)
-                            .nextCursor(nextCursor)
-                            .hasMore(hasMore)
-                            .size(size)
-                            .build();
-                });
+                .map(sessions -> getCursorPageResponse(size, sessions));
     }
 
     @Override
@@ -113,7 +90,7 @@ public class _SessionServiceImpl implements _SessionService {
                     if (!session.getUserId().equals(userId)) {
                         log.warn("Access denied: User {} attempted to access session {} owned by {}",
                                 userId, sessionId, session.getUserId());
-                        return Mono.error(new SecurityException("User does not own session " + sessionId));
+                        return Mono.error(new _SecurityViolationException("User does not own session " + sessionId));
                     }
                     return Mono.just(session);
                 });
@@ -156,30 +133,7 @@ public class _SessionServiceImpl implements _SessionService {
 
         return  sessionRepository.findArchivedSessionsWithCursor(userId, cursorTime, limit)
                 .collectList()
-                .map(sessions -> {
-                    boolean hasMore = sessions.size() > size;
-                    List<_ChatSession> content = hasMore
-                            ? sessions.subList(0, size)
-                            : sessions;
-
-                    String nextCursor = null;
-                    if (hasMore && !content.isEmpty()) {
-                        _ChatSession last = content.getLast();
-                        nextCursor = Base64.getEncoder()
-                                .encodeToString(last.getUpdatedAt().toString().getBytes());
-                    }
-
-                    List<_ChatSessionResponse> contentResponse = content.stream()
-                            .map(_ChatSessionResponse::fromEntity)
-                            .toList();
-
-                    return CursorPageResponse.<_ChatSessionResponse>builder()
-                            .content(contentResponse)
-                            .nextCursor(nextCursor)
-                            .hasMore(hasMore)
-                            .size(size)
-                            .build();
-                });
+                .map(sessions -> getCursorPageResponse(size, sessions));
     }
 
     @Transactional
@@ -198,5 +152,31 @@ public class _SessionServiceImpl implements _SessionService {
                                 .then(sessionRepository.delete(session))
                 )
                 .then(); // Convert to Mono<Void>
+    }
+
+    private static CursorPageResponse<_ChatSessionResponse> getCursorPageResponse(int size, List<_ChatSession> sessions) {
+        boolean hasMore = sessions.size() > size;
+
+        List<_ChatSession> content = hasMore
+                ? sessions.subList(0, size)
+                : sessions;
+
+        String nextCursor = null;
+        if (hasMore && !content.isEmpty()) {
+            _ChatSession last = content.getLast();
+            nextCursor = Base64.getEncoder()
+                    .encodeToString(last.getUpdatedAt().toString().getBytes());
+        }
+
+        List<_ChatSessionResponse> contentResponse = content.stream()
+                .map(_ChatSessionResponse::fromEntity)
+                .toList();
+
+        return CursorPageResponse.<_ChatSessionResponse>builder()
+                .content(contentResponse)
+                .nextCursor(nextCursor)
+                .hasMore(hasMore)
+                .size(size)
+                .build();
     }
 }

@@ -98,5 +98,4 @@ public class _SessionController {
         return sessionService.deleteArchivedSessions(dto.getSessionIds(), userId)
                 .then(Mono.fromCallable(() -> ApiResponse.success("Archived sessions deleted successfully")));
     }
-
 }

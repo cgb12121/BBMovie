@@ -1,0 +1,114 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: shared_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: 123456
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  nats:
+    image: nats:2.9-alpine
+    container_name: nats_server
+    command: "-js" # Enable JetStream
+    ports:
+      - "4222:4222"
+      - "8222:8222" # for monitoring
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.9.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - cluster.name=es-docker-cluster
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\\|yellow' || exit 1" ]
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  redis-stack:
+    image: redis/redis-stack:latest
+    container_name: redis_stack
+    ports:
+      - "6379:6379"
+      - "8001:8001" # RedisInsight
+    volumes:
+      - redis_data:/data
+
+#ERROR
+  eureka-server:
+    build:
+      context: .
+      dockerfile: ./eureka-sever/Dockerfile
+    container_name: eureka_server
+    ports:
+      - "8761:8761"
+
+#ERROR
+  ai-service:
+    build:
+      context: .
+      dockerfile: ./ai-service/Dockerfile
+    container_name: ai_service
+    depends_on:
+      - mysql
+      - nats
+      - elasticsearch
+      - redis-stack
+      - eureka-server
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/bb_movie_db?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+      - NATS_URL=nats://nats:4222
+      - ELASTICSEARCH_URIS=http://elasticsearch:9200
+      - REDIS_HOST=redis-stack
+      - REDIS_PORT=6379
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    ports:
+      - "8081:8081"
+
+  #ERROR
+  payment-service:
+    build:
+      context: .
+      dockerfile: ./payment-service/Dockerfile
+    container_name: payment_service
+    depends_on:
+      - mysql
+      - nats
+      - elasticsearch
+      - redis-stack
+      - eureka-server
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql:3306/bb_movie_db?useSSL=false&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_USERNAME=admin
+      - SPRING_DATASOURCE_PASSWORD=password
+      - NATS_URL=nats://nats:4222
+      - ELASTICSEARCH_URIS=http://elasticsearch:9200
+      - REDIS_HOST=redis-stack
+      - REDIS_PORT=6379
+      - EUREKA_CLIENT_SERVICEURL_DEFAULTZONE=http://eureka-server:8761/eureka/
+    ports:
+      - "8082:8082"
+
+volumes:
+  mysql_data:
+  es_data:
+  redis_data:

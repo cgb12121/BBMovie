@@ -1,6 +1,8 @@
 package com.bbmovie.ai_assistant_service.core.low_level._controller._advice;
 
-import com.bbmovie.ai_assistant_service.core.low_level._SessionNotFoundException;
+import com.bbmovie.ai_assistant_service.core.low_level._exception._InternalServerException;
+import com.bbmovie.ai_assistant_service.core.low_level._exception._SecurityViolationException;
+import com.bbmovie.ai_assistant_service.core.low_level._exception._SessionNotFoundException;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._log._Logger;
 import com.bbmovie.ai_assistant_service.core.low_level._utils._log._LoggerFactory;
 import com.bbmovie.common.dtos.ApiResponse;
@@ -26,7 +28,7 @@ public class _GlobalExceptionHandler {
     @ExceptionHandler(_SessionNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Mono<ApiResponse<Void>> handleSessionNotFound(_SessionNotFoundException ex) {
-        log.error("[_SessionNotFoundException] Session not found", ex);
+        log.error("[_SessionNotFoundException] Session not found. {}", ex.getMessage());
         return Mono.just(ApiResponse.error(ex.getMessage()));
     }
 
@@ -60,6 +62,20 @@ public class _GlobalExceptionHandler {
         return Mono.just(ApiResponse.error(ex.getMessage()));
     }
 
+    @ExceptionHandler(_SecurityViolationException.class)
+    public Mono<ResponseEntity<ApiResponse<Void>>> handleSecurityViolation(_SecurityViolationException ex) {
+        log.warn("Security violation: {}", ex.getMessage());
+        ApiResponse<Void> errorResponse = ApiResponse.error(ex.getMessage());
+        return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse));
+    }
+
+    @ExceptionHandler(_InternalServerException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public Mono<ApiResponse<Void>> handleInternalServer(_InternalServerException ex) {
+        log.error("Internal server error", ex);
+        return Mono.just(ApiResponse.error("Internal server error"));
+    }
+
     @ExceptionHandler(Throwable.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Mono<ApiResponse<Void>> handleGeneric(Throwable ex) {
@@ -76,14 +92,5 @@ public class _GlobalExceptionHandler {
         );
 
         return Mono.just(ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse));
-    }
-
-    @ExceptionHandler(SecurityException.class)
-    public Mono<ResponseEntity<ApiResponse<Void>>> handleSecurityException(SecurityException ex) {
-        log.warn("Security violation: {}", ex.getMessage());
-
-        ApiResponse<Void> errorResponse = ApiResponse.error(ex.getMessage());
-
-        return Mono.just(ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse));
     }
 }
