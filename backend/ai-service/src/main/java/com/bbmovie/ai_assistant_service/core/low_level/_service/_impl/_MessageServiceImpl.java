@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Collections;
@@ -54,10 +55,13 @@ public class _MessageServiceImpl implements _MessageService {
         return sessionService.getAndValidateSessionOwnership(sessionId, userId)
                 .flatMap(session -> {
                     Instant cursorTime = cursor != null
-                            ? Instant.parse(new String(Base64.getDecoder().decode(cursor)))
+                            ? Instant.parse(new String(Base64.getDecoder().decode(cursor), StandardCharsets.UTF_8))
                             : Instant.now();
 
-                    return repository.getWithCursor(sessionId, cursorTime, size)
+                    // We fetch one more than requested to see if there 'hasMore'
+                    int querySize = size + 1;
+
+                    return repository.getWithCursor(sessionId, cursorTime, querySize)
                             .collectList()
                             .map(messages -> {
                                 boolean hasMore = messages.size() > size;
@@ -67,19 +71,20 @@ public class _MessageServiceImpl implements _MessageService {
 
                                 String nextCursor = null;
                                 if (hasMore && !content.isEmpty()) {
+                                    // Get the last item in the *returned* list
                                     _ChatMessage last = content.getLast();
                                     nextCursor = Base64.getEncoder()
-                                            .encodeToString(last.getTimestamp().toString().getBytes());
+                                            .encodeToString(last.getTimestamp().toString().getBytes(StandardCharsets.UTF_8));
                                 }
 
-                                // Reverse to getWithCursor the oldest -> the newest order for display
+                                // Reverse to get the oldest -> the newest order for display
                                 Collections.reverse(content);
 
                                 return CursorPageResponse.<_ChatMessage>builder()
                                         .content(content)
                                         .nextCursor(nextCursor)
                                         .hasMore(hasMore)
-                                        .size(size)
+                                        .size(content.size()) // Return the actual size of the content list
                                         .build();
                             });
                 });

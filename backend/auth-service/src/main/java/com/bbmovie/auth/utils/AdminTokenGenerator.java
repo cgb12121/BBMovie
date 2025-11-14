@@ -30,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static com.bbmovie.auth.entity.enumerate.Role.ADMIN;
+import static com.bbmovie.common.entity.JoseConstraint.JosePayload.*;
 
 public class AdminTokenGenerator {
 
