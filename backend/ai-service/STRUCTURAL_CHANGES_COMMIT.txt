@@ -1,0 +1,12 @@
+feat(ai-service): remove deprecated high_level package and refactor low_level architecture
+
+- Remove deprecated high_level package with all its components (agents, configs, controllers, DTOs, entities, repositories, services)
+- Update AiModeConfiguration to use low-level mode as default, removing high-level mode support entirely
+- Remove underscore prefixes from low_level package directories and files for cleaner architecture
+- Rename directories: _assistant → assistant, _config → config, _controller → controller, _dto → dto, _entity → entity, _exception → exception, _handler → handler, _repository → repository, _service → service, _tool → tool, _utils → utils
+- Rename subdirectories under config: _ai → ai, _cache → cache, _db → db, and all other underscore-prefixed subdirectories
+- Update package declarations and class names to remove underscore prefixes throughout the low_level package
+- Maintain full functionality while improving code organization and naming consistency
+- Prepare project for future development with clean, modern architecture pattern
+
+This change streamlines the AI service architecture by removing the deprecated high_level implementation and cleaning up the remaining low_level implementation for better maintainability.
