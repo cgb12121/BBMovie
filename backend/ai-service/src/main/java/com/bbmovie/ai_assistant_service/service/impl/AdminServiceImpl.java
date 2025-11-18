@@ -5,7 +5,7 @@ import com.bbmovie.ai_assistant_service.entity.AiInteractionAudit;
 import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
 import com.bbmovie.ai_assistant_service.repository.AiInteractionAuditRepository;
 import com.bbmovie.ai_assistant_service.service.AdminService;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -14,14 +14,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class AdminServiceImpl implements AdminService {
 
     private final AiInteractionAuditRepository auditRepository;
-
-    @Autowired
-    public AdminServiceImpl(AiInteractionAuditRepository auditRepository) {
-        this.auditRepository = auditRepository;
-    }
 
     @Override
     public Mono<TokenUsageResponse> getTokenUsageDashboard() {

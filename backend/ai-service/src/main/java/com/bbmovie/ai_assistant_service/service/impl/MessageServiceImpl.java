@@ -6,7 +6,7 @@ import com.bbmovie.ai_assistant_service.repository.ChatMessageRepository;
 import com.bbmovie.ai_assistant_service.service.MessageService;
 import com.bbmovie.ai_assistant_service.service.SessionService;
 import com.bbmovie.common.dtos.CursorPageResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -18,16 +18,11 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class MessageServiceImpl implements MessageService {
 
     private final ChatMessageRepository repository;
     private final SessionService sessionService; // For ownership validation
-
-    @Autowired
-    public MessageServiceImpl(ChatMessageRepository repository, SessionService sessionService) {
-        this.repository = repository;
-        this.sessionService = sessionService;
-    }
 
     @Override
     public Mono<ChatMessage> saveUserMessage(UUID sessionId, String message) {

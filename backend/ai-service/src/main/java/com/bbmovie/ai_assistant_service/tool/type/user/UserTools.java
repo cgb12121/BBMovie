@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
+@SuppressWarnings("unused")
 @Component
 @Qualifier("userTools")
-@SuppressWarnings("unused")
 public class UserTools implements AiTools {
 
     @Tool("Searches for movies by title, actor, or genre.")

@@ -19,6 +19,10 @@ public class ElasticClientConfig {
 
     private static final Logger log = LoggerFactory.getLogger(ElasticClientConfig.class);
 
+    static {
+        log.debug("Elasticsearch Java client version: {}", ElasticsearchAsyncClient.class.getPackage().getImplementationVersion());
+    }
+
     @Bean("elasticsearchAsyncClient")
     public ElasticsearchAsyncClient asyncClient(RestClient restClient) {
         ObjectMapper objectMapper = new ObjectMapper()

@@ -113,11 +113,15 @@ public class MovieSeederService {
 
         elasticsearchClient.indices().create(c -> c
                 .index(indexName)
-                .settings(s -> s.numberOfShards("1").numberOfReplicas("0"))
+                .settings(s -> s
+                        .numberOfShards("1")
+                        .numberOfReplicas("0")
+                        .analysis(a -> a) // safe stub
+                )
                 .mappings(m -> m
                         .properties("id", p -> p.keyword(k -> k))
-                        .properties("title", p -> p.text(t -> t.analyzer("standard")))
-                        .properties("description", p -> p.text(t -> t.analyzer("standard")))
+                        .properties("title", p -> p.text(t -> t))
+                        .properties("description", p -> p.text(t -> t))
                         .properties("genres", p -> p.keyword(k -> k))
                         .properties("actors", p -> p.keyword(k -> k))
                         .properties("directors", p -> p.keyword(k -> k))
@@ -127,24 +131,18 @@ public class MovieSeederService {
                         .properties("rating", p -> p.double_(d -> d))
                         .properties("country", p -> p.keyword(k -> k))
                         .properties("type", p -> p.keyword(k -> k))
+
+                        // FIXED: correct ordering + ANN enabled
                         .properties("embedding", p -> p.denseVector(v -> v
                                 .dims(EMBEDDING_DIM)
-                                .index(true)
-                                .similarity("cosine")
+                                .similarity("cosine")     // MUST come before index(true)
+                                .index(true)               // enable ANN
                                 .indexOptions(io -> io
                                         .type("hnsw")
                                         .m(16)
                                         .efConstruction(100)
-                                )))
-
-                        // This will be used for rag audit at AI Assistant Service
-//                        .properties("audit", p -> p.object(o -> o
-//                                .properties("latency_ms", pp -> pp.long_(l -> l))
-//                                .properties("prompt_tokens", pp -> pp.integer(i -> i))
-//                                .properties("response_tokens", pp -> pp.integer(i -> i))
-//                                .properties("interaction_type", pp -> pp.keyword(k -> k))
-//                                .properties("timestamp", pp -> pp.date(d -> d))
-//                        ))
+                                )
+                        ))
                 )
         );
         log.info("Index '{}' created.", indexName);

@@ -10,7 +10,7 @@ import com.bbmovie.ai_assistant_service.service.SessionService;
 import com.bbmovie.ai_assistant_service.utils.log.Logger;
 import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
 import com.bbmovie.common.dtos.CursorPageResponse;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Flux;
@@ -23,18 +23,13 @@ import java.util.List;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class SessionServiceImpl implements SessionService {
 
     private static final Logger log = LoggerFactory.getLogger(SessionServiceImpl.class);
 
     private final ChatSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;
-
-    @Autowired
-    public SessionServiceImpl(ChatSessionRepository sessionRepository, ChatMessageRepository messageRepository) {
-        this.sessionRepository = sessionRepository;
-        this.messageRepository = messageRepository;
-    }
 
     @Override
     public Mono<CursorPageResponse<ChatSessionResponse>> activeSessionsWithCursor(

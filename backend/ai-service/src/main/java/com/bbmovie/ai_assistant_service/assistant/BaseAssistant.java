@@ -2,6 +2,7 @@ package com.bbmovie.ai_assistant_service.assistant;
 
 import com.bbmovie.ai_assistant_service.config.ai.ModelFactory;
 import com.bbmovie.ai_assistant_service.dto.AuditRecord;
+import com.bbmovie.ai_assistant_service.dto.ChatContext;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.dto.Metrics;
 import com.bbmovie.ai_assistant_service.entity.model.AiMode;
@@ -54,43 +55,27 @@ public abstract class BaseAssistant implements Assistant {
 
     protected abstract ChatResponseHandlerFactory getHandlerFactory();
 
+    @Override
+    public AssistantMetadata getInfo() {
+        return this.metadata;
+    }
+
     @Transactional
     @Override
-    public Flux<ChatStreamChunk> processMessage(UUID sessionId, String message, AiMode aiMode, String userRole) {
+    public Flux<ChatStreamChunk> processMessage(ChatContext context) {
         long start = System.currentTimeMillis();
+        UUID sessionId = context.getSessionId();
+        AiMode aiMode = context.getAiMode();
+        String message = context.getMessage();
+        String userRole = context.getUserRole();
+
         log.debug("[streaming] session={} type={} role={} message={}", sessionId, getType(), userRole, message);
 
-        return messageService.saveUserMessage(sessionId, message)
-                .flatMap(savedMessage -> {
-                    long latency = System.currentTimeMillis() - start;
-                    String modelName = metadata.getModelName();
-                    String toolName = metadata.getType().name();
-                    Metrics metrics = MetricsUtil.get(latency, null, modelName, toolName);
-                    AuditRecord auditRecord = AuditRecord.builder()
-                            .sessionId(sessionId)
-                            .type(InteractionType.USER_MESSAGE)
-                            .details(message)
-                            .metrics(metrics)
-                            .build();
-                    return auditService.recordInteraction(auditRecord)
-                            .thenReturn(savedMessage);
-                })
+        return messageService.saveUserMessage(context.getSessionId(), context.getMessage())
+                .flatMap(savedMessage -> recordUserMessage(savedMessage, start, sessionId, message))
                 .flatMapMany(savedMessage ->
-                    prepareChatRequest(sessionId, message)
-                        .flatMapMany(chatRequest ->
-                            Flux.<ChatStreamChunk>create(sink ->
-                                            processChatRecursive(sessionId, aiMode, chatRequest, sink)
-                                                    .doOnError(sink::error)
-                                                    .doOnSuccess(v -> sink.complete())
-                                                    .subscribeOn(Schedulers.boundedElastic()) // Offload the blocking AI call
-                                                    .subscribe()
-                                    )
-                                    .timeout(
-                                            Duration.ofSeconds(45),
-                                            Mono.error(new TimeoutException("AI response timed out after 45 seconds."))
-                                    )
-                                    .doOnComplete(() -> log.debug("[streaming] Stream completed for session {}", sessionId))
-                        )
+                    prepareChatRequest(sessionId, message, userRole)
+                        .flatMapMany(chatRequest -> processChatStream(chatRequest, sessionId, aiMode))
                 )
                 .onErrorResume(ex -> {
                     log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage(), ex);
@@ -99,12 +84,42 @@ public abstract class BaseAssistant implements Assistant {
                             : "Something went wrong. Please try again later.";
                     return Flux.just(ChatStreamChunk.system(errorMessage));
                 })
-                .doOnError(ex -> log.error("[streaming] Unhandled error in stream for session={}: {}", sessionId, ex.getMessage(), ex));
+                .doOnError(ex -> log.error("[streaming] Unhandled error in stream for session={}: {}", sessionId, ex.getMessage()));
     }
 
-    private Mono<ChatRequest> prepareChatRequest(UUID sessionId, String message) {
+    private Flux<ChatStreamChunk> processChatStream(ChatRequest chatRequest, UUID sessionId, AiMode aiMode) {
+        return Flux.<ChatStreamChunk>create(sink ->
+                        processChatRecursive(sessionId, aiMode, chatRequest, sink)
+                                .doOnError(sink::error)
+                                .doOnSuccess(v -> sink.complete())
+                                .subscribeOn(Schedulers.boundedElastic()) // Offload the blocking AI call
+                                .subscribe()
+                )
+                .timeout(
+                        Duration.ofSeconds(45),
+                        Mono.error(new TimeoutException("AI response timed out after 45 seconds."))
+                )
+                .doOnComplete(() -> log.debug("[streaming] Stream completed for session {}", sessionId));
+    }
+
+    private Mono<Void> processChatRecursive(UUID sessionId, AiMode aiMode, ChatRequest chatRequest, FluxSink<ChatStreamChunk> sink) {
+        return Mono.create(monoSink -> {
+            ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
+            try {
+                StreamingChatResponseHandler handler = getHandlerFactory().create(sessionId, chatMemory, sink, monoSink, aiMode);
+                modelFactory.getModel(aiMode).chat(chatRequest, handler);
+            } catch (Exception ex) {
+                log.error("[streaming] chatModel.chat failed: {}", ex.getMessage());
+                // Ensure both sinks are terminated on the initial error
+                sink.error(ex);
+                monoSink.error(ex);
+            }
+        });
+    }
+
+    private Mono<ChatRequest> prepareChatRequest(UUID sessionId, String message, String userRole) {
         return Mono.fromCallable(() -> {
-                    String finalMessage = "[User's chat session:" + sessionId + "] " + message;
+                    String finalMessage = "[User's role:{" + userRole + "} | User's chat session:{" + sessionId + "}] " + message;
                     UserMessage userMessage = UserMessage.from(finalMessage);
 
                     ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
@@ -134,29 +149,29 @@ public abstract class BaseAssistant implements Assistant {
                 })
                 .subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(e -> {
+                    // Fallback
                     log.error("[prepareChatRequest] Error in chat pipeline for session={}: {}", sessionId, e.getMessage());
-                    return Mono.just(
-                            ChatRequest.builder()
-                                    .messages(List.of(systemPrompt, UserMessage.from(message)))
-                                    .build()
-                    );
+                    ChatRequest request = ChatRequest.builder()
+                            .messages(List.of(systemPrompt, UserMessage.from(message)))
+                            .build();
+                    return Mono.just(request);
                 });
     }
 
-    private Mono<Void> processChatRecursive(UUID sessionId, AiMode aiMode, ChatRequest chatRequest, FluxSink<ChatStreamChunk> sink) {
-        return Mono.create(monoSink -> {
-            ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
-            try {
-                StreamingChatResponseHandler handler = getHandlerFactory()
-                        .create(sessionId, chatMemory, sink, monoSink, aiMode);
-                modelFactory.getModel(aiMode).chat(chatRequest, handler);
-            } catch (Exception ex) {
-                log.error("[streaming] chatModel.chat failed: {}", ex.getMessage());
-                // Ensure both sinks are terminated on the initial error
-                sink.error(ex);
-                monoSink.error(ex);
-            }
-        });
+    private Mono<com.bbmovie.ai_assistant_service.entity.ChatMessage> recordUserMessage(
+            com.bbmovie.ai_assistant_service.entity.ChatMessage savedMessage, long start, UUID sessionId, String message) {
+        long latency = System.currentTimeMillis() - start;
+        String modelName = metadata.getModelName();
+        String toolName = metadata.getType().name();
+        Metrics metrics = MetricsUtil.get(latency, null, modelName, toolName);
+        AuditRecord auditRecord = AuditRecord.builder()
+                .sessionId(sessionId)
+                .type(InteractionType.USER_MESSAGE)
+                .details(message)
+                .metrics(metrics)
+                .build();
+        return auditService.recordInteraction(auditRecord)
+                .thenReturn(savedMessage);
     }
 }
 

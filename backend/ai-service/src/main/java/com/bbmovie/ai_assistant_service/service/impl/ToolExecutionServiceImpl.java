@@ -14,7 +14,7 @@ import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.service.tool.ToolExecutor;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -22,18 +22,13 @@ import reactor.core.scheduler.Schedulers;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class ToolExecutionServiceImpl implements ToolExecutionService {
 
     private static final Logger log = LoggerFactory.getLogger(ToolExecutionServiceImpl.class);
 
     private final AuditService auditService;
     private final ModelSelector modelSelector;
-
-    @Autowired
-    public ToolExecutionServiceImpl(AuditServiceImpl auditService, ModelSelector modelSelector) {
-        this.auditService = auditService;
-        this.modelSelector = modelSelector;
-    }
 
     @Override
     public Mono<ToolExecutionResultMessage> execute(

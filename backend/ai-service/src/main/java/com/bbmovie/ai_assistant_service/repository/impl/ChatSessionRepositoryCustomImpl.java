@@ -2,6 +2,7 @@ package com.bbmovie.ai_assistant_service.repository.impl;
 
 import com.bbmovie.ai_assistant_service.entity.ChatSession;
 import com.bbmovie.ai_assistant_service.repository.ChatSessionRepositoryCustom;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Sort;
@@ -20,14 +21,10 @@ import java.util.UUID;
  * All our complex query logic (using R2dbcEntityOperations) lives here.
  */
 @Component
+@RequiredArgsConstructor
 public class ChatSessionRepositoryCustomImpl implements ChatSessionRepositoryCustom {
 
-    private final R2dbcEntityOperations r2dbcOperations;
-
-    @Autowired
-    public ChatSessionRepositoryCustomImpl(@Qualifier("entityOperations") R2dbcEntityOperations r2dbcOperations) {
-        this.r2dbcOperations = r2dbcOperations;
-    }
+    @Qualifier("entityOperations") private final R2dbcEntityOperations r2dbcOperations;
 
     @Override
     public Flux<ChatSession> findActiveSessionsWithCursor(UUID userId, Instant cursorTime, int limit) {

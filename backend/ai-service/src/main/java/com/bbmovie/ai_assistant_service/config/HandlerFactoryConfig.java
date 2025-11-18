@@ -107,7 +107,7 @@ public class HandlerFactoryConfig {
                     .chatMemory(chatMemory)
                     .toolRegistry(toolRegistry)
                     .systemPrompt(systemPrompt)
-                    .toolWorkflowFacade(toolWorkflowFacade)
+                    .toolWorkflow(toolWorkflowFacade)
                     .sink(sink)
                     .requestStartTime(requestStartTime)
                     .build();

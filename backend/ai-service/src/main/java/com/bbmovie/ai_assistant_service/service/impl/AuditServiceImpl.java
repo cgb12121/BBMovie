@@ -11,7 +11,7 @@ import com.bbmovie.ai_assistant_service.utils.log.Logger;
 import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -21,22 +21,14 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
 public class AuditServiceImpl implements AuditService {
 
     private static final Logger log = LoggerFactory.getLogger(AuditServiceImpl.class);
 
     private final AiInteractionAuditRepository repository;
     private final ModelSelector modelSelector;
-    private final ObjectMapper objectMapper;
-
-    @Autowired
-    public AuditServiceImpl(
-            AiInteractionAuditRepository repository, ModelSelector modelSelector,
-            @Qualifier("ObjectMapper") ObjectMapper objectMapper) {
-        this.repository = repository;
-        this.modelSelector = modelSelector;
-        this.objectMapper = objectMapper;
-    }
+    @Qualifier("ObjectMapper") private final ObjectMapper objectMapper;
 
     @Override
     public Mono<Void> recordInteraction(AuditRecord record) {

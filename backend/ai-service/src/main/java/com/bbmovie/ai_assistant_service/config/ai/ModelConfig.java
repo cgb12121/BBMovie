@@ -166,7 +166,7 @@ import java.util.List;
  * <ul>
  *   <li>These parameters interact — avoid setting all at once.</li>
  *   <li>For small VRAM (≤6GB), keep <code>numCtx</code> low (2k–4k).</li>
- *   <li>For reproducibility, use <code>seed()</code> and fixed prompts.</li>
+ *   <li>For reproducibility, use, and fixed prompts.</li>
  *   <li>Mirostat is optional — best for long-form creative text.</li>
  * </ul>
  *
@@ -184,7 +184,7 @@ public class ModelConfig {
     @Value("${ai.ollama.url}")
     private String ollamaUrl;
 
-    @Bean("ThinkingModel")
+    @Bean("thinkingModel")
     public StreamingChatModel thinkingModel(Logging listener) {
         return baseModel(listener)
                 .think(true)
@@ -192,7 +192,7 @@ public class ModelConfig {
                 .build();
     }
 
-    @Bean("NonThinkingModel")
+    @Bean("nonThinkingModel")
     public StreamingChatModel nonThinkingModel(Logging listener) {
         return baseModel(listener)
                 .think(false)

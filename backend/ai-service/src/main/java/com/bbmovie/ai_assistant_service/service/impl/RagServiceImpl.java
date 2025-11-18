@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.service.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
+import co.elastic.clients.elasticsearch._types.KnnSearch;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
@@ -19,7 +20,7 @@ import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.TokenUsage;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Service;
@@ -32,29 +33,16 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Service
+@RequiredArgsConstructor
 public class RagServiceImpl implements RagService {
 
     private static final Logger log = LoggerFactory.getLogger(RagServiceImpl.class);
 
-    private final EmbeddingModel embeddingModel;
-    private final ElasticsearchAsyncClient esClient;
+    @Qualifier("_EmbeddingModel") private final EmbeddingModel embeddingModel;
+    @Qualifier("elasticsearchAsyncClient") private final ElasticsearchAsyncClient esClient;
     private final EmbeddingSelector embeddingSelector;
     private final AuditService auditService;
-    private final ObjectMapper objectMapper;
-
-    @Autowired
-    public RagServiceImpl(
-            @Qualifier("_EmbeddingModel") EmbeddingModel embeddingModel,
-            @Qualifier("elasticsearchAsyncClient") ElasticsearchAsyncClient esClient,
-            @Qualifier("ObjectMapper") ObjectMapper objectMapper,
-            EmbeddingSelector embeddingSelector,
-            AuditService auditService) {
-        this.embeddingModel = embeddingModel;
-        this.esClient = esClient;
-        this.objectMapper = objectMapper;
-        this.embeddingSelector = embeddingSelector;
-        this.auditService = auditService;
-    }
+    @Qualifier("ObjectMapper") private final ObjectMapper objectMapper;
 
     // Hybrid Movie Context Retrieval
     @Override
@@ -127,12 +115,12 @@ public class RagServiceImpl implements RagService {
                 .doOnError(e -> log.error("[rag] Failed to index fragment: {}", e.getMessage()));
     }
 
-    // Hybrid Search — combines movies + memory indices (not memory rn)
+    // Hybrid Search — combines movies and memory indices (not memory rn)
     private Mono<List<RagMovieDto>> hybridSearch(UUID sessionId, float[] embedding, int topK) {
         long start = System.currentTimeMillis();
 
-        // Only search the movie index now
-        return performSearch(sessionId, embedding, topK, embeddingSelector.getMovieIndex(), "movies")
+        // Only search the movie index now using native KNN
+        return nativeKnn(sessionId, embedding, topK, embeddingSelector.getMovieIndex(), "movies")
                 .flatMap(results -> {
                     long latency = System.currentTimeMillis() - start;
 
@@ -145,7 +133,8 @@ public class RagServiceImpl implements RagService {
                             .details(Map.of(
                                     "index", embeddingSelector.getMovieIndex(),
                                     "topK", topK,
-                                    "results", results.size()
+                                    "results", results.size(),
+                                    "search_type", "knn"
                             ))
                             .metrics(metrics)
                             .build();
@@ -156,9 +145,62 @@ public class RagServiceImpl implements RagService {
                 .doOnError(e -> log.error("[rag] Error during movie search: {}", e.getMessage(), e));
     }
 
+    // Perform a native KNN vector search on a specific index
+    @SuppressWarnings("SameParameterValue")
+    private Mono<List<RagMovieDto>> nativeKnn(UUID sessionId, float[] embedding, int topK, String index, String label) {
+        long start = System.currentTimeMillis();
 
-    // Perform a Vector Search on a Specific Index
-    @SuppressWarnings("SameParameterValue") // Will be used for hybrid search
+        List<Float> vector = new ArrayList<>();
+        for (float f : embedding) {
+            vector.add(f);
+        }
+
+        KnnSearch knn = KnnSearch.of(k -> k
+                .field(embeddingSelector.getEmbeddingField())
+                .queryVector(vector)
+                .k(topK)
+                .numCandidates(topK * 10)
+        );
+
+        SearchRequest request = SearchRequest.of(s -> s
+                .index(index)
+                .knn(List.of(knn))
+                .size(topK)
+        );
+
+        return Mono.fromFuture(esClient.search(request, Map.class))
+                .map(resp -> resp.hits().hits().stream()
+                        .map(hit -> {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> source = hit.source();
+                            return toRagMovieDto(source);
+                        })
+                        .filter(Objects::nonNull)
+                        .toList())
+                .flatMap(results -> {
+                    long latency = System.currentTimeMillis() - start;
+                    Metrics metrics = MetricsUtil.get(latency, null,
+                            embeddingSelector.getModelName(), "rag-knn-search-" + label);
+
+                    AuditRecord auditRecord = AuditRecord.builder()
+                            .sessionId(sessionId)
+                            .type(InteractionType.RETRIEVAL)
+                            .details(Map.of(
+                                    "index", index,
+                                    "hits", results.size(),
+                                    "search_type", "knn"
+                            ))
+                            .metrics(metrics)
+                            .build();
+                    return auditService.recordInteraction(auditRecord)
+                            .thenReturn(results);
+                })
+                .doOnSuccess(list -> log.debug("[rag] [{}] Native KNN found {} hits", label, list.size()))
+                .doOnError(e -> log.error("[rag] [{}] Native KNN search failed: {}", label, e.getMessage()));
+    }
+
+    // Fallback when native knn fails
+    @SuppressWarnings({"SameParameterValue", "unused"})
     private Mono<List<RagMovieDto>> performSearch(
             UUID sessionId, float[] embedding, int topK, String index, String label) {
         long start = System.currentTimeMillis();

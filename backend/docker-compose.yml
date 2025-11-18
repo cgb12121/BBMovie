@@ -40,7 +40,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1g
+          memory: 2g
 
   redis-stack:
     image: redis/redis-stack:latest

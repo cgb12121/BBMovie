@@ -1,6 +1,8 @@
 package com.bbmovie.ai_assistant_service.service.impl;
 
 import com.bbmovie.ai_assistant_service.assistant.Assistant;
+import com.bbmovie.ai_assistant_service.dto.ChatContext;
+import com.bbmovie.ai_assistant_service.dto.request.ChatRequestDto;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.entity.model.AiMode;
 import com.bbmovie.ai_assistant_service.entity.model.AssistantType;
@@ -42,18 +44,29 @@ public class ChatServiceImpl implements ChatService {
     }
 
     @Override
-    public Flux<ChatStreamChunk> chat(UUID sessionId, String message, AiMode aiMode, AssistantType assistantType, Jwt jwt) {
+    public Flux<ChatStreamChunk> chat(UUID sessionId, ChatRequestDto request, Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         String userRole = jwt.getClaimAsString(ROLE);
 
         return sessionService.getAndValidateSessionOwnership(sessionId, userId)
                 .flatMapMany(session -> {
+                    AssistantType assistantType = AssistantType.fromCode(request.getAssistantType());
                     Assistant assistant = assistants.get(assistantType);
                     if (assistant == null) {
                         return Flux.error(new IllegalArgumentException("Unknown assistant type: " + assistantType));
                     }
 
-                    return assistant.processMessage(sessionId, message, aiMode, userRole)
+                    ChatContext chatContext = ChatContext.builder()
+                            .sessionId(session.getId())
+                            .message(request.getMessage())
+                            .aiMode(request.getAiMode())
+                            .userRole(userRole)
+                            .build();
+                    if (request.getAiMode() == AiMode.FAST || request.getAiMode() == AiMode.NORMAL) {
+                        return assistant.processMessage(chatContext);
+                    }
+
+                    return assistant.processMessage(chatContext)
                             .startWith(ChatStreamChunk.system("Assistant is thinking..."))
                             .concatWithValues(ChatStreamChunk.system("Done"));
                 });

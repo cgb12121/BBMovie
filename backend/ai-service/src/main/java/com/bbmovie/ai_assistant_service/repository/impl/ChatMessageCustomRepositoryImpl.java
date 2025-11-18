@@ -2,7 +2,7 @@ package com.bbmovie.ai_assistant_service.repository.impl;
 
 import com.bbmovie.ai_assistant_service.entity.ChatMessage;
 import com.bbmovie.ai_assistant_service.repository.ChatMessageCustomRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.r2dbc.core.R2dbcEntityOperations;
@@ -15,14 +15,10 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Component
+@RequiredArgsConstructor
 public class ChatMessageCustomRepositoryImpl implements ChatMessageCustomRepository {
 
-    private final R2dbcEntityOperations r2dbcOperations;
-
-    @Autowired
-    public ChatMessageCustomRepositoryImpl(@Qualifier("entityOperations") R2dbcEntityOperations r2dbcOperations) {
-        this.r2dbcOperations = r2dbcOperations;
-    }
+    @Qualifier("entityOperations") private final R2dbcEntityOperations r2dbcOperations;
 
     @Override
     public Flux<ChatMessage> getWithCursor(UUID sessionId, Instant cursorTime, int size) {

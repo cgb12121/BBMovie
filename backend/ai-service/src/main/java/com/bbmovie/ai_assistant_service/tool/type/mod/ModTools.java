@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
+@SuppressWarnings("unused")
 @Component
 @Qualifier("modTool")
-@SuppressWarnings("unused")
 public class ModTools implements AiTools {
 
     @Tool("Views a queue of content (reviews, comments) that has been reported by users.")

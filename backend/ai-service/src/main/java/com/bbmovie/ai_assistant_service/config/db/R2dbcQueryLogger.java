@@ -7,8 +7,8 @@ import com.github.vertical_blank.sqlformatter.languages.Dialect;
 import io.r2dbc.proxy.core.*;
 import io.r2dbc.proxy.listener.ProxyExecutionListener;
 import org.fusesource.jansi.Ansi;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBooleanProperty;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Profile;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 
@@ -27,7 +27,7 @@ public class R2dbcQueryLogger {
     private static final Logger log = LoggerFactory.getLogger(R2dbcQueryLogger.class);
 
     @Bean
-    @Profile({"default"})
+    @ConditionalOnBooleanProperty(value = "r2dbc.query-logging.enabled")
     public ProxyExecutionListener proxyExecutionListener() {
         return new ProxyExecutionListener() {
             @Override

@@ -8,9 +8,9 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
+@SuppressWarnings("unused")
 @Component
 @Qualifier("adminTool")
-@SuppressWarnings("unused")
 public class AdminTools implements AiTools {
 
     @Tool("Manages a user account, allowing actions like banning, unbanning, or changing roles.")
