@@ -108,6 +108,5 @@ public class ToolExecutionServiceImpl implements ToolExecutionService {
                 .doOnNext(chatMemory::add);
     }
 
-        private record ToolExecutionResult(ToolExecutionResultMessage message, Metrics metrics, Exception error) {
-    }
+    private record ToolExecutionResult(ToolExecutionResultMessage message, Metrics metrics, Exception error) { }
 }
