@@ -61,8 +61,7 @@ public class ToolExecutionServiceImpl implements ToolExecutionService {
                         Metrics metrics = MetricsUtil.get(latency, null,
                                 modelSelector.getModelName(), request.name());
 
-                        log.debug("[tool] Tool '{}' executed in {}ms: {}",
-                                request.name(), latency, executionResult);
+                        log.debug("[tool] Tool '{}' executed in {}ms: {}", request.name(), latency, executionResult);
 
                         // Create result and metrics together
                         return new ToolExecutionResult(
@@ -88,24 +87,29 @@ public class ToolExecutionServiceImpl implements ToolExecutionService {
                 .subscribeOn(Schedulers.boundedElastic()) // Tool execution might be blocking
                 .flatMap(result -> {
                     // Record audit based on success/failure
-                    InteractionType type = result.error != null
-                            ? InteractionType.ERROR
-                            : InteractionType.TOOL_EXECUTION_RESULT;
-
-                    Object details = result.error != null
-                            ? result.error.getMessage()
-                            : request;
-
-                    AuditRecord auditRecord = AuditRecord.builder()
-                            .sessionId(sessionId)
-                            .type(type)
-                            .details(details)
-                            .metrics(result.metrics)
-                            .build();
-                    return auditService.recordInteraction(auditRecord)
-                            .thenReturn(result.message);
+                    return recordToolExecutionAudit(sessionId, request, result);
                 })
                 .doOnNext(chatMemory::add);
+    }
+
+    private Mono<ToolExecutionResultMessage> recordToolExecutionAudit(
+            UUID sessionId, ToolExecutionRequest request, ToolExecutionResult result) {
+        InteractionType type = result.error != null
+                ? InteractionType.ERROR
+                : InteractionType.TOOL_EXECUTION_RESULT;
+
+        Object details = result.error != null
+                ? result.error.getMessage()
+                : request;
+
+        AuditRecord auditRecord = AuditRecord.builder()
+                .sessionId(sessionId)
+                .type(type)
+                .details(details)
+                .metrics(result.metrics)
+                .build();
+        return auditService.recordInteraction(auditRecord)
+                .thenReturn(result.message);
     }
 
     private record ToolExecutionResult(ToolExecutionResultMessage message, Metrics metrics, Exception error) { }

@@ -62,6 +62,7 @@ public class ChatServiceImpl implements ChatService {
                             .aiMode(request.getAiMode())
                             .userRole(userRole)
                             .build();
+
                     if (request.getAiMode() == AiMode.FAST || request.getAiMode() == AiMode.NORMAL) {
                         return assistant.processMessage(chatContext);
                     }

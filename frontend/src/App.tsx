@@ -10,6 +10,7 @@ import GlobalStyles from "./styles/GlobalStyles";
 import Navbar from "./components/Navbar";
 import { routes } from "./routes";
 import MfaProvider from "./components/security/MfaProvider";
+import ChatWidget from "./components/ai/ChatWidget";
 
 const MainLayout: React.FC = () => {
      const location = useLocation();
@@ -29,6 +30,7 @@ const MainLayout: React.FC = () => {
                          />
                     ))}
                </Routes>
+               {!shouldHideNavbar && <ChatWidget />}
           </>
      );
 };
