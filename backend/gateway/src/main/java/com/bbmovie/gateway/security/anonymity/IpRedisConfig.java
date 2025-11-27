@@ -26,12 +26,14 @@ public class IpRedisConfig {
         RedisSerializer<Boolean> valueSerializer = new RedisSerializer<>() {
             @Override
             public byte[] serialize(Boolean value) throws SerializationException {
-                return (value == null) ? null : value.toString().getBytes(StandardCharsets.UTF_8);
+                return (value == null)
+                        ? null
+                        : value.toString().getBytes(StandardCharsets.UTF_8);
             }
 
             @Override
             public Boolean deserialize(byte[] bytes) throws SerializationException {
-                if (bytes == null) return null;
+                if (bytes == null) return false;
                 String str = new String(bytes, StandardCharsets.UTF_8);
                 return Boolean.parseBoolean(str);
             }

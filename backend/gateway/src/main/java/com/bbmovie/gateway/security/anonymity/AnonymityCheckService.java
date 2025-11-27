@@ -12,7 +12,7 @@ import java.util.List;
 
 @Service
 @Log4j2
-public class AnonymityCheckService {
+public final class AnonymityCheckService {
 
     private final List<IpAnonymityProvider> providers;
     private final ReactiveRedisTemplate<String, Boolean> redisTemplate;

@@ -18,6 +18,7 @@ public class OtpService {
     private final RedisTemplate<Object, Object> redisTemplate;
     private static final String OTP_TOKEN_PREFIX = "otp:token:";
     private static final String TOKEN_TO_EMAIL_PREFIX = "otp:email:";
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     @Value("${app.otp-expiration-minutes}")
     private long otpExpirationMinutes;
@@ -27,8 +28,7 @@ public class OtpService {
     }
 
     public String generateOtpToken(User user) {
-        SecureRandom secureRandom = new SecureRandom();
-        String otp = String.format("%06d", secureRandom.nextInt(999999));
+        String otp = String.format("%06d", RANDOM.nextInt(999999));
         String emailKey = OTP_TOKEN_PREFIX + user.getEmail();
         String tokenKey = TOKEN_TO_EMAIL_PREFIX + otp;
 

@@ -60,7 +60,7 @@ public class VnpayProvidedFunction {
                 throw new NullPointerException();
             }
             final Mac hmac512 = Mac.getInstance("HmacSHA512");
-            byte[] hmacKeyBytes = key.getBytes();
+            byte[] hmacKeyBytes = key.getBytes(StandardCharsets.UTF_8);
             final SecretKeySpec secretKey = new SecretKeySpec(hmacKeyBytes, "HmacSHA512");
             hmac512.init(secretKey);
             byte[] dataBytes = data.getBytes(StandardCharsets.UTF_8);
@@ -72,6 +72,7 @@ public class VnpayProvidedFunction {
             return sb.toString();
 
         } catch (Exception ex) {
+            log.error("Unable to create checksum", ex);
             throw new VNPayException("Unable to create payment.");
         }
     }
@@ -248,10 +249,14 @@ public class VnpayProvidedFunction {
 
                 vpnQueryResult = mapper.readValue(responseBody, Map.class);
                 String checksum = vpnQueryResult.get(VNPAY_SECURE_HASH);
+                if (checksum == null) {
+                    log.error("Invalid checksum when verify vnpay");
+                    throw new VNPayException("Unable to verify payment");
+                }
                 vpnQueryResult.remove(VNPAY_SECURE_HASH);
 
                 String calculatedHash = hashAllFields(vpnQueryResult, hashSecret);
-                if (!checksum.equals(calculatedHash) && checksum != null) {
+                if (!checksum.equals(calculatedHash)) {
                     log.error("Invalid hash when verify vnpay: {}", checksum);
                     throw new VNPayException("Unable to verify payment");
                 }

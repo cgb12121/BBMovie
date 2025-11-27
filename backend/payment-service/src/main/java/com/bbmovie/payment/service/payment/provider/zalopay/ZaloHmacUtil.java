@@ -3,6 +3,8 @@ package com.bbmovie.payment.service.payment.provider.zalopay;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 
 @SuppressWarnings({"squid:S1118", "unused"})
 public final class ZaloHmacUtil {
@@ -16,7 +18,7 @@ public final class ZaloHmacUtil {
             Mac mac = Mac.getInstance(algorithm);
             mac.init(new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), algorithm));
             return mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-        } catch (Exception e) {
+        } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             return new byte[0];
         }
     }

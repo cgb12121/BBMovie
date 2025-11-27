@@ -8,22 +8,21 @@ import org.springframework.stereotype.Component;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @Component
-public class EmailServiceFactory {
+public final class EmailServiceFactory {
     private final Map<String, EmailService> strategies;
     @Getter
     private final EmailService defaultStrategy;
     private final List<String> rotationOrder;
 
-    @Value( "${app.email.rotation.enabled}")
-    private boolean isRotationEnabled;
-
     @Autowired
     public EmailServiceFactory(
             Map<String, EmailService> strategyMap,
             @Value("${app.mail.default}") String defaultStrategyName,
-            @Value("${app.mail.rotation-order}") String rotationOrder
+            @Value("${app.mail.rotation-order}") String rotationOrder,
+            @Value( "${app.email.rotation.enabled}") boolean isRotationEnabled
     ) {
         this.strategies = strategyMap;
         this.defaultStrategy = strategyMap.getOrDefault(defaultStrategyName,
@@ -33,13 +32,16 @@ public class EmailServiceFactory {
         if (!isRotationEnabled) {
             this.rotationOrder = List.of(defaultStrategyName);
         } else {
-            this.rotationOrder = Arrays.asList(rotationOrder.split(","));
+            this.rotationOrder = Arrays.stream(rotationOrder.split(","))
+                    .map(String::trim)
+                    .toList();
         }
     }
 
     public List<EmailService> getRotationStrategies() {
         return rotationOrder.stream()
                 .map(strategies::get)
+                .filter(Objects::nonNull)
                 .toList();
     }
 }

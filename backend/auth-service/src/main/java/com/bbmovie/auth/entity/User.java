@@ -19,7 +19,6 @@ import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.NOT_ST
 @Getter
 @Setter
 @ToString
-@With
 @NoArgsConstructor
 @AllArgsConstructor
 public class User extends BaseEntity implements UserDetails {
