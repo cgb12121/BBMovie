@@ -8,8 +8,8 @@ import com.bbmovie.ai_assistant_service.entity.model.AiMode;
 import com.bbmovie.ai_assistant_service.entity.model.AssistantType;
 import com.bbmovie.ai_assistant_service.service.ChatService;
 import com.bbmovie.ai_assistant_service.service.SessionService;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
@@ -27,7 +27,7 @@ import static com.bbmovie.common.entity.JoseConstraint.JosePayload.SUB;
 @Service
 public class ChatServiceImpl implements ChatService {
 
-    private static final Logger log = LoggerFactory.getLogger(ChatServiceImpl.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ChatServiceImpl.class);
 
     private final Map<AssistantType, Assistant> assistants;
     private final SessionService sessionService;
@@ -40,7 +40,7 @@ public class ChatServiceImpl implements ChatService {
                         Function.identity())
                 );
         this.sessionService = sessionService;
-        log.info("Initialized ChatService with assistants: {}", this.assistants.keySet());
+        log.debug("Initialized ChatService with assistants: {}", this.assistants.keySet());
     }
 
     @Override

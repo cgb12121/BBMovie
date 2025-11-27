@@ -3,8 +3,8 @@ package com.bbmovie.ai_assistant_service.config.elasticsearch;
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
 import co.elastic.clients.transport.rest_client.RestClientTransport;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -17,7 +17,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ElasticClientConfig {
 
-    private static final Logger log = LoggerFactory.getLogger(ElasticClientConfig.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ElasticClientConfig.class);
 
     static {
         log.debug("Elasticsearch Java client version: {}", ElasticsearchAsyncClient.class.getPackage().getImplementationVersion());

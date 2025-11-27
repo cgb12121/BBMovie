@@ -2,12 +2,13 @@ package com.bbmovie.ai_assistant_service.config.db;
 
 import com.bbmovie.ai_assistant_service.config.db.converter.StringToUuidConverter;
 import com.bbmovie.ai_assistant_service.config.db.converter.UuidToStringConverter;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import io.r2dbc.proxy.ProxyConnectionFactory;
 import io.r2dbc.proxy.listener.ProxyExecutionListener;
 import io.r2dbc.spi.ConnectionFactories;
 import io.r2dbc.spi.ConnectionFactory;
 import io.r2dbc.spi.ConnectionFactoryOptions;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -35,7 +36,6 @@ import reactor.core.publisher.Mono;
 import java.util.ArrayList;
 import java.util.List;
 
-@Slf4j
 @Configuration
 @EnableR2dbcRepositories(
         basePackages = "com.bbmovie.ai_assistant_service.repository",
@@ -44,6 +44,8 @@ import java.util.List;
 @EnableTransactionManagement
 @EnableR2dbcAuditing
 public class R2dbcDatabaseConfig {
+
+    private final RgbLogger log = RgbLoggerFactory.getLogger(R2dbcDatabaseConfig.class);
 
     @Bean
     @Qualifier("connectionFactory")

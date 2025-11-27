@@ -184,11 +184,94 @@
             <version>1.0-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
-
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jooq</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.jooq</groupId>
+                <artifactId>jooq-codegen-maven</artifactId>
+                <executions>
+                    <execution>
+                        <id>jooq-codegen</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+
+                <configuration>
+                    <jdbc>
+                        <!--suppress UnresolvedMavenProperty -->
+                        <driver>${db.driver}</driver>
+                        <!--suppress UnresolvedMavenProperty -->
+                        <url>${db.url}</url>
+                        <!--suppress UnresolvedMavenProperty -->
+                        <user>${db.username}</user>
+                        <!--suppress UnresolvedMavenProperty -->
+                        <password>${db.password}</password>
+                    </jdbc>
+
+                    <generator>
+                        <database>
+                            <name>org.jooq.meta.mysql.MySQLDatabase</name>
+                            <includes>.*</includes>
+                            <inputSchema>bbmovie_ai_chat</inputSchema>
+                            <excludes>sys_config|mysql.*|information_schema.*|performance_schema.*</excludes>
+                            <forcedTypes>
+                                <forcedType>
+                                    <name>java.util.UUID</name>
+                                    <includeExpression>.*_id|id</includeExpression>
+                                    <includeTypes>(?i:.*CHAR.*|.*VARCHAR.*)</includeTypes>
+                                </forcedType>
+
+                                <forcedType>
+                                    <name>java.time.Instant</name>
+                                    <includeExpression>timestamp|created_at|updated_at</includeExpression>
+                                    <includeTypes>(?i:.*TIMESTAMP.*)</includeTypes>
+                                </forcedType>
+                            </forcedTypes>
+                        </database>
+
+                        <target>
+                            <packageName>com.bbmovie.ai_assistant_service.jooq.generated</packageName>
+                            <directory>target/generated-sources/jooq</directory>
+                        </target>
+                    </generator>
+                </configuration>
+
+                <dependencies>
+                    <dependency>
+                        <groupId>com.mysql</groupId>
+                        <artifactId>mysql-connector-j</artifactId>
+                        <version>8.3.0</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>properties-maven-plugin</artifactId>
+                <version>1.2.1</version>
+                <executions>
+                    <execution>
+                        <phase>initialize</phase>
+                        <goals>
+                            <goal>read-project-properties</goal>
+                        </goals>
+                        <configuration>
+                            <files>
+                                <file>jooq-codegen.properties</file>
+                            </files>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

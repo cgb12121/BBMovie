@@ -12,12 +12,12 @@ import static com.bbmovie.ai_assistant_service.utils.log.AnsiRainbowUtil.*;
  * <p>
  * Kinda useless and shrink performance, but it's cool lol.
  */
-public class Logger implements org.slf4j.Logger {
+public class RgbLogger implements org.slf4j.Logger {
 
     @Delegate
     private final org.slf4j.Logger slf4jLogger;
 
-    public Logger(org.slf4j.Logger slf4jLogger) {
+    public RgbLogger(org.slf4j.Logger slf4jLogger) {
         this.slf4jLogger = slf4jLogger;
     }
 

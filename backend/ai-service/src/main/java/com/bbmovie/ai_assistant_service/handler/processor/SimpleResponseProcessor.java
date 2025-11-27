@@ -8,8 +8,8 @@ import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
 import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.MessageService;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.model.chat.response.ChatResponseMetadata;
@@ -28,7 +28,7 @@ import java.util.UUID;
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class SimpleResponseProcessor implements ResponseProcessor {
 
-    private static final Logger log = LoggerFactory.getLogger(SimpleResponseProcessor.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(SimpleResponseProcessor.class);
 
     @NonNull private final UUID sessionId;
     @NonNull private final ChatMemory chatMemory;

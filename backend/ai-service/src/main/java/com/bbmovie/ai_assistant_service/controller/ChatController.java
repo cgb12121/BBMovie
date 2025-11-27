@@ -3,8 +3,8 @@ package com.bbmovie.ai_assistant_service.controller;
 import  com.bbmovie.ai_assistant_service.dto.request.ChatRequestDto;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.service.ChatService;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/api/v1/chat")
 public class ChatController {
 
-    private static final Logger log = LoggerFactory.getLogger(ChatController.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ChatController.class);
 
     private final ChatService chatService;
 

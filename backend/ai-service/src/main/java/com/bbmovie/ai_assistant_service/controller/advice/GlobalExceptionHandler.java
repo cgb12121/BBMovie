@@ -3,8 +3,8 @@ package com.bbmovie.ai_assistant_service.controller.advice;
 import com.bbmovie.ai_assistant_service.exception.InternalServerException;
 import com.bbmovie.ai_assistant_service.exception.SecurityViolationException;
 import com.bbmovie.ai_assistant_service.exception.SessionNotFoundException;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.bbmovie.common.dtos.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     @ExceptionHandler(SessionNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)

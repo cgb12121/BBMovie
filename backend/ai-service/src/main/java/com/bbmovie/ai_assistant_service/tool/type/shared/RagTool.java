@@ -8,8 +8,8 @@ import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.RagService;
 import com.bbmovie.ai_assistant_service.tool.AiTools;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.agent.tool.Tool;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -23,11 +23,11 @@ import java.util.UUID;
 
 @SuppressWarnings("unused")
 @Component("ragTool")
-@Qualifier("publicTools")
+@Qualifier("commonTools")
 @RequiredArgsConstructor
 public class RagTool implements AiTools {
 
-    private static final Logger log = LoggerFactory.getLogger(RagTool.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(RagTool.class);
 
     private final RagService ragService;
     private final AuditService auditService;

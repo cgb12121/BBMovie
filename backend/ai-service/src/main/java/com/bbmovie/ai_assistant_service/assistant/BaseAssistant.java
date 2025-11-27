@@ -14,8 +14,8 @@ import com.bbmovie.ai_assistant_service.service.MessageService;
 import com.bbmovie.ai_assistant_service.service.RagService;
 import com.bbmovie.ai_assistant_service.config.tool.ToolsRegistry;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
@@ -42,7 +42,7 @@ import java.util.concurrent.TimeoutException;
 @RequiredArgsConstructor(access = AccessLevel.PROTECTED)
 public abstract class BaseAssistant implements Assistant {
 
-    private static final Logger log = LoggerFactory.getLogger(BaseAssistant.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(BaseAssistant.class);
 
     private final ModelFactory modelFactory;
     private final ChatMemoryProvider chatMemoryProvider;

@@ -1,8 +1,8 @@
 package com.bbmovie.ai_assistant_service.config.ai.logging.level;
 
 import com.bbmovie.ai_assistant_service.config.ai.logging.Logging;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.data.message.*;
 import dev.langchain4j.model.ModelProvider;
@@ -25,7 +25,7 @@ import static com.bbmovie.ai_assistant_service.utils.log.AnsiRainbowUtil.*;
  */
 public class FormalLogging implements Logging {
 
-    private static final Logger log = LoggerFactory.getLogger(FormalLogging.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(FormalLogging.class);
 
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {

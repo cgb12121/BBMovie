@@ -8,8 +8,8 @@ import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.ToolExecutionService;
 import com.bbmovie.ai_assistant_service.config.tool.ToolsRegistry;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.memory.ChatMemory;
@@ -25,7 +25,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ToolExecutionServiceImpl implements ToolExecutionService {
 
-    private static final Logger log = LoggerFactory.getLogger(ToolExecutionServiceImpl.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ToolExecutionServiceImpl.class);
 
     private final AuditService auditService;
     private final ModelSelector modelSelector;

@@ -15,8 +15,8 @@ import com.bbmovie.ai_assistant_service.service.MessageService;
 import com.bbmovie.ai_assistant_service.service.ToolExecutionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import dev.langchain4j.data.message.ChatMessage;
 import dev.langchain4j.data.message.SystemMessage;
@@ -35,7 +35,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ToolWorkflow {
 
-    private static final Logger log = LoggerFactory.getLogger(ToolWorkflow.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ToolWorkflow.class);
 
     private final ToolExecutionService toolExecutionService;
     private final ModelFactory modelFactory;

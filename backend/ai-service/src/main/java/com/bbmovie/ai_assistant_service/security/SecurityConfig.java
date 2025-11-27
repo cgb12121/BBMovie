@@ -1,12 +1,14 @@
 package com.bbmovie.ai_assistant_service.security;
 
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jwt.SignedJWT;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.Resource;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
@@ -15,6 +17,7 @@ import org.springframework.security.oauth2.server.resource.authentication.JwtAut
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
@@ -26,10 +29,11 @@ import reactor.core.publisher.Flux;
 import static com.bbmovie.common.entity.JoseConstraint.JosePayload.ABAC.SUBSCRIPTION_TIER;
 import static com.bbmovie.common.entity.JoseConstraint.JosePayload.ROLE;
 
-@Slf4j
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
+
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(SecurityConfig.class);
 
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
     private String JWKS_URL;
@@ -37,20 +41,8 @@ public class SecurityConfig {
     @Value("${spring.profiles.active:default}")
     private String activeProfile;
 
-    private static final String DEV_JWK_JSON = """
-        {
-          "keys": [
-            {
-                "kty":"RSA",
-                "e":"AQAB",
-                "kid":"04862af2-446a-4d6e-8d8d-a261ded03580",
-                "alg":"RS256",
-                "iat":1761989776,
-                "n":"p1hpmxftqdmkkUAToIJ2-FEJMsdWRamitqmLo-grS1DDJeFCPQD6AeGt5bCfq5XwaDKjLkrb2zC5qlKgSnuDk-N79MgMUwOoGwWzK39QyFgHDusIKa4w5e-hSary35nE0cRC4FzLuRGSoQT1ZQQ3kcXkYQEQRF1pDDJ7UbZdE7X-BuNTp-UBkx02LaAM0ns2sPs9Lk9WkvD7e4ehmbcrSrJbGGISj9SbZgOLbmQ_ZrA8uctsVU5F9UGmSCTiCO5Xhhc-4qIY7mpWVPWNY3W5ZesHsDCU3kbTClqW2sZ2wGmrOIivhKG_pdpywYIjpTwcDWLoU8gQ5X0fkEs8NrVM-w"
-            }
-          ]
-        }
-        """;
+    @Value("classpath:jwk-dev.json")
+    private Resource jwkResource;
 
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
@@ -73,7 +65,7 @@ public class SecurityConfig {
     @Bean
     public ReactiveJwtDecoder reactiveJwtDecoder() {
         if (isDevProfile()) {
-            log.warn("[Security] Using hardcoded DEV JWK for JWT validation!");
+            log.error("[Security] [profile: {}] \n Using hardcoded DEV JWK for JWT validation!", activeProfile);
             return buildDevJwtDecoder();
         } else {
             log.info("[Security] Using remote JWKS from {}", JWKS_URL);
@@ -84,7 +76,8 @@ public class SecurityConfig {
     private ReactiveJwtDecoder buildDevJwtDecoder() {
         JWKSet jwkSet;
         try {
-            jwkSet = JWKSet.parse(DEV_JWK_JSON);
+            String jwk = new String(jwkResource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            jwkSet = JWKSet.parse(jwk);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to parse hardcoded DEV JWK", e);
         }

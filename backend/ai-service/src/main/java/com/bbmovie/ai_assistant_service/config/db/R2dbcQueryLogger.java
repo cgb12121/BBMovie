@@ -1,7 +1,7 @@
 package com.bbmovie.ai_assistant_service.config.db;
 
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.github.vertical_blank.sqlformatter.SqlFormatter;
 import com.github.vertical_blank.sqlformatter.languages.Dialect;
 import io.r2dbc.proxy.core.*;
@@ -24,7 +24,7 @@ import static org.fusesource.jansi.Ansi.ansi;
 @Component
 public class R2dbcQueryLogger {
 
-    private static final Logger log = LoggerFactory.getLogger(R2dbcQueryLogger.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(R2dbcQueryLogger.class);
 
     @Bean
     @ConditionalOnBooleanProperty(value = "r2dbc.query-logging.enabled")

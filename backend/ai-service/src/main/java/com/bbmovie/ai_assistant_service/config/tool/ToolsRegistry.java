@@ -2,8 +2,8 @@ package com.bbmovie.ai_assistant_service.config.tool;
 
 import com.bbmovie.ai_assistant_service.entity.model.AssistantType;
 import com.bbmovie.ai_assistant_service.tool.AiTools;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.agent.tool.Tool;
 import dev.langchain4j.agent.tool.ToolSpecification;
 import dev.langchain4j.agent.tool.ToolSpecifications;
@@ -19,7 +19,7 @@ import java.util.Map;
 
 public class ToolsRegistry {
 
-    private static final Logger log = LoggerFactory.getLogger(ToolsRegistry.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ToolsRegistry.class);
 
     private final Map<String, ToolExecutor> executors;
     private final List<ToolSpecification> specifications;

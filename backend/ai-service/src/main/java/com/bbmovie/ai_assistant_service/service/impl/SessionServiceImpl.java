@@ -7,8 +7,8 @@ import com.bbmovie.ai_assistant_service.entity.ChatSession;
 import com.bbmovie.ai_assistant_service.repository.ChatMessageRepository;
 import com.bbmovie.ai_assistant_service.repository.ChatSessionRepository;
 import com.bbmovie.ai_assistant_service.service.SessionService;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.bbmovie.common.dtos.CursorPageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,7 +26,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class SessionServiceImpl implements SessionService {
 
-    private static final Logger log = LoggerFactory.getLogger(SessionServiceImpl.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(SessionServiceImpl.class);
 
     private final ChatSessionRepository sessionRepository;
     private final ChatMessageRepository messageRepository;

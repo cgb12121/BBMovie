@@ -5,8 +5,8 @@ import com.bbmovie.ai_assistant_service.dto.Metrics;
 import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
 import com.bbmovie.ai_assistant_service.handler.processor.ResponseProcessor;
 import com.bbmovie.ai_assistant_service.service.AuditService;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import lombok.NonNull;
@@ -18,7 +18,7 @@ import java.util.UUID;
 @SuperBuilder
 public class ToolResponseHandler extends BaseResponseHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(ToolResponseHandler.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ToolResponseHandler.class);
 
     @NonNull private final ResponseProcessor simpleProcessor;
     @NonNull private final ResponseProcessor toolProcessor;

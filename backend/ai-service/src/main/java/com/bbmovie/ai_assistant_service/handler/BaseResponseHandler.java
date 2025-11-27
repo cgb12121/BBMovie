@@ -2,8 +2,8 @@ package com.bbmovie.ai_assistant_service.handler;
 
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.utils.ThinkingSanitizer;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.model.chat.response.*;
 import lombok.Getter;
 import lombok.experimental.SuperBuilder;
@@ -101,7 +101,7 @@ import reactor.core.publisher.MonoSink;
 @SuperBuilder
 public abstract class BaseResponseHandler implements StreamingChatResponseHandler {
 
-    private static final Logger log = LoggerFactory.getLogger(BaseResponseHandler.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(BaseResponseHandler.class);
 
     /**
      * Reactive stream emitter for partial model responses (tokens, chunks, etc.).

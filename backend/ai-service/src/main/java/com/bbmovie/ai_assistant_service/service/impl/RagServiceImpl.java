@@ -15,8 +15,8 @@ import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
 import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.RagService;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.TokenUsage;
@@ -36,7 +36,7 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class RagServiceImpl implements RagService {
 
-    private static final Logger log = LoggerFactory.getLogger(RagServiceImpl.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(RagServiceImpl.class);
 
     @Qualifier("_EmbeddingModel") private final EmbeddingModel embeddingModel;
     @Qualifier("elasticsearchAsyncClient") private final ElasticsearchAsyncClient esClient;

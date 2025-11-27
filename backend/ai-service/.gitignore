@@ -32,3 +32,5 @@ build/
 ### VS Code ###
 .vscode/
 intellij.md
+jooq-codegen.properties
+src/main/resources/jwk-dev.json

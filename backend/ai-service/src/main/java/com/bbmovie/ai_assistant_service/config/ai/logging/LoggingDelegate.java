@@ -2,8 +2,8 @@ package com.bbmovie.ai_assistant_service.config.ai.logging;
 
 import com.bbmovie.ai_assistant_service.config.ai.logging.level.FormalLogging;
 import com.bbmovie.ai_assistant_service.config.ai.logging.level.VerboseLogging;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
 import dev.langchain4j.model.chat.listener.ChatModelListener;
 import dev.langchain4j.model.chat.listener.ChatModelRequestContext;
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class LoggingDelegate implements Logging {
 
-    private static final Logger log = LoggerFactory.getLogger(LoggingDelegate.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(LoggingDelegate.class);
 
     @Value("${ai.logging.mode:INFO}")
     private String mode;

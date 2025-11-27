@@ -7,8 +7,8 @@ import com.bbmovie.ai_assistant_service.entity.AiInteractionAudit;
 import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
 import com.bbmovie.ai_assistant_service.repository.AiInteractionAuditRepository;
 import com.bbmovie.ai_assistant_service.service.AuditService;
-import com.bbmovie.ai_assistant_service.utils.log.Logger;
-import com.bbmovie.ai_assistant_service.utils.log.LoggerFactory;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AuditServiceImpl implements AuditService {
 
-    private static final Logger log = LoggerFactory.getLogger(AuditServiceImpl.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(AuditServiceImpl.class);
 
     private final AiInteractionAuditRepository repository;
     private final ModelSelector modelSelector;
