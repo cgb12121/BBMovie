@@ -1,0 +1,28 @@
+feat(ai-service): Add file upload support for chat requests
+
+Implement comprehensive file upload functionality for AI chat service
+to handle images, PDFs, text files, and audio files.
+
+Components added:
+- FileServiceClientConfig: WebClient configuration for file-service communication
+- FileUploadClient: Service interface and implementation for uploading files
+- FileProcessingService: Orchestrates file processing (upload + transcription/extraction)
+- Updated ChatController: New endpoint /api/v1/chat/{sessionId}/files for multipart requests
+- Updated ChatRequestDto: Added fields for file references and extracted content
+
+Features:
+- Support for multiple file types (images, PDFs, text, audio)
+- Integration with file-service microservice for file persistence
+- Parallel file processing where possible
+- Graceful error handling (continues processing other files on failure)
+- Backward compatible with existing text-only endpoint
+
+Files:
+- config/FileServiceClientConfig.java
+- service/FileUploadClient.java
+- service/impl/FileUploadClientImpl.java
+- service/FileProcessingService.java
+- service/impl/FileProcessingServiceImpl.java
+- controller/ChatController.java (updated)
+- dto/request/ChatRequestDto.java (updated)
+

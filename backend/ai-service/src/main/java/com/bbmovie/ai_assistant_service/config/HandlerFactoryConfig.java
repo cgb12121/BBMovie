@@ -23,7 +23,8 @@ public class HandlerFactoryConfig {
     public ChatResponseHandlerFactory adminHandlerFactory(
             AuditService auditService, MessageService messageService,
             ToolWorkflow toolWorkflowFacade, ModelSelector modelSelector,
-            @Qualifier("adminToolRegistry") ToolsRegistry toolRegistry
+            @Qualifier("adminToolRegistry") ToolsRegistry toolRegistry,
+            com.bbmovie.ai_assistant_service.service.RagService ragService
     ) {
         return createHandlerFactory(
                 auditService,
@@ -31,6 +32,7 @@ public class HandlerFactoryConfig {
                 toolWorkflowFacade,
                 modelSelector,
                 toolRegistry,
+                ragService,
                 true
         );
     }
@@ -40,7 +42,8 @@ public class HandlerFactoryConfig {
     public ChatResponseHandlerFactory modHandlerFactory(
             AuditService auditService, MessageService messageService,
             ToolWorkflow toolWorkflowFacade, ModelSelector modelSelector,
-            @Qualifier("modToolRegistry") ToolsRegistry toolRegistry
+            @Qualifier("modToolRegistry") ToolsRegistry toolRegistry,
+            com.bbmovie.ai_assistant_service.service.RagService ragService
     ) {
         return createHandlerFactory(
                 auditService,
@@ -48,6 +51,7 @@ public class HandlerFactoryConfig {
                 toolWorkflowFacade,
                 modelSelector,
                 toolRegistry,
+                ragService,
                 true
         );
     }
@@ -57,7 +61,8 @@ public class HandlerFactoryConfig {
     public ChatResponseHandlerFactory userHandlerFactory(
             AuditService auditService, MessageService messageService,
             ToolWorkflow toolWorkflowFacade, ModelSelector modelSelector,
-            @Qualifier("userToolRegistry") ToolsRegistry toolRegistry
+            @Qualifier("userToolRegistry") ToolsRegistry toolRegistry,
+            com.bbmovie.ai_assistant_service.service.RagService ragService
     ) {
         return createHandlerFactory(
                 auditService,
@@ -65,6 +70,7 @@ public class HandlerFactoryConfig {
                 toolWorkflowFacade,
                 modelSelector,
                 toolRegistry,
+                ragService,
                 true
         );
     }
@@ -73,20 +79,23 @@ public class HandlerFactoryConfig {
     @Qualifier("simpleHandlerFactory")
     public ChatResponseHandlerFactory simpleHandlerFactory(
             AuditService auditService, MessageService messageService,
-            ToolWorkflow toolWorkflowFacade, ModelSelector modelSelector) {
+            ToolWorkflow toolWorkflowFacade, ModelSelector modelSelector,
+            com.bbmovie.ai_assistant_service.service.RagService ragService) {
         return createHandlerFactory(
                 auditService,
                 messageService,
                 toolWorkflowFacade,
                 modelSelector,
                 null,
+                ragService,
                 false
         );
     }
 
     private ChatResponseHandlerFactory createHandlerFactory(
             AuditService auditService, MessageService messageService, ToolWorkflow toolWorkflowFacade,
-            ModelSelector modelSelector, ToolsRegistry toolRegistry, boolean enablePersona) {
+            ModelSelector modelSelector, ToolsRegistry toolRegistry,
+            com.bbmovie.ai_assistant_service.service.RagService ragService, boolean enablePersona) {
 
         SystemMessage systemPrompt = PromptLoader.loadSystemPrompt(
                 enablePersona, modelSelector.getActiveModel(), null);
@@ -99,6 +108,7 @@ public class HandlerFactoryConfig {
                     .chatMemory(chatMemory)
                     .auditService(auditService)
                     .messageService(messageService)
+                    .ragService(ragService)
                     .build();
 
             ToolResponseProcessor toolProcessor = ToolResponseProcessor.builder()

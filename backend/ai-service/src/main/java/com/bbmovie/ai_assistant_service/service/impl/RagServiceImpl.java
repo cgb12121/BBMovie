@@ -2,12 +2,11 @@ package com.bbmovie.ai_assistant_service.service.impl;
 
 import co.elastic.clients.elasticsearch.ElasticsearchAsyncClient;
 import co.elastic.clients.elasticsearch._types.KnnSearch;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.elasticsearch.core.IndexRequest;
 import co.elastic.clients.elasticsearch.core.SearchRequest;
-import co.elastic.clients.json.JsonData;
 import com.bbmovie.ai_assistant_service.config.embedding.EmbeddingSelector;
 import com.bbmovie.ai_assistant_service.dto.AuditRecord;
+import com.bbmovie.ai_assistant_service.dto.FileContentInfo;
 import com.bbmovie.ai_assistant_service.dto.Metrics;
 import com.bbmovie.ai_assistant_service.dto.response.RagMovieDto;
 import com.bbmovie.ai_assistant_service.dto.response.RagRetrievalResult;
@@ -23,6 +22,7 @@ import dev.langchain4j.model.output.TokenUsage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.lang.NonNull;
+import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -38,11 +38,11 @@ public class RagServiceImpl implements RagService {
 
     private static final RgbLogger log = RgbLoggerFactory.getLogger(RagServiceImpl.class);
 
-    @Qualifier("_EmbeddingModel") private final EmbeddingModel embeddingModel;
+    @Qualifier("embeddingModel") private final EmbeddingModel embeddingModel;
     @Qualifier("elasticsearchAsyncClient") private final ElasticsearchAsyncClient esClient;
     private final EmbeddingSelector embeddingSelector;
     private final AuditService auditService;
-    @Qualifier("ObjectMapper") private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
 
     // Hybrid Movie Context Retrieval
     @Override
@@ -71,7 +71,9 @@ public class RagServiceImpl implements RagService {
     // Index Conversation Fragment
     @Override
     public Mono<Void> indexConversationFragment(UUID sessionId, String text, List<RagMovieDto> pastResults) {
-        String pastResultsString = pastResults.stream()
+        String pastResultsString = Optional.ofNullable(pastResults)
+                .orElse(Collections.emptyList())
+                .stream()
                 .flatMap(RagServiceImpl::getMovieOverview)
                 .collect(Collectors.joining("\n"));
         return embedText(sessionId, text + pastResultsString, InteractionType.EMBEDDING_INDEX)
@@ -89,7 +91,7 @@ public class RagServiceImpl implements RagService {
                             "sessionId", sessionId.toString(),
                             "timestamp", Instant.now().toString(),
                             "text", text,
-                            "movie", pastResults,
+                            "movie", pastResults == null ? Collections.emptyList() : pastResults,
                             embeddingSelector.getEmbeddingField(), vector
                     );
 
@@ -113,6 +115,77 @@ public class RagServiceImpl implements RagService {
                             ));
                 })
                 .doOnError(e -> log.error("[rag] Failed to index fragment: {}", e.getMessage()));
+    }
+
+    // Index message with file content - enhanced version of indexConversationFragment
+    @Override
+    public Mono<Void> indexMessageWithFiles(UUID sessionId, String text, List<String> fileReferences, String extractedContent) {
+        // Combine text content with extracted content from files
+        StringBuilder fullContent = new StringBuilder();
+        fullContent.append(text);
+
+        if (extractedContent != null && !extractedContent.isEmpty()) {
+            fullContent.append("\n\nExtracted content from files:\n").append(extractedContent);
+        }
+
+        return embedText(sessionId, fullContent.toString(), InteractionType.EMBEDDING_INDEX)
+                .flatMap(vector -> {
+                    if (embeddingSelector.getDimension() != vector.length) {
+                        String err = "Embedding dimension mismatch: expected %s but got %s"
+                                .formatted(embeddingSelector.getDimension(), vector.length);
+                        log.error("[rag] Embedding index file content failed: {}", err);
+                        return Mono.error(new IllegalArgumentException(err));
+                    }
+
+                    Map<String, Object> doc = Map.of(
+                            "id", UUID.randomUUID().toString(),
+                            "sessionId", sessionId.toString(),
+                            "timestamp", Instant.now().toString(),
+                            "text", text,
+                            "extractedContent", extractedContent ==  null ? "" : extractedContent,
+                            "fileReferences", fileReferences != null ? fileReferences : List.of(),
+                            embeddingSelector.getEmbeddingField(), vector
+                    );
+
+                    IndexRequest<Map<String, Object>> request = IndexRequest.of(i -> i
+                            .index(embeddingSelector.getRagIndex())
+                            .document(doc)
+                    );
+
+                    return Mono.fromFuture(esClient.index(request))
+                            .doOnSuccess(r -> {
+                                String ragIndex = embeddingSelector.getRagIndex();
+                                log.debug("[rag] Indexed message with files into '{}'", ragIndex);
+                            })
+                            .then(auditService.recordInteraction(
+                                    AuditRecord.builder()
+                                            .sessionId(sessionId)
+                                            .type(InteractionType.EMBEDDING_INDEX)
+                                            .details(Map.of(
+                                                    "text", text.substring(0, Math.min(80, text.length())) + "...",
+                                                    "fileReferencesCount", fileReferences != null ? fileReferences.size() : 0
+                                            ))
+                                            .metrics(MetricsUtil.get(0L, null, embeddingSelector.getModelName(), "rag-index-files"))
+                                            .build()
+                            ));
+                })
+                .doOnError(e -> log.error("[rag] Failed to index message with files: {}", e.getMessage()));
+    }
+
+    @Override
+    public Mono<Void> indexMessageWithFileContentInfo(UUID sessionId, String text, FileContentInfo fileContentInfo) {
+        if (fileContentInfo == null) {
+            // If no file content info, just index the text
+            return indexConversationFragment(sessionId, text, List.of());
+        }
+
+        // Use the existing method with extracted values from FileContentInfo
+        return indexMessageWithFiles(
+                sessionId,
+                text,
+                fileContentInfo.getFileReferences(),
+                fileContentInfo.getExtractedContent()
+        );
     }
 
     // Hybrid Search — combines movies and memory indices (not memory rn)
@@ -199,53 +272,6 @@ public class RagServiceImpl implements RagService {
                 .doOnError(e -> log.error("[rag] [{}] Native KNN search failed: {}", label, e.getMessage()));
     }
 
-    // Fallback when native knn fails
-    @SuppressWarnings({"SameParameterValue", "unused"})
-    private Mono<List<RagMovieDto>> performSearch(
-            UUID sessionId, float[] embedding, int topK, String index, String label) {
-        long start = System.currentTimeMillis();
-
-        Query query = Query.of(q -> q.scriptScore(ss -> ss
-                .query(q2 -> q2.matchAll(m -> m))
-                .script(s -> s
-                        .source("cosineSimilarity(params.query_vector, '" +
-                                embeddingSelector.getEmbeddingField() + "') + 1.0")
-                        .params(Map.of("query_vector", JsonData.of(embedding))))));
-
-        SearchRequest request = SearchRequest.of(s -> s.index(index).size(topK).query(query));
-
-        return Mono.fromFuture(esClient.search(request, Map.class))
-                .map(resp -> resp.hits()
-                        .hits()
-                        .stream()
-                        .map(hit -> {
-                            @SuppressWarnings("unchecked")
-                            Map<String, Object> source = hit.source();
-                            return toRagMovieDto(source);
-                        })
-                        .filter(Objects::nonNull)
-                        .toList())
-                .flatMap(results -> {
-                    long latency = System.currentTimeMillis() - start;
-                    Metrics metrics = MetricsUtil.get(latency, null,
-                            embeddingSelector.getModelName(),"rag-search-" + label);
-
-                    AuditRecord auditRecord = AuditRecord.builder()
-                            .sessionId(sessionId)
-                            .type(InteractionType.RETRIEVAL)
-                            .details(Map.of(
-                                    "index", index,
-                                    "hits", results.size()
-                            ))
-                            .metrics(metrics)
-                            .build();
-                    return auditService.recordInteraction(auditRecord)
-                            .thenReturn(results);
-                })
-                .doOnSuccess(list -> log.debug("[rag] [{}] Found {} hits", label, list.size()))
-                .doOnError(e -> log.error("[rag] [{}] Search failed: {}", label, e.getMessage()));
-    }
-
     //   Embedding helper — clean separation
     private Mono<float[]> embedText(UUID sessionId, String text, InteractionType type) {
         long start = System.currentTimeMillis();
@@ -282,7 +308,10 @@ public class RagServiceImpl implements RagService {
         );
     }
 
-    private static @NonNull String formatMovieDetails(RagMovieDto m) {
+    private static @NonNull String formatMovieDetails(@Nullable RagMovieDto m) {
+        if (m == null) {
+            return "N/A";
+        }
         return String.format(
                 "%s (%s) — %s%nDirector(s): %s%nDescription: %s%nID: %s",
                 m.getTitle(),

@@ -40,7 +40,7 @@ public class ChatServiceImpl implements ChatService {
                         Function.identity())
                 );
         this.sessionService = sessionService;
-        log.debug("Initialized ChatService with assistants: {}", this.assistants.keySet());
+        log.info("Initialized ChatService with assistants: {}", this.assistants.keySet());
     }
 
     @Override
@@ -61,6 +61,8 @@ public class ChatServiceImpl implements ChatService {
                             .message(request.getMessage())
                             .aiMode(request.getAiMode())
                             .userRole(userRole)
+                            .fileReferences(request.getFileReferences())
+                            .extractedFileContent(request.getExtractedFileContent())
                             .build();
 
                     if (request.getAiMode() == AiMode.FAST || request.getAiMode() == AiMode.NORMAL) {

@@ -6,7 +6,7 @@ This document explains the orchestration pipeline of the AI chat system, includi
 
 The chat system follows this flow for all interactions:
 
-1. **User sends message** to the chat endpoint
+1. **User sends message** (optionally with multimodal attachments) to the chat endpoint
 2. **Message is saved** and **audit record created** for user message
 3. **Chat request is prepared** with system prompt and conversation history
 4. **Streaming response handler is created** based on assistant type
@@ -38,6 +38,10 @@ The `thinking` field contains the AI's reasoning trace (when using models with t
 
 The thinking is logged at `TRACE` level with the prefix `[thinking][audit]` for debugging and compliance purposes.
 
+## Multimodal Entry Point
+
+Attachments (audio, images, files) are optional but can travel with any user message. The `MultimodalPreprocessor` handles validation, transcription/captioning, and parsing before the message flows through the existing assistant pipeline. Derived text is appended to the originating user turn so the downstream handlers remain unchanged. See `docs/multimodal-chat.md` for payload details and modality-specific behavior.
+
 ## Handler Architecture
 
 Different assistants use different handler factories:
@@ -54,6 +58,8 @@ flowchart TD
     U[User Message] --> CC[ChatController]
     CC --> CS[ChatService]
     CS --> A[BaseAssistant]
+    U --> MP[MultimodalPreprocessor]
+    MP -->|Transcribe/Caption/Parse| CC
 
     A -->|Save user message & audit| MS[MessageService]
     A --> CMP[ChatMemoryProvider]
@@ -83,6 +89,7 @@ flowchart TD
     style U fill:#1a237e,stroke:#5c6bc0,color:#ffffff
     style CC fill:#1a237e,stroke:#5c6bc0,color:#ffffff
     style CS fill:#1a237e,stroke:#5c6bc0,color:#ffffff
+    style MP fill:#2e7d32,stroke:#81c784,color:#ffffff
     style A fill:#37474f,stroke:#78909c,color:#ffffff
     style CMP fill:#5d4037,stroke:#a1887f,color:#ffffff
     style H fill:#00695c,stroke:#26a69a,color:#ffffff

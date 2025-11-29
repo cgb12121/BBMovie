@@ -23,10 +23,10 @@ public class LoggingDelegate implements Logging {
 
     public LoggingDelegate() {
         if ("VERBOSE".equalsIgnoreCase(mode)) {
-            log.info("[AI-Listener] Using VERBOSE chat listener (ai.logging.mode={})", mode);
+            log.info("[AI-Listener] Using VERBOSE chat listener [VerboseLogging] (ai.logging.mode={})", mode);
             this.delegate = new VerboseLogging();
         } else {
-            log.info("[AI-Listener] Using COMPACT chat listener (ai.logging.mode={})", mode);
+            log.info("[AI-Listener] Using COMPACT chat listener [FormalLogging] (ai.logging.mode={})", mode);
             this.delegate = new FormalLogging();
         }
     }

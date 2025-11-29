@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS chat_message (
     sender VARCHAR(50) NOT NULL,
     content TEXT,
     timestamp TIMESTAMP(6) NOT NULL,
+    file_content_json JSON NULL COMMENT 'JSON string containing file references, extracted content, and content type',
     FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE CASCADE
 );
 

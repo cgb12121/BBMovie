@@ -4,7 +4,7 @@ This document explains the orchestration pipeline of the AI chat system and how 
 
 ## High-Level Architecture
 
-1. **User sends message** to the chat endpoint
+1. **User sends message** (text-only or multimodal) to the chat endpoint
 2. **Message is saved** and **audit record created** for user message
 3. **Chat request is prepared** with system prompt and conversation history
 4. **Streaming response handler is created** based on assistant type
@@ -52,6 +52,8 @@ The `ToolResponseHandler` uses `ResponseProcessor` implementations to handle eit
 ```mermaid
 flowchart TD
     U[User Message] --> CC[ChatController]
+    U --> MP[MultimodalPreprocessor]
+    MP -->|Transcribe/Caption/Parse| CC
     CC --> CS[ChatService]
     CS --> A[BaseAssistant]
 
@@ -81,6 +83,7 @@ flowchart TD
     H -->|Log thinking `audit only`| AUD
 
     style U fill:#1a237e,stroke:#5c6bc0,color:#ffffff
+    style MP fill:#2e7d32,stroke:#81c784,color:#ffffff
     style CC fill:#1a237e,stroke:#5c6bc0,color:#ffffff
     style CS fill:#1a237e,stroke:#5c6bc0,color:#ffffff
     style A fill:#37474f,stroke:#78909c,color:#ffffff
@@ -95,3 +98,13 @@ flowchart TD
     style MS fill:#4a148c,stroke:#b39ddb,color:#ffffff
     style AUD fill:#0d47a1,stroke:#90caf9,color:#ffffff
 ```
+
+## Multimodal-Specific RAG Flow
+
+When attachments are present, the `MultimodalPreprocessor` emits structured text segments (transcripts, captions, OCR, parsed docs). These fragments are treated like additional conversation turns:
+
+- **Indexing**: `RagService.indexConversationFragment` batches attachment-derived chunks with `source` metadata (`audio`, `image-caption`, `image-ocr`, `document`). This allows downstream retrieval to filter or boost by modality.
+- **Retrieval**: `RagService.retrieveMovieContext` can request modality-specific snippets (e.g., only OCR text) based on tool parameters. If no modality preference is provided, the service merges all chunks and ranks them together.
+- **Tool Access**: Binary artifacts remain accessible via signed URLs referenced by `attachmentId`; tools that need the original file (e.g., subtitle aligner) can fetch it without exposing the raw data to the model directly.
+
+Refer to `docs/multimodal-chat.md` for the full preprocessing contract and merging rules.

@@ -4,6 +4,7 @@ import com.bbmovie.ai_assistant_service.entity.model.AiMode;
 import lombok.Builder;
 import lombok.Value;
 
+import java.util.List;
 import java.util.UUID;
 
 @Value
@@ -13,4 +14,6 @@ public class ChatContext {
     String message;
     AiMode aiMode;
     String userRole;
+    List<String> fileReferences;
+    String extractedFileContent;
 }

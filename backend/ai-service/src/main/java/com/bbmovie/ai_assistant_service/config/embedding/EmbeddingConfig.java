@@ -20,7 +20,7 @@ public class EmbeddingConfig {
     @Value("${ai.ollama.url}")
     private String ollamaUrl;
 
-    @Bean("_EmbeddingModel")
+    @Bean("embeddingModel")
     public EmbeddingModel embeddingModel() {
         return OllamaEmbeddingModel.builder()
                 .baseUrl(ollamaUrl)
