@@ -8,7 +8,7 @@ import com.bbmovie.ai_assistant_service.handler.processor.SimpleResponseProcesso
 import com.bbmovie.ai_assistant_service.handler.processor.ToolResponseProcessor;
 import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.MessageService;
-import com.bbmovie.ai_assistant_service.service.facade.ToolWorkflow;
+import com.bbmovie.ai_assistant_service.service.impl.facade.ToolWorkflow;
 import com.bbmovie.ai_assistant_service.utils.PromptLoader;
 import dev.langchain4j.data.message.SystemMessage;
 import org.springframework.beans.factory.annotation.Qualifier;

@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.service.facade;
+package com.bbmovie.ai_assistant_service.service.impl.facade;
 
 import com.bbmovie.ai_assistant_service.config.ai.ModelFactory;
 import com.bbmovie.ai_assistant_service.dto.AuditRecord;

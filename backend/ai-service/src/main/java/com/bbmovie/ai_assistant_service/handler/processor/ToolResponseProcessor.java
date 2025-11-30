@@ -4,7 +4,7 @@ import com.bbmovie.ai_assistant_service.config.tool.ToolsRegistry;
 import com.bbmovie.ai_assistant_service.dto.ToolExecutionContext;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.entity.model.AiMode;
-import com.bbmovie.ai_assistant_service.service.facade.ToolWorkflow;
+import com.bbmovie.ai_assistant_service.service.impl.facade.ToolWorkflow;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.memory.ChatMemory;

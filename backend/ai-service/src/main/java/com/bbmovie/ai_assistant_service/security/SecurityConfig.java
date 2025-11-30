@@ -87,7 +87,6 @@ public class SecurityConfig {
         return NimbusReactiveJwtDecoder.withJwkSource(jwkSource).build();
     }
 
-    //TODO: remove this when we have a proper profile system
     private boolean isDevProfile() {
         return activeProfile == null ||
                 activeProfile.isBlank() ||

@@ -3,11 +3,9 @@ package com.bbmovie.ai_assistant_service.config.ai;
 import com.bbmovie.ai_assistant_service.entity.model.AiMode;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
-@Slf4j
 @Component
 @RequiredArgsConstructor
 public class ModelFactory {

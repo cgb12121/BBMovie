@@ -6,33 +6,45 @@ import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import io.github.givimad.whisperjni.WhisperContext;
 import io.github.givimad.whisperjni.WhisperFullParams;
 import io.github.givimad.whisperjni.WhisperJNI;
-import lombok.NonNull;
-import org.springframework.stereotype.Component;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import org.apache.commons.pool2.BasePooledObjectFactory;
+import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.impl.DefaultPooledObject;
+import org.apache.commons.pool2.impl.GenericObjectPool;
+import org.apache.commons.pool2.impl.GenericObjectPoolConfig;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
-import reactor.util.context.ContextView;
 
-import jakarta.annotation.PreDestroy;
-import jakarta.annotation.PostConstruct;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
+import java.util.NoSuchElementException;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.lang.ref.Cleaner;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * 1. NO ThreadLocal (causes native memory leaks with whisper.cpp)
- * 2. Explicit context lifecycle management
- * 3. Cleaner API for guaranteed native resource cleanup
- * 4. Context propagation for reactive chains
- * 5. Pool of native contexts instead of per-thread
+ * Native Whisper engine.
+ * <p>
+ * Key Features:
+ * - Lazy loading: Models allocated on-demand
+ * - Automatic native memory management via pooling
+ * - Graceful degradation under load
+ * - Comprehensive metrics tracking
+ * <p>
+ * Memory Safety:
+ * - Pool automatically calls destroyObject() when contexts are evicted
+ * - No manual cleanup needed (except @PreDestroy)
+ * - Invalidates corrupted contexts to prevent reuse
  */
 @Component
 public class WhisperNativeEngine implements AutoCloseable {
@@ -43,216 +55,205 @@ public class WhisperNativeEngine implements AutoCloseable {
     private final WhisperProperties properties;
     private final ResourceLoader resourceLoader;
 
-    // Pool of native contexts (EXPLICIT lifecycle management)
-    private final BlockingQueue<NativeContextWrapper> contextPool;
+    // Apache Commons Pool for native context management
+    private GenericObjectPool<WhisperContext> whisperPool;
 
-    // Worker pool for CPU-intensive audio conversion
-    private final ExecutorService conversionPool;
+    // Cached model path (extracted from classpath once)
+    private Path cachedModelPath;
 
-    // Inference executor (bounded by context pool size)
-    private final ExecutorService inferencePool;
-
-    // Request queue
-    private final BlockingQueue<TranscriptionTask> taskQueue;
-
-    // Java 9+ Cleaner for guaranteed native cleanup
-    private final Cleaner cleaner = Cleaner.create();
+    // Executor for async inference
+    private final ExecutorService executorService;
 
     // Shutdown flag
     private final AtomicBoolean isShutdown = new AtomicBoolean(false);
 
-    // Metrics
-    private final AtomicInteger activeInferences = new AtomicInteger(0);
-    private final AtomicInteger totalProcessed = new AtomicInteger(0);
-    private final AtomicInteger totalRejected = new AtomicInteger(0);
+    // Metrics counters
+    private final AtomicLong totalProcessed = new AtomicLong(0);
+    private final AtomicLong totalRejected = new AtomicLong(0);
+    private final AtomicLong totalErrors = new AtomicLong(0);
 
-    // Configuration
-    private final int poolSize;
-    private final int maxQueueSize;
-    private static final long INFERENCE_TIMEOUT_MS = 300_000;
-    private static final long CONTEXT_ACQUIRE_TIMEOUT_MS = 30_000;
+    // Inference timeout configuration
+    private static final long INFERENCE_TIMEOUT_SECONDS = 300; // 5 minutes
 
+    @Autowired
     public WhisperNativeEngine(WhisperProperties properties, ResourceLoader resourceLoader) {
         this.properties = properties;
         this.resourceLoader = resourceLoader;
 
-        // Pool size = number of parallel inferences allowed
-        this.poolSize = properties.getWorkerThreads() > 0
+        // Thread pool matches max concurrent contexts
+        int maxThreads = properties.getWorkerThreads() > 0
                 ? properties.getWorkerThreads()
-                : Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
+                : 2;
 
-        this.maxQueueSize = properties.getMaxQueueSize() > 0
-                ? properties.getMaxQueueSize()
-                : poolSize * 3;
-
-        log.info("Initializing Whisper engine: {} contexts, queue size {}",
-                poolSize, maxQueueSize);
-
-        // Initialize context pool (BLOCKING - do this in PostConstruct)
-        this.contextPool = new LinkedBlockingQueue<>(poolSize);
-
-        // Task queue
-        this.taskQueue = new LinkedBlockingQueue<>(maxQueueSize);
-
-        // Conversion pool (more threads OK since it's just CPU work)
-        this.conversionPool = Executors.newFixedThreadPool(
-                poolSize * 2,
-                new NamedThreadFactory("whisper-convert")
-        );
-
-        // Inference pool (matches context pool size)
-        this.inferencePool = Executors.newFixedThreadPool(
-                poolSize,
-                new NamedThreadFactory("whisper-infer")
-        );
-    }
-
-    /**
-     * Initialize native contexts eagerly at startup.
-     * CRITICAL: Must happen BEFORE any requests arrive.
-     */
-    @PostConstruct
-    public void initialize() {
-        log.info("Initializing {} native Whisper contexts...", poolSize);
-
-        try {
-            WhisperJNI.loadLibrary();
-            Path modelPath = loadModelFromClasspath();
-
-            for (int i = 0; i < poolSize; i++) {
-                WhisperContext nativeCtx = whisper.init(modelPath);
-                if (nativeCtx == null) {
-                    throw new RuntimeException("Failed to init native context " + i);
-                }
-
-                // Wrap with cleanup registration
-                NativeContextWrapper wrapper = new NativeContextWrapper(nativeCtx, i);
-
-                // Register cleanup with Java Cleaner (guaranteed to run)
-                cleaner.register(wrapper, new ContextCleanupAction(whisper, nativeCtx, i));
-
-                boolean ignored = contextPool.offer(wrapper);
-                log.info("Initialized native context #{}", i);
-            }
-
-            log.info("All native contexts initialized successfully");
-
-        } catch (Exception e) {
-            log.error("Failed to initialize Whisper engine", e);
-            throw new RuntimeException("Whisper initialization failed", e);
-        }
-    }
-
-    /**
-     * Transcribes audio bytes to text with FULL REACTIVE CONTEXT PROPAGATION.
-     * Context is preserved throughout the entire chain.
-     *
-     * @param rawAudioBytes Raw audio file bytes (WAV, MP3, OGG, etc.)
-     * @return Mono<String> containing transcribed text
-     * @throws IllegalStateException if the engine is shutdown
-     * @throws RejectedExecutionException if the queue is full
-     */
-    public Mono<String> transcribe(byte[] rawAudioBytes) {
-        if (isShutdown.get()) {
-            return Mono.error(new IllegalStateException("Engine is shutdown"));
-        }
-
-        // Fail-fast: check queue capacity BEFORE any processing
-        if (taskQueue.remainingCapacity() == 0) {
-            totalRejected.incrementAndGet();
-            return Mono.error(new RejectedExecutionException(
-                    String.format("Queue full (%d/%d)", taskQueue.size(), maxQueueSize)
-            ));
-        }
-
-        // Create a task with context capture
-        return Mono.deferContextual(contextView -> {
-            TranscriptionTask task = new TranscriptionTask(rawAudioBytes, contextView);
-
-            // Enqueue
-            if (!taskQueue.offer(task)) {
-                totalRejected.incrementAndGet();
-                return Mono.error(new RejectedExecutionException("Queue full"));
-            }
-
-            // Process asynchronously
-            CompletableFuture.runAsync(() -> processTask(task), inferencePool);
-
-            // Return Mono that completes when a task finishes
-            return task.result.asMono()
-                    .timeout(java.time.Duration.ofMillis(INFERENCE_TIMEOUT_MS))
-                    .contextWrite(contextView); // Propagate context downstream
+        this.executorService = Executors.newFixedThreadPool(maxThreads, r -> {
+            Thread t = new Thread(r, "whisper-worker");
+            t.setDaemon(false); // Non-daemon for graceful shutdown
+            return t;
         });
     }
 
     /**
-     * Processes a single task with proper native memory management.
+     * Initializes the engine and prepares the object pool.
+     * Models are NOT loaded until the first transcription request (lazy).
      */
-    private void processTask(TranscriptionTask task) {
-        NativeContextWrapper contextWrapper = null;
+    @PostConstruct
+    public void init() throws IOException {
+        log.info("Initializing Whisper Engine with Apache Commons Pool 2...");
 
         try {
-            // Step 1: Convert audio (expensive CPU work)
-            // Do this OUTSIDE the native context acquisition to save resources
-            float[] audioData = convertAudio(task.audioBytes);
+            WhisperJNI.loadLibrary();
+            log.info("Native library loaded successfully");
+        } catch (UnsatisfiedLinkError e) {
+            log.warn("Native library load error (might already be loaded): {}", e.getMessage());
+        }
 
-            // Step 2: Acquire native context from the pool (blocking with timeout)
-            contextWrapper = contextPool.poll(CONTEXT_ACQUIRE_TIMEOUT_MS, TimeUnit.MILLISECONDS);
-            if (contextWrapper == null) {
-                throw new TimeoutException("Failed to acquire native context within timeout");
-            }
+        // Extract model from a classpath to a temp file (once)
+        this.cachedModelPath = loadModelFromClasspath();
+        log.info("Model prepared at: {}", cachedModelPath);
 
-            activeInferences.incrementAndGet();
+        // Configure object pool factory
+        BasePooledObjectFactory<WhisperContext> factory = new WhisperContextFactory();
 
-            // Step 3: Run inference with acquired context
-            String result = runInference(contextWrapper.context, audioData);
+        GenericObjectPoolConfig<WhisperContext> config = new GenericObjectPoolConfig<>();
+        int maxPoolSize = properties.getWorkerThreads() > 0
+                ? properties.getWorkerThreads()
+                : 2;
 
-            totalProcessed.incrementAndGet();
+        // Pool configuration
+        config.setMaxTotal(maxPoolSize);     // Max concurrent contexts
+        config.setMaxIdle(maxPoolSize);      // Keep all contexts ready when loaded
+        config.setMinIdle(0);                // Start lazy: 0 contexts allocated
 
-            // Step 4: Emit result WITH reactive context
-            task.result.emitValue(result, Sinks.EmitFailureHandler.FAIL_FAST);
+        // Blocking behavior when pool exhausted
+        config.setBlockWhenExhausted(true);
+        config.setMaxWait(Duration.ofSeconds(60));
 
-        } catch (Exception e) {
-            log.error("Inference failed", e);
-            task.result.emitError(e, Sinks.EmitFailureHandler.FAIL_FAST);
+        // Test on borrow to detect corrupted contexts
+        config.setTestOnBorrow(false); // Whisper doesn't have a fast health check
+        config.setTestOnReturn(false);
 
-        } finally {
-            activeInferences.decrementAndGet();
+        // Eviction policy (optional for long-running apps)
+        config.setTimeBetweenEvictionRuns(Duration.ofMinutes(10));
+        config.setMinEvictableIdleDuration(Duration.ofMinutes(30));
 
-            // CRITICAL: Return context to pool (even on error)
-            if (contextWrapper != null) {
-                if (!contextPool.offer(contextWrapper)) {
-                    log.error("Failed to return context #{} to pool!", contextWrapper.id);
-                    // This should NEVER happen - it means we have a leak
+        this.whisperPool = new GenericObjectPool<>(factory, config);
+
+        log.info("Whisper Pool initialized. Max contexts: {}, Queue size: {}",
+                maxPoolSize, properties.getMaxQueueSize());
+    }
+
+    /**
+     * Transcribes audio bytes to text.
+     * Returns a Mono that completes when transcription finishes.
+     *
+     * @param rawAudioBytes Audio file bytes (WAV, MP3, OGG, etc.)
+     * @return Mono<String> containing transcribed text
+     * @throws IllegalStateException if the engine is shutting down
+     * @throws NoSuchElementException if pool wait time exceeded
+     * @sneaky-throw {@link TimeoutException} if inference exceeds timeout
+     */
+    public Mono<String> transcribe(byte[] rawAudioBytes) {
+        if (isShutdown.get()) {
+            return Mono.error(new IllegalStateException("Service is shutting down"));
+        }
+
+        // Bridge async execution to reactive stream
+        Sinks.One<String> sink = Sinks.one();
+
+        // Submit to executor with timeout
+        CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+            WhisperContext ctx = null;
+            boolean contextBorrowed = false;
+
+            try {
+                // Step 1: Convert audio (CPU-intensive, no native resources yet)
+                float[] audioData;
+                try (ByteArrayInputStream bis = new ByteArrayInputStream(rawAudioBytes)) {
+                    audioData = AudioConverterUtils.convertToWhisperFormat(bis);
+                }
+
+                log.debug("Audio converted. Sample count: {}", audioData.length);
+
+                // Step 2: Borrow context from pool
+                // This may block if the pool is exhausted (max 60s by default)
+                // Triggers lazy allocation if the pool is empty
+                ctx = whisperPool.borrowObject();
+                contextBorrowed = true;
+
+                log.debug("Context borrowed. Active: {}, Idle: {}",
+                        whisperPool.getNumActive(), whisperPool.getNumIdle());
+
+                // Step 3: Run inference
+                String result = runInference(ctx, audioData);
+
+                // Success
+                totalProcessed.incrementAndGet();
+                sink.tryEmitValue(result);
+
+            } catch (NoSuchElementException e) {
+                // Pool wait timeout exceeded
+                totalRejected.incrementAndGet();
+                log.warn("Failed to borrow context (pool exhausted): {}", e.getMessage());
+                sink.tryEmitError(new TimeoutException(
+                        "All workers busy. Pool wait timeout exceeded."
+                ));
+
+            } catch (Exception e) {
+                totalErrors.incrementAndGet();
+                log.error("Transcription error: {}", e.getMessage(), e);
+
+                // If context was corrupted by native error, invalidate it
+                if (contextBorrowed && ctx != null) {
+                    try {
+                        log.warn("Invalidating potentially corrupted context");
+                        whisperPool.invalidateObject(ctx);
+                        ctx = null; // Prevent return to the pool
+                    } catch (Exception invalidateError) {
+                        log.error("Failed to invalidate context", invalidateError);
+                    }
+                }
+
+                sink.tryEmitError(e);
+
+            } finally {
+                // Step 4: Return context to the pool for reuse
+                if (contextBorrowed && ctx != null) {
+                    whisperPool.returnObject(ctx);
+                    log.debug("Context returned to pool");
                 }
             }
-        }
+        }, executorService);
+
+        // Add timeout to prevent hung requests
+        return sink.asMono()
+                .timeout(Duration.ofSeconds(INFERENCE_TIMEOUT_SECONDS))
+                .doOnError(TimeoutException.class, e -> {
+                    log.error("Inference timeout after {}s", INFERENCE_TIMEOUT_SECONDS);
+                    future.cancel(true); // Attempt to cancel
+                });
     }
 
     /**
-     * Converts audio bytes to a float array (CPU-intensive, no native resources).
+     * Runs native inference with the given context.
+     *
+     * @param ctx Native Whisper context (borrowed from pool)
+     * @param audioData Audio samples as a float array
+     * @return Transcribed text
+     * @throws IOException if native inference fails
      */
-    private float[] convertAudio(byte[] audioBytes) throws Exception {
-        try (ByteArrayInputStream bis = new ByteArrayInputStream(audioBytes)) {
-            return AudioConverterUtils.convertToWhisperFormat(bis);
-        }
-    }
-
-    /**
-     * Runs native inference with explicit context.
-     * NO LOCKS NEEDED - each context is used by only one thread at a time.
-     */
-    private String runInference(WhisperContext ctx, float[] audioData) {
+    private String runInference(WhisperContext ctx, float[] audioData) throws IOException {
         WhisperFullParams params = new WhisperFullParams();
-        params.language = null; // Auto-detect
-        params.translate = false;
+        params.language = null;      // Auto-detect language
+        params.translate = false;    // Keep the original language
         params.printProgress = false;
 
+        // Call native method
         int code = whisper.full(ctx, params, audioData, audioData.length);
         if (code != 0) {
-            throw new RuntimeException("Inference failed with code: " + code);
+            throw new IOException("Native inference failed with code: " + code);
         }
 
+        // Extract segments
         StringBuilder result = new StringBuilder();
         int numSegments = whisper.fullNSegments(ctx);
         for (int i = 0; i < numSegments; i++) {
@@ -263,153 +264,172 @@ public class WhisperNativeEngine implements AutoCloseable {
     }
 
     /**
-     * Loads model from the classpath to a temp file.
+     * Loads model from the classpath and extracts to a temporary file.
+     * Required because whisper.cpp needs a physical file path.
+     *
+     * @return Path to an extracted model file
+     * @throws IOException if the model isn't found or extraction fails
      */
     private Path loadModelFromClasspath() throws IOException {
         Resource resource = resourceLoader.getResource(properties.getModelPath());
         if (!resource.exists()) {
-            throw new IOException("Model not found: " + properties.getModelPath());
+            throw new IOException("Whisper model not found at: " + properties.getModelPath());
         }
 
-        Path tempFile = Files.createTempFile("whisper", ".bin");
+        // Create a temp file
+        Path tempFile = Files.createTempFile("whisper-model-", ".bin");
+        tempFile.toFile().deleteOnExit();
+
+        // Extract model
         try (InputStream is = resource.getInputStream()) {
             Files.copy(is, tempFile, StandardCopyOption.REPLACE_EXISTING);
         }
 
-        tempFile.toFile().deleteOnExit();
-        log.info("Model loaded to: {}", tempFile);
+        log.info("Model extracted: {} ({} bytes)",
+                tempFile, Files.size(tempFile));
+
         return tempFile;
     }
 
     /**
-     * Health metrics for monitoring.
+     * Returns current engine metrics for monitoring.
+     *
+     * @return EngineMetrics snapshot
      */
     public EngineMetrics getMetrics() {
+        if (whisperPool == null) {
+            return new EngineMetrics(0, 0, 0, 0, 0, 0, 0, 0);
+        }
+
+        int maxTotal = whisperPool.getMaxTotal();
+        int active = whisperPool.getNumActive();
+        int idle = whisperPool.getNumIdle();
+        int waiters = whisperPool.getNumWaiters();
+
         return new EngineMetrics(
-                poolSize,
-                poolSize - contextPool.size(), // Contexts in use
-                activeInferences.get(),
-                taskQueue.size(),
-                maxQueueSize,
-                totalProcessed.get(),
-                totalRejected.get()
+                maxTotal,                    // poolSize
+                active,                      // contextsInUse
+                active,                      // activeInferences (same as contexts in use)
+                idle,                        // idle in the pool
+                waiters,                     // queuedTasks (threads waiting)
+                properties.getMaxQueueSize(), // maxQueueSize (logical limit)
+                totalProcessed.get(),        // totalProcessed
+                totalRejected.get()          // totalRejected
         );
     }
 
     /**
-     * Graceful shutdown with native resource cleanup.
+     * Checks if the engine is healthy and can accept requests.
+     *
+     * @return true if healthy
+     */
+    public boolean isHealthy() {
+        if (whisperPool == null || isShutdown.get()) {
+            return false;
+        }
+
+        int active = whisperPool.getNumActive();
+        int maxTotal = whisperPool.getMaxTotal();
+        int waiters = whisperPool.getNumWaiters();
+
+        // Healthy if not fully saturated
+        return active < maxTotal || waiters == 0;
+    }
+
+    /**
+     * Graceful shutdown: Waits for in-flight tasks and frees native resources.
      */
     @PreDestroy
     @Override
     public void close() {
         if (isShutdown.compareAndSet(false, true)) {
-            log.info("Shutting down Whisper engine...");
+            log.info("Shutting down Whisper Engine...");
 
             // Stop accepting new tasks
-            conversionPool.shutdown();
-            inferencePool.shutdown();
+            executorService.shutdown();
 
             try {
-                // Wait for in-flight tasks
-                if (!inferencePool.awaitTermination(30, TimeUnit.SECONDS)) {
-                    log.warn("Inference pool did not terminate gracefully");
-                    inferencePool.shutdownNow();
-                }
-                if (!conversionPool.awaitTermination(10, TimeUnit.SECONDS)) {
-                    conversionPool.shutdownNow();
+                // Wait for in-flight tasks (max 30s)
+                if (!executorService.awaitTermination(30, TimeUnit.SECONDS)) {
+                    log.warn("Executor did not terminate gracefully, forcing shutdown");
+                    executorService.shutdownNow();
                 }
             } catch (InterruptedException e) {
+                executorService.shutdownNow();
                 Thread.currentThread().interrupt();
             }
 
-            // Free all native contexts
-            log.info("Freeing {} native contexts...", contextPool.size());
-            NativeContextWrapper wrapper;
-            while ((wrapper = contextPool.poll()) != null) {
-                try {
-                    whisper.free(wrapper.context);
-                    log.debug("Freed native context #{}", wrapper.id);
-                } catch (Exception e) {
-                    log.error("Error freeing context #{}", wrapper.id, e);
-                }
+            // Close pool (automatically calls destroyObject for all contexts)
+            if (whisperPool != null) {
+                log.info("Closing pool. Active: {}, Idle: {}",
+                        whisperPool.getNumActive(), whisperPool.getNumIdle());
+                whisperPool.close();
             }
 
-            log.info("Whisper engine shutdown complete");
+            log.info("Whisper Engine shutdown complete. Processed: {}, Rejected: {}, Errors: {}",
+                    totalProcessed.get(), totalRejected.get(), totalErrors.get());
         }
     }
 
     /**
-     * Wrapper for native context with ID for debugging.
+     * Factory for creating and destroying WhisperContext instances.
      */
-    private record NativeContextWrapper(WhisperContext context, int id) {
-    }
-
-    /**
-     * Cleaner action for guaranteed native cleanup (last resort).
-     */
-    private record ContextCleanupAction(WhisperJNI whisper, WhisperContext context, int id) implements Runnable {
+    private class WhisperContextFactory extends BasePooledObjectFactory<WhisperContext> {
 
         @Override
-        public void run() {
-            // This runs when NativeContextWrapper is GC'd
-            // Should NOT happen in normal operation (indicates leak)
+        public WhisperContext create() throws Exception {
+            log.debug("ALLOCATING new native Whisper context (lazy init)");
+            log.debug("Current memory - Heap: {} MB / {} MB",
+                    Runtime.getRuntime().totalMemory() / 1024 / 1024,
+                    Runtime.getRuntime().maxMemory() / 1024 / 1024);
+
+            WhisperContext ctx = whisper.init(cachedModelPath);
+            if (ctx == null) {
+                throw new OutOfMemoryError(
+                        "WhisperJNI.init() returned null. Likely out of native memory!"
+                );
+            }
+
+            log.info("Native context allocated successfully");
+            return ctx;
+        }
+
+        @Override
+        public PooledObject<WhisperContext> wrap(WhisperContext ctx) {
+            return new DefaultPooledObject<>(ctx);
+        }
+
+        @Override
+        public void destroyObject(PooledObject<WhisperContext> pooledObject) {
+            log.info("FREEING native Whisper context");
             try {
-                whisper.free(context);
-                log.warn("WARNING: Native context #{} was cleaned up by GC! This indicates a resource leak.", id);
+                whisper.free(pooledObject.getObject());
+                log.debug("Context freed successfully");
             } catch (Exception e) {
-                log.error("Failed to cleanup leaked context #{}", id);
+                log.error("Error freeing context", e);
             }
         }
     }
 
     /**
-     * Task with reactive context capture.
-     */
-    private static class TranscriptionTask {
-        final byte[] audioBytes;
-        final ContextView reactiveContext;
-        final Sinks.One<String> result;
-
-        TranscriptionTask(byte[] audioBytes, ContextView reactiveContext) {
-            this.audioBytes = audioBytes;
-            this.reactiveContext = reactiveContext;
-            this.result = Sinks.one();
-        }
-    }
-
-    /**
-     * Named thread factory for debugging.
-     */
-    private static class NamedThreadFactory implements ThreadFactory {
-        private final AtomicInteger counter = new AtomicInteger(0);
-        private final String prefix;
-
-        NamedThreadFactory(String prefix) {
-            this.prefix = prefix;
-        }
-
-        @Override
-        public Thread newThread(@NonNull Runnable runnable) {
-            Thread t = new Thread(runnable, prefix + "-" + counter.incrementAndGet());
-            t.setDaemon(false);
-            return t;
-        }
-    }
-
-    /**
-     * Metrics DTO.
+     * Metrics record for monitoring.
      */
     public record EngineMetrics(
             int poolSize,
             int contextsInUse,
             int activeInferences,
+            int idleInferences,
             int queuedTasks,
             int maxQueueSize,
-            int totalProcessed,
-            int totalRejected
+            long totalProcessed,
+            long totalRejected
     ) {
         public boolean isHealthy() {
             return contextsInUse < poolSize && queuedTasks < maxQueueSize * 0.8;
+        }
+
+        public double getUtilizationPercent() {
+            return poolSize > 0 ? (double) contextsInUse / poolSize * 100 : 0;
         }
     }
 }

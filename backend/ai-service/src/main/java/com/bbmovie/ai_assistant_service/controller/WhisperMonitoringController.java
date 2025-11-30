@@ -14,9 +14,11 @@ import java.lang.management.MemoryUsage;
  * Monitoring endpoints for Whisper engine health and native memory usage.
  * <p>
  * CRITICAL: Use these endpoints to detect native memory leaks!
+ * <P>
+ * This will be moved to a separate microservice in the future
  */
 @RestController
-@RequestMapping("/api/whisper/admin")
+@RequestMapping("/admin/whisper")
 @RequiredArgsConstructor
 public class WhisperMonitoringController {
 
@@ -27,8 +29,7 @@ public class WhisperMonitoringController {
      */
     @GetMapping("/status")
     public Mono<ResponseEntity<WhisperServiceImpl.EngineStatus>> getStatus() {
-        return whisperService.getStatus()
-                .map(ResponseEntity::ok);
+        return whisperService.getStatus().map(ResponseEntity::ok);
     }
 
     /**
@@ -76,8 +77,7 @@ public class WhisperMonitoringController {
     public Mono<ResponseEntity<HealthResponse>> healthCheck() {
         return whisperService.getStatus()
                 .map(status -> {
-                    boolean isHealthy = status.health() !=
-                        WhisperServiceImpl.HealthLevel.DEGRADED;
+                    boolean isHealthy = status.health() != WhisperServiceImpl.HealthLevel.DEGRADED;
 
                     return ResponseEntity
                         .status(isHealthy ? 200 : 503)
@@ -92,25 +92,21 @@ public class WhisperMonitoringController {
      * Force garbage collection (for debugging ONLY).
      * Use this to check if native memory is properly freed.
      */
-    @SuppressWarnings("all")
+    @SuppressWarnings("all") // => Suppress the bomb
     @PostMapping("/gc")
     public Mono<ResponseEntity<String>> forceGarbageCollection() {
         return Mono.fromCallable(() -> {
-            long beforeHeap = Runtime.getRuntime().totalMemory() - 
-                             Runtime.getRuntime().freeMemory();
+            long beforeHeap = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
             
             System.gc();
             System.runFinalization();
             Thread.sleep(1000);
             
-            long afterHeap = Runtime.getRuntime().totalMemory() - 
-                            Runtime.getRuntime().freeMemory();
+            long afterHeap = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
             
             long freedMB = (beforeHeap - afterHeap) / 1024 / 1024;
             
-            return ResponseEntity.ok(
-                String.format("GC completed. Freed: %d MB heap", freedMB)
-            );
+            return ResponseEntity.ok(String.format("GC completed. Freed: %d MB heap", freedMB));
         });
     }
 

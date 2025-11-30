@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
 
 import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Whisper transcription service with production-grade memory safety.
@@ -118,8 +119,7 @@ public class WhisperServiceImpl implements WhisperService {
             if (message != null && message.contains("Queue full")) {
                 return new ResponseStatusException(
                         HttpStatus.TOO_MANY_REQUESTS,
-                        "Transcription service is currently overloaded. " +
-                                "Please try again in 30 seconds."
+                        "Transcription service is currently overloaded. Please try again in 30 seconds."
                 );
             }
 
@@ -130,11 +130,10 @@ public class WhisperServiceImpl implements WhisperService {
         }
 
         // Request timeout (audio too long or system slow)
-        if (error instanceof java.util.concurrent.TimeoutException) {
+        if (error instanceof TimeoutException) {
             return new ResponseStatusException(
                     HttpStatus.REQUEST_TIMEOUT,
-                    "Transcription timed out. Audio file may be too long (>5 minutes) " +
-                            "or in a complex format."
+                    "Transcription timed out. Audio file may be too long (>5 minutes) or in a complex format."
             );
         }
 
@@ -142,12 +141,10 @@ public class WhisperServiceImpl implements WhisperService {
         if (error.getMessage() != null) {
             String msg = error.getMessage().toLowerCase();
 
-            if (msg.contains("convert") || msg.contains("format") ||
-                    msg.contains("decode") || msg.contains("unsupported")) {
+            if (msg.contains("convert") || msg.contains("format") || msg.contains("decode") || msg.contains("unsupported")) {
                 return new ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
-                        "Invalid or corrupted audio file. " +
-                                "Supported formats: WAV, MP3, OGG, FLAC, M4A."
+                        "Invalid or corrupted audio file. Supported formats: WAV, MP3, OGG, FLAC, M4A."
                 );
             }
 
@@ -202,11 +199,20 @@ public class WhisperServiceImpl implements WhisperService {
                     metrics.queuedTasks(),
                     metrics.maxQueueSize(),
                     queueFullness,
-                    metrics.totalProcessed(),
-                    metrics.totalRejected(),
+                    (int) metrics.totalProcessed(),
+                    (int) metrics.totalRejected(),
                     calculateThroughput(metrics)
             );
         });
+    }
+
+    public boolean isHealthy() {
+        return engine.isHealthy();
+    }
+
+    public double getUtilizationPercent() {
+        var metrics = engine.getMetrics();
+        return metrics.getUtilizationPercent();
     }
 
     /**
