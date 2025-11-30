@@ -6,7 +6,6 @@ import com.bbmovie.ai_assistant_service.dto.response.RagRetrievalResult;
 import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
 import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.RagService;
-import com.bbmovie.ai_assistant_service.tool.AiTools;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
@@ -17,17 +16,18 @@ import org.springframework.stereotype.Component;
 import reactor.core.scheduler.Schedulers;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @SuppressWarnings("unused")
-@Component("ragTool")
+@Component
 @Qualifier("commonTools")
 @RequiredArgsConstructor
-public class RagTool implements AiTools {
+public class RagSearch implements CommonTools {
 
-    private static final RgbLogger log = RgbLoggerFactory.getLogger(RagTool.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(RagSearch.class);
 
     private final RagService ragService;
     private final AuditService auditService;
@@ -67,22 +67,7 @@ public class RagTool implements AiTools {
                         return new RagRetrievalResult("", List.of());
                     });
 
-            long latency = System.currentTimeMillis() - start;
-            int resultCount = result.documents() != null ? result.documents().size() : 0;
-
-            Metrics metrics = MetricsUtil.get(latency, null, "rag-tool", "retrieve_rag_movies");
-
-            AuditRecord auditRecord = AuditRecord.builder()
-                    .sessionId(sessionId)
-                    .type(InteractionType.TOOL_EXECUTION_RESULT)
-                    .details(Map.of(
-                            "tool", "retrieve_rag_movies",
-                            "query", queryMovies,
-                            "topK", topK,
-                            "results", resultCount
-                    ))
-                    .metrics(metrics)
-                    .build();
+            AuditRecord auditRecord = createAuditRecord(sessionId, queryMovies, topK, start, result, null);
             auditService.recordInteraction(auditRecord)
                     .doOnSuccess(v -> log.debug("[audit][RAG] Tool audit recorded successfully."))
                     .doOnError(e -> log.warn("[audit][RAG] Failed to record tool audit: {}", e.getMessage()))
@@ -90,26 +75,42 @@ public class RagTool implements AiTools {
 
             return result;
         } catch (Exception e) {
-            long latency = System.currentTimeMillis() - start;
-
-            Metrics metrics = MetricsUtil.get(latency, null, "rag-tool", "retrieve_rag_movies");
             log.error("[tool][RAG] Error executing tool: {}", e.getMessage(), e);
 
-            AuditRecord auditRecord = AuditRecord.builder()
-                    .sessionId(sessionId)
-                    .type(InteractionType.TOOL_EXECUTION_RESULT)
-                    .details(Map.of(
-                            "tool", "retrieve_rag_movies",
-                            "query", queryMovies,
-                            "error", e.getMessage()
-                    ))
-                    .metrics(metrics)
-                    .build();
+            AuditRecord auditRecord = createAuditRecord(sessionId, queryMovies, topK, start, new RagRetrievalResult("", List.of()), e);
             auditService.recordInteraction(auditRecord)
                     .doOnError(ex -> log.warn("[audit][RAG] Failed to record error audit: {}", ex.getMessage()))
                     .subscribe();
 
             return new RagRetrievalResult("", List.of());
         }
+    }
+
+    private static AuditRecord createAuditRecord(
+            UUID sessionId, String queryMovies, int topK, long start, RagRetrievalResult result, Exception error) {
+        long latency = System.currentTimeMillis() - start;
+        int resultCount = result.documents() != null
+                ? result.documents().size()
+                : 0;
+
+        Metrics metrics = MetricsUtil.get(latency, null, "rag-tool", "retrieve_rag_movies");
+
+        Map<String, Object> details = new HashMap<>();
+        details.put("tool", "retrieve_rag_movies");
+        details.put("query", queryMovies);
+        if (error == null) {
+            details.put("topK", topK);
+            details.put("results", resultCount);
+        } else {
+            details.put("error", error.getMessage());
+        }
+
+
+        return AuditRecord.builder()
+                .sessionId(sessionId)
+                .type(InteractionType.TOOL_EXECUTION_RESULT)
+                .details(details)
+                .metrics(metrics)
+                .build();
     }
 }

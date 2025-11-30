@@ -7,6 +7,7 @@ import com.bbmovie.ai_assistant_service.dto.response.RagMovieDto;
 import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
 import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.MessageService;
+import com.bbmovie.ai_assistant_service.service.RagService;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
@@ -21,7 +22,6 @@ import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
-
 import java.util.UUID;
 
 @Builder
@@ -34,6 +34,7 @@ public class SimpleResponseProcessor implements ResponseProcessor {
     @NonNull private final ChatMemory chatMemory;
     @NonNull private final AuditService auditService;
     @NonNull private final MessageService messageService;
+    @NonNull private final RagService ragService;
     private final FluxSink<ChatStreamChunk> sink;
     private final List<RagMovieDto> ragResults;
 
@@ -59,8 +60,11 @@ public class SimpleResponseProcessor implements ResponseProcessor {
         Mono<Void> saveMono = messageService.saveAiResponse(sessionId, aiMessage.text())
                 .then();
 
+        // Index the conversation fragment including RAG results
+        Mono<Void> indexMono = ragService.indexConversationFragment(sessionId, aiMessage.text(), ragResults);
+
         // Emit RAG results after content if available
-        Mono<Void> ragMono = Mono.fromRunnable(() -> {
+        Mono<Void> ragResultMono = Mono.fromRunnable(() -> {
             if (ragResults != null && !ragResults.isEmpty() && sink != null) {
                 sink.next(ChatStreamChunk.ragResult(ragResults));
             }
@@ -72,7 +76,8 @@ public class SimpleResponseProcessor implements ResponseProcessor {
                     return Mono.empty();
                 }),
                 saveMono,
-                ragMono
+                indexMono,
+                ragResultMono
         );
     }
 }

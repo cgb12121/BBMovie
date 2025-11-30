@@ -3,6 +3,7 @@ package com.bbmovie.ai_assistant_service.assistant;
 import com.bbmovie.ai_assistant_service.config.ai.ModelFactory;
 import com.bbmovie.ai_assistant_service.dto.AuditRecord;
 import com.bbmovie.ai_assistant_service.dto.ChatContext;
+import com.bbmovie.ai_assistant_service.dto.FileContentInfo;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.dto.Metrics;
 import com.bbmovie.ai_assistant_service.entity.model.AiMode;
@@ -13,6 +14,7 @@ import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.MessageService;
 import com.bbmovie.ai_assistant_service.service.RagService;
 import com.bbmovie.ai_assistant_service.config.tool.ToolsRegistry;
+import com.bbmovie.ai_assistant_service.utils.FileTypeUtils;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
@@ -63,7 +65,6 @@ public abstract class BaseAssistant implements Assistant {
     @Transactional
     @Override
     public Flux<ChatStreamChunk> processMessage(ChatContext context) {
-        long start = System.currentTimeMillis();
         UUID sessionId = context.getSessionId();
         AiMode aiMode = context.getAiMode();
         String message = context.getMessage();
@@ -71,10 +72,28 @@ public abstract class BaseAssistant implements Assistant {
 
         log.debug("[streaming] session={} type={} role={} message={}", sessionId, getType(), userRole, message);
 
-        return messageService.saveUserMessage(context.getSessionId(), context.getMessage())
-                .flatMap(savedMessage -> recordUserMessage(savedMessage, start, sessionId, message))
-                .flatMapMany(savedMessage ->
-                    prepareChatRequest(sessionId, message, userRole)
+        // Save user message with file content if available
+        Mono<com.bbmovie.ai_assistant_service.entity.ChatMessage> saveMessageMono;
+        if (context.getFileReferences() != null &&
+                (!context.getFileReferences().isEmpty() || context.getExtractedFileContent() != null)
+        ) {
+            FileContentInfo fileContentInfo = FileContentInfo.builder()
+                    .fileReferences(context.getFileReferences())
+                    .extractedContent(context.getExtractedFileContent())
+                    .fileContentType(determineFileContentType(context.getFileReferences()))
+                    .build();
+            saveMessageMono = messageService.saveUserMessageWithFileContentInfo(
+                    context.getSessionId(),
+                    message,
+                    fileContentInfo
+            );
+        } else {
+            saveMessageMono = messageService.saveUserMessage(context.getSessionId(), message);
+        }
+
+        return saveMessageMono
+                .flatMap(savedMessage -> recordUserMessage(savedMessage, sessionId, message))
+                .flatMapMany(savedMessage -> prepareChatRequest(sessionId, context)
                         .flatMapMany(chatRequest -> processChatStream(chatRequest, sessionId, aiMode))
                 )
                 .onErrorResume(ex -> {
@@ -117,9 +136,16 @@ public abstract class BaseAssistant implements Assistant {
         });
     }
 
-    private Mono<ChatRequest> prepareChatRequest(UUID sessionId, String message, String userRole) {
+    protected Mono<ChatRequest> prepareChatRequest(UUID sessionId, ChatContext context) {
         return Mono.fromCallable(() -> {
-                    String finalMessage = "[User's role:{" + userRole + "} | User's chat session:{" + sessionId + "}] " + message;
+                    String message = context.getMessage();
+                    List<String> fileReferences = context.getFileReferences();
+                    String extractedContent = context.getExtractedFileContent();
+
+                    // Enhance the message with file context if files are present
+                    String finalMessage = buildEnhancedMessage(
+                            message, fileReferences, extractedContent, context.getUserRole(), sessionId
+                    );
                     UserMessage userMessage = UserMessage.from(finalMessage);
 
                     ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
@@ -152,18 +178,68 @@ public abstract class BaseAssistant implements Assistant {
                     // Fallback
                     log.error("[prepareChatRequest] Error in chat pipeline for session={}: {}", sessionId, e.getMessage());
                     ChatRequest request = ChatRequest.builder()
-                            .messages(List.of(systemPrompt, UserMessage.from(message)))
+                            .messages(List.of(systemPrompt, UserMessage.from(context.getMessage())))
                             .build();
                     return Mono.just(request);
                 });
     }
 
+    private String buildEnhancedMessage(
+            String message, List<String> fileReferences, String extractedContent, String userRole, UUID sessionId) {
+        StringBuilder enhancedMessage = new StringBuilder();
+
+        // Add role and session context
+        enhancedMessage.append("[User's role:{").append(userRole).append("}")
+                .append("|")
+                .append("User's chat session:{").append(sessionId).append("}] ");
+
+        // Add the original message
+        enhancedMessage.append(message);
+
+        // Add processed file information if any
+        if (fileReferences != null && !fileReferences.isEmpty()) {
+            enhancedMessage.append("\n\n--- ATTACHED FILES ---");
+            for (int i = 0; i < fileReferences.size(); i++) {
+                String fileUrl = fileReferences.get(i);
+                String fileName = FileTypeUtils.extractFileName(fileUrl);
+                String fileType = FileTypeUtils.extractFileType(fileUrl);
+
+                enhancedMessage.append("\nFile ").append(i + 1).append(": ");
+                enhancedMessage.append("Name: ").append(fileName).append(", ");
+                enhancedMessage.append("Type: ").append(fileType).append("\n");
+
+                // If it's an audio file, and we have extracted content, make it clear it's already processed
+                if (FileTypeUtils.isAudioFile(fileUrl) && extractedContent != null && !extractedContent.trim().isEmpty()) {
+                    enhancedMessage.append("Audio Content (already transcribed): ").append(extractedContent).append("\n");
+                } else if (FileTypeUtils.isImageFile(fileUrl)) {
+                    enhancedMessage.append("Image attached (available for visual analysis)\n");
+                } else if (FileTypeUtils.isDocumentFile(fileUrl)) {
+                    enhancedMessage.append("Document attached\n");
+                } else {
+                    enhancedMessage.append("File attached\n");
+                }
+            }
+            enhancedMessage.append("--- END OF FILE INFO ---");
+        }
+
+        // Add any additional extracted content that wasn't tied to a specific file
+        if (extractedContent != null && !extractedContent.isEmpty() && !FileTypeUtils.hasAudioFile(fileReferences)) {
+            enhancedMessage.append("\n\n[ADDITIONAL_CONTENT]:\n").append(extractedContent);
+        }
+
+        return enhancedMessage.toString();
+    }
+
+
+    private String determineFileContentType(List<String> fileReferences) {
+        return FileTypeUtils.determineFileContentType(fileReferences);
+    }
+
     private Mono<com.bbmovie.ai_assistant_service.entity.ChatMessage> recordUserMessage(
-            com.bbmovie.ai_assistant_service.entity.ChatMessage savedMessage, long start, UUID sessionId, String message) {
-        long latency = System.currentTimeMillis() - start;
+            com.bbmovie.ai_assistant_service.entity.ChatMessage savedMessage, UUID sessionId, String message) {
         String modelName = metadata.getModelName();
         String toolName = metadata.getType().name();
-        Metrics metrics = MetricsUtil.get(latency, null, modelName, toolName);
+        Metrics metrics = MetricsUtil.get(0, null, modelName, toolName);
         AuditRecord auditRecord = AuditRecord.builder()
                 .sessionId(sessionId)
                 .type(InteractionType.USER_MESSAGE)

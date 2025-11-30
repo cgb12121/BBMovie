@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.utils.log;
 
 import lombok.experimental.Delegate;
+import org.slf4j.Logger;
 import org.slf4j.helpers.MessageFormatter;
 import org.slf4j.helpers.FormattingTuple;
 
@@ -12,14 +13,7 @@ import static com.bbmovie.ai_assistant_service.utils.log.AnsiRainbowUtil.*;
  * <p>
  * Kinda useless and shrink performance, but it's cool lol.
  */
-public class RgbLogger implements org.slf4j.Logger {
-
-    @Delegate
-    private final org.slf4j.Logger slf4jLogger;
-
-    public RgbLogger(org.slf4j.Logger slf4jLogger) {
-        this.slf4jLogger = slf4jLogger;
-    }
+public record RgbLogger(@Delegate Logger slf4jLogger) implements Logger {
 
     @Override
     public void info(String format, Object... args) {
@@ -47,6 +41,12 @@ public class RgbLogger implements org.slf4j.Logger {
         FormattingTuple ft = MessageFormatter.arrayFormat(format, args);
         String coloredMessage = getFullRainbow(ft.getMessage());
         slf4jLogger.trace(coloredMessage, ft.getThrowable());
+    }
+
+    @Override
+    public void warn(String message) {
+        String coloredMessage = getWarningOrangeToYellow(message);
+        slf4jLogger.warn(coloredMessage);
     }
 
     @Override

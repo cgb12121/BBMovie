@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.bind.support.WebExchangeBindException;
 import org.springframework.web.reactive.resource.NoResourceFoundException;
 import org.springframework.web.server.ServerWebInputException;
+import org.springframework.web.server.UnsupportedMediaTypeStatusException;
 import reactor.core.publisher.Mono;
 
 import java.util.Map;
@@ -25,11 +26,19 @@ public class GlobalExceptionHandler {
 
     private static final RgbLogger log = RgbLoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+    @ExceptionHandler(UnsupportedMediaTypeStatusException.class)
+    @ResponseStatus(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+    public Mono<ApiResponse<Void>> handleUnsupportedMediaTypeStatusException(UnsupportedMediaTypeStatusException ex) {
+        log.error("[UnsupportedMediaTypeStatusException]", ex);
+        return Mono.just(ApiResponse.error("Media Type not supported"));
+    }
+
     @ExceptionHandler(SessionNotFoundException.class)
     @ResponseStatus(HttpStatus.NOT_FOUND)
-    public Mono<ApiResponse<Void>> handleSessionNotFound(SessionNotFoundException ex) {
+    public Mono<ResponseEntity<ApiResponse<Void>>> handleSessionNotFound(SessionNotFoundException ex) {
         log.error("[_SessionNotFoundException] Session not found. {}", ex.getMessage());
-        return Mono.just(ApiResponse.error(ex.getMessage()));
+        return Mono.just(ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(ApiResponse.error(ex.getMessage())));
     }
 
     @ExceptionHandler(ServerWebInputException.class)

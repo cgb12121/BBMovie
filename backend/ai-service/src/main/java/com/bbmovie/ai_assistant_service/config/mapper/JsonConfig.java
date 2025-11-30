@@ -8,13 +8,11 @@ import com.fasterxml.jackson.databind.json.JsonMapper;
 import dev.langchain4j.agent.tool.ToolExecutionRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 
 @Configuration
 public class JsonConfig {
 
-    @Primary
-    @Bean("ObjectMapper")
+    @Bean
     public ObjectMapper objectMapper() {
         return JsonMapper.builder()
                 .findAndAddModules()

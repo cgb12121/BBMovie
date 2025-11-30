@@ -12,6 +12,7 @@ import com.bbmovie.ai_assistant_service.handler.processor.SimpleResponseProcesso
 import com.bbmovie.ai_assistant_service.handler.processor.ToolResponseProcessor;
 import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.MessageService;
+import com.bbmovie.ai_assistant_service.service.RagService;
 import com.bbmovie.ai_assistant_service.service.ToolExecutionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
@@ -41,6 +42,7 @@ public class ToolWorkflow {
     private final ModelFactory modelFactory;
     private final AuditService auditService;
     private final MessageService messageService;
+    private final RagService ragService;
     private final ObjectMapper objectMapper;
 
     public Mono<Void> execute(ToolExecutionContext context) {
@@ -168,6 +170,7 @@ public class ToolWorkflow {
                 .chatMemory(context.getChatMemory())
                 .auditService(auditService)
                 .messageService(messageService)
+                .ragService(ragService)
                 .sink(context.getSink())
                 .ragResults(ragResults)
                 .build();

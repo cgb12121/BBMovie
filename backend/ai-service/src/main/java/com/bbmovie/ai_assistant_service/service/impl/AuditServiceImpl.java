@@ -12,7 +12,6 @@ import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -28,7 +27,7 @@ public class AuditServiceImpl implements AuditService {
 
     private final AiInteractionAuditRepository repository;
     private final ModelSelector modelSelector;
-    @Qualifier("ObjectMapper") private final ObjectMapper objectMapper;
+    private final ObjectMapper objectMapper;
 
     @Override
     public Mono<Void> recordInteraction(AuditRecord record) {

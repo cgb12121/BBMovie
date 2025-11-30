@@ -188,6 +188,30 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-jooq</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-pdf-document-reader</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-tika-document-reader</artifactId>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/io.github.givimad/whisper-jni -->
+        <dependency>
+            <groupId>io.github.givimad</groupId>
+            <artifactId>whisper-jni</artifactId>
+            <version>1.6.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.soundlibs</groupId>
+            <artifactId>mp3spi</artifactId>
+            <version>1.9.5.4</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-pool2</artifactId>
+            <version>2.12.0</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -206,15 +230,26 @@
                 </executions>
 
                 <configuration>
+<!--                    <jdbc>-->
+<!--                        &lt;!&ndash;suppress UnresolvedMavenProperty &ndash;&gt;-->
+<!--                        <driver>${db.driver}</driver>-->
+<!--                        &lt;!&ndash;suppress UnresolvedMavenProperty &ndash;&gt;-->
+<!--                        <url>${db.url}</url>-->
+<!--                        &lt;!&ndash;suppress UnresolvedMavenProperty &ndash;&gt;-->
+<!--                        <user>${db.username}</user>-->
+<!--                        &lt;!&ndash;suppress UnresolvedMavenProperty &ndash;&gt;-->
+<!--                        <password>${db.password}</password>-->
+<!--                    </jdbc>-->
                     <jdbc>
+                        <!-- Use environment variables directly -->
                         <!--suppress UnresolvedMavenProperty -->
-                        <driver>${db.driver}</driver>
+                        <driver>${env.DB_DRIVER}</driver>
                         <!--suppress UnresolvedMavenProperty -->
-                        <url>${db.url}</url>
+                        <url>${env.DB_URL}</url>
                         <!--suppress UnresolvedMavenProperty -->
-                        <user>${db.username}</user>
+                        <user>${env.DB_USERNAME}</user>
                         <!--suppress UnresolvedMavenProperty -->
-                        <password>${db.password}</password>
+                        <password>${env.DB_PASSWORD}</password>
                     </jdbc>
 
                     <generator>

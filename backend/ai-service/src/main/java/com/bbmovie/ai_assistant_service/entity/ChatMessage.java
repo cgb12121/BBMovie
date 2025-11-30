@@ -34,4 +34,7 @@ public class ChatMessage {
     @CreatedDate
     @Column("timestamp")
     private Instant timestamp;
+
+    @Column("file_content_json") // JSON string containing file references, extracted content, and content type
+    private String fileContentJson;
 }

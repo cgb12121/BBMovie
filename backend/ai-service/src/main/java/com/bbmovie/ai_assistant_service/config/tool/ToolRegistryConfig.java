@@ -39,7 +39,7 @@ public class ToolRegistryConfig {
     @Bean
     @Qualifier("userToolRegistry")
     public ToolsRegistry userToolRegistry(
-            @Qualifier("userTools") List<AiTools> userTools,
+            @Qualifier("user") List<AiTools> userTools,
             @Qualifier("commonTools") List<AiTools> commonTools
     ) {
         return init(USER, userTools, commonTools);
