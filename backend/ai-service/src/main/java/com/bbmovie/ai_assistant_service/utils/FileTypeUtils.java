@@ -51,7 +51,7 @@ public class FileTypeUtils {
         }
 
         // Determine the content type based on the file extensions in the URLs
-        String firstFile = fileReferences.get(0).toLowerCase(); // Use get(0) instead of getFirst() for compatibility
+        String firstFile = fileReferences.getFirst().toLowerCase(); // Use get(0) instead of getFirst() for compatibility
         if (firstFile.matches(".*\\.(jpg|jpeg|png|gif|webp)$")) {
             return "IMAGE_URL";
         } else if (firstFile.matches(".*\\.(mp3|wav|ogg|m4a|flac)$")) {

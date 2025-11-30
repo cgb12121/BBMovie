@@ -15,6 +15,8 @@ fi
 
 echo ""
 echo "=== Loading environment variables ==="
+# shellcheck disable=SC2046
+# shellcheck disable=SC2002
 export $(cat .env | grep -v '^#' | xargs)
 
 echo "DB_DRIVER: $DB_DRIVER"
@@ -26,3 +28,4 @@ echo "DB_SCHEMA: $DB_SCHEMA"
 echo ""
 echo "=== Running JOOQ Codegen ==="
 mvn clean generate-sources
+

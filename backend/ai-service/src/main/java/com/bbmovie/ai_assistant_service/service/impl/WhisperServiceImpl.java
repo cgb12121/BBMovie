@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.service.impl;
 
-import com.bbmovie.ai_assistant_service.config.ai.WhisperNativeEngine;
+import com.bbmovie.ai_assistant_service.config.whisper.WhisperNativeEngine;
 import com.bbmovie.ai_assistant_service.service.WhisperService;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;

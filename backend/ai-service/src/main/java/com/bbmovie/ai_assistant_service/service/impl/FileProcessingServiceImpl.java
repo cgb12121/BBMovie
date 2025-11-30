@@ -92,7 +92,7 @@ public class FileProcessingServiceImpl implements FileProcessingService {
                     allFiles.addAll(tuple.getT2()); // documents
                     allFiles.addAll(tuple.getT3()); // text
 
-                    // Audio files are special because they return ProcessedFileContent which
+                    // Audio files are special because they return ProcessedFileContent, which
                     // contains the upload result info too
                     List<ProcessedFileContent> audioProcessed = tuple.getT4();
 
@@ -113,7 +113,7 @@ public class FileProcessingServiceImpl implements FileProcessingService {
                     // allFiles list
                     List<FileUploadResult> audioUploads = audioProcessed.stream()
                             .map(p -> new FileUploadResult(p.url(), p.filename()))
-                            .collect(Collectors.toList());
+                            .toList();
 
                     allFiles.addAll(audioUploads);
 
@@ -125,11 +125,6 @@ public class FileProcessingServiceImpl implements FileProcessingService {
                     return new FileProcessingResult(allFiles, audioProcessed, fileReferences);
                 });
     }
-
-    /**
-     * Builds extracted text from audio files by processing them and collecting
-     * transcriptions.
-     */
 
     /**
      * Uploads a list of files using the specified upload method.
@@ -148,10 +143,6 @@ public class FileProcessingServiceImpl implements FileProcessingService {
                 .collectList();
     }
 
-    /**
-     * Processes audio files: uploads them and transcribes them.
-     * Audio processing is done separately as it's CPU-intensive and blocking.
-     */
     /**
      * Processes audio files: uploads them and transcribes them.
      * Audio processing is done separately as it's CPU-intensive and blocking.

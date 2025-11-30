@@ -6,6 +6,8 @@ import com.bbmovie.ai_assistant_service.entity.Sender;
 import com.bbmovie.ai_assistant_service.repository.ChatMessageRepository;
 import com.bbmovie.ai_assistant_service.service.MessageService;
 import com.bbmovie.ai_assistant_service.service.SessionService;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.bbmovie.common.dtos.CursorPageResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,6 +25,8 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 public class MessageServiceImpl implements MessageService {
+
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(MessageServiceImpl.class);
 
     private final ChatMessageRepository repository;
     private final SessionService sessionService; // For ownership validation
@@ -50,7 +54,7 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public Mono<ChatMessage> saveAiResponse(UUID sessionId, String content) {
-        return createAndSaveMessage(sessionId, Sender.AI, content, null);
+        return createAndSaveMessage(sessionId, Sender.AI, content, content);
     }
 
     @Override
@@ -85,7 +89,7 @@ public class MessageServiceImpl implements MessageService {
                 fileContentJson = objectMapper.writeValueAsString(fileContentInfo);
             } catch (JsonProcessingException e) {
                 // Log the error and continue without file content
-                System.err.println("Error serializing file content info: " + e.getMessage());
+                log.error("Error serializing file content info: {}", e.getMessage());
             }
         }
 
