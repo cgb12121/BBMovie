@@ -8,7 +8,6 @@ import java.util.stream.Collectors;
 
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.http.codec.multipart.FilePart;
@@ -33,13 +32,12 @@ import reactor.core.publisher.Mono;
 
 import static com.bbmovie.ai_assistant_service.entity.model.AiMode.*;
 
-@Slf4j
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/chat")
 public class ChatController {
 
-    private static final RgbLogger logger = RgbLoggerFactory.getLogger(ChatController.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ChatController.class);
 
     private final ChatService chatService;
     private final FileProcessingService fileProcessingService;
@@ -80,7 +78,7 @@ public class ChatController {
 
                     // If there's extracted content, append it to the message so LLM sees it
                     // REMOVED: BaseAssistant already handles this injection to avoid duplication
-                    // if (!extractedContent.isEmpty()) {
+                    // of (!extractedContent.isEmpty()) {
                     // request.setMessage(message + "\n\n" + extractedContent);
                     // }
                     log.info("request: {}", request);

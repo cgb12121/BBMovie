@@ -5,5 +5,7 @@ public enum EntityType {
     TRAILER,
     IMAGE,
     POSTER,
+    DOCUMENT,
+    AUDIO,
     STUDENT_DOCUMENT
 }

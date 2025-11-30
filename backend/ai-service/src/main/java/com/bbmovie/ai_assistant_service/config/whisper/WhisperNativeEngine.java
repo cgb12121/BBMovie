@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.config.ai;
+package com.bbmovie.ai_assistant_service.config.whisper;
 
 import com.bbmovie.ai_assistant_service.utils.AudioConverterUtils;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
@@ -355,9 +355,9 @@ public class WhisperNativeEngine implements AutoCloseable {
             // Should NOT happen in normal operation (indicates leak)
             try {
                 whisper.free(context);
-                System.err.println("WARNING: Native context #" + id + " was cleaned up by GC! This indicates a resource leak.");
+                log.warn("WARNING: Native context #{} was cleaned up by GC! This indicates a resource leak.", id);
             } catch (Exception e) {
-                System.err.println("Failed to cleanup leaked context #" + id);
+                log.error("Failed to cleanup leaked context #{}", id);
             }
         }
     }

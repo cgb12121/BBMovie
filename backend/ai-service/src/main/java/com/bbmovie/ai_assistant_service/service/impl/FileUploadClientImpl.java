@@ -51,16 +51,12 @@ public class FileUploadClientImpl implements FileUploadClient {
 
     @Override
     public Mono<FileUploadResult> uploadDocument(FilePart filePart, Jwt jwt) {
-        // Using STUDENT_DOCUMENT as a generic document type,
-        // You may want to add a DOCUMENT entity type to EntityType enum
-        return uploadFile(filePart, jwt, "/document/upload", EntityType.STUDENT_DOCUMENT);
+        return uploadFile(filePart, jwt, "/document/upload", EntityType.DOCUMENT);
     }
 
     @Override
     public Mono<FileUploadResult> uploadAudio(FilePart filePart, Jwt jwt) {
-        // Audio files can be uploaded as generic files
-        // You may want to add an AUDIO entity type to EntityType enum
-        return uploadFile(filePart, jwt, "/audio/upload", EntityType.STUDENT_DOCUMENT);
+        return uploadFile(filePart, jwt, "/audio/upload", EntityType.AUDIO);
     }
 
     /**
@@ -75,7 +71,6 @@ public class FileUploadClientImpl implements FileUploadClient {
     private Mono<FileUploadResult> uploadFile(FilePart filePart, Jwt jwt, String endpoint, EntityType entityType) {
 
         // Create metadata for the upload
-        // Using all-args constructor (Lombok @AllArgsConstructor generates it)
         UploadMetadata metadata = new UploadMetadata(
                 UUID.randomUUID().toString(), // fileId
                 entityType, // fileType
@@ -92,7 +87,6 @@ public class FileUploadClientImpl implements FileUploadClient {
         // Note: The file-service controller expects @RequestPart("metadata") UploadMetadata
         // which means it needs to be sent as a separate part, not as JSON string
         // We'll use ObjectMapper to serialize it, but Spring should handle this automatically
-
         return fileServiceWebClient
                 .post()
                 .uri(endpoint)
@@ -112,10 +106,7 @@ public class FileUploadClientImpl implements FileUploadClient {
                     // Parse response to extract file URL
                     // For now, return a placeholder - you may want to parse JSON response
                     log.debug("File service response: {}", response);
-                    return new FileUploadResult(
-                            "file://" + filePart.filename(), // Will be replaced with actual URL from response
-                            filePart.filename()
-                    );
+                    return new FileUploadResult(response, filePart.filename());
                 })
                 .onErrorResume(error -> {
                     log.error("Error uploading file {}: {}", filePart.filename(), error.getMessage());

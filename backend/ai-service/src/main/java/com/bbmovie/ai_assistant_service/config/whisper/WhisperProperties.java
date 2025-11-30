@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.config.ai;
+package com.bbmovie.ai_assistant_service.config.whisper;
 
 import lombok.Getter;
 import lombok.Setter;

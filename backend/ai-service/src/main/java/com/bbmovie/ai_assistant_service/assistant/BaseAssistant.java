@@ -65,6 +65,7 @@ public abstract class BaseAssistant implements Assistant {
     @Transactional
     @Override
     public Flux<ChatStreamChunk> processMessage(ChatContext context) {
+        long startTime = System.currentTimeMillis();
         UUID sessionId = context.getSessionId();
         AiMode aiMode = context.getAiMode();
         String message = context.getMessage();
@@ -92,7 +93,7 @@ public abstract class BaseAssistant implements Assistant {
         }
 
         return saveMessageMono
-                .flatMap(savedMessage -> recordUserMessage(savedMessage, sessionId, message))
+                .flatMap(savedMessage -> recordUserMessage(savedMessage, sessionId, message, startTime))
                 .flatMapMany(savedMessage -> prepareChatRequest(sessionId, context)
                         .flatMapMany(chatRequest -> processChatStream(chatRequest, sessionId, aiMode))
                 )
@@ -236,10 +237,10 @@ public abstract class BaseAssistant implements Assistant {
     }
 
     private Mono<com.bbmovie.ai_assistant_service.entity.ChatMessage> recordUserMessage(
-            com.bbmovie.ai_assistant_service.entity.ChatMessage savedMessage, UUID sessionId, String message) {
+            com.bbmovie.ai_assistant_service.entity.ChatMessage savedMessage, UUID sessionId, String message, long startTime) {
         String modelName = metadata.getModelName();
         String toolName = metadata.getType().name();
-        Metrics metrics = MetricsUtil.get(0, null, modelName, toolName);
+        Metrics metrics = MetricsUtil.get(System.currentTimeMillis() - startTime, null, modelName, toolName);
         AuditRecord auditRecord = AuditRecord.builder()
                 .sessionId(sessionId)
                 .type(InteractionType.USER_MESSAGE)
