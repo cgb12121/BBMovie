@@ -1,10 +1,17 @@
 use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
-use once_cell::sync::OnceCell;
+use once_cell::sync::{Lazy, OnceCell};
 use num_cpus;
 use anyhow::{Result, Context, anyhow};
 use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingStrategy};
 use crate::utils::decode_audio;
+
+
+static WHISPER_THREADS: Lazy<c_int> = Lazy::new(|| {
+    let threads = num_cpus::get().max(1); // Ensure at least 1 thread
+    tracing::info!("Configuring Whisper to use {} threads", threads);
+    threads as c_int
+});
 
 pub trait WhisperEngine: Send + Sync {
     fn transcribe(&self, audio_path: &Path) -> Result<String>;
@@ -86,8 +93,7 @@ impl WhisperEngine for WhisperCppEngine {
         // Configure parameters
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
 
-        let threads = num_cpus::get() as c_int;
-        params.set_n_threads(threads);
+        params.set_n_threads(*WHISPER_THREADS);
         params.set_translate(false); 
         params.set_language(Some("en")); 
         params.set_print_special(false); 
