@@ -1,0 +1,34 @@
+[package]
+name = "ai-refinery"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+# 1. Web Framework (Spring Boot replacement)
+axum = { version = "0.7", features = ["multipart"] } # Web server + Upload file
+tokio = { version = "1", features = ["full"] }       # Async Runtime (như Netty)
+tower-http = { version = "0.5", features = ["limit", "cors", "trace"] } # Middleware (Log, Cors)
+tracing = "0.1"            # Logging interface (Slf4j)
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] } # Log implement (Logback)
+serde = { version = "1", features = ["derive"] } # JSON (Jackson)
+serde_json = "1"
+
+lopdf = "0.32"
+
+# 3. OCR (thay tess4j)
+# Lưu ý: Bác cần cài Tesseract trên Windows và add vào PATH
+rusty-tesseract = "1.1"
+image = "0.24" # Xử lý ảnh cơ bản
+
+# 4. Whisper & Audio (thay whisper-jni + mp3spi)
+whisper-rs = { version = "0.12", features = ["whisper-cpp-log"] }
+tokenizers = "0.19.1"
+hf-hub = "0.3" # Model downloading
+anyhow = "1.0" # Error handling (giống Exception)
+symphonia = { version = "0.5", features = ["all"] }
+uuid = { version = "1.18.1", features = ["v4"] } # Decode Audio (MP3/WAV...)
+
+reqwest = { version = "0.11", features = ["json"] }
+base64 = "0.21"
+hostname = "0.3" # Để lấy tên máy tự động
+local-ip-address = "0.5" # Để lấy IP tự động
