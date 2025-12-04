@@ -9,7 +9,7 @@ use crate::{services, utils};
 use crate::dto::response::{ApiResponse, response};
 
 pub async fn handle_text_extract(mut multipart: Multipart) -> impl IntoResponse {
-    let (temp_path, filename) = match utils::save_temp_file(&mut multipart).await {
+    let (temp_file, filename) = match utils::save_temp_file(&mut multipart).await {
         Ok(res) => res,
         Err(e) => {
             return response(
@@ -20,21 +20,34 @@ pub async fn handle_text_extract(mut multipart: Multipart) -> impl IntoResponse 
     };
 
     tracing::info!("Processing Text File: {}", filename);
-    let result = services::text::extract_text_from_file(&temp_path);
+    
+    let processing_path = temp_file.path().to_owned();
+    let result = tokio::task::spawn_blocking(move || {
+        services::text::extract_text_from_file(&processing_path)
+    }).await;
 
-    let _ = std::fs::remove_file(&temp_path);
+    // Explicit close to catch/log errors (Issue 7)
+    if let Err(e) = temp_file.close() {
+         tracing::warn!("Failed to delete temp file for Text: {}", e);
+    }
 
     match result {
-        Ok(text) => response(
-            StatusCode::OK,
-            ApiResponse::success(
-                json!({ "filename": filename, "text": text }),
-                Some("Text extracted successfully".to_string())
+        Ok(service_res) => match service_res {
+            Ok(text) => response(
+                StatusCode::OK,
+                ApiResponse::success(
+                    json!({ "filename": filename, "text": text }),
+                    Some("Text extracted successfully".to_string())
+                )
+            ),
+            Err(e) => response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiResponse::failure(e.to_string(), None)
             )
-        ),
-        Err(e) => response(
+        },
+        Err(_) => response(
             StatusCode::INTERNAL_SERVER_ERROR,
-            ApiResponse::failure(e.to_string(), None)
-        ),
+            ApiResponse::failure("Text processing worker panicked".to_string(), None)
+        )
     }
 }

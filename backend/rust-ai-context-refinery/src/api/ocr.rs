@@ -8,8 +8,7 @@ use crate::{services, utils};
 use crate::dto::response::{ApiResponse, response};
 
 pub async fn handle_ocr(mut multipart: Multipart) -> impl IntoResponse {
-    // 1. Save temp file
-    let (temp_path, filename) = match utils::save_temp_file(&mut multipart).await {
+    let (temp_file, filename) = match utils::save_temp_file(&mut multipart).await {
         Ok(res) => res,
         Err(e) => {
             return response(
@@ -21,16 +20,16 @@ pub async fn handle_ocr(mut multipart: Multipart) -> impl IntoResponse {
 
     tracing::info!("👁️ Running OCR on: {}", filename);
 
-    // 2. Call Service OCR, run blocking because Tesseract is a heavy process
-    let processing_path = temp_path.clone();
+    let processing_path = temp_file.path().to_owned();
     let result = tokio::task::spawn_blocking(move || {
         services::ocr::run_ocr(&processing_path)
     }).await;
 
-    // 3. Clean up temp file
-    let _ = std::fs::remove_file(&temp_path);
+    // Explicit close to catch/log errors (Issue 7)
+    if let Err(e) = temp_file.close() {
+         tracing::warn!("Failed to delete temp file for OCR: {}", e);
+    }
 
-    // 4. Error handling
     match result {
         Ok(service_result) => match service_result {
             Ok(text) => response(

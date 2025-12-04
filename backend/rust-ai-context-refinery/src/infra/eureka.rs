@@ -4,11 +4,6 @@ use std::cmp::min;
 use std::time::Duration;
 use tokio::time::sleep;
 
-// Eureka Config
-const EUREKA_URL: &str = "http://localhost:8761/eureka";
-const APP_NAME: &str = "AI-REFINERY";
-const PORT: u16 = 8686;
-
 #[derive(Serialize)]
 struct EurekaInstanceWrapper {
     instance: InstanceInfo,
@@ -62,9 +57,16 @@ struct MetaData {
 
 /// Registers with Eureka and maintains a heartbeat in a robust background loop.
 /// Handles retries with exponential backoff (5 s -> 5 min) and auto-reconnection.
-pub async fn register_and_heartbeat() {
+/// Now a synchronous function that spawns the async task.
+pub fn register_and_heartbeat() {
     tokio::spawn(async move {
         let client = reqwest::Client::new();
+
+        // Read Config from Env
+        let eureka_url = std::env::var("EUREKA_URL").unwrap_or_else(|_| "http://localhost:8761/eureka".to_string());
+        let app_name = std::env::var("APP_NAME").unwrap_or_else(|_| "AI-REFINERY".to_string());
+        let port_str = std::env::var("PORT").unwrap_or_else(|_| "8686".to_string());
+        let port = port_str.parse::<u16>().unwrap_or(8686);
 
         // Resolve Instance Info (Robustly)
         let ip = local_ip().unwrap_or_else(|_| "127.0.0.1".parse().unwrap()).to_string();
@@ -72,7 +74,7 @@ pub async fn register_and_heartbeat() {
             .unwrap_or_else(|_| "localhost".into())
             .to_string_lossy()
             .to_string();
-        let instance_id = format!("{}:{}:{}", hostname, APP_NAME, PORT);
+        let instance_id = format!("{}:{}:{}", hostname, app_name, port);
 
         // Backoff params
         let initial_backoff = Duration::from_secs(5);
@@ -81,8 +83,8 @@ pub async fn register_and_heartbeat() {
 
         loop {
             // --- Phase 1: Registration ---
-            let register_url = format!("{}/apps/{}", EUREKA_URL, APP_NAME);
-            let payload = create_payload(&instance_id, &hostname, &ip);
+            let register_url = format!("{}/apps/{}", eureka_url, app_name);
+            let payload = create_payload(&instance_id, &hostname, &ip, &app_name, port);
 
             tracing::debug!("🔌 Attempting to register with Eureka at {} (Backoff: {:?})", register_url, current_backoff);
 
@@ -109,7 +111,7 @@ pub async fn register_and_heartbeat() {
 
             // --- Phase 2: Heartbeat Loop ---
             // If we are here, we are registered. Now we send heartbeats.
-            let heartbeat_url = format!("{}/apps/{}/{}", EUREKA_URL, APP_NAME, instance_id);
+            let heartbeat_url = format!("{}/apps/{}/{}", eureka_url, app_name, instance_id);
             let mut interval = tokio::time::interval(Duration::from_secs(30));
             
             // Skip the first tick because we just registered
@@ -140,14 +142,14 @@ pub async fn register_and_heartbeat() {
     });
 }
 
-fn create_payload(instance_id: &str, hostname: &str, ip: &str) -> EurekaInstanceWrapper {
+fn create_payload(instance_id: &str, hostname: &str, ip: &str, app_name: &str, port: u16) -> EurekaInstanceWrapper {
     let instance = InstanceInfo {
         instance_id: instance_id.to_string(),
         host_name: hostname.to_string(),
-        app: APP_NAME.to_string(),
+        app: app_name.to_string(),
         ip_addr: ip.to_string(),
         status: "UP".to_string(),
-        port: PortInfo { port: PORT, enabled: "true".to_string() },
+        port: PortInfo { port, enabled: "true".to_string() },
         secure_port: PortInfo { port: 443, enabled: "false".to_string() },
         data_center_info: DataCenterInfo {
             class: "com.netflix.appinfo.InstanceInfo$DefaultDataCenterInfo".to_string(),
@@ -155,11 +157,11 @@ fn create_payload(instance_id: &str, hostname: &str, ip: &str) -> EurekaInstance
         },
         lease_info: LeaseInfo { duration_in_secs: 90 },
         metadata: MetaData { instance_id: instance_id.to_string() },
-        home_page_url: format!("http://{}:{}/", ip, PORT),
-        status_page_url: format!("http://{}:{}/info", ip, PORT),
-        health_check_url: format!("http://{}:{}/health", ip, PORT),
-        vip_address: APP_NAME.to_string(),
-        secure_vip_address: APP_NAME.to_string(),
+        home_page_url: format!("http://{}:{}/", ip, port),
+        status_page_url: format!("http://{}:{}/info", ip, port),
+        health_check_url: format!("http://{}:{}/health", ip, port),
+        vip_address: app_name.to_string(),
+        secure_vip_address: app_name.to_string(),
     };
 
     EurekaInstanceWrapper { instance }

@@ -2,31 +2,46 @@ use axum::body::Bytes;
 use axum::extract::Multipart;
 use anyhow::{Result, anyhow};
 use std::path::{Path, PathBuf};
-use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use uuid::Uuid;
 use symphonia::core::audio::{SampleBuffer};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
+use tempfile::{NamedTempFile, Builder};
 
-pub async fn save_temp_file(multipart: &mut Multipart) -> Result<(PathBuf, String)> {
-    // Tale the first field
+/// Saves the first file from multipart to a secure temporary file.
+/// Returns `(NamedTempFile, original_filename)`.
+/// The file will be deleted automatically when `NamedTempFile` is dropped,
+/// unless explicitly persisted.
+pub async fn save_temp_file(multipart: &mut Multipart) -> Result<(NamedTempFile, String)> {
     while let Some(field) = multipart.next_field().await? {
         let filename: String = field.file_name()
             .unwrap_or("unknown")
             .to_string();
         let data: Bytes = field.bytes().await?;
 
-        // Random file name (UUID) to prevent collisions
-        let temp_name = format!("upload_{}_{}", Uuid::new_v4(), filename);
-        let temp_path = std::env::temp_dir().join(&temp_name);
-
-        // Async write to disk
-        let mut file = File::create(&temp_path).await
-            .map_err(|e| anyhow!("Failed to create temp file: {}", e))?;
+        // Create a named temp file in the system temp dir.
+        // This uses random naming securely (Issue 15).
+        let temp_file = Builder::new()
+            .prefix("upload-")
+            .suffix(&format!("-{}", filename)) // Optional: keep extension/suffix for clarity
+            .rand_bytes(8)
+            .tempfile()?;
+        
+        // Write data to the temp file
+        // Note: NamedTempFile is blocking I/O mostly, but we can write via std::fs or upgrade to async if needed.
+        // For simplicity and since we have bytes in memory:
+        let path = temp_file.path().to_owned();
+        
+        // We use tokio fs to write asynchronously to avoid blocking
+        let mut file = tokio::fs::File::create(&path).await
+             .map_err(|e| anyhow!("Failed to open temp file for writing: {}", e))?;
         file.write_all(&data).await?;
+        file.flush().await?;
 
-        return Ok((temp_path, filename));
+        // We return the NamedTempFile struct. 
+        // IMPORTANT: The caller MUST keep this alive or persist it, 
+        // otherwise the file is deleted immediately when this struct drops.
+        return Ok((temp_file, filename));
     }
     Err(anyhow!("No file found in multipart request"))
 }
@@ -83,7 +98,11 @@ pub fn decode_audio(path: &Path) -> Result<Vec<f32>> {
                     all_samples.push(mono_sample);
                 }
             }
-            Err(_e) => break, 
+            Err(e) => {
+                // Issue 10: Log decoder errors instead of silent failure
+                tracing::warn!("Audio decode error (skipping packet): {}", e);
+                break;
+            } 
         }
     }
 

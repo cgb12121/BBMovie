@@ -9,20 +9,22 @@ use ai_refinery::{infra, api};
 
 #[tokio::main]
 async fn main() {
+    // Load env vars
+    dotenvy::dotenv().ok();
     // Configure logging
     // Setting rules:
-    // 1. "rust_ai_context_refinery=debug": Detailed logs for the main application (debug)
+    // 1. "ai_refinery=debug": Detailed logs for the main application (debug)
     // 2. "lopdf=error": lopdf only shows error logs (NO info/warn)
     // 3. "info": Other libs only info
     let filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| "rust_ai_context_refinery=debug,lopdf=error,tower_http=debug,info".into());
+        .unwrap_or_else(|_| "ai_refinery=debug,lopdf=error,tower_http=debug,info".into());
     tracing_subscriber::registry()
             .with(tracing_subscriber::fmt::layer())
             .with(filter)
             .init();
 
-    // Eureka Client (async, non block server)
-    infra::eureka::register_and_heartbeat().await;
+    // Eureka Client (fire-and-forget, sync call)
+    infra::eureka::register_and_heartbeat();
 
     // 2. Setup Routes (Like @RestController) - keep the HTTP layer thin,
     // all heavy work is delegated to the handlers and services modules.
@@ -37,10 +39,21 @@ async fn main() {
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
         .layer(TraceLayer::new_for_http());
 
-    // 3. Start Server port 8686
-    let addr = SocketAddr::from(([0, 0, 0, 0], 8686));
-    tracing::info!("Rust Worker listening on {}", addr);
+    // 3. Start Server
+    let port = std::env::var("PORT").unwrap_or_else(|_| "8686".to_string());
+    let addr_str = format!("0.0.0.0:{}", port);
+    tracing::info!("Rust Worker listening on {}", addr_str);
 
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let listener = match tokio::net::TcpListener::bind(&addr_str).await {
+        Ok(l) => l,
+        Err(e) => {
+            tracing::error!("Failed to bind to address {}: {}", addr_str, e);
+            std::process::exit(1);
+        }
+    };
+    
+    if let Err(e) = axum::serve(listener, app).await {
+        tracing::error!("Server failed to start: {}", e);
+        std::process::exit(1);
+    }
 }

@@ -1,5 +1,5 @@
-use std::path::Path;
-use std::sync::OnceLock;
+use std::path::{Path, PathBuf};
+use once_cell::sync::OnceCell;
 use anyhow::{Result, Context, anyhow};
 use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingStrategy};
 use crate::utils::decode_audio;
@@ -12,41 +12,36 @@ struct WhisperCppEngine {
     ctx: WhisperContext,
 }
 
-static ENGINE: OnceLock<WhisperCppEngine> = OnceLock::new();
+// Issue 9: Use once_cell::sync::OnceCell for robust lazy initialization
+static ENGINE: OnceCell<WhisperCppEngine> = OnceCell::new();
 
 fn get_engine() -> Result<&'static WhisperCppEngine> {
-    if let Some(engine) = ENGINE.get() {
-        return Ok(engine);
-    }
-
-    //If the engine hasn't been loaded yet, load and set it.
-    // Because OnceLock::set is only called once, we need to lock the logic again or use lazy_static.
-    // But the simplest way for OnceLock is to load it first and then set it.
-    
-    // NOTE: this might lead to race condition if called multiple times before set() is called.
-    //       But using OnceLock is safe, so it's fine.
-    let engine = load_model()?;
-    let _ = ENGINE.set(engine); // Ignore error if already set
-    
-    Ok(ENGINE.get().unwrap())
+    // Issue 9: get_or_try_init ensures the init closure runs only once, 
+    // preventing multiple expensive model loads.
+    ENGINE.get_or_try_init(load_model)
 }
 
 fn load_model() -> Result<WhisperCppEngine> {
-    let current_dir = std::env::current_dir()?;
-    let model_path = current_dir
-        .join("models")
-        .join("whisper-cpp")
-        .join("ggml-base.en.bin");
+    // Get model path from env or fallback to default relative path
+    let model_path_str = std::env::var("WHISPER_MODEL_PATH").unwrap_or_default();
+    let model_path = if !model_path_str.is_empty() {
+        PathBuf::from(model_path_str)
+    } else {
+        let current_dir = std::env::current_dir()?;
+        current_dir
+            .join("models")
+            .join("whisper-cpp")
+            .join("ggml-base.en.bin")
+    };
 
     if !model_path.exists() {
         return Err(anyhow!(
-            "Model not found at {:?}. Please download it first.\n\
-             Run: curl -L -o {:?} https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
+            "Model not found at {:?}. Please download it first or set WHISPER_MODEL_PATH.\n\             Run: curl -L -o {:?} https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
             model_path, model_path
         ));
     }
 
-    tracing::info!("🔄 Loading Whisper model from {:?}", model_path);
+    tracing::info!("Loading Whisper model from {:?}", model_path);
 
     let ctx_params = WhisperContextParameters::default();
     let ctx = WhisperContext::new_with_params(
@@ -54,7 +49,7 @@ fn load_model() -> Result<WhisperCppEngine> {
         ctx_params
     ).context("Failed to load Whisper model")?;
 
-    tracing::info!("✅ Whisper model loaded successfully");
+    tracing::info!("Whisper model loaded successfully");
 
     Ok(WhisperCppEngine { ctx })
 }
@@ -77,7 +72,7 @@ impl WhisperEngine for WhisperCppEngine {
             return Err(anyhow!("Audio is silent or invalid"));
         };
 
-        tracing::debug!("Audio decoded: {} samples (~{:.2}s)", 
+        tracing::debug!("Audio decoded: {} samples (~{:.2}s)",
             normalized.len(), 
             normalized.len() as f32 / 16000.0
         );
@@ -89,26 +84,24 @@ impl WhisperEngine for WhisperCppEngine {
         // Configure parameters
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
         
-        // IMPORTANT: Whisper inference is CPU-intensive, so we want to limit the number of threads
-        params.set_n_threads(4); // Use 4 threads (adjust by CPU)
-        params.set_translate(false); // Transcribe, NO translate
-        params.set_language(Some("en")); // Force English
-        params.set_print_special(false); // Skip print special tokens
-        params.set_print_progress(false); // Skip progress log spam
-        params.set_print_realtime(false); // Skip realtime log
-        params.set_print_timestamps(false); // Skip timestamps
-        params.set_suppress_blank(true); // Skip blank tokens
-        params.set_suppress_non_speech_tokens(true); // Skip noise tokens
+        params.set_n_threads(4); 
+        params.set_translate(false); 
+        params.set_language(Some("en")); 
+        params.set_print_special(false); 
+        params.set_print_progress(false); 
+        params.set_print_realtime(false); 
+        params.set_print_timestamps(false); 
+        params.set_suppress_blank(true); 
+        params.set_suppress_non_speech_tokens(true); 
         
-        // Temperature = 0.0 cho deterministic output
         params.set_temperature(0.0);
-        params.set_max_len(0); // 0 = auto
+        params.set_max_len(0); 
 
         // Run inference
         state.full(params, &normalized[..])
             .context("Whisper inference failed")?;
 
-        // Extract text từ segments
+        // Extract text from segments
         let num_segments = state.full_n_segments()
             .context("Failed to get segment count")?;
 
