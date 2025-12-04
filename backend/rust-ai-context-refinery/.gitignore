@@ -18,6 +18,3 @@ target/
 .idea
 .vscode/
 .vs
-
-# Models
-models/

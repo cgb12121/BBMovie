@@ -94,14 +94,13 @@ pub fn decode_audio(path: &Path) -> Result<Vec<f32>> {
                 
                 // Convert to Mono (Average the channels or the left channel)
                 for frame in samples.chunks(channels) {
-                    let mono_sample = frame[0]; //  Take the left channel
+                    let mono_sample = frame.iter().sum::<f32>() / channels as f32;
                     all_samples.push(mono_sample);
                 }
             }
             Err(e) => {
-                // Issue 10: Log decoder errors instead of silent failure
                 tracing::warn!("Audio decode error (skipping packet): {}", e);
-                break;
+                return Err(anyhow!("Audio decode error: {}", e)); // Return an error immediately if any packet fails to decode
             } 
         }
     }

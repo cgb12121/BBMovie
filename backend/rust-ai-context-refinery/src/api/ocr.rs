@@ -47,9 +47,17 @@ pub async fn handle_ocr(mut multipart: Multipart) -> impl IntoResponse {
                 )
             }
         },
-        Err(_join_err) => response(
-            StatusCode::INTERNAL_SERVER_ERROR,
-            ApiResponse::failure("OCR Worker panicked".to_string(), None)
-        ),
+        Err(join_err) => {
+            tracing::error!("OCR worker thread panicked: {:?}", join_err);
+            let msg = if join_err.is_panic() {
+                "OCR worker thread panicked. Check logs for details."
+            } else {
+                "OCR worker thread was cancelled."
+            };
+            response(
+                StatusCode::INTERNAL_SERVER_ERROR,
+                ApiResponse::failure(msg.to_string(), None)
+            )
+        },
     }
 }

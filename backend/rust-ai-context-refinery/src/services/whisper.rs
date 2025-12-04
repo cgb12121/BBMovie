@@ -1,5 +1,7 @@
+use std::os::raw::c_int;
 use std::path::{Path, PathBuf};
 use once_cell::sync::OnceCell;
+use num_cpus;
 use anyhow::{Result, Context, anyhow};
 use whisper_rs::{WhisperContext, WhisperContextParameters, FullParams, SamplingStrategy};
 use crate::utils::decode_audio;
@@ -45,7 +47,7 @@ fn load_model() -> Result<WhisperCppEngine> {
 
     let ctx_params = WhisperContextParameters::default();
     let ctx = WhisperContext::new_with_params(
-        model_path.to_str().unwrap(),
+        model_path.to_str().ok_or_else(|| anyhow!("Model path is not valid UTF-8"))?,
         ctx_params
     ).context("Failed to load Whisper model")?;
 
@@ -83,8 +85,9 @@ impl WhisperEngine for WhisperCppEngine {
 
         // Configure parameters
         let mut params = FullParams::new(SamplingStrategy::Greedy { best_of: 1 });
-        
-        params.set_n_threads(4); 
+
+        let threads = num_cpus::get() as c_int;
+        params.set_n_threads(threads);
         params.set_translate(false); 
         params.set_language(Some("en")); 
         params.set_print_special(false); 
