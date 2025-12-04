@@ -26,7 +26,7 @@ To build `whisper-rs` (C++ bindings) correctly on Windows, you **must** follow t
 2.  **Use the "x64 Native Tools Command Prompt"**
     *   Press the **Windows Key** and type **"x64 Native Tools"**.
     *   Select **"x64 Native Tools Command Prompt for VS 2022"** (or 2019+).
-    *   **ALWAYS** use this specific terminal window to run `cargo build` and `cargo run`m not x86 PowerShell or Command Prompt or any other terminals.
+    *   **ALWAYS** use this specific terminal window to run `cargo build` and `cargo run`, not x86 PowerShell or Command Prompt or any other terminals.
     *   *Why?* This terminal automatically loads the necessary environment variables (LIB, INCLUDE, etc.) for the C++ compiler that standard terminals lack.
 
 ---
@@ -62,7 +62,7 @@ Used to generate bindings for the C++ Whisper library.
 
 1.  **Clone the repository**
     ```bash
-    git clone <bla bla, u put the url here>
+    git clone <https://github.com/cgb12121/BBMovie>
     cd rust-ai-context-refinery
     ```
 

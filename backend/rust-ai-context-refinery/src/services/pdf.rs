@@ -12,8 +12,7 @@ pub fn extract_text_from_pdf(path: &Path) -> Result<String> {
     // Iterate through pages to extract text
     // NOTE: lopdf extract text might not be perfect 100%, but it's good enough for RAG
     for (page_num, _page_id) in doc.get_pages() {
-        let text = doc.extract_text(&[page_num])
-            .unwrap_or_default();
+        let text = doc.extract_text(&[page_num])?;
             
         if !text.trim().is_empty() {
             full_text.push_str(&text);
