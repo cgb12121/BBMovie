@@ -1,8 +1,12 @@
 package com.bbmovie.fileservice.service.validation.tika;
 
 import com.bbmovie.fileservice.exception.UnsupportedExtension;
+import com.bbmovie.fileservice.service.ffmpeg.AudioExtension;
 import com.bbmovie.fileservice.service.ffmpeg.ImageExtension;
+import com.bbmovie.fileservice.service.ffmpeg.PdfExtension;
+import com.bbmovie.fileservice.service.ffmpeg.TextExtension;
 import com.bbmovie.fileservice.service.ffmpeg.VideoExtension;
+import com.bbmovie.fileservice.utils.FileTypeUtils;
 import lombok.extern.log4j.Log4j2;
 import org.apache.tika.Tika;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,17 +22,6 @@ public class TikaValidationService {
 
     private final Tika tika;
 
-    private static final List<String> ALLOWED_IMAGE_EXTENSIONS = ImageExtension.getAllowedExtensions()
-            .stream()
-            .map(ImageExtension::getExtension)
-            .toList();
-
-    private static final List<String> ALLOWED_VIDEO_EXTENSIONS = VideoExtension.getAllowedVideoExtensions()
-            .stream()
-            .map(VideoExtension::getExtension)
-            .toList();
-
-
     @Autowired
     public TikaValidationService(Tika tika) {
         this.tika = tika;
@@ -37,19 +30,38 @@ public class TikaValidationService {
     public Mono<Void> validateContentType(Path path) {
         return Mono.fromCallable(() -> {
             String contentType = tika.detect(path.toFile());
-            String extension = contentType.substring(contentType.lastIndexOf("/") + 1).toLowerCase();
-            log.info("Detected content type: {}, {}", contentType, extension);
+            String fileName = path.getFileName().toString().toLowerCase();
+            String fileExtension = FileTypeUtils.getFileExtension(fileName);
 
-            if (contentType.startsWith("image/") && ALLOWED_IMAGE_EXTENSIONS.contains(extension)) {
+            log.info("Detected content type: {}, File extension: {}", contentType, fileExtension);
+
+            // Check image files
+            if (contentType.startsWith("image/") && FileTypeUtils.getAllowedImageExtensions().contains(fileExtension)) {
                 return true;
             }
 
-            if (contentType.startsWith("video/") && ALLOWED_VIDEO_EXTENSIONS.contains(extension)) {
+            // Check video files
+            if (contentType.startsWith("video/") && FileTypeUtils.getAllowedVideoExtensions().contains(fileExtension)) {
                 return true;
             }
 
-            log.error("Unsupported file type: {}", contentType);
-            throw new UnsupportedExtension("Unsupported file type: " + contentType);
+            // Check PDF files
+            if (contentType.contains("/pdf") && FileTypeUtils.getAllowedPdfExtensions().contains(fileExtension)) {
+                return true;
+            }
+
+            // Check audio files - Tika may detect these as audio/mpeg, audio/wav, etc.
+            if (contentType.startsWith("audio/") && FileTypeUtils.getAllowedAudioExtensions().contains(fileExtension)) {
+                return true;
+            }
+
+            // Check text files - Tika may detect these as text/plain, application/json, etc.
+            if (FileTypeUtils.isTextFile(contentType, fileExtension)) {
+                return true;
+            }
+
+            log.error("Unsupported file type: {} (extension: {})", contentType, fileExtension);
+            throw new UnsupportedExtension("Unsupported file type: " + contentType + " (extension: " + fileExtension + ")");
         }).then();
     }
 }

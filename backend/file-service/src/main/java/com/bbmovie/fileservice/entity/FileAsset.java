@@ -37,6 +37,10 @@ public class FileAsset {
 
     private Long fileSize;
 
+    // Default to CONFIRMED for backward compatibility or PENDING for new logic
+    @Builder.Default
+    private FileStatus status = FileStatus.CONFIRMED;
+
     @CreatedDate
     private LocalDateTime createdAt;
 

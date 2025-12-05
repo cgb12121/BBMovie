@@ -26,18 +26,62 @@ public class LocalStorageStrategyImpl implements StorageStrategy {
     @Override
     public Mono<FileUploadResult> store(File file, String filename) {
         return Mono.fromCallable(() -> {
-            Path destination = Paths.get(uploadDir, filename);
+            // Ensure directory exists
+            Path uploadPath = Paths.get(uploadDir);
+            if (!Files.exists(uploadPath)) {
+                Files.createDirectories(uploadPath); // More robust creation
+            }
+
+            // Note: filename might contain subdirectories (e.g., attachments/xyz.pdf)
+            // We need to resolve path properly
+            Path destination = uploadPath.resolve(filename).normalize();
+
+            // Ensure parent directory of destination exists
+            Path parentDir = destination.getParent();
+            if (!Files.exists(parentDir)) {
+                Files.createDirectories(parentDir); // More robust creation
+            }
+
             try {
                 Path path = Files.copy(file.toPath(), destination, StandardCopyOption.REPLACE_EXISTING);
-                String url = path.toFile().getAbsolutePath();
                 String contentType = Files.probeContentType(path);
                 long fileSize = Files.size(path);
-                return new FileUploadResult(url, filename, contentType, fileSize);
+
+                // Use the relative path for database storage to avoid potential path length issues
+                // The database path should be relative to the upload directory, not the absolute path
+                String relativePath = Paths.get(uploadDir).relativize(path).toString();
+
+                return new FileUploadResult(path.toAbsolutePath().toString(), relativePath, contentType, fileSize);
             } catch (IOException e) {
                 log.error("Failed to store file: {}", filename, e);
                 throw new FileUploadException("Failed to store file: " + filename);
             }
         }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    @Override
+    public Mono<Void> delete(String pathOrPublicId) {
+        return Mono.fromRunnable(() -> {
+            try {
+                // If pathOrPublicId is absolute path
+                Path path = Paths.get(pathOrPublicId);
+                // If it's just filename, resolve against uploadDir
+                if (!path.isAbsolute()) {
+                    path = Paths.get(uploadDir).resolve(pathOrPublicId).normalize();
+                }
+
+                if (Files.exists(path)) {
+                    Files.delete(path);
+                    log.info("Deleted local file: {}", path);
+                } else {
+                    log.warn("File not found for deletion: {}", path);
+                }
+            } catch (IOException e) {
+                log.error("Failed to delete local file: {}", pathOrPublicId, e);
+                // We might swallow exception or rethrow depending on if we want to fail the whole chain
+                // Generally logging is enough for cleanup tasks
+            }
+        }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 
     @Override

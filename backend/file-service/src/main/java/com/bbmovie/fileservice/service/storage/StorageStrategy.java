@@ -7,5 +7,6 @@ import java.io.File;
 
 public interface StorageStrategy {
     Mono<FileUploadResult> store(File file, String filename);
+    Mono<Void> delete(String pathOrPublicId); // Added delete support
     String getStorageType();
 }
