@@ -2,7 +2,8 @@ use local_ip_address::local_ip;
 use serde::Serialize;
 use std::cmp::min;
 use std::time::Duration;
-use tokio::time::sleep;
+use reqwest::Client;
+use tokio::time::{sleep, Interval};
 
 #[derive(Serialize)]
 struct EurekaInstanceWrapper {
@@ -60,31 +61,31 @@ struct MetaData {
 /// Now a synchronous function that spawns the async task.
 pub fn register_and_heartbeat() {
     tokio::spawn(async move {
-        let client = reqwest::Client::new();
+        let client: Client = Client::new();
 
         // Read Config from Env
-        let eureka_url = std::env::var("EUREKA_URL").unwrap_or_else(|_| "http://localhost:8761/eureka".to_string());
-        let app_name = std::env::var("APP_NAME").unwrap_or_else(|_| "AI-REFINERY".to_string());
-        let port_str = std::env::var("PORT").unwrap_or_else(|_| "8686".to_string());
-        let port = port_str.parse::<u16>().unwrap_or(8686);
+        let eureka_url: String = std::env::var("EUREKA_URL").unwrap_or_else(|_| "http://localhost:8761/eureka".to_string());
+        let app_name: String = std::env::var("APP_NAME").unwrap_or_else(|_| "AI-REFINERY".to_string());
+        let port_str: String = std::env::var("PORT").unwrap_or_else(|_| "8686".to_string());
+        let port: u16 = port_str.parse::<u16>().unwrap_or(8686);
 
         // Resolve Instance Info (Robustly)
-        let ip = local_ip().unwrap_or_else(|_| "127.0.0.1".parse().unwrap()).to_string();
+        let ip: String = local_ip().unwrap_or_else(|_| "127.0.0.1".parse().unwrap()).to_string();
         let hostname = hostname::get()
             .unwrap_or_else(|_| "localhost".into())
             .to_string_lossy()
             .to_string();
-        let instance_id = format!("{}:{}:{}", hostname, app_name, port);
+        let instance_id: String = format!("{}:{}:{}", hostname, app_name, port);
 
         // Backoff params
-        let initial_backoff = Duration::from_secs(5);
-        let max_backoff = Duration::from_secs(300); // 5 minutes
-        let mut current_backoff = initial_backoff;
+        let initial_backoff: Duration = Duration::from_secs(5);
+        let max_backoff: Duration = Duration::from_secs(300); // 5 minutes
+        let mut current_backoff: Duration = initial_backoff;
 
         loop {
             // --- Phase 1: Registration ---
-            let register_url = format!("{}/apps/{}", eureka_url, app_name);
-            let payload = create_payload(&instance_id, &hostname, &ip, &app_name, port);
+            let register_url: String = format!("{}/apps/{}", eureka_url, app_name);
+            let payload: EurekaInstanceWrapper = create_payload(&instance_id, &hostname, &ip, &app_name, port);
 
             tracing::debug!("🔌 Attempting to register with Eureka at {} (Backoff: {:?})", register_url, current_backoff);
 
@@ -102,7 +103,7 @@ pub fn register_and_heartbeat() {
                     }
                 }
                 Err(e) => {
-                    tracing::debug!("Eureka Connection Failed: {}. Retrying in {:?}...", e, current_backoff);
+                    tracing::error!("Eureka Connection Failed: {}. Retrying in {:?}...", e, current_backoff);
                     sleep(current_backoff).await;
                     current_backoff = min(current_backoff * 2, max_backoff);
                     continue; // Retry registration
@@ -111,8 +112,8 @@ pub fn register_and_heartbeat() {
 
             // --- Phase 2: Heartbeat Loop ---
             // If we are here, we are registered. Now we send heartbeats.
-            let heartbeat_url = format!("{}/apps/{}/{}", eureka_url, app_name, instance_id);
-            let mut interval = tokio::time::interval(Duration::from_secs(30));
+            let heartbeat_url: String = format!("{}/apps/{}/{}", eureka_url, app_name, instance_id);
+            let mut interval: Interval = tokio::time::interval(Duration::from_secs(30));
             
             // Skip the first tick because we just registered
             interval.tick().await;
@@ -133,7 +134,7 @@ pub fn register_and_heartbeat() {
                         }
                     }
                     Err(e) => {
-                        tracing::debug!("Heartbeat connection error: {}. Attempting to reconnect...", e);
+                        tracing::error!("Heartbeat connection error: {}. Attempting to reconnect...", e);
                         break; // Break inner loop -> Back to Registration Phase
                     }
                 }

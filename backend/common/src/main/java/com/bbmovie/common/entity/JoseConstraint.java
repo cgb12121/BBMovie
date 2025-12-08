@@ -1,7 +1,5 @@
 package com.bbmovie.common.entity;
 
-import java.util.Map;
-
 /**
  * Utility class containing constants related to JOSE (JavaScript Object Signing and Encryption)
  * and JWT (JSON Web Token) structures used across the authentication and authorization system.

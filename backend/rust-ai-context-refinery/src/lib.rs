@@ -4,6 +4,7 @@
 //! - `api`: HTTP layer (Axum route handlers)
 //! - `services`: domain/business logic (PDF, OCR, Whisper)
 //! - `infra`: infrastructure (Service Discovery, etc.)
+//! - `security`: Authentication and Authorization
 //! - `utils`: shared helpers (file I/O, multipart handling)
 //!
 //! The binary (`main.rs`) should stay as thin as possible.

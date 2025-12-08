@@ -1,3 +1,4 @@
+use std::fs;
 use axum::body::Bytes;
 use axum::extract::Multipart;
 use anyhow::{Result, anyhow};
@@ -7,6 +8,7 @@ use symphonia::core::audio::{SampleBuffer};
 use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
 use tempfile::{NamedTempFile, Builder};
+use uuid::Uuid;
 
 /// Saves the first file from multipart to a secure temporary file.
 /// Returns `(NamedTempFile, original_filename)`.
@@ -41,9 +43,33 @@ pub async fn save_temp_file(multipart: &mut Multipart) -> Result<(NamedTempFile,
         // We return the NamedTempFile struct. 
         // IMPORTANT: The caller MUST keep this alive or persist it, 
         // otherwise the file is deleted immediately when this struct drops.
+        tracing::debug!("Saved temp_file successes: {}", filename);
         return Ok((temp_file, filename));
     }
+    tracing::error!("Unable to save temp file");
     Err(anyhow!("No file found in multipart request"))
+}
+
+// Fix th signature: Take  original_filename
+pub async fn download_file(url: &str, original_filename: &str) -> Result<(PathBuf, String)> {
+    let resp = reqwest::get(url).await?;
+
+    // Extract extension from original file (Eg: .mp3)
+    let extension = Path::new(original_filename)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map(|ext| format!(".{}", ext))
+        .unwrap_or_default(); // Nếu không có đuôi thì thôi
+
+    let temp_name = format!("download_{}_{}", Uuid::new_v4(), extension);
+    let temp_path = std::env::temp_dir().join(&temp_name);
+
+    let content = resp.bytes().await?;
+
+    let mut file = tokio::fs::File::create(&temp_path).await?;
+    file.write_all(&content).await?;
+
+    Ok((temp_path, original_filename.to_string()))
 }
 
 pub fn decode_audio(path: &Path) -> Result<Vec<f32>> {
@@ -94,13 +120,13 @@ pub fn decode_audio(path: &Path) -> Result<Vec<f32>> {
                 
                 // Convert to Mono (Average the channels or the left channel)
                 for frame in samples.chunks(channels) {
-                    let mono_sample = frame.iter().sum::<f32>() / channels as f32;
+                    let mono_sample = frame[0]; //  Take the left channel
                     all_samples.push(mono_sample);
                 }
             }
             Err(e) => {
                 tracing::warn!("Audio decode error (skipping packet): {}", e);
-                return Err(anyhow!("Audio decode error: {}", e)); // Return an error immediately if any packet fails to decode
+                break;
             } 
         }
     }
@@ -136,4 +162,27 @@ fn resample_linear(input: &[f32], old_rate: u32, new_rate: u32) -> Vec<f32> {
     }
 
     output
+}
+
+pub struct TempFileGuard {
+    pub path: PathBuf,
+}
+
+impl TempFileGuard {
+    pub fn new(path: PathBuf) -> Self {
+        Self { path }
+    }
+}
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        // Chỉ xóa nếu file còn tồn tại
+        if self.path.exists() {
+            tracing::debug!("🧹 Cleaning up temp file: {:?}", self.path);
+            if let Err(e) = fs::remove_file(&self.path) {
+                // Log warning thôi, không panic để tránh crash luồng chính
+                tracing::warn!("⚠️ Failed to delete temp file {:?}: {}", self.path, e);
+            }
+        }
+    }
 }
