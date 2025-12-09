@@ -8,6 +8,7 @@ import java.util.List;
 @Getter
 public enum ImageExtension {
     JPG("jpg"),
+    JPEG("jpeg"),
     PNG("png"),
     WEBP("webp"), // default
     BMP("bmp");

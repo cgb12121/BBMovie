@@ -1,20 +1,15 @@
-use axum::{
-    Router, extract::DefaultBodyLimit, routing::{get, post}
-};
+use axum::{Extension, Router, extract::DefaultBodyLimit, routing::{get, post}};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
-use ai_refinery::{infra, api};
+use ai_refinery::{infra, api, services};
 
 #[tokio::main]
 async fn main() {
     // Load env vars
     dotenvy::dotenv().ok();
+
     // Configure logging
-    // Setting rules:
-    // 1. "ai_refinery=debug": Detailed logs for the main application (debug)
-    // 2. "lopdf=error": lopdf only shows error logs (NO info/warn)
-    // 3. "info": Other libs only info
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "ai_refinery=debug,lopdf=error,tower_http=debug,info".into());
     tracing_subscriber::registry()
@@ -22,18 +17,28 @@ async fn main() {
             .with(filter)
             .init();
 
-    // Eureka Client (fire-and-forget, sync call)
+    //TODO: remove 🔥 EAGER INIT in prod
+    tracing::info!("Warming up Whisper Engine...");
+    if let Err(e) = services::whisper::eager_init() {
+        tracing::error!("Failed to load Whisper Model: {}", e);
+        std::process::exit(1);
+    }
+    tracing::info!("Whisper Engine is ready and hot!");
+
+    // Eureka Client (fire-and-forget)
     infra::eureka::register_and_heartbeat();
 
-    // 2. Setup Routes (Like @RestController) - keep the HTTP layer thin,
-    // all heavy work is delegated to the handlers and services modules.
+    let redis_url = std::env::var("REDIS_URL")
+        .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let cache_service = services::redis::CacheService::new(&redis_url);
+
+    // 2. Setup Routes
     let app = Router::new()
-        .route("/health", get(|| async { "Rust Worker is UP!" }))       // ✅
-        .route("/api/extract/pdf", post(api::handle_pdf_extract))       // ✅
-        .route("/api/extract/ocr", post(api::handle_ocr))               // ✅
-        .route("/api/extract/text", post(api::handle_text_extract))     // ✅
-        .route("/api/transcribe", post(api::handle_transcribe))         // ✅
-        .route("/api/analyze/image", post(api::handle_image_analysis))  // ✅
+        .route("/health", get(|| async { "Rust Worker is UP!" }))
+        .route("/info", get(||async { "Rust Worker is UP!" }))
+        // New Unified Batch Processing Route
+        .route("/api/process-batch", post(api::handle_batch_process))
+        .layer(Extension(cache_service))
         // Limit upload size 50MB (prevent OOM)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
         .layer(TraceLayer::new_for_http());
@@ -50,9 +55,36 @@ async fn main() {
             std::process::exit(1);
         }
     };
-    
-    if let Err(e) = axum::serve(listener, app).await {
-        tracing::error!("Server failed to start: {}", e);
-        std::process::exit(1);
+
+    if let Err(e) = axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await {
+            tracing::error!("Server failed to start: {}", e);
+            std::process::exit(1);
+        }
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install signal handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
     }
+    tracing::info!("Signal received, starting graceful shutdown...");
 }

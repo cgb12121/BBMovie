@@ -187,6 +187,7 @@ public class ModelConfig {
     @Bean("thinkingModel")
     public StreamingChatModel thinkingModel(Logging listener) {
         return baseModel(listener)
+                .modelName(aiSelector.getModelName())
                 .think(true)
                 .returnThinking(true)
                 .build();
@@ -195,6 +196,7 @@ public class ModelConfig {
     @Bean("nonThinkingModel")
     public StreamingChatModel nonThinkingModel(Logging listener) {
         return baseModel(listener)
+                .modelName(aiSelector.getModelName())
                 .think(false)
                 .returnThinking(false)
                 .build();
@@ -203,7 +205,6 @@ public class ModelConfig {
     public OllamaStreamingChatModel.OllamaStreamingChatModelBuilder baseModel(Logging listener) {
         return OllamaStreamingChatModel.builder()
                 .baseUrl(ollamaUrl)
-                .modelName(aiSelector.getModelName())
                 .temperature(0.7)
                 .topK(40)
                 .topP(0.9)

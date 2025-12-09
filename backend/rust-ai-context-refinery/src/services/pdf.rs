@@ -4,15 +4,15 @@ use lopdf::Document;
 
 pub fn extract_text_from_pdf(path: &Path) -> Result<String> {
     // Load PDF Document
-    let doc = Document::load(path)
+    let doc: Document = Document::load(path)
         .with_context(|| format!("Failed to load PDF file: {:?}", path))?;
 
-    let mut full_text = String::new();
+    let mut full_text : String= String::new();
 
     // Iterate through pages to extract text
     // NOTE: lopdf extract text might not be perfect 100%, but it's good enough for RAG
     for (page_num, _page_id) in doc.get_pages() {
-        let text = doc.extract_text(&[page_num])?;
+        let text: String = doc.extract_text(&[page_num])?;
             
         if !text.trim().is_empty() {
             full_text.push_str(&text);

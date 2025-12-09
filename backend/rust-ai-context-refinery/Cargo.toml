@@ -23,7 +23,11 @@ rusty-tesseract = "1.1"
 whisper-rs = { version = "0.12", features = ["whisper-cpp-log"] }
 anyhow = "1.0"
 symphonia = { version = "0.5", features = ["all"] }
-uuid = { version = "1.18.1", features = ["v4"] }
+
+# 5. Cache
+redis = { version = "0.24", features = ["tokio-comp"] }
+deadpool-redis = "0.14"
+async-compression = { version = "0.4", features = ["tokio", "gzip", "futures-io"] }
 
 reqwest = { version = "0.11", features = ["json"] }
 base64 = "0.21"
@@ -33,5 +37,10 @@ local-ip-address = "0.5"
 # Utils
 num_cpus="1.17.0"
 tempfile = "3"
-scopeguard = "1.2"
 once_cell = "1.19"
+uuid = { version = "1.19.0", features = ["v4"] }
+csv = "1.4.0"
+
+# Compression
+tokio-util = { version = "0.7", features = ["compat"] }
+futures = "0.3"

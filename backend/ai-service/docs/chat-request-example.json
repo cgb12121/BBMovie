@@ -1,0 +1,13 @@
+{
+  "message": "can you help me get the content of the file?",
+  "assistantType": "ADMIN",
+  "aiMode": "THINKING",
+  "attachments": [
+    {
+      "fileId": 3,
+      "fileUrl": "http://localhost:8081/internal/files/download/3",
+      "storageType": "LOCAL",
+      "filename": "9a86045b-0917-456c-9589-6fa3bed6b2a2.mp3"
+    }
+  ]
+}

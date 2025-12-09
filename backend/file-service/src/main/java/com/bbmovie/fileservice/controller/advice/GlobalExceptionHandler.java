@@ -2,6 +2,7 @@ package com.bbmovie.fileservice.controller.advice;
 
 
 import com.bbmovie.fileservice.exception.FileUploadException;
+import com.bbmovie.fileservice.exception.UnsupportedExtension;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -85,6 +86,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public Mono<ResponseEntity<String>> handleNoResourceFoundException(NoResourceFoundException ex) {
         return Mono.just(ResponseEntity.badRequest().body("Invalid path: " + ex.getMessage()));
+    }
+
+    @ExceptionHandler(UnsupportedExtension.class)
+    public Mono<ResponseEntity<Map<String, Object>>> handleUnsupportedExtension(UnsupportedExtension ex) {
+        return Mono.just(ResponseEntity.badRequest().body(Map.of("error", ex.getMessage())));
     }
 
     //TODO: expose too much infomation of the server

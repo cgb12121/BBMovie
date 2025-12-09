@@ -7,6 +7,7 @@ import com.bbmovie.common.enums.Storage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,7 +41,20 @@ public class CloudinaryStorageStrategy implements StorageStrategy {
             } catch (IOException e) {
                 throw new RuntimeException("Failed to upload file to Cloudinary", e);
             }
-        });
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+    @Override
+    public Mono<Void> delete(String pathOrPublicId) {
+        return Mono.fromCallable(() -> {
+            try {
+                // In Cloudinary, deletion uses public_id
+                cloudinary.uploader().destroy(pathOrPublicId, ObjectUtils.emptyMap());
+                return null;
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to delete file from Cloudinary", e);
+            }
+        }).subscribeOn(Schedulers.boundedElastic()).then();
     }
 
     @Override

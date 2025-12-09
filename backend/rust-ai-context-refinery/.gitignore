@@ -20,4 +20,5 @@ target/
 .vs
 
 # Models
-models/
+models/whisper-cpp/
+jwk-dev.json

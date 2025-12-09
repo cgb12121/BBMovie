@@ -7,37 +7,47 @@ import com.bbmovie.ai_assistant_service.entity.model.AiMode;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
-/**
- * DTO for chat requests that can include text message and file references.
- * 
- * Files are uploaded separately via multipart/form-data and processed
- * before being included in this DTO as file references (URLs).
- * 
- * Why this design:
- * - Separates file upload (multipart) from chat request (JSON)
- * - File references are persisted URLs, not raw file data
- * - Makes it easy to support both file uploads and text-only messages
- */
 @Data
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class ChatRequestDto {
     @NotBlank
     private String message;
     @NotBlank
-    private String assistantType; // e.g., "admin", "user"
+    private String assistantType; 
     @NotNull
     private AiMode aiMode;
     
+    @Builder.Default
+    private List<FileAttachment> attachments = new ArrayList<>();
+    
     /**
-     * List of file references (URLs) that were uploaded and processed.
-     * These files are already persisted in the file-service.
+     * List of file references (URLs) for the AI context.
+     * Populated by ChatService after processing attachments.
      */
+    @Builder.Default
     private List<String> fileReferences = new ArrayList<>();
     
     /**
-     * Extracted text content from files (e.g., audio transcriptions, PDF text).
-     * This text is automatically included in the message context.
+     * Extracted text content from files.
+     * Populated by ChatService after processing attachments.
      */
     private String extractedFileContent;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class FileAttachment {
+        private Long fileId;
+        private String fileUrl; // Download URL or Internal Path
+        private String storageType;
+        private String filename;
+    }
 }

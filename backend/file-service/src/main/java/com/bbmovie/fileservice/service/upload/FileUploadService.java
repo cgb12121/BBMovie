@@ -127,20 +127,15 @@ public class FileUploadService {
 
         // Submit the entire chain to the prioritized executor
         Mono<Void> processingWithCleanup = processingChain
-                .doOnError(error -> log.error("Processing failed for file {}: {}", originalFilename, error.getMessage()))
-                .materialize()
-                .flatMap(signal -> tempFileCleanUpService.cleanupTempFile(tempPath)
-                        .onErrorResume(cleanupErr -> {
-                            log.warn("Temp cleanup failed for {}: {}", originalFilename, cleanupErr.getMessage());
-                            return Mono.empty();
-                        })
-                        .then(Mono.defer(() -> {
-                            if (signal.isOnError()) {
-                                return Mono.error(Objects.requireNonNull(signal.getThrowable()));
-                            }
-                            return Mono.empty();
-                        })))
-                .dematerialize();
+                .publishOn(Schedulers.boundedElastic())
+                .doFinally(signalType -> {
+                    // Clean up temp file in all cases (success, error, cancellation)
+                    tempFileCleanUpService.cleanupTempFile(tempPath)
+                            .doOnSuccess(ignored -> log.debug("Temp cleanup succeeded for {}", originalFilename))
+                            .doOnError(err -> log.warn("Temp cleanup failed for {}: {}", originalFilename, err.getMessage()))
+                            .subscribe();;
+                })
+                .doOnError(error -> log.error("Processing failed for file {}: {}", originalFilename, error.getMessage()));
 
         Scheduler prioritizedScheduler = Schedulers.fromExecutor(command -> prioritizedTaskExecutor.submit(command, priority));
 

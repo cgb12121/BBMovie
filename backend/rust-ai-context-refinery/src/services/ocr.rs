@@ -2,13 +2,13 @@ use std::path::Path;
 
 use anyhow::Result;
 use anyhow::anyhow;
-use rusty_tesseract::{Args, Image};
+use rusty_tesseract::{Args, Image, TessError};
 
 /// OCR Service
 pub fn run_ocr(path: &Path) -> Result<String> {
     // Load image
-    let img = Image::from_path(path)
-        .map_err(|e| anyhow!("Failed to load image for OCR: {}", e))?;
+    let img: Image = Image::from_path(path)
+        .map_err(|e: TessError| anyhow!("Failed to load image for OCR: {}", e))?;
 
     // Setting Tesseract options/parameters
     let args = Args {
@@ -25,8 +25,10 @@ pub fn run_ocr(path: &Path) -> Result<String> {
 
     // Run tesseract cmd
     // NOTE: the code will fail if Tesseract is not installed or not in PATH
-    let output = rusty_tesseract::image_to_string(&img, &args)
-        .map_err(|e| anyhow!("Tesseract execution failed: {}. \\n👉 Hint: Check if Tesseract is installed and in System PATH.", e))?;
+    let output: String = rusty_tesseract::image_to_string(&img, &args)
+        .map_err(|e: TessError| anyhow!("Tesseract execution failed: {}. \\n\
+            👉 Hint: Check if Tesseract is installed and in System PATH.", e
+        ))?;
 
     Ok(output)
 }

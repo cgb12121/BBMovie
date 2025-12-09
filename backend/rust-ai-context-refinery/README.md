@@ -22,7 +22,7 @@ To build `whisper-rs` (C++ bindings) correctly on Windows, you **must** follow t
     *   Do **not** confuse this with Visual Studio Code (Blue icon). You need the full **[Visual Studio Community](https://visualstudio.microsoft.com/downloads/)** (or Pro/Enterprise).
     *   During installation, select the **"Desktop development with C++"** workload.
     *   Ensure **"MSVC ... C++ x64/x86 build tools"** and **"Windows 10/11 SDK"** are checked on the right side.
-
+    *   Ensure you added **"vswhere, LLVM, LIBCLANG_PATH"** to the env PATH
 2.  **Use the "x64 Native Tools Command Prompt"**
     *   Press the **Windows Key** and type **"x64 Native Tools"**.
     *   Select **"x64 Native Tools Command Prompt for VS 2022"** (or 2019+).
@@ -72,7 +72,8 @@ Used to generate bindings for the C++ Whisper library.
     # Create directory
     mkdir -p models/whisper-cpp
     
-    # Download 'base.en' model (recommended balance of speed/accuracy)
+    # Download 'base.en' model (recommended balance of speed/accuracy).
+    # Or `ggml-base.en-q5_1.bin` for faster inference and lower ram usage but lower accuracy.
     curl -L -o models/whisper-cpp/ggml-base.en.bin https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
     ```
 
