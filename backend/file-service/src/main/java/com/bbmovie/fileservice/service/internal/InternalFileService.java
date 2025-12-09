@@ -73,7 +73,7 @@ public class InternalFileService {
                         File f = tempPath.toFile();
                         if (f.exists()) {
                             if (!f.delete()) {
-                                System.out.println("Failed to delete temp file: " + f.getAbsolutePath());
+                                log.warn("Failed to delete temp file: {}", f.getAbsolutePath());
                             }
                         }
                     });
