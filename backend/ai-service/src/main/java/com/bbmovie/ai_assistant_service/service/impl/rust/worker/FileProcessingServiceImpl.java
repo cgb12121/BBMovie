@@ -48,7 +48,7 @@ public class FileProcessingServiceImpl implements FileProcessingService {
         // 3. Process Batch via Rust
         Mono<Map<String, String>> processingTask = rustClient.processBatch(rustRequests)
                 .map(results -> results.stream()
-                        .filter(node -> node.has("filename") && node.has("result"))
+                        .filter(node -> node.has("filename") && (node.has("result") || node.has("error")))
                         .collect(Collectors.toMap(
                                 node -> node.get("filename").asText(),
                                 this::extractResultText
@@ -88,16 +88,25 @@ public class FileProcessingServiceImpl implements FileProcessingService {
     }
 
     private String extractResultText(JsonNode node) {
+        // 🔥 FIX: Check lỗi cấp Item trước - Handle error case first
+        if (node.has("error") && !node.get("error").isNull()) {
+            String errorMsg = node.get("error").asText();
+            log.warn("File {} failed in Rust: {}", node.get("filename"), errorMsg);
+            // Return error message so AI knows about the failure
+            return "[SYSTEM ERROR: Processing failed for this file: " + errorMsg + "]";
+        }
+
+        // If no error, then try to get result
         JsonNode result = node.get("result");
-        if (result == null) return "";
-        
+        if (result == null) return "[NO RESULT: File processing returned no content]"; // Fallback
+
         if (result.has("text")) {
             return result.get("text").asText();
         } else if (result.has("ocr_text") || result.has("vision_description")) {
             // Composite result (Image)
             String ocr = result.has("ocr_text") ? result.get("ocr_text").asText() : "";
             String vision = result.has("vision_description") ? result.get("vision_description").asText() : "";
-            
+
             StringBuilder sb = new StringBuilder();
             if (!ocr.isEmpty()) sb.append("OCR: ").append(ocr).append("\n");
             if (!vision.isEmpty()) sb.append("Vision: ").append(vision);
@@ -105,7 +114,7 @@ public class FileProcessingServiceImpl implements FileProcessingService {
         } else if (result.has("description")) {
              return result.get("description").asText();
         }
-        
+
         return result.toString(); // Fallback
     }
 

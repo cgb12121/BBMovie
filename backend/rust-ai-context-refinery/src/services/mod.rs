@@ -12,5 +12,6 @@ pub mod ocr;
 pub mod whisper;
 pub mod text;
 pub mod vision;
+pub mod redis;
 
 

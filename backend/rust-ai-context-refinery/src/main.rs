@@ -1,4 +1,4 @@
-use axum::{Router, extract::DefaultBodyLimit, routing::{get, post}};
+use axum::{Extension, Router, extract::DefaultBodyLimit, routing::{get, post}};
 use tower_http::trace::TraceLayer;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
@@ -8,7 +8,7 @@ use ai_refinery::{infra, api, services};
 async fn main() {
     // Load env vars
     dotenvy::dotenv().ok();
-    
+
     // Configure logging
     let filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| "ai_refinery=debug,lopdf=error,tower_http=debug,info".into());
@@ -28,11 +28,17 @@ async fn main() {
     // Eureka Client (fire-and-forget)
     infra::eureka::register_and_heartbeat();
 
+    let redis_url = std::env::var("REDIS_URL")
+        .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let cache_service = services::redis::CacheService::new(&redis_url);
+
     // 2. Setup Routes
     let app = Router::new()
-        .route("/health", get(|| async { "Rust Worker is UP!" })) // Public
+        .route("/health", get(|| async { "Rust Worker is UP!" }))
+        .route("/info", get(||async { "Rust Worker is UP!" }))
         // New Unified Batch Processing Route
         .route("/api/process-batch", post(api::handle_batch_process))
+        .layer(Extension(cache_service))
         // Limit upload size 50MB (prevent OOM)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
         .layer(TraceLayer::new_for_http());
@@ -49,7 +55,7 @@ async fn main() {
             std::process::exit(1);
         }
     };
-    
+
     if let Err(e) = axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
         .await {

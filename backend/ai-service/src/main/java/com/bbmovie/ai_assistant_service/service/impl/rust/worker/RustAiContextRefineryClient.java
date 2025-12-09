@@ -49,7 +49,7 @@ public class RustAiContextRefineryClient {
                 .retrieve()
                 .bodyToMono(new ParameterizedTypeReference<RefineryResponse<List<JsonNode>>>() {})
                 .<List<JsonNode>>handle((response, sink) -> {
-                    if (!response.isSuccess()) {
+                    if ((!response.isSuccess())) {
                         sink.error(new RuntimeException("Rust Service Batch Error: " + response.getErrorSummary()));
                         return;
                     }
