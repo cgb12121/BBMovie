@@ -209,13 +209,13 @@ public abstract class BaseAssistant implements Assistant {
                 enhancedMessage.append("Name: ").append(fileName).append(", ");
                 enhancedMessage.append("Type: ").append(fileType).append("\n");
 
-                // If it's an audio file, and we have extracted content, make it clear it's already processed
-                if (FileTypeUtils.isAudioFile(fileUrl) && extractedContent != null && !extractedContent.trim().isEmpty()) {
-                    enhancedMessage.append("Audio Content (already transcribed): ").append(extractedContent).append("\n");
+                // Note the file type for clarity
+                if (FileTypeUtils.isAudioFile(fileUrl)) {
+                    enhancedMessage.append("Audio file (processed for transcription)\n");
                 } else if (FileTypeUtils.isImageFile(fileUrl)) {
-                    enhancedMessage.append("Image attached (available for visual analysis)\n");
+                    enhancedMessage.append("Image file (processed for OCR/vision analysis)\n");
                 } else if (FileTypeUtils.isDocumentFile(fileUrl)) {
-                    enhancedMessage.append("Document attached\n");
+                    enhancedMessage.append("Document file (processed for text extraction)\n");
                 } else {
                     enhancedMessage.append("File attached\n");
                 }
@@ -223,9 +223,11 @@ public abstract class BaseAssistant implements Assistant {
             enhancedMessage.append("--- END OF FILE INFO ---");
         }
 
-        // Add any additional extracted content that wasn't tied to a specific file
-        if (extractedContent != null && !extractedContent.isEmpty() && !FileTypeUtils.hasAudioFile(fileReferences)) {
-            enhancedMessage.append("\n\n[ADDITIONAL_CONTENT]:\n").append(extractedContent);
+        // Add extracted content if available (from Rust service processing)
+        if (extractedContent != null && !extractedContent.trim().isEmpty()) {
+            enhancedMessage.append("\n\n--- EXTRACTED CONTENT FROM FILES (PROCESSED BY AI) ---\n");
+            enhancedMessage.append(extractedContent);
+            enhancedMessage.append("\n--- END OF EXTRACTED CONTENT ---");
         }
 
         return enhancedMessage.toString();

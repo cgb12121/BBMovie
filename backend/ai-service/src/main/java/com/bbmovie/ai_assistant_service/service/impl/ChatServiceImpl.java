@@ -145,7 +145,8 @@ public class ChatServiceImpl implements ChatService {
                 sessionId,
                 result.uploadedFiles().size(),
                 result.processedFiles().size(),
-                result.fileReferences().size());
+                result.fileReferences().size()
+        );
     }
 
     private boolean hasAttachments(ChatRequestDto request) {
