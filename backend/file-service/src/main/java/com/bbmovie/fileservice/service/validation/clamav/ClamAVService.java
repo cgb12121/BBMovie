@@ -1,7 +1,7 @@
 package com.bbmovie.fileservice.service.validation.clamav;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
@@ -16,21 +16,17 @@ import java.util.Map;
 
 @Log4j2
 @Service
+@RequiredArgsConstructor
 public class ClamAVService {
 
     private final ClamavClient clamAVClient;
-
-    @Autowired
-    public ClamAVService(ClamavClient clamAVClient) {
-        this.clamAVClient = clamAVClient;
-    }
 
     public Mono<Boolean> scanFile(Path filePath) {
         return Mono.fromCallable(() -> {
             log.info("Scan file: {}", filePath);
                 try (InputStream is = Files.newInputStream(filePath)) {
                     ScanResult scanResult = clamAVClient.scan(is);
-                    log.info("Scan result: {}", scanResult.toString());
+                    log.info("Scan result: {}", scanResult);
                     if (scanResult instanceof ScanResult.OK) {
                         return true;
                     }

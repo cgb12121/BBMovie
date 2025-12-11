@@ -9,6 +9,7 @@ import com.bbmovie.fileservice.service.storage.FileStorageStrategyFactory;
 import com.bbmovie.fileservice.service.validation.FileValidationService;
 import com.bbmovie.fileservice.utils.FileTypeUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
@@ -25,6 +26,7 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InternalFileService {

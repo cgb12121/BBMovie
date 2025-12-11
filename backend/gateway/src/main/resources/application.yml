@@ -109,6 +109,15 @@ spring:
                   args:
                     regexp: /api/watchlist(?<remaining>/.*)
                     replacement: /api/watchlist${remaining}
+            - id: ai_route
+              uri: lb://ai-assistant-service
+              predicates:
+                - Path=/api/v1/chat/**,/api/v1/sessions/**,/api/v1/messages/**,/api/v1/admin/**
+              filters:
+                - name: RewritePath
+                  args:
+                    regexp: /api/v1/(?<type>chat|sessions|messages|admin)(?<remaining>/.*)
+                    replacement: /api/v1/${type}${remaining}
           httpclient:
             response-timeout: 5s
             connect-timeout: 5000
@@ -239,6 +248,55 @@ bucket4j:
               time: 1
               unit: hours
             - capacity: 20
+              time: 1
+              unit: minutes
+
+    # AI service operations - chat endpoint is heavy due to AI processing
+    - url: /api/v1/chat/.*
+      rate-limits:
+        - plan: ANONYMOUS
+          bandwidths:
+            - capacity: 5
+              time: 1
+              unit: hours
+        - plan: FREE
+          bandwidths:
+            - capacity: 10
+              time: 1
+              unit: hours
+            - capacity: 3
+              time: 1
+              unit: minutes
+        - plan: PREMIUM
+          bandwidths:
+            - capacity: 100
+              time: 1
+              unit: hours
+            - capacity: 20
+              time: 1
+              unit: minutes
+    # Other AI service endpoints - less restrictive but still API endpoints
+    - url: /api/v1/(sessions|messages|admin)/.*
+      rate-limits:
+        - plan: ANONYMOUS
+          bandwidths:
+            - capacity: 20
+              time: 1
+              unit: minutes
+        - plan: FREE
+          bandwidths:
+            - capacity: 100
+              time: 1
+              unit: hours
+            - capacity: 30
+              time: 1
+              unit: minutes
+        - plan: PREMIUM
+          bandwidths:
+            - capacity: 5000
+              time: 1
+              unit: hours
+            - capacity: 200
               time: 1
               unit: minutes
 

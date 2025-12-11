@@ -31,4 +31,4 @@ build/
 
 ### VS Code ###
 .vscode/
-resources/upload/
+resources/jwk-dev.json

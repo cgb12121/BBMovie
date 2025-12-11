@@ -17,6 +17,8 @@ import com.bbmovie.fileservice.service.validation.FileValidationService;
 import com.bbmovie.common.dtos.nats.FileUploadEvent;
 import com.bbmovie.common.dtos.nats.FileUploadResult;
 import com.bbmovie.common.dtos.nats.UploadMetadata;
+import com.bbmovie.common.enums.EntityType;
+import com.bbmovie.fileservice.service.validation.tika.TikaValidationService;
 import lombok.extern.log4j.Log4j2;
 import org.apache.commons.io.FilenameUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,6 +62,7 @@ public class FileUploadService {
     private final TempFileCleanUpService tempFileCleanUpService;
     private final FileAssetRepository fileAssetRepository;
     private final PrioritizedTaskExecutor prioritizedTaskExecutor;
+    private final TikaValidationService tikaValidationService;
 
     @Autowired
     public FileUploadService(
@@ -71,7 +74,8 @@ public class FileUploadService {
             ReactiveFileUploadEventPublisher eventPublisher,
             TempFileCleanUpService tempFileCleanUpService,
             PrioritizedTaskExecutor prioritizedTaskExecutor,
-            FileAssetRepository fileAssetRepository) {
+            FileAssetRepository fileAssetRepository,
+            TikaValidationService tikaValidationService) {
         this.storageFactory = storageFactory;
         this.fileValidationService = fileValidationService;
         this.tempFileRecordRepository = tempFileRecordRepository;
@@ -81,6 +85,7 @@ public class FileUploadService {
         this.tempFileCleanUpService = tempFileCleanUpService;
         this.prioritizedTaskExecutor = prioritizedTaskExecutor;
         this.fileAssetRepository = fileAssetRepository;
+        this.tikaValidationService = tikaValidationService;
     }
 
     public Mono<ResponseEntity<String>> orchestrateUpload(FilePart filePart, UploadMetadata metadata, Authentication auth) {
@@ -104,25 +109,59 @@ public class FileUploadService {
                     OutboxFileRecord tempRecord = createNewTempUploadEvent(metadata, nameNoExt, extension, tempPath, username);
                     return tempFileRecordRepository.saveTempFile(tempRecord);
                 }))
-                .then(Mono.defer(() -> metadataService.getMetadata(tempPath))) // 4. Get metadata
-                .flatMap(videoMeta -> {
-                    // 5. Determine resolutions and transcode
-                    List<VideoTranscoderService.VideoResolution> resolutions = getResolutionsToTranscode(videoMeta, nameNoExt, extension);
-                    return transcoderService.transcode(tempPath, resolutions, uploadDir)
-                            .flatMapMany(Flux::fromIterable) // Stream of transcoded paths
-                            .flatMap(transcodedPath -> {
-                                // 6. For each path, store, save asset, and publish
-                                StorageStrategy strategy = storageFactory.getStrategy(metadata.getStorage().name());
-                                String qualityLabel = transcodedPath.getFileName().toString().split("_")[1].replace("." + extension, "");
+                .then(Mono.defer(() -> tikaValidationService.getContentType(tempPath))) // 4. Get content type with Tika
+                .flatMap(contentType -> {
+                    // 5. Check if file is video based on content type and apply transcoding accordingly
+                    boolean isVideo = contentType.startsWith("video/");
+                    if (isVideo) {
+                        return metadataService.getMetadata(tempPath) // Get metadata for transcoding
+                                .flatMap(videoMeta -> {
+                                    List<VideoTranscoderService.VideoResolution> resolutions = getResolutionsToTranscode(videoMeta, nameNoExt, extension);
+                                    return transcoderService.transcode(tempPath, resolutions, uploadDir)
+                                            .flatMapMany(Flux::fromIterable) // Stream of transcoded paths
+                                            .flatMap(transcodedPath -> {
+                                                // For each path, store, save asset, and publish
+                                                StorageStrategy strategy = storageFactory.getStrategy(metadata.getStorage().name());
+                                                String qualityLabel = transcodedPath.getFileName().toString().split("_")[1].replace("." + extension, "");
 
-                                return strategy.store(transcodedPath.toFile(), transcodedPath.getFileName().toString())
-                                        .flatMap(uploadResult -> saveFileAsset(metadata, uploadResult, qualityLabel))
-                                        .flatMap(savedAsset -> {
-                                            FileUploadEvent event = createEvent(savedAsset.getPathOrPublicId(), username, metadata, new FileUploadResult(savedAsset.getPathOrPublicId(), savedAsset.getPathOrPublicId()));
-                                            event.setQuality(savedAsset.getQuality());
-                                            return eventPublisher.publish(event);
-                                        });
-                            }).then(); // Wait for all parallel inner tasks to complete
+                                                return strategy.store(transcodedPath.toFile(), transcodedPath.getFileName().toString())
+                                                        .flatMap(uploadResult -> saveFileAsset(metadata, uploadResult, qualityLabel))
+                                                        .flatMap(savedAsset -> {
+                                                            // Video files are generally relevant for movie metadata
+                                                            boolean shouldPublishEvent = shouldPublishFileEvent(metadata);
+                                                            if (shouldPublishEvent) {
+                                                                FileUploadEvent event = createEvent(savedAsset.getPathOrPublicId(), username, metadata, new FileUploadResult(savedAsset.getPathOrPublicId(), savedAsset.getPathOrPublicId()));
+                                                                event.setQuality(savedAsset.getQuality());
+                                                                return eventPublisher.publish(event);
+                                                            } else {
+                                                                log.info("Video file not published to NATS (not relevant for movie metadata): {}", transcodedPath.getFileName());
+                                                                return Mono.empty(); // Complete successfully without publishing
+                                                            }
+                                                        });
+                                            }).then(); // Wait for all parallel inner tasks to complete
+                                });
+                    } else {
+                        // For non-video files (images, documents, etc.), just store and conditionally publish
+                        StorageStrategy strategy = storageFactory.getStrategy(metadata.getStorage().name());
+                        String qualityLabel = "original"; // For non-video files, use "original" as quality
+
+                        return strategy.store(tempPath.toFile(), tempPath.getFileName().toString())
+                                .flatMap(uploadResult -> saveFileAsset(metadata, uploadResult, qualityLabel))
+                                .flatMap(savedAsset -> {
+                                    // Only publish events for files that should update movie metadata/index
+                                    // Video files are published (handled in the "if" branch above)
+                                    // Audio and some other files should not trigger movie metadata updates
+                                    boolean shouldPublishEvent = shouldPublishFileEvent(metadata);
+                                    if (shouldPublishEvent) {
+                                        FileUploadEvent event = createEvent(savedAsset.getPathOrPublicId(), username, metadata, new FileUploadResult(savedAsset.getPathOrPublicId(), savedAsset.getPathOrPublicId()));
+                                        event.setQuality(savedAsset.getQuality());
+                                        return eventPublisher.publish(event);
+                                    } else {
+                                        log.info("File type {} not published to NATS (not relevant for movie metadata): {}", contentType, tempPath.getFileName());
+                                        return Mono.empty(); // Complete successfully without publishing
+                                    }
+                                });
+                    }
                 });
 
         // Submit the entire chain to the prioritized executor
@@ -172,5 +211,9 @@ public class FileUploadService {
                     return new VideoTranscoderService.VideoResolution(def.targetWidth(), def.targetHeight(), filename);
                 })
                 .toList();
+    }
+
+    private boolean shouldPublishFileEvent(UploadMetadata metadata) {
+        return metadata.getFileType() == EntityType.MOVIE;
     }
 }

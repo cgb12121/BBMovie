@@ -24,14 +24,14 @@ public interface TempFileRecordRepository extends R2dbcRepository<OutboxFileReco
     """)
     Mono<Void> saveTempFile(@Param("newRecord") OutboxFileRecord newRecord);
 
-    @Query("SELECT * FROM temp_file WHERE is_removed = false")
+    @Query("SELECT * FROM outbox_file_record WHERE is_removed = false")
     Flux<OutboxFileRecord> findAllByIsRemovedFalse();
 
-    @Query("SELECT * FROM temp_file WHERE file_name = :fileName")
+    @Query("SELECT * FROM outbox_file_record WHERE file_name = :fileName")
     Mono<OutboxFileRecord> findByFileName(String fileName);
 
     @Query("""
-        UPDATE temp_file
+        UPDATE outbox_file_record
         SET is_removed = true,
             removed_at = CURRENT_TIMESTAMP
         WHERE file_name = :fileName

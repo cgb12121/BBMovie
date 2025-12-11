@@ -30,9 +30,9 @@ public class ImageUploadController {
             consumes = MediaType.MULTIPART_FORM_DATA_VALUE
     )
     public Mono<ResponseEntity<String>> handleUpload(
-            @RequestPart("file") FilePart filePart,
-            @Valid @RequestPart("metadata") UploadMetadata metadata,
-            Authentication auth) {
+                @RequestPart("file") FilePart filePart,
+                @Valid @RequestPart("metadata") UploadMetadata metadata,
+                Authentication auth) {
         return fileUploadService.orchestrateUpload(filePart, metadata, auth);
     }
 }

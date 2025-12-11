@@ -26,6 +26,15 @@ public class FileUploadEventPublisher extends AbstractNatsJetStreamService imple
                     getJetStream().publish("upload-events", data);
                     return null;
                 })
+                .onErrorResume(IOException.class, ex -> {
+                    // Log the error but don't fail the entire upload process if there are no responders
+                    if (ex.getMessage().contains("503 No Responders")) {
+                        log.warn("No responders available for upload-events. Event will be queued in outbox for later processing: {}", event.getTitle(), ex);
+                        return Mono.empty(); // Return empty Mono to continue the flow without error
+                    }
+                    log.error("Failed to publish upload event: ", ex);
+                    return Mono.error(ex);
+                })
                 .then();
     }
 }

@@ -8,6 +8,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -66,6 +67,7 @@ public class ChatController {
     /**
      * Debug endpoint for non-streaming response (useful for Postman testing).
      */
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping("/{sessionId}/test")
     public Mono<Map<String, Object>> nonStreamChat(
             @PathVariable UUID sessionId,
