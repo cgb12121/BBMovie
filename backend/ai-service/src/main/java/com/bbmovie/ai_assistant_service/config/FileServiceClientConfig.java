@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.config;
 
+import io.netty.channel.ChannelOption;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -8,6 +9,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
+
 
 /**
  * Configuration for WebClient to communicate with the file-service.
@@ -33,7 +35,7 @@ public class FileServiceClientConfig {
     public WebClient fileServiceWebClient() {
         HttpClient httpClient = HttpClient.create()
                 .responseTimeout(Duration.ofSeconds(60))
-                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000);
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000);
 
         return WebClient.builder()
                 .baseUrl(fileServiceUrl)

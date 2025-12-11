@@ -4,7 +4,7 @@ import com.bbmovie.ai_assistant_service.config.ai.logging.Logging;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -172,14 +172,10 @@ import java.util.List;
  *
  */
 @Configuration
+@RequiredArgsConstructor
 public class ModelConfig {
 
     private final ModelSelector aiSelector;
-
-    @Autowired
-    public ModelConfig(ModelSelector aiSelector) {
-        this.aiSelector = aiSelector;
-    }
 
     @Value("${ai.ollama.url}")
     private String ollamaUrl;
