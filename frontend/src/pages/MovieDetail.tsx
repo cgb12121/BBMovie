@@ -7,7 +7,7 @@ import { Badge } from '../components/ui/badge';
 import { Separator } from '../components/ui/separator';
 import { ImageWithFallback } from '../components/ImageWithFallback';
 import { MovieRow } from '../components/MovieRow';
-import api from '../services/api';
+import { apiCall } from '../services/apiWrapper';
 
 interface Movie {
     id: number;
@@ -31,14 +31,23 @@ const MovieDetail: React.FC = () => {
         const fetchMovieDetails = async () => {
             try {
                 setLoading(true);
-                // Fetch movie details - you can update this endpoint based on your API
-                const response = await api.get(`/api/movies/${id}`);
-                setMovie(response.data);
-                
-                // Fetch similar movies (or all movies as fallback)
-                const moviesResponse = await api.get('/api/movies');
-                const allMovies = moviesResponse.data || [];
-                setSimilarMovies(allMovies.slice(0, 8));
+                // Fetch movie details
+                const response = await apiCall.getMovieById(id);
+                if (response.success) {
+                    setMovie(response.data);
+                } else {
+                    console.error('Failed to fetch movie details:', response.message);
+                    setMovie(null);
+                }
+
+                // Fetch similar movies
+                const similarResponse = await apiCall.getSimilarMovies(id);
+                if (similarResponse.success) {
+                    setSimilarMovies(similarResponse.data || []);
+                } else {
+                    console.error('Failed to fetch similar movies:', similarResponse.message);
+                    setSimilarMovies([]);
+                }
             } catch (error) {
                 console.error('Error fetching movie details:', error);
                 setMovie(null);
@@ -167,7 +176,7 @@ const MovieDetail: React.FC = () => {
                                 <p className="text-white">{movie.description}</p>
                             </div>
                         )}
-                        
+
                         <Separator className="bg-gray-800" />
 
                         <div className="grid md:grid-cols-3 gap-6">
@@ -211,4 +220,4 @@ const MovieDetail: React.FC = () => {
     );
 };
 
-export default MovieDetail; 
+export default MovieDetail;

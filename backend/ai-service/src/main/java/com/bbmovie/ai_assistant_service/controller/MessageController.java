@@ -21,7 +21,7 @@ public class MessageController {
 
     private final MessageService messageService;
 
-    // Does not support deleting messages or "try again..." yet
+    // Does not support deleting sent messages or "try again..." yet
     @GetMapping("/{sessionId}")
     public Mono<ApiResponse<CursorPageResponse<ChatMessage>>> getMessages(
             @PathVariable UUID sessionId,

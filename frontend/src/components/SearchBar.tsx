@@ -3,7 +3,7 @@ import { AutoComplete, Input, Spin } from 'antd';
 import { SearchOutlined } from '@ant-design/icons';
 import styled from 'styled-components';
 import debounce from 'lodash/debounce';
-import api from '../services/api';
+import { apiCall } from '../services/apiWrapper';
 
 const SearchWrapper = styled.div`
     width: 100%;
@@ -40,41 +40,46 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSelect, onSearch, placeholder, 
             setOptions([]);
             return;
         }
-    
-        const params = new URLSearchParams({ query });
-        if (limit) params.append("limit", String(limit));
-    
+
         setIsLoading(true);
         try {
-            const response = await api.get<Movie[]>(`/api/search/similar-search?${params.toString()}`);
-            const movies = response.data;
-    
-            setOptions(movies.map(movie => ({
-                value: movie.id,
-                label: (
-                    <div key={movie.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <img
-                            src={movie.posterUrl}
-                            alt={movie.title}
-                            style={{ width: 40, height: 60, objectFit: 'cover' }}
-                        />
-                        <div>
-                            <div>{movie.title}</div>
-                            <div style={{ fontSize: '12px', color: '#666' }}>
-                                Rating: {movie.rating}/10
+            const response = await apiCall.searchMovies(query, limit);
+            if (response.success) {
+                const movies = response.data;
+
+                setOptions(movies.map(movie => ({
+                    value: String(movie.id),
+                    label: (
+                        <div key={movie.id} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <img
+                                src={movie.posterUrl}
+                                alt={movie.title}
+                                style={{ width: 40, height: 60, objectFit: 'cover' }}
+                            />
+                            <div>
+                                <div>{movie.title}</div>
+                                <div style={{ fontSize: '12px', color: '#666' }}>
+                                    Rating: {movie.rating}/10
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ),
-                movie
-            })));
+                    ),
+                    movie: {
+                        id: String(movie.id),
+                        title: movie.title,
+                        description: movie.description || '',
+                        posterUrl: movie.posterUrl,
+                        rating: movie.rating
+                    }
+                })));
+            }
         } catch (error) {
             console.error('Search failed:', error);
         } finally {
             setIsLoading(false);
         }
     };
-    
+
 
     const debouncedSearch = debounce(searchMovies, 300);
 

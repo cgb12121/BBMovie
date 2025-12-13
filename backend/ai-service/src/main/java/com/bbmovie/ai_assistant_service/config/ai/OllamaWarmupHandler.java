@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.config.ai;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.beans.factory.support.BeanDefinitionRegistry;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -25,6 +26,7 @@ public class OllamaWarmupHandler {
     private final ModelSelector aiSelector;
     private final ConfigurableApplicationContext context;
 
+    @Autowired
     public OllamaWarmupHandler(
             @Value("${ai.ollama.url}") String ollamaUrl,
             ModelSelector aiSelector,

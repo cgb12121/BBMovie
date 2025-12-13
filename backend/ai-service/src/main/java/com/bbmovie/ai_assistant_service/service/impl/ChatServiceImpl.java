@@ -31,11 +31,6 @@ import reactor.core.publisher.Mono;
 
 /**
  * Implementation of ChatService handling both text-only and file-based chat requests.
- * <p>
- * For file-based requests, this service:
- * 1. Processes files (upload, transcription, text extraction) via FileProcessingService
- * 2. Builds a ChatRequestDto with file references and extracted content
- * 3. Delegates to the appropriate assistant for response generation
  */
 @Service
 public class ChatServiceImpl implements ChatService {
@@ -66,7 +61,6 @@ public class ChatServiceImpl implements ChatService {
         UUID userId = UUID.fromString(jwt.getClaimAsString(SUB));
         String userRole = jwt.getClaimAsString(ROLE);
 
-        // Process files if present in the request DTO
         Mono<FileProcessingResult> fileProcessingMono = hasAttachments(request)
                 ? fileProcessingService.processAttachments(request.getAttachments())
                 : Mono.just(FileProcessingResult.empty());
@@ -74,16 +68,15 @@ public class ChatServiceImpl implements ChatService {
         return sessionService.getAndValidateSessionOwnership(sessionId, userId)
                 .flatMapMany(session -> fileProcessingMono
                         .flatMapMany(fileResult -> {
-                            // 1. Tạo chuỗi content
+                            
                             String contentStr = formatExtractedContent(fileResult.processedFiles());
 
-                            // 2. Build Context trực tiếp (Không set vào request nữa)
+                            // Pass approval token from request to context
                             ChatContext chatContext = ChatContext.builder()
                                     .sessionId(sessionId)
                                     .message(request.getMessage())
                                     .aiMode(request.getAiMode())
                                     .userRole(userRole)
-                                    // Lấy từ fileResult mới nhất
                                     .fileReferences(fileResult.fileReferences())
                                     .extractedFileContent(contentStr)
                                     .build();
@@ -95,9 +88,6 @@ public class ChatServiceImpl implements ChatService {
                 .doOnError(error -> log.error("Chat error for session {}: {}", sessionId, error.getMessage()));
     }
 
-    /**
-     * Core chat processing logic shared by both text-only and file-based flows.
-     */
     private Flux<ChatStreamChunk> processChat(ChatContext chatContext, String specifiedAssistantType) {
         AssistantType assistantType = AssistantType.fromCode(specifiedAssistantType);
         Assistant assistant = assistants.get(assistantType);
@@ -115,10 +105,6 @@ public class ChatServiceImpl implements ChatService {
                 .concatWithValues(ChatStreamChunk.system("Done"));
     }
 
-    /**
-     * Formats processed file content into a structured string for the LLM.
-     * Each file's content is clearly labeled with filename, type, and extracted text.
-     */
     private String formatExtractedContent(List<ProcessedFileContent> processedFiles) {
         if (processedFiles == null || processedFiles.isEmpty()) {
             return "";
@@ -137,16 +123,12 @@ public class ChatServiceImpl implements ChatService {
         return content.toString();
     }
 
-    /**
-     * Logs file processing results for debugging.
-     */
     private void logFileProcessingResult(UUID sessionId, FileProcessingResult result) {
         log.info("Session {}: Processed {} files, {} with extracted content, {} references",
                 sessionId,
                 result.uploadedFiles().size(),
                 result.processedFiles().size(),
-                result.fileReferences().size()
-        );
+                result.fileReferences().size());
     }
 
     private boolean hasAttachments(ChatRequestDto request) {

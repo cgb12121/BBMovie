@@ -27,17 +27,9 @@ public class ChatRequestDto {
     @Builder.Default
     private List<FileAttachment> attachments = new ArrayList<>();
     
-    /**
-     * List of file references (URLs) for the AI context.
-     * Populated by ChatService after processing attachments.
-     */
     @Builder.Default
     private List<String> fileReferences = new ArrayList<>();
     
-    /**
-     * Extracted text content from files.
-     * Populated by ChatService after processing attachments.
-     */
     private String extractedFileContent;
 
     @Data
@@ -46,7 +38,7 @@ public class ChatRequestDto {
     @AllArgsConstructor
     public static class FileAttachment {
         private Long fileId;
-        private String fileUrl; // Download URL or Internal Path
+        private String fileUrl; 
         private String storageType;
         private String filename;
     }

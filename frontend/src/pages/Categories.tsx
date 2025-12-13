@@ -4,7 +4,7 @@ import { ChevronRight, Loader2 } from 'lucide-react';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { ImageWithFallback } from '../components/ImageWithFallback';
-import api from '../services/api';
+import { apiCall } from '../services/apiWrapper';
 
 interface Category {
     id: number;
@@ -26,10 +26,16 @@ const Categories: React.FC = () => {
     const fetchCategories = async () => {
         try {
             setLoading(true);
-            const response = await api.get('/categories');
-            setCategories(response.data);
+            const response = await apiCall.getCategories();
+            if (response.success) {
+                setCategories(response.data);
+            } else {
+                console.error('Failed to fetch categories:', response.message);
+                setCategories([]);
+            }
         } catch (error) {
             console.error('Error fetching categories:', error);
+            setCategories([]);
         } finally {
             setLoading(false);
         }
@@ -104,4 +110,4 @@ const Categories: React.FC = () => {
     );
 };
 
-export default Categories; 
+export default Categories;

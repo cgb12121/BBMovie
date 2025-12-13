@@ -1,30 +1,25 @@
 package com.bbmovie.ai_assistant_service.controller;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
-import java.util.stream.Collectors;
-
+import com.bbmovie.ai_assistant_service.dto.request.ChatRequestDto;
+import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
+import com.bbmovie.ai_assistant_service.service.ChatService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import com.bbmovie.ai_assistant_service.dto.request.ChatRequestDto;
-import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
-import com.bbmovie.ai_assistant_service.service.ChatService;
-
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+
+import jakarta.validation.Valid;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Controller for chat endpoints.
@@ -47,7 +42,7 @@ public class ChatController {
      * The client then passes the file metadata (id, url) in the ChatRequestDto.
      * 
      * @param sessionId Chat session ID
-     * @param request Request body containing message, AI mode, and optional attachments
+     * @param request The request body containing message, AI mode, and optional attachments
      * @param jwt User authentication token
      * @return Server-sent events stream of chat responses
      */

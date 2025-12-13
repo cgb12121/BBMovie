@@ -14,6 +14,10 @@ const serviceBaseUrls: Record<string, string | undefined> = {
     '/api/subscription': process.env.REACT_APP_PAYMENT_SERVICE_URL,
     '/api/v1/subscription': process.env.REACT_APP_PAYMENT_SERVICE_URL,
     '/api/watchlist': process.env.REACT_APP_WATCHLIST_SERVICE_URL,
+    '/api/v1/chat': process.env.REACT_APP_AI_SERVICE_URL,
+    '/internal/files': process.env.REACT_APP_AI_SERVICE_URL,
+    '/health': process.env.REACT_APP_AI_SERVICE_URL,
+    '/api/health': process.env.REACT_APP_AI_SERVICE_URL,
 };
 
 function getBaseUrlForPath(url?: string): string | undefined {

@@ -4,7 +4,7 @@ import { Play, Info } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { MovieRow } from '../components/MovieRow';
 import { ImageWithFallback } from '../components/ImageWithFallback';
-import api from '../services/api';
+import { apiCall } from '../services/apiWrapper';
 
 interface Movie {
   id: number;
@@ -28,8 +28,13 @@ const Home: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.get('/api/movies');
-      setMovies(response.data ?? []);
+      const response = await apiCall.getMovies();
+      if (response.success) {
+        setMovies(response.data ?? []);
+      } else {
+        setError(response.message || 'Unable to load movies. Please try again later.');
+        setMovies([]);
+      }
     } catch (err) {
       console.error('Error fetching movies:', err);
       setError('Unable to load movies. Please try again later.');
@@ -120,31 +125,31 @@ const Home: React.FC = () => {
       {/* Movie Rows */}
       <div className="relative -mt-32 z-10 space-y-12 pb-20">
         {trendingMovies.length > 0 && (
-          <MovieRow 
-            title="Trending Now" 
-            movies={trendingMovies} 
-            onMovieClick={handleMovieClick} 
+          <MovieRow
+            title="Trending Now"
+            movies={trendingMovies}
+            onMovieClick={handleMovieClick}
           />
         )}
         {topRatedMovies.length > 0 && (
-          <MovieRow 
-            title="Top Rated" 
-            movies={topRatedMovies} 
-            onMovieClick={handleMovieClick} 
+          <MovieRow
+            title="Top Rated"
+            movies={topRatedMovies}
+            onMovieClick={handleMovieClick}
           />
         )}
         {newReleases.length > 0 && (
-          <MovieRow 
-            title="New Releases" 
-            movies={newReleases} 
-            onMovieClick={handleMovieClick} 
+          <MovieRow
+            title="New Releases"
+            movies={newReleases}
+            onMovieClick={handleMovieClick}
           />
         )}
         {movies.length > 16 && (
-          <MovieRow 
-            title="Popular on BBMovie" 
-            movies={movies.slice(16, 24)} 
-            onMovieClick={handleMovieClick} 
+          <MovieRow
+            title="Popular on BBMovie"
+            movies={movies.slice(16, 24)}
+            onMovieClick={handleMovieClick}
           />
         )}
       </div>
@@ -152,4 +157,4 @@ const Home: React.FC = () => {
   );
 };
 
-export default Home; 
+export default Home;

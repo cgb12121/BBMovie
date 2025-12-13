@@ -4,7 +4,7 @@ import { ChevronLeft, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { MovieCard } from '../components/MovieCard';
 import { ImageWithFallback } from '../components/ImageWithFallback';
-import api from '../services/api';
+import { apiCall } from '../services/apiWrapper';
 
 interface Category {
     id: number;
@@ -36,12 +36,38 @@ const CategoryDetail: React.FC = () => {
         try {
             setLoading(true);
             setError(null);
-            const [categoryResponse, moviesResponse] = await Promise.all([
-                api.get(`/api/categories/${id}`),
-                api.get(`/api/categories/${id}/movies`)
-            ]);
-            setCategory(categoryResponse.data);
-            setMovies(Array.isArray(moviesResponse.data) ? moviesResponse.data : []);
+
+            // For mock mode, we'll use the getMoviesByCategory API wrapper
+            const moviesResponse = await apiCall.getMoviesByCategory(id);
+
+            if (moviesResponse.success) {
+                setMovies(moviesResponse.data);
+
+                // For mock, create a default category based on the category ID
+                const categories = [
+                    { id: 1, name: "Action", description: "High-octane action packed movies", image: "https://image.tmdb.org/t/p/w1280/fIotZDG10hKkXJPPaJ44D3z2J4.jpg" },
+                    { id: 2, name: "Drama", description: "Emotionally charged stories", image: "https://image.tmdb.org/t/p/w1280/1Dk3RJj3Qh5M1jJU3mzPZ1C4Vp.jpg" },
+                    { id: 3, name: "Sci-Fi", description: "Science fiction movies", image: "https://image.tmdb.org/t/p/w1280/6MKU3N2jv69M8JqU8w19VQccUYA.jpg" },
+                    { id: 4, name: "Comedy", description: "Light-hearted and funny movies", image: "https://image.tmdb.org/t/p/w1280/54nZyqQlC2YJgNEfVzLHnD9729.jpg" },
+                    { id: 5, name: "Horror", description: "Scary and suspenseful movies", image: "https://image.tmdb.org/t/p/w1280/72diYJBobJ5P81H4lkq4H2P0XGA.jpg" },
+                    { id: 6, name: "Romance", description: "Heartwarming love stories", image: "https://image.tmdb.org/t/p/w1280/3Jct8JAhHqQw5x0J8r5M2YJcY4.jpg" }
+                ];
+
+                const foundCategory = categories.find(cat => cat.id === parseInt(id));
+                if (foundCategory) {
+                    setCategory(foundCategory);
+                } else {
+                    setCategory({
+                        id: parseInt(id),
+                        name: `Category ${id}`,
+                        description: `Movies in category ${id}`,
+                        image: 'https://image.tmdb.org/t/p/w1280/fIotZDG10hKkXJPPaJ44D3z2J4.jpg' // Default category image
+                    });
+                }
+            } else {
+                setError(moviesResponse.message || 'Failed to load category movies');
+                setMovies([]);
+            }
         } catch (err) {
             console.error('Failed to fetch category details', err);
             setError('We could not load this category at the moment. Please try again later.');
@@ -156,4 +182,4 @@ const CategoryDetail: React.FC = () => {
     );
 };
 
-export default CategoryDetail; 
+export default CategoryDetail;

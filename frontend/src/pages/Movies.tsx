@@ -4,7 +4,7 @@ import { Grid, List, Loader2, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { MovieCard } from '../components/MovieCard';
-import api from '../services/api';
+import { apiCall } from '../services/apiWrapper';
 
 interface Movie {
     id: number;
@@ -32,8 +32,13 @@ const Movies: React.FC = () => {
         try {
             setLoading(true);
             setError(null);
-            const response = await api.get('/api/movies');
-            setMovies(response.data ?? []);
+            const response = await apiCall.getMovies();
+            if (response.success) {
+                setMovies(response.data ?? []);
+            } else {
+                setError(response.message || 'We could not load movies right now. Please try again shortly.');
+                setMovies([]);
+            }
         } catch (err) {
             console.error('Error fetching movies:', err);
             setError('We could not load movies right now. Please try again shortly.');
@@ -160,7 +165,7 @@ const Movies: React.FC = () => {
                                 <p className="text-gray-400 text-lg">No movies available</p>
                             </div>
                         ) : (
-                            <div className={viewMode === 'grid' 
+                            <div className={viewMode === 'grid'
                                 ? 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4'
                                 : 'flex flex-col gap-4'
                             }>
