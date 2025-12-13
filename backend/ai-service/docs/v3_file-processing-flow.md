@@ -166,7 +166,7 @@ JSON request for text-only chat (backward compatible).
 
 Files are categorized based on content type and extension:
 
-```java
+```
 FileCategories {
     images: [jpg, jpeg, png]
     pdfs: [pdf]
@@ -216,7 +216,7 @@ Content:
 
 The formatted content is included in `ChatContext`:
 
-```java
+```
 ChatContext {
     sessionId: UUID
     message: "User's original message"
@@ -229,14 +229,14 @@ ChatContext {
 
 ## Key Classes
 
-| Class | Responsibility |
-|-------|----------------|
-| `ChatController` | HTTP endpoint handling, request/response mapping |
-| `ChatService` | Chat orchestration, file processing coordination |
-| `FileProcessingService` | File categorization and parallel processing |
-| `FileUploadClient` | Communication with file-service microservice |
-| `TextExtractionService` | PDF and text file content extraction |
-| `WhisperService` | Audio transcription using Whisper model |
+| Class                   | Responsibility                                   |
+|-------------------------|--------------------------------------------------|
+| `ChatController`        | HTTP endpoint handling, request/response mapping |
+| `ChatService`           | Chat orchestration, file processing coordination |
+| `FileProcessingService` | File categorization and parallel processing      |
+| `FileUploadClient`      | Communication with file-service microservice     |
+| `TextExtractionService` | PDF and text file content extraction             |
+| `WhisperService`        | Audio transcription using Whisper model          |
 
 ## Configuration
 
@@ -252,10 +252,10 @@ file-service.storage=LOCAL
 
 ### Limits
 
-| Setting | Value | Description |
-|---------|-------|-------------|
-| Max file size | 10 MB | Per-file size limit for text extraction |
-| Max text length | 50,000 chars | Truncation limit for extracted content |
+| Setting         | Value        | Description                             |
+|-----------------|--------------|-----------------------------------------|
+| Max file size   | 10 MB        | Per-file size limit for text extraction |
+| Max text length | 50,000 chars | Truncation limit for extracted content  |
 
 ## Error Handling
 
