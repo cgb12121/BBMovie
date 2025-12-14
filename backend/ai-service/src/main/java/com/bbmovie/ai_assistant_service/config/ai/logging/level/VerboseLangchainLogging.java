@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.config.ai.logging.level;
 
-import com.bbmovie.ai_assistant_service.config.ai.logging.Logging;
+import com.bbmovie.ai_assistant_service.config.ai.logging.LangchainLogging;
 import com.bbmovie.ai_assistant_service.utils.log.AnsiRainbowUtil;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
@@ -18,9 +18,9 @@ import java.util.stream.Collectors;
 
 import static org.fusesource.jansi.Ansi.ansi;
 
-public class VerboseLogging implements Logging {
+public class VerboseLangchainLogging implements LangchainLogging {
 
-    private static final RgbLogger log = RgbLoggerFactory.getLogger(VerboseLogging.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(VerboseLangchainLogging.class);
 
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {

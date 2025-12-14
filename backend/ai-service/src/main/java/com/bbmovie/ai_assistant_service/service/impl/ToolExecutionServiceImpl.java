@@ -4,6 +4,9 @@ import com.bbmovie.ai_assistant_service.config.ai.ModelSelector;
 import com.bbmovie.ai_assistant_service.dto.AuditRecord;
 import com.bbmovie.ai_assistant_service.dto.Metrics;
 import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
+import com.bbmovie.ai_assistant_service.exception.RequiresApprovalException;
+import com.bbmovie.ai_assistant_service.hitl.ApprovalContextHolder;
+import com.bbmovie.ai_assistant_service.hitl.ExecutionContext;
 import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.ToolExecutionService;
 import com.bbmovie.ai_assistant_service.config.tool.ToolsRegistry;
@@ -32,7 +35,11 @@ public class ToolExecutionServiceImpl implements ToolExecutionService {
 
     @Override
     public Mono<ToolExecutionResultMessage> execute(
-            UUID sessionId, ToolExecutionRequest request, ToolsRegistry toolRegistry, ChatMemory chatMemory) {
+            UUID sessionId, 
+            ToolExecutionRequest request, 
+            ToolsRegistry toolRegistry, 
+            ChatMemory chatMemory,
+            ExecutionContext executionContext) {
 
         ToolExecutor toolExecutor = toolRegistry.getExecutor(request.name());
 
@@ -54,8 +61,23 @@ public class ToolExecutionServiceImpl implements ToolExecutionService {
         long start = System.currentTimeMillis();
 
         return Mono.fromCallable(() -> {
+                    // Set context for AOP
+                    if (executionContext != null) {
+                        ApprovalContextHolder.set(executionContext);
+                        log.debug("[HITL_DEBUG] Service Set Context {}", System.identityHashCode(executionContext));
+                    }
                     try {
                         String executionResult = toolExecutor.execute(request, sessionId);
+
+                        // HITL Check: Did the aspect request approval?
+                        if (executionContext != null) {
+                            log.debug("[HITL_DEBUG] Service Check Pending: {} on Context {}", executionContext.getPendingException(), System.identityHashCode(executionContext));
+                            
+                            if (executionContext.getPendingException() != null) {
+                                throw executionContext.getPendingException();
+                            }
+                        }
+
                         long latency = System.currentTimeMillis() - start;
 
                         Metrics metrics = MetricsUtil.get(latency, null,
@@ -63,13 +85,24 @@ public class ToolExecutionServiceImpl implements ToolExecutionService {
 
                         log.debug("[tool] Tool '{}' executed in {}ms: {}", request.name(), latency, executionResult);
 
-                        // Create result and metrics together
                         return new ToolExecutionResult(
                                 ToolExecutionResultMessage.from(request, executionResult),
                                 metrics,
                                 null
                         );
                     } catch (Exception exception) {
+                        // Let AOP exception propagate if it is RequiresApprovalException?
+                        // If it's RequiresApprovalException, it's a RuntimeException, so it's caught here.
+                        // We must re-throw it so that downstream can handle it (create chunk).
+                        
+                        // BUT, wait. This `executes` returns Mono<ToolExecutionResultMessage>.
+                        // If we throw here, the Mono fails.
+                        // We should probably check if it is RequiresApprovalException and rethrow.
+                        if (exception instanceof RequiresApprovalException) {
+                            throw exception;
+                        }
+                        
+                        // Other exceptions -> Log and return error result
                         long latency = System.currentTimeMillis() - start;
                         log.error("[tool] Error executing tool '{}': {}", request.name(), exception.getMessage(), exception);
 
@@ -82,6 +115,8 @@ public class ToolExecutionServiceImpl implements ToolExecutionService {
                                 metrics,
                                 exception
                         );
+                    } finally {
+                        ApprovalContextHolder.clear();
                     }
                 })
                 .subscribeOn(Schedulers.boundedElastic()) // Tool execution might be blocking

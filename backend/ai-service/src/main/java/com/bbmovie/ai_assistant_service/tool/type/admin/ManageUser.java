@@ -1,5 +1,8 @@
 package com.bbmovie.ai_assistant_service.tool.type.admin;
 
+import com.bbmovie.ai_assistant_service.hitl.ActionType;
+import com.bbmovie.ai_assistant_service.hitl.RequiresApproval;
+import com.bbmovie.ai_assistant_service.hitl.RiskLevel;
 import dev.langchain4j.agent.tool.P;
 import dev.langchain4j.agent.tool.Tool;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -11,6 +14,42 @@ import java.util.UUID;
 @Component
 @Qualifier("adminTools")
 public class ManageUser implements AdminTools {
+
+    @Tool("Reads system configuration (Safe operation)")
+    @RequiresApproval(action = ActionType.SENSITIVE_ACTION, baseRisk = RiskLevel.EXTREME, description = "Read system config")
+    public String getSystemConfig() {
+        return "System Config: [Debug: OFF, Cache: ON]";
+    }
+
+    @Tool("Updates user theme preference (Low risk)")
+    @RequiresApproval(action = ActionType.UPDATE_RESOURCE, baseRisk = RiskLevel.LOW, description = "Update user theme")
+    public String updateTheme(String userId, String themeColor) {
+        return String.format("Updated theme for user %s to %s", userId, themeColor);
+    }
+
+    @Tool("Updates user nickname (Medium risk - Personal Info)")
+    @RequiresApproval(action = ActionType.UPDATE_RESOURCE, baseRisk = RiskLevel.MEDIUM, description = "Update user nickname")
+    public String updateNickname(String userId, String newNickname) {
+        return String.format("Updated nickname for user %s to %s", userId, newNickname);
+    }
+
+    @Tool("Changes user email address (High risk - Identity)")
+    @RequiresApproval(action = ActionType.UPDATE_RESOURCE, baseRisk = RiskLevel.HIGH, description = "Change user email")
+    public String changeEmail(String userId, String newEmail) {
+        return String.format("Changed email for user %s to %s", userId, newEmail);
+    }
+
+    @Tool("Deletes a user account (Extreme risk - Destructive)")
+    @RequiresApproval(action = ActionType.DELETE_RESOURCE, baseRisk = RiskLevel.EXTREME, description = "Permanently delete user account")
+    public String deleteUserAccount(String userId) {
+        return String.format("PERMANENTLY DELETED user account: %s", userId);
+    }
+
+    @Tool("Drops a database table (Extreme risk - System Destruction)")
+    @RequiresApproval(action = ActionType.DELETE_RESOURCE, baseRisk = RiskLevel.EXTREME, description = "Drop database table")
+    public String dropTable(String tableName) {
+        return String.format("DROPPED TABLE: %s", tableName);
+    }
 
     @Tool("Manages a user account, allowing actions like banning, unbanning, or changing roles.")
     public void manageUserAccount(

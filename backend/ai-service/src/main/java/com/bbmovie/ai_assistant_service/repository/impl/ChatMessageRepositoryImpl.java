@@ -2,7 +2,7 @@ package com.bbmovie.ai_assistant_service.repository.impl;
 
 import com.bbmovie.ai_assistant_service.entity.ChatMessage;
 import com.bbmovie.ai_assistant_service.jooq.generated.Tables;
-import com.bbmovie.ai_assistant_service.repository.ChatMessageCustomRepository;
+import com.bbmovie.ai_assistant_service.repository.custom.ChatMessageCustomRepository;
 import org.jooq.DSLContext;
 import org.springframework.stereotype.Repository;
 import reactor.core.publisher.Flux;

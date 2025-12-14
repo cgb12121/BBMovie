@@ -74,11 +74,13 @@ public class ChatServiceImpl implements ChatService {
                             // Pass approval token from request to context
                             ChatContext chatContext = ChatContext.builder()
                                     .sessionId(sessionId)
+                                    .userId(userId.toString()) // Added for HITL
                                     .message(request.getMessage())
                                     .aiMode(request.getAiMode())
                                     .userRole(userRole)
                                     .fileReferences(fileResult.fileReferences())
                                     .extractedFileContent(contentStr)
+                                    .internalApprovalToken(request.getInternalApprovalToken()) // Added for HITL
                                     .build();
 
                             logFileProcessingResult(sessionId, fileResult);

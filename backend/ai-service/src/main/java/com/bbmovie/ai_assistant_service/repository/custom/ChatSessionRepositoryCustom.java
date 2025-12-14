@@ -1,4 +1,4 @@
-package com.bbmovie.ai_assistant_service.repository;
+package com.bbmovie.ai_assistant_service.repository.custom;
 
 import com.bbmovie.ai_assistant_service.entity.ChatSession;
 import reactor.core.publisher.Flux;

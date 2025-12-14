@@ -18,6 +18,7 @@ import java.util.UUID;
 @Builder
 public class ToolExecutionContext {
     @NonNull UUID sessionId;
+    String userId; // Added for HITL
     @NonNull AiMode aiMode;
     @NonNull AiMessage aiMessage;
     @NonNull ChatMemory chatMemory;
@@ -26,4 +27,6 @@ public class ToolExecutionContext {
     @NonNull FluxSink<ChatStreamChunk> sink;
     long requestStartTime;
     ChatResponseMetadata responseMetadata;
+    String internalApprovalToken; // Added for HITL
+    String messageId; // Added for HITL binding
 }

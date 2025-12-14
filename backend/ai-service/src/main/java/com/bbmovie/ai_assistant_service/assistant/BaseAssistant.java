@@ -94,9 +94,15 @@ public abstract class BaseAssistant implements Assistant {
 
         return saveMessageMono
                 .flatMap(savedMessage -> recordUserMessage(savedMessage, sessionId, message, startTime))
-                .flatMapMany(savedMessage -> prepareChatRequest(sessionId, context)
-                        .flatMapMany(chatRequest -> processChatStream(chatRequest, sessionId, aiMode))
-                )
+                .flatMapMany(savedMessage -> {
+                    // Update Context with Message ID
+                    ChatContext updatedContext = context.toBuilder()
+                            .messageId(String.valueOf(savedMessage.getId()))
+                            .build();
+
+                    return prepareChatRequest(sessionId, updatedContext)
+                            .flatMapMany(chatRequest -> processChatStream(chatRequest, sessionId, aiMode, updatedContext));
+                })
                 .onErrorResume(ex -> {
                     log.error("[streaming] Error in chat pipeline for session={}: {}", sessionId, ex.getMessage(), ex);
                     String errorMessage = ex instanceof TimeoutException
@@ -107,9 +113,9 @@ public abstract class BaseAssistant implements Assistant {
                 .doOnError(ex -> log.error("[streaming] Unhandled error in stream for session={}: {}", sessionId, ex.getMessage()));
     }
 
-    private Flux<ChatStreamChunk> processChatStream(ChatRequest chatRequest, UUID sessionId, AiMode aiMode) {
+    private Flux<ChatStreamChunk> processChatStream(ChatRequest chatRequest, UUID sessionId, AiMode aiMode, ChatContext context) {
         return Flux.<ChatStreamChunk>create(sink ->
-                        processChatRecursive(sessionId, aiMode, chatRequest, sink)
+                        processChatRecursive(sessionId, aiMode, chatRequest, sink, context)
                                 .doOnError(sink::error)
                                 .doOnSuccess(v -> sink.complete())
                                 .subscribeOn(Schedulers.boundedElastic()) // Offload the blocking AI call
@@ -122,11 +128,12 @@ public abstract class BaseAssistant implements Assistant {
                 .doOnComplete(() -> log.debug("[streaming] Stream completed for session {}", sessionId));
     }
 
-    private Mono<Void> processChatRecursive(UUID sessionId, AiMode aiMode, ChatRequest chatRequest, FluxSink<ChatStreamChunk> sink) {
+    private Mono<Void> processChatRecursive(UUID sessionId, AiMode aiMode, ChatRequest chatRequest, FluxSink<ChatStreamChunk> sink, ChatContext context) {
         return Mono.create(monoSink -> {
             ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
             try {
-                StreamingChatResponseHandler handler = getHandlerFactory().create(sessionId, chatMemory, sink, monoSink, aiMode);
+                // Pass context to factory
+                StreamingChatResponseHandler handler = getHandlerFactory().create(sessionId, chatMemory, sink, monoSink, aiMode, context);
                 modelFactory.getModel(aiMode).chat(chatRequest, handler);
             } catch (Exception ex) {
                 log.error("[streaming] chatModel.chat failed: {}", ex.getMessage());
@@ -190,9 +197,9 @@ public abstract class BaseAssistant implements Assistant {
         StringBuilder enhancedMessage = new StringBuilder();
 
         // Add role and session context
-        enhancedMessage.append("[User's role:{").append(userRole).append("}")
+        enhancedMessage.append("[User's role:{ ").append(userRole).append("}")
                 .append("|")
-                .append("User's chat session:{").append(sessionId).append("}] ");
+                .append("User's chat session:{ ").append(sessionId).append("}]");
 
         // Add the original message
         enhancedMessage.append(message);

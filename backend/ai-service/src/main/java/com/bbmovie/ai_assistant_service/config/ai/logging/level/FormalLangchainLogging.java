@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.config.ai.logging.level;
 
-import com.bbmovie.ai_assistant_service.config.ai.logging.Logging;
+import com.bbmovie.ai_assistant_service.config.ai.logging.LangchainLogging;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.agent.tool.ToolSpecification;
@@ -23,9 +23,9 @@ import static com.bbmovie.ai_assistant_service.utils.log.AnsiRainbowUtil.*;
  * Defensive about ChatMessage implementations: it checks known classes, then falls back to reflection,
  * then finally to toString() when nothing else works.
  */
-public class FormalLogging implements Logging {
+public class FormalLangchainLogging implements LangchainLogging {
 
-    private static final RgbLogger log = RgbLoggerFactory.getLogger(FormalLogging.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(FormalLangchainLogging.class);
 
     @Override
     public void onRequest(ChatModelRequestContext requestContext) {

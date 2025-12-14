@@ -10,6 +10,7 @@ import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
 import com.bbmovie.ai_assistant_service.handler.ToolResponseHandler;
 import com.bbmovie.ai_assistant_service.handler.processor.SimpleResponseProcessor;
 import com.bbmovie.ai_assistant_service.handler.processor.ToolResponseProcessor;
+import com.bbmovie.ai_assistant_service.hitl.ExecutionContext;
 import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.service.MessageService;
 import com.bbmovie.ai_assistant_service.service.RagService;
@@ -55,7 +56,6 @@ public class ToolWorkflow {
 
         long latency = System.currentTimeMillis() - context.getRequestStartTime();
         List<ToolExecutionRequest> toolExecutionRequests = context.getAiMessage().toolExecutionRequests();
-        // Latency here is for the initial AI response that requested tools
         Metrics metrics = MetricsUtil.getChatMetrics(latency, null, toolExecutionRequests);
 
         AuditRecord auditRecord = AuditRecord.builder()
@@ -65,19 +65,29 @@ public class ToolWorkflow {
                 .metrics(metrics)
                 .build();
 
+        // Build ExecutionContext for HITL
+        ExecutionContext hitlContext = ExecutionContext.builder()
+                .sessionId(context.getSessionId())
+                .userId(context.getUserId())
+                .internalApprovalToken(context.getInternalApprovalToken())
+                .messageId(context.getMessageId())
+                .build();
+
         return auditService.recordInteraction(auditRecord)
                 .thenMany(Flux.fromIterable(context.getAiMessage().toolExecutionRequests()))
-                .concatMap(req -> toolExecutionService.execute(context.getSessionId(), req, context.getToolRegistry(), context.getChatMemory()))
+                .concatMap(req -> toolExecutionService.execute(
+                        context.getSessionId(), 
+                        req, 
+                        context.getToolRegistry(), 
+                        context.getChatMemory(),
+                        hitlContext // Pass context
+                ))
                 .collectList()
                 .flatMap(toolResults -> {
-                    // Extract RAG results from tool execution results
                     List<RagMovieDto> ragResults = extractRagResults(toolResults);
 
-                    // DEFENSIVE CHECK: Handle cases where the AI hallucinates tool usage
-                    // for a handler that was not configured with tools.
                     if (context.getToolRegistry() == null) {
                         log.warn("AI attempted to use tools, but no tool registry is configured. Session: {}", context.getSessionId());
-                        // Inform the AI that no tools are available and re-prompt.
                         return Flux.fromIterable(context.getAiMessage().toolExecutionRequests())
                                 .map(req -> ToolExecutionResultMessage.from(req, "Error: No tools are available in the current context."))
                                 .doOnNext(context.getChatMemory()::add)
@@ -104,37 +114,16 @@ public class ToolWorkflow {
 
         ChatRequest afterToolRequest = builder.build();
 
-        // Recursive call to the model
         return Mono.create(recursiveSink -> {
             SimpleResponseProcessor simpleProcessor = initializeResponseProcessor(context, ragResults);
+            
+            // Re-initialize tool processor with HITL context
             ToolResponseProcessor toolProcessor = initializeToolResponseProcessor(context);
+            
             ToolResponseHandler handler = initializeResponseHandler(context, recursiveSink, simpleProcessor, toolProcessor);
 
             modelFactory.getModel(context.getAiMode()).chat(afterToolRequest, handler);
         });
-    }
-
-    /**
-     * Extracts RAG results from tool execution results.
-     * Looks for results from the "retrieve_rag_movies" tool and parses the _RagRetrievalResult.
-     */
-    private List<RagMovieDto> extractRagResults(List<ToolExecutionResultMessage> toolResults) {
-        List<RagMovieDto> ragMovies = new ArrayList<>();
-        for (ToolExecutionResultMessage result : toolResults) {
-            if ("retrieve_rag_movies".equals(result.toolName())) {
-                try {
-                    // The tool result is a JSON string representation of _RagRetrievalResult
-                    String resultText = result.text();
-                    RagRetrievalResult ragResult = objectMapper.readValue(resultText, RagRetrievalResult.class);
-                    if (ragResult.documents() != null && !ragResult.documents().isEmpty()) {
-                        ragMovies.addAll(ragResult.documents());
-                    }
-                } catch (Exception e) {
-                    log.warn("[rag] Failed to parse RAG results from tool execution: {}", e.getMessage());
-                }
-            }
-        }
-        return ragMovies;
     }
 
     private ToolResponseHandler initializeResponseHandler(
@@ -161,6 +150,9 @@ public class ToolWorkflow {
                 .toolWorkflow(this)
                 .sink(context.getSink())
                 .requestStartTime(System.currentTimeMillis())
+                .userId(context.getUserId())
+                .internalApprovalToken(context.getInternalApprovalToken())
+                .messageId(context.getMessageId())
                 .build();
     }
 
@@ -174,5 +166,23 @@ public class ToolWorkflow {
                 .sink(context.getSink())
                 .ragResults(ragResults)
                 .build();
+    }
+    
+    private List<RagMovieDto> extractRagResults(List<ToolExecutionResultMessage> toolResults) {
+        List<RagMovieDto> ragMovies = new ArrayList<>();
+        for (ToolExecutionResultMessage result : toolResults) {
+            if ("retrieve_rag_movies".equals(result.toolName())) {
+                try {
+                    String resultText = result.text();
+                    RagRetrievalResult ragResult = objectMapper.readValue(resultText, RagRetrievalResult.class);
+                    if (ragResult.documents() != null && !ragResult.documents().isEmpty()) {
+                        ragMovies.addAll(ragResult.documents());
+                    }
+                } catch (Exception e) {
+                    log.warn("[rag] Failed to parse RAG results from tool execution: {}", e.getMessage());
+                }
+            }
+        }
+        return ragMovies;
     }
 }

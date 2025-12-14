@@ -29,3 +29,20 @@ CREATE TABLE IF NOT EXISTS ai_interaction_audit (
     details TEXT,
     FOREIGN KEY (session_id) REFERENCES chat_session(id) ON DELETE CASCADE
 );
+
+-- HITL Approval Requests
+CREATE TABLE IF NOT EXISTS approval_requests (
+    id CHAR(36) PRIMARY KEY,
+    approval_token CHAR(36) NOT NULL,
+    user_id VARCHAR(255) NOT NULL,
+    session_id CHAR(36) NOT NULL,
+    message_id VARCHAR(255),
+    action_type VARCHAR(50) NOT NULL,
+    risk_level VARCHAR(20) NOT NULL,
+    tool_name VARCHAR(255),
+    payload TEXT,
+    request_status VARCHAR(20) NOT NULL,
+    created_at TIMESTAMP(6),
+    expires_at TIMESTAMP(6),
+    approved_at TIMESTAMP(6)
+);

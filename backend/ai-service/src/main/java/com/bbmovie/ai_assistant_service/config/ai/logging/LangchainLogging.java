@@ -9,7 +9,7 @@ import dev.langchain4j.model.chat.listener.ChatModelListener;
  * This allows precise Spring injection like:
  *     public StreamingChatModel _ThinkingModel(AiChatListener listener)
  */
-public interface Logging extends ChatModelListener {
+public interface LangchainLogging extends ChatModelListener {
     // Marker interface
     // This interface can be used to trigger business logic in our listener like saving request/response to the database
 }
