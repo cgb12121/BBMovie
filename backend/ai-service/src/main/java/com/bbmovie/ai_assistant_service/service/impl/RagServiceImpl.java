@@ -76,7 +76,7 @@ public class RagServiceImpl implements RagService {
                 .stream()
                 .flatMap(RagServiceImpl::getMovieOverview)
                 .collect(Collectors.joining("\n"));
-        return embedText(sessionId, text + pastResultsString, InteractionType.EMBEDDING_INDEX)
+        return embedText(sessionId, text + pastResultsString, InteractionType.EMBEDDING)
                 .flatMap(vector -> {
                     if (embeddingSelector.getDimension() != vector.length) {
                         String err = "Embedding dimension mismatch: expected %s but got %s"
@@ -128,7 +128,7 @@ public class RagServiceImpl implements RagService {
             fullContent.append("\n\nExtracted content from files:\n").append(extractedContent);
         }
 
-        return embedText(sessionId, fullContent.toString(), InteractionType.EMBEDDING_INDEX)
+        return embedText(sessionId, fullContent.toString(), InteractionType.EMBEDDING)
                 .flatMap(vector -> {
                     if (embeddingSelector.getDimension() != vector.length) {
                         String err = "Embedding dimension mismatch: expected %s but got %s"

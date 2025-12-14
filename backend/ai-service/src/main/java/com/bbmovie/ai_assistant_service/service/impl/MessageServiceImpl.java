@@ -54,7 +54,7 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public Mono<ChatMessage> saveAiResponse(UUID sessionId, String content) {
-        return createAndSaveMessage(sessionId, Sender.AI, content, content);
+        return createAndSaveMessage(sessionId, Sender.AI, content, null);
     }
 
     @Override
