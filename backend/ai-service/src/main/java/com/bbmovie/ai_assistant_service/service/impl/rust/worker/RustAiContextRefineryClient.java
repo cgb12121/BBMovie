@@ -1,10 +1,12 @@
 package com.bbmovie.ai_assistant_service.service.impl.rust.worker;
 
 import com.bbmovie.ai_assistant_service.dto.response.RefineryResponse;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.AllArgsConstructor;
 import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -16,17 +18,15 @@ import reactor.core.publisher.Mono;
 import java.util.List;
 
 @Service
-@Slf4j
+@RequiredArgsConstructor
 public class RustAiContextRefineryClient {
 
-    private final WebClient webClient;
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(RustAiContextRefineryClient.class);
+
+    @Qualifier("rustWebClient") private final WebClient webClient;
 
     @Value("${rust.ai.service.enabled:true}")
     private boolean enabled;
-
-    public RustAiContextRefineryClient(@Qualifier("rustWebClient") WebClient webClient) {
-        this.webClient = webClient;
-    }
 
     /**
      * Calls the Rust batch processing endpoint.

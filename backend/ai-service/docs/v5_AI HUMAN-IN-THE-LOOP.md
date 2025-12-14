@@ -1,9 +1,9 @@
 # PRODUCT SPECIFICATION: AI HUMAN-IN-THE-LOOP (HITL)
 **Project:** BBMovie Microservices
 **Module:** AI Service / Security
-**Version:** 3.0 (Implemented)
+**Version:** 5.0 (Implemented)
 **Status:** Implemented
-**Author:** Minato (Architect)
+**Author:** cgb12121 (Architect)
 
 ---
 
@@ -76,7 +76,7 @@ Stored in `approval_requests` table via `ApprovalRequestRepository` (using custo
 
 ### 4.2. Approval Flow (User accepts)
 1.  User clicks "Approve".
-2.  **API:** `POST /approve/{requestId}` with `{decision: "APPROVE"}`.
+2.  **API:** `POST /api/v1/chat/{sessionId}/approve/{requestId}` with `{decision: "APPROVE"}`.
 3.  **Controller:** Delegates to `ApprovalService.handleDecision`.
 4.  **Service:**
     *   Validates Request ID & User.
@@ -88,7 +88,7 @@ Stored in `approval_requests` table via `ApprovalRequestRepository` (using custo
 
 ### 4.3. Rejection Flow (User rejects)
 1.  User clicks "Reject".
-2.  **API:** `POST /approve/{requestId}` with `{decision: "REJECT"}`.
+2.  **API:** `POST /api/v1/chat/{sessionId}/approve/{requestId}` with `{decision: "REJECT"}`.
 3.  **Service:**
     *   Updates status to `REJECTED`.
     *   Calls `ChatService` with system message: "User rejected...".

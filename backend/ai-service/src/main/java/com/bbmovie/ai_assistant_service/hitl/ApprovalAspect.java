@@ -2,6 +2,8 @@ package com.bbmovie.ai_assistant_service.hitl;
 
 import com.bbmovie.ai_assistant_service.exception.RequiresApprovalException;
 import com.bbmovie.ai_assistant_service.service.ApprovalService;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import lombok.RequiredArgsConstructor;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -18,6 +20,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ApprovalAspect {
 
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ApprovalAspect.class);
+
     private final RiskEvaluator riskEvaluator;
     private final ApprovalService approvalService;
 
@@ -27,19 +31,19 @@ public class ApprovalAspect {
         Method method = signature.getMethod();
         Object[] args = joinPoint.getArgs();
 
-        // 1. Get Context
+        // Get Context
         ExecutionContext context = ApprovalContextHolder.get();
         if (context == null) {
              return joinPoint.proceed(); 
         }
 
-        // 2. Evaluate Risk
+        // Evaluate Risk
         RiskLevel currentRisk = riskEvaluator.evaluate(method, args);
 
-        // 3. Check if Approval is Needed (Risk >= MEDIUM)
+        // Check if Approval is Needed (Risk >= MEDIUM)
         if (currentRisk.ordinal() >= RiskLevel.MEDIUM.ordinal()) {
 
-            // 4. Verify Internal Token
+            // Verify Internal Token
             boolean isApproved = false;
             if (context.getInternalApprovalToken() != null) {
                 isApproved = Boolean.TRUE.equals(approvalService.validateInternalToken(
@@ -49,7 +53,7 @@ public class ApprovalAspect {
             }
 
             if (!isApproved) {
-                // 5. Create Request & Block
+                // Create Request & Block
                 Map<String, Object> argMap = toMap(args);
                 String requestId = approvalService.createRequest(
                         method.getName(),
@@ -71,13 +75,13 @@ public class ApprovalAspect {
                 context.setPendingException(ex);
                 
                 // FORCE LOG
-                System.out.println("HITL_DEBUG: Aspect set PendingException " + ex.getRequestId() + " on Context " + System.identityHashCode(context));
+                log.debug("[HITL_DEBUG] Aspect set PendingException {} on Context {}", ex.getRequestId(), System.identityHashCode(context));
                 
                 return "Approval Required"; 
             }
         }
 
-        // 6. Proceed if Safe or Approved
+        // Proceed if Safe or Approved
         return joinPoint.proceed();
     }
 

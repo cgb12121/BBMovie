@@ -34,7 +34,7 @@ public enum AssistantType {
             case "ADMIN", "ROLE_ADMIN" -> AssistantType.ADMIN;
             case "MOD", "ROLE_MOD" -> AssistantType.MOD;
             case "USER", "ROLE_USER" -> AssistantType.USER;
-            default -> AssistantType.ANONYMOUS;
+            case null, default -> AssistantType.ANONYMOUS;
         };
     }
 }

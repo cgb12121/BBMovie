@@ -18,7 +18,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
-@Component("ollamaLifecycleHandler") // Đổi tên cho hợp ngữ cảnh hơn
+@Component("ollamaLifecycleHandler")
 public class OllamaLifecycleHandler {
 
     private static final RgbLogger log = RgbLoggerFactory.getLogger(OllamaLifecycleHandler.class);
@@ -49,7 +49,7 @@ public class OllamaLifecycleHandler {
         Map<String, Object> body = new HashMap<>();
         body.put("model", modelName);
         body.put("prompt", ""); 
-        body.put("keep_alive", -1); // Keep the model in the VRAM 4ver => considering shorten the TTL on cloud
+        body.put("keep_alive", -1); // Keep the model in VRAM 4ver => considering shorten the TTL on cloud
 
         webClient.post()
                 .uri("/api/generate")

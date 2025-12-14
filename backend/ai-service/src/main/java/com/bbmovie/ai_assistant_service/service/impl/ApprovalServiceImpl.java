@@ -8,8 +8,10 @@ import com.bbmovie.ai_assistant_service.service.ApprovalService;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
@@ -24,7 +26,6 @@ import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.entity.model.AiMode;
 import com.bbmovie.ai_assistant_service.entity.model.AssistantType;
 import com.bbmovie.ai_assistant_service.service.ChatService;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.jwt.Jwt;
 import reactor.core.publisher.Flux;
 
@@ -32,6 +33,7 @@ import static com.bbmovie.common.entity.JoseConstraint.JosePayload.ROLE;
 import static com.bbmovie.common.entity.JoseConstraint.JosePayload.SUB;
 
 @Service
+@RequiredArgsConstructor
 public class ApprovalServiceImpl implements ApprovalService {
 
     private static final RgbLogger log = RgbLoggerFactory.getLogger(ApprovalServiceImpl.class);
@@ -39,16 +41,6 @@ public class ApprovalServiceImpl implements ApprovalService {
     private final ApprovalRequestRepository repository;
     private final ObjectMapper objectMapper;
     private final ObjectProvider<ChatService> chatServiceObjectProvider;
-
-    @Autowired
-    public ApprovalServiceImpl(
-            ApprovalRequestRepository repository,
-            ObjectMapper objectMapper,
-            ObjectProvider<ChatService> chatServiceObjectProvider) {
-        this.repository = repository;
-        this.objectMapper = objectMapper;
-        this.chatServiceObjectProvider = chatServiceObjectProvider;
-    }
 
     @Override
     public Flux<ChatStreamChunk> handleDecision(UUID sessionId, String requestId, ApprovalDecisionDto decisionBody, Jwt jwt) {
@@ -78,13 +70,8 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     @Override
     public Mono<String> createRequest(
-            String toolName,
-            ActionType actionType,
-            RiskLevel riskLevel,
-            Map<String, Object> args,
-            String userId,
-            UUID sessionId,
-            String messageId) {
+            String toolName, ActionType actionType, RiskLevel riskLevel, Map<String, Object> args,
+            String userId, UUID sessionId, String messageId) {
 
         String requestId = UUID.randomUUID().toString();
         String internalToken = UUID.randomUUID().toString();
@@ -130,27 +117,24 @@ public class ApprovalServiceImpl implements ApprovalService {
                 .doOnSuccess(req -> log.info("Request {} approved by user {}", requestId, userId));
     }
 
-    private void reject(String requestId, String userId) {
-        repository.findById(requestId)
+    private Mono<Void> reject(String requestId, String userId) {
+        return repository.findById(requestId)
                 .filter(req -> req.getUserId().equals(userId) && ApprovalRequest.ApprovalStatus.PENDING.name().equals(req.getStatus()))
                 .flatMap(req -> {
                     req.setStatus(ApprovalRequest.ApprovalStatus.REJECTED.name());
                     return repository.save(req);
                 })
                 .doOnSuccess(v -> log.info("Request {} rejected by user {}", requestId, userId))
-                .subscribe();
+                .then();
     }
 
-    @Override
-    public void save(ApprovalRequest request) {
-        repository.save(request).subscribe();
-    }
-
-    @Override
-    public Mono<Boolean> validateInternalToken(String token, UUID sessionId) {
-        return repository.findByApprovalTokenAndSessionId(token, sessionId.toString())
-                .map(req -> ApprovalRequest.ApprovalStatus.APPROVED.name().equals(req.getStatus()))
-                .defaultIfEmpty(false);
+    private Mono<ChatRequestDto> createRejectionRequest(String requestId, String userId, String assistantType) {
+        return reject(requestId, userId)
+                .thenReturn(ChatRequestDto.builder()
+                        .message("User rejected approval " + requestId + ". Confirm cancellation.")
+                        .aiMode(AiMode.THINKING)
+                        .assistantType(assistantType)
+                        .build());
     }
 
     private Mono<ChatRequestDto> createApproveRequest(String requestId, String userId, String assistantType) {
@@ -163,13 +147,23 @@ public class ApprovalServiceImpl implements ApprovalService {
                         .build());
     }
 
-    private Mono<ChatRequestDto> createRejectionRequest(String requestId, String userId, String assistantType) {
-       return Mono.fromRunnable(() -> reject(requestId, userId))
-               .thenReturn(ChatRequestDto.builder()
-                       .message("User rejected approval " + requestId + ". Confirm cancellation.")
-                       .aiMode(AiMode.THINKING)
-                       .assistantType(assistantType)
-                       .build());
+    @Override
+    @Transactional
+    public Mono<Boolean> validateInternalToken(String token, UUID sessionId) {
+        return repository.findByApprovalTokenAndSessionId(token, sessionId.toString())
+                .flatMap(req -> {
+                    boolean isApproved = ApprovalRequest.ApprovalStatus.APPROVED.name().equals(req.getStatus());
+                    boolean isNotExpired = req.getExpiresAt().isAfter(LocalDateTime.now(ZoneOffset.UTC));
+
+                    if (isApproved && isNotExpired) {
+                        // Consume the token to prevent replay
+                        req.setStatus(ApprovalRequest.ApprovalStatus.EXECUTED.name());
+                        return repository.save(req).thenReturn(true);
+                    }
+                    
+                    return Mono.just(false);
+                })
+                .defaultIfEmpty(false);
     }
 
     private String toJson(Map<String, Object> map) {

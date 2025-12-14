@@ -64,14 +64,14 @@ public class ToolExecutionServiceImpl implements ToolExecutionService {
                     // Set context for AOP
                     if (executionContext != null) {
                         ApprovalContextHolder.set(executionContext);
-                        System.out.println("HITL_DEBUG: Service Set Context " + System.identityHashCode(executionContext));
+                        log.debug("[HITL_DEBUG] Service Set Context {}", System.identityHashCode(executionContext));
                     }
                     try {
                         String executionResult = toolExecutor.execute(request, sessionId);
 
                         // HITL Check: Did the aspect request approval?
                         if (executionContext != null) {
-                            System.out.println("HITL_DEBUG: Service Check Pending: " + executionContext.getPendingException() + " on Context " + System.identityHashCode(executionContext));
+                            log.debug("[HITL_DEBUG] Service Check Pending: {} on Context {}", executionContext.getPendingException(), System.identityHashCode(executionContext));
                             
                             if (executionContext.getPendingException() != null) {
                                 throw executionContext.getPendingException();

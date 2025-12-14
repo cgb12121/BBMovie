@@ -1,6 +1,5 @@
 package com.bbmovie.ai_assistant_service.service;
 
-import com.bbmovie.ai_assistant_service.entity.ApprovalRequest;
 import com.bbmovie.ai_assistant_service.hitl.ActionType;
 import com.bbmovie.ai_assistant_service.hitl.RiskLevel;
 import org.springframework.stereotype.Repository;
@@ -10,7 +9,6 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.bbmovie.ai_assistant_service.dto.request.ApprovalDecisionDto;
-import com.bbmovie.ai_assistant_service.dto.request.ChatRequestDto;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import org.springframework.security.oauth2.jwt.Jwt;
 import reactor.core.publisher.Flux;
@@ -26,8 +24,6 @@ public interface ApprovalService {
             String userId,
             UUID sessionId,
             String messageId);
-
-    void save(ApprovalRequest request);
 
     Mono<Boolean> validateInternalToken(String token, UUID sessionId);
 
