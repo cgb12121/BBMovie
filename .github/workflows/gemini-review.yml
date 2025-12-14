@@ -17,7 +17,7 @@ defaults:
     shell: 'bash'
 
 jobs:
-  review:
+  gemini-analysis:
     runs-on: 'ubuntu-latest'
     timeout-minutes: 7
     permissions:
