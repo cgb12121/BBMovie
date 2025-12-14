@@ -32,3 +32,4 @@ build/
 ### VS Code ###
 .vscode/
 resources/jwk-dev.json
+jwk-dev.json
