@@ -65,7 +65,7 @@ public class SecurityConfig {
     @Bean
     public ReactiveJwtDecoder reactiveJwtDecoder() {
         if (isDevProfile()) {
-            log.warn("[Security] [profile: {}] \n Using hardcoded DEV JWK for JWT validation!", activeProfile);
+            log.error("[Security] [profile: {}] \n Using hardcoded DEV JWK for JWT validation!", activeProfile);
             return buildDevJwtDecoder();
         } else {
             log.info("[Security] Using remote JWKS from {}", JWKS_URL);

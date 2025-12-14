@@ -147,16 +147,23 @@ public final class AnsiRainbowUtil {
     }
 
     /**
-     * Gradient from orange to yellow for warnings.
-     * Orange approximately (255,140,0) → Yellow approximately (255,215,0).
+     * Soft warning gradient: pale yellow → warm yellow
+     * (255,220,120) → (255,190,0)
      */
     private static int[] getWarningRgb(int index, int totalLength) {
-        double position = totalLength <= 1 ? 0.0 : (double) index / (totalLength - 1);
-        int red = 255;
-        int green = (int) (140 + (215 - 140) * position); // interpolate 140 -> 215
-        int blue = 0;
-        return new int[]{clamp(red), clamp(green), clamp(blue)};
+        double t = totalLength <= 1 ? 0.0 : (double) index / (totalLength - 1);
+
+        int red   = 255;
+        int green = (int) (220 + (190 - 220) * t); // 220 → 190
+        int blue  = (int) (120 + ( -120 ) * t); // 120 → 0
+
+        return new int[]{
+                clamp(red),
+                clamp(green),
+                clamp(blue)
+        };
     }
+
 
     /**
      * Ensures rgb values stay within 0-255.

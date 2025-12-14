@@ -31,7 +31,7 @@ public class VerboseLangchainLogging implements LangchainLogging {
 
         StringBuilder sb = new StringBuilder("\n");
 
-        sb.append(ansi().fgBrightCyan().a("[listener] Request to ")
+        sb.append(ansi().fgBrightCyan().a("[listener-request] Request to ")
                 .a(provider).reset().a("\n"));
 
         String messagesString = messages.stream()
@@ -60,7 +60,7 @@ public class VerboseLangchainLogging implements LangchainLogging {
 
         StringBuilder sb = new StringBuilder("\n");
 
-        sb.append(ansi().fgBrightGreen().a("[listener] Response from ")
+        sb.append(ansi().fgBrightGreen().a("[listener-response] Response from ")
                 .a(provider).reset().a("\n"));
 
         String aiMessage = response.aiMessage() != null ?
@@ -76,7 +76,7 @@ public class VerboseLangchainLogging implements LangchainLogging {
         ModelProvider provider = errorContext.modelProvider();
         Throwable error = errorContext.error();
 
-        String sb = "\n" + ansi().fgRed().a("[listener] Error from ")
+        String sb = "\n" + ansi().fgRed().a("[listener-error] Error from ")
                 .a(provider).reset().a("\n") +
                 ansi().fgRed().a(error.getMessage()).reset() +
                 "\n";
