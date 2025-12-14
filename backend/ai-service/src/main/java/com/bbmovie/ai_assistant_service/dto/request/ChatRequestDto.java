@@ -32,6 +32,9 @@ public class ChatRequestDto {
     
     private String extractedFileContent;
 
+    // Added for HITL
+    private String internalApprovalToken; 
+
     @Data
     @Builder
     @NoArgsConstructor

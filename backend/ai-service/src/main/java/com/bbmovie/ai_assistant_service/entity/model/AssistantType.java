@@ -23,4 +23,18 @@ public enum AssistantType {
                 .findFirst()
                 .orElseThrow(() -> new IllegalArgumentException("Unknown assistant type code: " + code));
     }
+
+    /**
+     *
+     * @param userRole Role from JWT will be in uppercase, it is usually like in JWT: "role": "ADMIN"
+     * @return the AI assistant for the role
+     */
+    public static AssistantType fromUserRole(String userRole) {
+        return switch (userRole) {
+            case "ADMIN", "ROLE_ADMIN" -> AssistantType.ADMIN;
+            case "MOD", "ROLE_MOD" -> AssistantType.MOD;
+            case "USER", "ROLE_USER" -> AssistantType.USER;
+            default -> AssistantType.ANONYMOUS;
+        };
+    }
 }

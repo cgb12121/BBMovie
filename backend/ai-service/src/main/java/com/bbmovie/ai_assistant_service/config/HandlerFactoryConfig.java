@@ -100,7 +100,7 @@ public class HandlerFactoryConfig {
         SystemMessage systemPrompt = PromptLoader.loadSystemPrompt(
                 enablePersona, modelSelector.getActiveModel(), null);
 
-        return (sessionId, chatMemory, sink, monoSink, aiMode) -> {
+        return (sessionId, chatMemory, sink, monoSink, aiMode, chatContext) -> {
             long requestStartTime = System.currentTimeMillis();
 
             SimpleResponseProcessor simpleProcessor = SimpleResponseProcessor.builder()
@@ -109,6 +109,7 @@ public class HandlerFactoryConfig {
                     .auditService(auditService)
                     .messageService(messageService)
                     .ragService(ragService)
+                    .sink(sink)
                     .build();
 
             ToolResponseProcessor toolProcessor = ToolResponseProcessor.builder()
@@ -120,6 +121,9 @@ public class HandlerFactoryConfig {
                     .toolWorkflow(toolWorkflowFacade)
                     .sink(sink)
                     .requestStartTime(requestStartTime)
+                    .userId(chatContext.getUserId()) // Pass userId
+                    .internalApprovalToken(chatContext.getInternalApprovalToken()) // Pass token
+                    .messageId(chatContext.getMessageId()) // Pass messageId
                     .build();
 
             return ToolResponseHandler.builder()

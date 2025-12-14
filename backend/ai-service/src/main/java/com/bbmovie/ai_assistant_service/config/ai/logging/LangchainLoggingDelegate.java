@@ -1,7 +1,7 @@
 package com.bbmovie.ai_assistant_service.config.ai.logging;
 
-import com.bbmovie.ai_assistant_service.config.ai.logging.level.FormalLogging;
-import com.bbmovie.ai_assistant_service.config.ai.logging.level.VerboseLogging;
+import com.bbmovie.ai_assistant_service.config.ai.logging.level.FormalLangchainLogging;
+import com.bbmovie.ai_assistant_service.config.ai.logging.level.VerboseLangchainLogging;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import dev.langchain4j.model.chat.listener.ChatModelErrorContext;
@@ -12,22 +12,22 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
-public class LoggingDelegate implements Logging {
+public class LangchainLoggingDelegate implements LangchainLogging {
 
-    private static final RgbLogger log = RgbLoggerFactory.getLogger(LoggingDelegate.class);
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(LangchainLoggingDelegate.class);
 
     @Value("${ai.logging.mode:INFO}")
     private String mode;
 
     private final ChatModelListener delegate;
 
-    public LoggingDelegate() {
+    public LangchainLoggingDelegate() {
         if ("VERBOSE".equalsIgnoreCase(mode)) {
             log.info("[AI-Listener] Using VERBOSE chat listener [VerboseLogging] (ai.logging.mode={})", mode);
-            this.delegate = new VerboseLogging();
+            this.delegate = new VerboseLangchainLogging();
         } else {
             log.info("[AI-Listener] Using COMPACT chat listener [FormalLogging] (ai.logging.mode={})", mode);
-            this.delegate = new FormalLogging();
+            this.delegate = new FormalLangchainLogging();
         }
     }
 

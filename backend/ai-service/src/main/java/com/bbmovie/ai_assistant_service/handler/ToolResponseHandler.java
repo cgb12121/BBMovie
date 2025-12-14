@@ -2,7 +2,9 @@ package com.bbmovie.ai_assistant_service.handler;
 
 import com.bbmovie.ai_assistant_service.dto.AuditRecord;
 import com.bbmovie.ai_assistant_service.dto.Metrics;
+import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
+import com.bbmovie.ai_assistant_service.exception.RequiresApprovalException;
 import com.bbmovie.ai_assistant_service.handler.processor.ResponseProcessor;
 import com.bbmovie.ai_assistant_service.service.AuditService;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
@@ -40,6 +42,17 @@ public class ToolResponseHandler extends BaseResponseHandler {
 
         processor.process(aiMsg, latency, completeResponse.metadata())
                 .then(Mono.fromRunnable(monoSink::success))
+                .onErrorResume(RequiresApprovalException.class, ex -> {
+                    log.info("HITL Approval Required: {}", ex.getMessage());
+                    sink.next(ChatStreamChunk.approvalRequired(
+                            ex.getRequestId(),
+                            ex.getActionType().name(),
+                            ex.getRiskLevel().name(),
+                            ex.getDescription()
+                    ));
+                    monoSink.success();
+                    return Mono.empty();
+                })
                 .doOnError(monoSink::error)
                 .subscribe();
     }

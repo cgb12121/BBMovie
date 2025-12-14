@@ -30,6 +30,11 @@ public class ToolResponseProcessor implements ResponseProcessor {
     @NonNull private final ToolWorkflow toolWorkflow;
     @NonNull private final FluxSink<ChatStreamChunk> sink;
     private final long requestStartTime;
+    
+    // HITL fields
+    private final String userId;
+    private final String internalApprovalToken;
+    private final String messageId;
 
     @Override
     public Mono<Void> process(AiMessage aiMessage, long latency, ChatResponseMetadata metadata) {
@@ -43,6 +48,9 @@ public class ToolResponseProcessor implements ResponseProcessor {
                 .sink(sink)
                 .requestStartTime(requestStartTime)
                 .responseMetadata(metadata)
+                .userId(userId) // HITL
+                .internalApprovalToken(internalApprovalToken) // HITL
+                .messageId(messageId) // HITL
                 .build();
 
         return toolWorkflow.execute(context);

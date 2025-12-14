@@ -14,6 +14,7 @@ import java.util.Map;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
+@JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class ChatStreamChunk {
 
     private String type; // "assistant", "user", "tool", "system"
@@ -28,6 +29,31 @@ public class ChatStreamChunk {
 
     @JsonInclude(JsonInclude.Include.NON_EMPTY)
     private List<RagMovieDto> ragResults; // Optional — if RAG used
+
+    /**
+     * Indicates if the action requires user permission/approval.
+     * Frontend should check this flag to render the approval UI.
+     */
+    @Builder.Default
+    private boolean permissionRequired = false;
+
+    /**
+     * Payload for HITL. Present ONLY when permissionRequired=true.
+     */
+    @JsonInclude(JsonInclude.Include.NON_EMPTY)
+    private ApprovalInfo approvalRequest;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ApprovalInfo {
+        private String requestId;      // UUID exposed to a client
+        private String actionType;     // e.g., "DELETE_DATA"
+        private String riskLevel;      // "MEDIUM", "HIGH", "EXTREME"
+        private String description;    // "Delete user profile for id: 123"
+        private Map<String, String> displayParams; // Key-Value pairs for UI display
+    }
 
     public static ChatStreamChunk assistant(String content) {
         return ChatStreamChunk.builder()
@@ -47,6 +73,20 @@ public class ChatStreamChunk {
         return ChatStreamChunk.builder()
                 .type("rag_result")
                 .ragResults(movies)
+                .build();
+    }
+
+    public static ChatStreamChunk approvalRequired(String requestId, String actionType, String riskLevel, String description) {
+        return ChatStreamChunk.builder()
+                .type("approval_required")
+                .permissionRequired(true)
+                .content("Action requires approval.")
+                .approvalRequest(ApprovalInfo.builder()
+                        .requestId(requestId)
+                        .actionType(actionType)
+                        .riskLevel(riskLevel)
+                        .description(description)
+                        .build())
                 .build();
     }
 }

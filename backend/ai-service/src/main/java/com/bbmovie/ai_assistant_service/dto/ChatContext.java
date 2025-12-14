@@ -8,12 +8,15 @@ import java.util.List;
 import java.util.UUID;
 
 @Value
-@Builder
+@Builder(toBuilder = true)
 public class ChatContext {
     UUID sessionId;
+    String userId; // Added for HITL
     String message;
     AiMode aiMode;
     String userRole;
     List<String> fileReferences;
     String extractedFileContent;
+    String internalApprovalToken; // Added for HITL
+    String messageId; // Added for HITL binding
 }

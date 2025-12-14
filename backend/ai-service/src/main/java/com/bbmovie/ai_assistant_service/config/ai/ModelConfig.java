@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.config.ai;
 
-import com.bbmovie.ai_assistant_service.config.ai.logging.Logging;
+import com.bbmovie.ai_assistant_service.config.ai.logging.LangchainLogging;
 import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ResponseFormat;
 import dev.langchain4j.model.ollama.OllamaStreamingChatModel;
@@ -181,7 +181,7 @@ public class ModelConfig {
     private String ollamaUrl;
 
     @Bean("thinkingModel")
-    public StreamingChatModel thinkingModel(Logging listener) {
+    public StreamingChatModel thinkingModel(LangchainLogging listener) {
         return baseModel(listener)
                 .modelName(aiSelector.getModelName())
                 .think(true)
@@ -190,7 +190,7 @@ public class ModelConfig {
     }
 
     @Bean("nonThinkingModel")
-    public StreamingChatModel nonThinkingModel(Logging listener) {
+    public StreamingChatModel nonThinkingModel(LangchainLogging listener) {
         return baseModel(listener)
                 .modelName(aiSelector.getModelName())
                 .think(false)
@@ -198,7 +198,7 @@ public class ModelConfig {
                 .build();
     }
 
-    public OllamaStreamingChatModel.OllamaStreamingChatModelBuilder baseModel(Logging listener) {
+    public OllamaStreamingChatModel.OllamaStreamingChatModelBuilder baseModel(LangchainLogging listener) {
         return OllamaStreamingChatModel.builder()
                 .baseUrl(ollamaUrl)
                 .temperature(0.7)

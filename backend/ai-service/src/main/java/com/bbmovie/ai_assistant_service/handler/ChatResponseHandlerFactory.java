@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.handler;
 
+import com.bbmovie.ai_assistant_service.dto.ChatContext;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.entity.model.AiMode;
 import dev.langchain4j.memory.ChatMemory;
@@ -16,6 +17,7 @@ public interface ChatResponseHandlerFactory {
             ChatMemory memory,
             FluxSink<ChatStreamChunk> sink,
             MonoSink<Void> monoSink,
-            AiMode aiMode
+            AiMode aiMode,
+            ChatContext context // Added Context
     );
 }
