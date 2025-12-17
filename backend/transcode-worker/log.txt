@@ -1,0 +1,242 @@
+package com.bbmovie.transcodeworker.service.ffmpeg;
+
+import com.bbmovie.transcodeworker.exception.FileUploadException;
+import com.bbmovie.transcodeworker.service.ffmpeg.option.CodecOptions;
+import com.bbmovie.transcodeworker.service.ffmpeg.option.PresetOptions;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import net.bramp.ffmpeg.FFmpeg;
+import net.bramp.ffmpeg.FFmpegExecutor;
+import net.bramp.ffmpeg.builder.FFmpegBuilder;
+import net.bramp.ffmpeg.job.FFmpegJob;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class VideoTranscoderService {
+
+    @Value("${app.transcode.key-server-url}")
+    private String keyServerUrl;
+
+    private final FFmpeg ffmpeg;
+    private final MetadataService metadataService;
+    private final EncryptionService encryptionService;
+
+    public record VideoResolution(int width, int height, String filename) {
+        public String name() {
+            return filename; // e.g., "720p", "1080p"
+        }
+    }
+
+    public record ResolutionDefinition(int minWidth, int targetWidth, int targetHeight, String suffix) { }
+
+    public static final List<ResolutionDefinition> PREDEFINED_RESOLUTIONS = List.of(
+            new ResolutionDefinition(1920, 1920, 1080, "1080p"),
+            new ResolutionDefinition(1280, 1280, 720, "720p"),
+            new ResolutionDefinition(854, 854, 480, "480p"),
+            new ResolutionDefinition(640, 640, 360, "360p"),
+            new ResolutionDefinition(426, 426, 240, "240p"),
+            new ResolutionDefinition(256, 256, 144, "144p")
+    );
+
+    public List<VideoResolution> determineTargetResolutions(FFmpegVideoMetadata meta) {
+        List<VideoResolution> targets = new ArrayList<>();
+        for (ResolutionDefinition def : PREDEFINED_RESOLUTIONS) {
+            if (meta.width() >= def.minWidth()) {
+                targets.add(new VideoResolution(def.targetWidth(), def.targetHeight(), def.suffix()));
+            }
+        }
+        if (targets.isEmpty()) {
+             targets.add(new VideoResolution(meta.width(), meta.height(), "original"));
+        }
+        return targets;
+    }
+
+    public void transcode(Path input, List<VideoResolution> videoResolutions, String outputDir, String uploadId) {
+        FFmpegVideoMetadata meta = metadataService.getMetadata(input);
+
+        FFmpegExecutor executor;
+        try {
+            executor = new FFmpegExecutor(ffmpeg);
+        } catch (IOException e) {
+            log.error("Failed to initialize FFmpegExecutor: {}", e.getMessage(), e);
+            throw new FileUploadException("Unable to process file.");
+        }
+
+        Path outputDirPath = Paths.get(outputDir);
+
+        // Generate Initial Encryption Key & IV (Hex)
+        String initialKey = encryptionService.generateRandomHex(16);
+        String initialIV = encryptionService.generateRandomHex(16);
+
+        for (VideoResolution res : videoResolutions) {
+            try {
+                executeHlsTranscodeJob(executor, input, res, outputDirPath, meta, uploadId, initialKey, initialIV);
+            } catch (Exception e) {
+                log.error("Failed to transcode file {}: {}", input, e.getMessage(), e);
+                throw new RuntimeException("Transcoding failed for resolution " + res.filename(), e);
+            }
+        }
+
+        createMasterPlaylist(videoResolutions, outputDirPath);
+    }
+
+    private void executeHlsTranscodeJob(FFmpegExecutor executor, Path input, VideoResolution res, Path outputDir,
+                                        FFmpegVideoMetadata meta, String uploadId, String initialKey, String initialIV) {
+        // Create folder for resolution: /tmp/uuid/720p/
+        Path resolutionDir = outputDir.resolve(res.name());
+        try {
+            Files.createDirectories(resolutionDir);
+        } catch (IOException e) {
+            throw new RuntimeException("Cannot create directory " + resolutionDir, e);
+        }
+
+        // Playlist file: /tmp/uuid/720p/playlist.m3u8
+        Path playlistPath = resolutionDir.resolve("playlist.m3u8");
+
+        // Segment pattern: /tmp/uuid/720p/seg_%03d.ts
+        String segmentFilename = resolutionDir.resolve("seg_%03d.ts").toString();
+
+        // Key pattern for FFmpeg: /tmp/uuid/720p/key_%d.key
+        // Chúng ta sẽ cho FFmpeg ghi keys vào local path
+        Path keyPatternPath = resolutionDir.resolve("key_%d.key").toAbsolutePath().normalize();
+        String localKeyPattern = keyPatternPath.toString().replace("\\", "/");
+
+        FFmpegBuilder builder = new FFmpegBuilder()
+                .setInput(input.toString())
+                .overrideOutputFiles(true)
+                .addOutput(playlistPath.toString())
+                .setVideoCodec(CodecOptions.libx264)
+                .setPreset(PresetOptions.veryfast)
+                .setAudioCodec("aac")
+                .setAudioBitRate(128000)
+                .setVideoFilter("scale=" + res.width() + ":-2")
+                .setFormat("hls")
+                .addExtraArgs("-hls_time", "10")
+                .addExtraArgs("-hls_list_size", "0")
+                .addExtraArgs("-hls_segment_filename", segmentFilename)
+                .addExtraArgs("-hls_playlist_type", "vod")
+
+                // Encryption & Rotation
+                .addExtraArgs("-hls_enc", "1")
+                .addExtraArgs("-hls_enc_key", initialKey)
+                .addExtraArgs("-hls_enc_iv", initialIV)
+                .addExtraArgs("-hls_flags", "periodic_rekey")
+                .addExtraArgs("-hls_enc_key_url", localKeyPattern)
+                .done();
+
+        FFmpegJob job = executor.createJob(builder, progress -> {
+            if (meta.duration() > 0) {
+                double duration_ns = meta.duration() * 1000000000.0;
+                double percentage = progress.out_time_ns / duration_ns;
+                log.debug("[{}] Transcoding: {}%", res.name(), String.format("%.2f", percentage * 100));
+            }
+        });
+        job.run();
+
+//        debug(resolutionDir);
+
+        // Sau khi transcode xong, cần thay thế LOCAL paths thành PUBLIC URLs trong playlist
+        try {
+            String content = Files.readString(playlistPath);
+
+            log.debug("Playlist content:\n{}", content);
+
+// Kiểm tra xem có bao nhiêu #EXT-X-KEY trong playlist
+            int keyCount = 0;
+            String[] lines = content.split("\n");
+            for (String line : lines) {
+                if (line.contains("#EXT-X-KEY")) {
+                    keyCount++;
+                    log.debug("Found key line: {}", line);
+                }
+            }
+            log.debug("Total #EXT-X-KEY lines: {}", keyCount);
+
+            // PUBLIC API URL pattern: https://api.example.com/keys/{uploadId}/{resolution}/key_{index}.key
+            String publicKeyBaseUrl = String.format("%s/%s/%s/", keyServerUrl, uploadId, res.name());
+
+            // PUBLIC segment URL pattern: https://api.example.com/segments/{uploadId}/{resolution}/seg_{index}.ts
+            String publicSegmentBaseUrl = String.format("%s/segments/%s/%s/", keyServerUrl, uploadId, res.name());
+
+            log.debug("Public key URL base: {}", publicKeyBaseUrl);
+            log.debug("Public segment URL base: {}", publicSegmentBaseUrl);
+
+            // 1. Thay thế KEY URLs (quan trọng nhất)
+            // Regex để tìm: URI="<any_local_path>key_<number>.key"
+            // Ví dụ: URI="file:///tmp/uuid/720p/key_1.key"
+            String keyRegex = "URI=\"[^\"]*?key_(\\d+)\\.key\"";
+            String keyReplacement = "URI=\"" + publicKeyBaseUrl + "key_$1.key\"";
+            String updatedContent = content.replaceAll(keyRegex, keyReplacement);
+
+            // 2. Thay thế SEGMENT URLs (nếu cần)
+            // Chỉ thay thế nếu segment path là absolute/local
+            String segmentRegex = "seg_(\\d+)\\.ts";
+            String segmentReplacement = publicSegmentBaseUrl + "seg_$1.ts";
+            updatedContent = updatedContent.replaceAll(segmentRegex, segmentReplacement);
+
+            Files.writeString(playlistPath, updatedContent);
+            log.info("Updated playlist URLs for resolution {} - Keys: {}, Segments: {}",
+                    res.name(), publicKeyBaseUrl, publicSegmentBaseUrl);
+
+        } catch (IOException e) {
+            log.error("Failed to update playlist URLs", e);
+            throw new RuntimeException("Failed to update playlist URLs", e);
+        }
+    }
+
+    private static void debug(Path resolutionDir) {
+        log.info("[{}] Transcoding finished", resolutionDir);
+        try (Stream<Path> stream = Files.list(resolutionDir)) {
+            List<Path> files = stream.toList();
+            log.info("Files generated in {}:", resolutionDir);
+            for (Path file : files) {
+                log.info("  - {} (size: {} bytes, contains %: {})",
+                        file.getFileName(),
+                        Files.size(file),
+                        file.getFileName().toString().contains("%"));
+            }
+        } catch (IOException e) {
+            log.error("Cannot list generated files", e);
+        }
+    }
+
+    public void createMasterPlaylist(List<VideoResolution> resolutions, Path outputDir) {
+        Path masterPath = outputDir.resolve("master.m3u8");
+
+        StringBuilder content = new StringBuilder();
+        content.append("#EXTM3U\n");
+
+        for (VideoResolution res : resolutions) {
+            long bandwidth = getEstimatedBandwidth(res);
+            content.append(String.format("#EXT-X-STREAM-INF:BANDWIDTH=%d,RESOLUTION=%dx%d\n",
+                    bandwidth, res.width(), res.height()));
+            content.append(String.format("%s/playlist.m3u8\n", res.name()));
+        }
+
+        try {
+            Files.writeString(masterPath, content.toString());
+            log.info("Generated master playlist at {}", masterPath);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to write master playlist", e);
+        }
+    }
+
+    private long getEstimatedBandwidth(VideoResolution res) {
+        if (res.height() >= 1080) return 6000000;
+        if (res.height() >= 720) return 3000000;
+        if (res.height() >= 480) return 1500000;
+        return 800000;
+    }
+}

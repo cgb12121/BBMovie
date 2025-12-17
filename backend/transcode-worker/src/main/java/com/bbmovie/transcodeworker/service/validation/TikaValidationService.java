@@ -26,9 +26,9 @@ public class TikaValidationService {
                 log.error("Unsupported file type: {} for purpose {}", detectedContentType, purpose);
                 throw new UnsupportedExtension("File type " + detectedContentType + " is not allowed for " + purpose);
             }
-        } catch (IOException e) {
-            log.error("Validation failed due to IO error", e);
-            throw new RuntimeException("Validation failed", e);
+        } catch (Exception e) {
+            log.error("Validation failed for file: {}", path, e);
+            throw new RuntimeException("Validation failed: " + e.getMessage(), e);
         }
     }
 }
