@@ -1,0 +1,14 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-add-upload-purpose
+      author: bbmovie
+      changes:
+        - addColumn:
+            tableName: media_files
+            columns:
+              - column:
+                  name: purpose
+                  type: VARCHAR(50)
+                  defaultValue: MOVIE_SOURCE
+                  constraints:
+                    nullable: false

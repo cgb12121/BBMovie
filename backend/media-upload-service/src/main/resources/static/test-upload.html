@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBMovie Upload Tester</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; }
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+        input[type="text"], textarea, select { width: 100%; padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; }
+        input[readonly] { background-color: #f0f0f0; }
+        button { padding: 0.75rem 1.5rem; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 1rem; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        #logs { background: #f4f4f4; padding: 1rem; border: 1px solid #ddd; height: 300px; overflow-y: auto; white-space: pre-wrap; margin-top: 1rem; font-family: monospace; font-size: 0.9em; }
+        .progress-bar { width: 100%; background-color: #e0e0e0; border-radius: 4px; overflow: hidden; margin-top: 0.5rem; display: none; }
+        .progress-bar-fill { height: 20px; background-color: #28a745; width: 0%; transition: width 0.2s; }
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, .1);
+            border-left-color: #22a6b3;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin .8s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+            display: none;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+</head>
+<body>
+
+<h1>Media Upload Test</h1>
+
+<div class="form-group">
+    <label for="jwt">JWT Token (Bearer):</label>
+    <textarea id="jwt" rows="3" placeholder="Paste your JWT here..."></textarea>
+</div>
+
+<div class="form-group">
+    <label for="apiHost">API Host:</label>
+    <input type="text" id="apiHost" value="http://localhost:6969">
+</div>
+
+<div class="form-group">
+    <label for="purpose">Upload Purpose:</label>
+    <select id="purpose">
+        <option value="MOVIE_SOURCE">MOVIE_SOURCE</option>
+        <option value="MOVIE_TRAILER">MOVIE_TRAILER</option>
+        <option value="MOVIE_POSTER">MOVIE_POSTER</option>
+        <option value="USER_AVATAR">USER_AVATAR</option>
+    </select>
+</div>
+
+<div class="form-group">
+    <label for="fileInput">Select File:</label>
+    <input type="file" id="fileInput">
+</div>
+
+<div class="form-group">
+    <label for="displayFilename">Detected Filename:</label>
+    <input type="text" id="displayFilename" readonly>
+</div>
+<div class="form-group">
+    <label for="displaySizeBytes">Detected Size (Bytes):</label>
+    <input type="text" id="displaySizeBytes" readonly>
+</div>
+<div class="form-group">
+    <label for="displayContentType">Detected Content-Type:</label>
+    <input type="text" id="displayContentType" readonly>
+</div>
+<div class="form-group">
+    <label for="displaySparseChecksum">Calculated Sparse Checksum:</label>
+    <input type="text" id="displaySparseChecksum" readonly>
+</div>
+<div class="form-group">
+    <label for="displayFullChecksum">Calculated Full Checksum:</label>
+    <input type="text" id="displayFullChecksum" readonly>
+</div>
+
+<button id="uploadBtn" onclick="startUpload()">Upload</button>
+<div class="spinner" id="loadingSpinner"></div>
+
+<div class="progress-bar" id="progressBar">
+    <div class="progress-bar-fill" id="progressBarFill"></div>
+</div>
+
+<h3>Logs:</h3>
+<div id="logs"></div>
+
+<script>
+    const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB chunks for sparse hash
+    const SPARSE_CHUNKS_COUNT = 4; // Start, 1/3, 2/3, End
+
+    // Helper to convert ArrayBuffer to HEX string
+    function arrayBufferToHex(buffer) {
+        return Array.from(new Uint8Array(buffer))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    }
+
+    function log(message, data = null) {
+        const logsDiv = document.getElementById('logs');
+        const timestamp = new Date().toLocaleTimeString();
+        let msg = `[${timestamp}] ${message}`;
+        if (data) {
+            msg += '\n' + JSON.stringify(data, null, 2);
+        }
+        logsDiv.textContent += msg + '\n\n';
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+        console.log(message, data);
+    }
+
+    async function calculateFullHash(file) {
+        log("Calculating Full SHA-256 Hash...");
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        const hashHex = arrayBufferToHex(hashBuffer);
+        log("Full Hash Calculated:", hashHex);
+        return hashHex;
+    }
+
+    async function calculateSparseHash(file) {
+        log("Calculating Sparse SHA-256 Hash (Chunks + FileSize)...");
+        const size = file.size;
+        const chunksToHash = [];
+
+        const positions = [0]; // Start
+        if (size > CHUNK_SIZE) { // Only add mid chunks if file is large enough
+            positions.push(Math.floor(size / 3));
+            positions.push(Math.floor(size * 2 / 3));
+        }
+        if (size > CHUNK_SIZE) { // End chunk, avoiding overlap if file is too small
+            positions.push(Math.max(0, size - CHUNK_SIZE));
+        }
+
+
+        for (let i = 0; i < positions.length; i++) {
+            const pos = positions[i];
+            const slice = file.slice(pos, Math.min(pos + CHUNK_SIZE, size));
+            const buffer = await slice.arrayBuffer();
+            chunksToHash.push(new Uint8Array(buffer));
+        }
+
+        // Include file size in the sparse hash calculation
+        const sizeBuffer = new TextEncoder().encode(size.toString());
+        chunksToHash.push(sizeBuffer);
+
+        const combinedBlob = new Blob(chunksToHash);
+        const combinedBuffer = await combinedBlob.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', combinedBuffer);
+        const hashHex = arrayBufferToHex(hashBuffer);
+
+        log("Sparse Hash Calculated:", hashHex);
+        return hashHex;
+    }
+
+    const fileInput = document.getElementById('fileInput');
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files[0];
+        if (file) {
+            document.getElementById('displayFilename').value = file.name;
+            document.getElementById('displaySizeBytes').value = file.size;
+            document.getElementById('displayContentType').value = file.type;
+            document.getElementById('loadingSpinner').style.display = 'inline-block';
+            document.getElementById('uploadBtn').disabled = true;
+
+            try {
+                const sparseHash = await calculateSparseHash(file);
+                document.getElementById('displaySparseChecksum').value = sparseHash;
+
+                const fullHash = await calculateFullHash(file);
+                document.getElementById('displayFullChecksum').value = fullHash;
+            } catch (error) {
+                log("Error calculating hashes:", error);
+                document.getElementById('displaySparseChecksum').value = "Error";
+                document.getElementById('displayFullChecksum').value = "Error";
+            } finally {
+                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('uploadBtn').disabled = false;
+            }
+        } else {
+            document.getElementById('displayFilename').value = '';
+            document.getElementById('displaySizeBytes').value = '';
+            document.getElementById('displayContentType').value = '';
+            document.getElementById('displaySparseChecksum').value = '';
+            document.getElementById('displayFullChecksum').value = '';
+        }
+    });
+
+
+    async function startUpload() {
+        const jwt = document.getElementById('jwt').value.trim();
+        const apiHost = document.getElementById('apiHost').value.replace(/\/$/, '');
+        const purpose = document.getElementById('purpose').value;
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const progressBar = document.getElementById('progressBar');
+        const progressBarFill = document.getElementById('progressBarFill');
+        const displayFilename = document.getElementById('displayFilename').value;
+        const displaySizeBytes = document.getElementById('displaySizeBytes').value;
+        const displayContentType = document.getElementById('displayContentType').value;
+        const displaySparseChecksum = document.getElementById('displaySparseChecksum').value;
+        const displayFullChecksum = document.getElementById('displayFullChecksum').value;
+
+
+        if (!fileInput.files.length) {
+            alert("Please select a file!");
+            return;
+        }
+        if (!jwt) {
+            alert("Please enter a JWT!");
+            return;
+        }
+        if (!displayFullChecksum || displayFullChecksum === "Error") {
+            alert("Please wait for hashes to be calculated or fix errors!");
+            return;
+        }
+
+        const file = fileInput.files[0];
+        uploadBtn.disabled = true;
+        progressBar.style.display = 'block';
+        progressBarFill.style.width = '0%';
+        progressBarFill.style.backgroundColor = '#28a745'; // Reset color
+
+        try {
+            // 1. Construct Request Body
+            const uploadRequest = {
+                purpose: purpose,
+                contentType: displayContentType,
+                sizeBytes: parseInt(displaySizeBytes),
+                filename: displayFilename,
+                checksum: displayFullChecksum,
+                sparseChecksum: displaySparseChecksum
+            };
+            log("Sending UploadInitRequest:", uploadRequest);
+
+            // 2. Get Presigned URL
+            log("Requesting Presigned URL...");
+            const initUrl = `${apiHost}/upload/init`;
+
+            const initResponse = await fetch(initUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${jwt}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(uploadRequest)
+            });
+
+            if (!initResponse.ok) {
+                throw new Error(`Init failed: ${initResponse.status} ${await initResponse.text()}`);
+            }
+
+            const initData = await initResponse.json();
+            log("Presigned URL received:", initData);
+
+            // 3. Upload to MinIO
+            log("Uploading to MinIO...");
+
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', initData.uploadUrl, true);
+
+            xhr.setRequestHeader('Content-Type', file.type);
+            // MinIO/S3 automatically reads metadata from the presigned URL query parameters
+            // No need to set x-amz-meta-* headers here, they are part of the signed URL.
+
+            // Track upload progress
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    progressBarFill.style.width = percentComplete + '%';
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    log("Upload Successful!");
+                    // Optionally, you might want to call a /confirm endpoint here
+                    // if your backend requires explicit confirmation after MinIO upload.
+                } else {
+                    log(`Upload Failed with status: ${xhr.status} - ${xhr.responseText}`);
+                    progressBarFill.style.backgroundColor = '#dc3545';
+                }
+                uploadBtn.disabled = false;
+            };
+
+            xhr.onerror = () => {
+                log("Network Error during upload.");
+                uploadBtn.disabled = false;
+                progressBarFill.style.backgroundColor = '#dc3545';
+            };
+
+            xhr.send(file);
+
+        } catch (error) {
+            log("Error:", error.message);
+            uploadBtn.disabled = false;
+            progressBarFill.style.backgroundColor = '#dc3545';
+        }
+    }
+
+    // Auto-load JWT from jwt-dev.txt
+    async function loadJwtToken() {
+        try {
+            const response = await fetch('jwt-dev.txt');
+            if (response.ok) {
+                const token = (await response.text()).trim();
+                document.getElementById('jwt').value = token;
+                log("JWT token loaded from jwt-dev.txt");
+            } else {
+                log("Could not load jwt-dev.txt. Status: " + response.status);
+            }
+        } catch (error) {
+            log("Error loading jwt-dev.txt:", error);
+        }
+    }
+
+    loadJwtToken(); // Call this function on page load
+</script>
+</body>
+</html>

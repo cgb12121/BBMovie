@@ -1,0 +1,159 @@
+databaseChangeLog:
+  - changeSet:
+      id: 001-create-media-files-and-variants
+      author: bbmovie
+      changes:
+        - createTable:
+            tableName: media_files
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: upload_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: user_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: original_filename
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: media_type
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: storage_provider
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: bucket
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: object_key
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: size_bytes
+                  type: BIGINT
+              - column:
+                  name: mime_type
+                  type: VARCHAR(100)
+              - column:
+                  name: checksum
+                  type: VARCHAR(255)
+              - column:
+                  name: reject_reason
+                  type: VARCHAR(1024)
+              - column:
+                  name: created_at
+                  type: DATETIME
+                  constraints:
+                    nullable: false
+              - column:
+                  name: uploaded_at
+                  type: DATETIME
+              - column:
+                  name: validated_at
+                  type: DATETIME
+              - column:
+                  name: rejected_at
+                  type: DATETIME
+              - column:
+                  name: updated_at
+                  type: DATETIME
+        - createIndex:
+            indexName: idx_media_upload_id
+            tableName: media_files
+            columns:
+              - column:
+                  name: upload_id
+        - createIndex:
+            indexName: idx_media_status
+            tableName: media_files
+            columns:
+              - column:
+                  name: status
+
+        - createTable:
+            tableName: media_variants
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: media_file_id
+                  type: BINARY(16)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_media_variants_file
+                    references: media_files(id)
+              - column:
+                  name: resolution
+                  type: VARCHAR(50)
+              - column:
+                  name: format
+                  type: VARCHAR(50)
+              - column:
+                  name: bucket
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: object_key
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: encryption_key_path
+                  type: VARCHAR(255)
+              - column:
+                  name: bitrate
+                  type: INT
+              - column:
+                  name: size_bytes
+                  type: BIGINT
+
+        - createTable:
+            tableName: processed_events
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: event_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+                    unique: true
+              - column:
+                  name: processed_at
+                  type: DATETIME
+                  constraints:
+                    nullable: false

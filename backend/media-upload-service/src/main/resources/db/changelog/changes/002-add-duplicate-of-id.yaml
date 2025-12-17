@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 002-add-duplicate-of-id
+      author: bbmovie
+      changes:
+        - addColumn:
+            tableName: media_files
+            columns:
+              - column:
+                  name: duplicate_of_id
+                  type: BINARY(16)
