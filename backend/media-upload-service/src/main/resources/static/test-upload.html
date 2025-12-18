@@ -653,6 +653,114 @@
         .glow-effect:hover::after {
             opacity: 1;
         }
+
+        /* Compact Authentication Section */
+        .compact-auth-section {
+            background: var(--netflix-dark);
+            border-top: 1px solid var(--netflix-gray);
+            margin-top: 0;
+        }
+
+        .auth-header {
+            padding: 12px 20px;
+            background: var(--netflix-gray);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--netflix-white);
+            transition: var(--transition);
+        }
+
+        .auth-header:hover {
+            background: var(--netflix-gray-light);
+        }
+
+        .toggle-icon {
+            margin-left: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .auth-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .auth-content.expanded {
+            max-height: 200px;
+        }
+
+        .auth-form {
+            padding: 15px 20px;
+        }
+
+        .form-row {
+            margin-bottom: 12px;
+        }
+
+        .form-row label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+            color: var(--netflix-text-secondary);
+            font-weight: 500;
+        }
+
+        .form-row textarea,
+        .form-row input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--netflix-gray);
+            border: 1px solid var(--netflix-gray-light);
+            border-radius: var(--border-radius);
+            color: var(--netflix-text);
+            font-size: 0.85rem;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+
+        .form-row textarea:focus,
+        .form-row input[type="text"]:focus {
+            outline: none;
+            border-color: var(--netflix-red);
+            box-shadow: 0 0 0 2px rgba(229, 9, 20, 0.1);
+        }
+
+        .auth-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        .auth-btn {
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--netflix-gray-light);
+            border-radius: var(--border-radius);
+            color: var(--netflix-text);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .auth-btn:hover {
+            border-color: var(--netflix-red);
+            background: rgba(229, 9, 20, 0.1);
+        }
+
+        .auth-info {
+            font-size: 0.75rem;
+            color: var(--netflix-text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
     </style>
 </head>
 <body>
@@ -669,27 +777,7 @@
             </div>
         </div>
 
-        <!-- Authentication Section -->
-        <div class="section">
-            <h2>🔐 Authentication</h2>
-            <div class="form-group">
-                <label for="jwt" class="required label-with-icon">
-                    <span class="icon">🔑</span>
-                    JWT Token (Bearer)
-                </label>
-                <textarea id="jwt" rows="4" placeholder="Paste your JWT token here..."></textarea>
-            </div>
-
-            <div class="form-group">
-                <label for="apiHost" class="required label-with-icon">
-                    <span class="icon">🌐</span>
-                    API Host
-                </label>
-                <input type="text" id="apiHost" value="http://localhost:6969">
-            </div>
-        </div>
-
-        <!-- Upload Configuration -->
+        <!-- Upload Configuration (Authentication đã bị xóa khỏi đây) -->
         <div class="section">
             <h2>⚙️ Upload Configuration</h2>
             <div class="form-group">
@@ -703,6 +791,14 @@
                     <option value="MOVIE_POSTER">🖼️ MOVIE_POSTER</option>
                     <option value="USER_AVATAR">👤 USER_AVATAR</option>
                 </select>
+            </div>
+
+            <div class="form-group">
+                <label for="apiHost" class="required label-with-icon">
+                    <span class="icon">🌐</span>
+                    API Host
+                </label>
+                <input type="text" id="apiHost" value="http://localhost:6969">
             </div>
 
             <div class="form-group">
@@ -795,22 +891,49 @@
         </div>
     </div>
 
-    <!-- Right Panel: Logs -->
+    <!-- Right Panel: Logs + Authentication (Compact) -->
     <div class="right-panel">
+        <!-- Logs Header -->
         <div class="logs-header">
-            <div class="logs-title">Upload Logs</div>
+            <div class="logs-title">System Logs</div>
             <div class="logs-controls">
                 <button class="logs-btn" onclick="toggleAutoScroll()" id="autoScrollBtn">
-                    <span class="icon">📜</span>
-                    Auto-scroll
+                    <span class="icon">📜</span> Auto-scroll
                 </button>
                 <button class="logs-btn danger" onclick="clearLogs()">
-                    <span class="icon">🗑️</span>
-                    Clear Logs
+                    <span class="icon">🗑️</span> Clear Logs
                 </button>
             </div>
         </div>
+
+        <!-- Logs Content -->
         <div id="logs"></div>
+
+        <!-- Compact Authentication Section (Dưới logs) -->
+        <div class="compact-auth-section">
+            <div class="auth-header" onclick="toggleAuthSection()">
+                <span class="icon">🔐</span>
+                <span>Authentication Configuration</span>
+                <span class="toggle-icon">▼</span>
+            </div>
+
+            <div class="auth-content" id="authContent">
+                <div class="auth-form">
+                    <div class="form-row">
+                        <label for="jwt">JWT Token:</label>
+                        <textarea id="jwt" rows="2" placeholder="Paste JWT token..."></textarea>
+                    </div>
+                    <div class="auth-actions">
+                        <button class="auth-btn" onclick="loadJwtToken()">
+                            <span class="icon">🔄</span> Load from File
+                        </button>
+                        <div class="auth-info">
+                            <span class="icon">ℹ️</span> Auto-loaded from jwt-dev.txt
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -827,6 +950,7 @@
     const CHUNK_SIZE = 1 * 1024 * 1024;
     const SPARSE_CHUNKS_COUNT = 4;
     let autoScrollEnabled = true;
+    let currentUploadData = null;
 
     // DOM Elements
     const fileInput = document.getElementById('fileInput');
@@ -1056,7 +1180,6 @@
         }
     });
 
-    // Upload Function
     async function startUpload() {
         const jwt = document.getElementById('jwt').value.trim();
         const apiHost = document.getElementById('apiHost').value.replace(/\/$/, '');
@@ -1082,10 +1205,10 @@
         uploadBtn.disabled = true;
         loadingSpinner.style.display = 'block';
         updateProgress(0, 'Initializing...');
-        updateStatus('Uploading...', 'active');
+        updateStatus('Initializing upload...', 'active');
 
         try {
-            // 1. Init upload
+            // 1. Khởi tạo upload với server
             const uploadRequest = {
                 purpose: purpose,
                 contentType: file.type,
@@ -1095,7 +1218,7 @@
                 sparseChecksum: document.getElementById('displaySparseChecksum').textContent
             };
 
-            log("Initializing upload...", uploadRequest);
+            log("📤 Initializing upload with server...", uploadRequest);
 
             const initResponse = await fetch(`${apiHost}/upload/init`, {
                 method: 'POST',
@@ -1107,75 +1230,140 @@
             });
 
             if (!initResponse.ok) {
-                throw new Error(`Init failed: ${initResponse.status} ${await initResponse.text()}`);
+                const errorText = await initResponse.text();
+                throw new Error(`Server init failed: ${initResponse.status} - ${errorText}`);
             }
 
             const initData = await initResponse.json();
-            log("Upload initialized successfully:", initData);
+            currentUploadData = initData; // Lưu lại thông tin upload
 
-            // 2. Upload to MinIO
-            updateProgress(10, 'Uploading to storage...');
-            log("Starting file upload...");
+            log("✅ Upload initialized successfully:", initData);
+            showNotification('Server ready for upload!', 'success');
+            updateProgress(10, 'Server ready, uploading to MinIO...');
 
+            // 2. Tự động upload binary file đến MinIO
+            updateStatus('Uploading to MinIO...', 'active');
+            log(`🔄 Starting direct upload to: ${initData.uploadUrl.substring(0, 100)}...`);
+
+            const uploadResult = await uploadFileToMinIO(file, initData);
+
+            // 3. Upload thành công
+            updateProgress(100, 'Upload complete!');
+            updateStatus('Upload complete!', 'active');
+
+            log("🎉 Upload process completed successfully!");
+            log(`📦 File stored at: ${initData.objectKey}`);
+            log(`⏰ Upload ID: ${initData.uploadId}`);
+
+            showNotification('File uploaded successfully!', 'success');
+
+            // Hiển thị thông tin upload thành công
+            const successInfo = {
+                uploadId: initData.uploadId,
+                objectKey: initData.objectKey,
+                expiresAt: initData.expiresAt,
+                status: 'COMPLETED'
+            };
+
+            log("📋 Upload Summary:", successInfo);
+
+        } catch (error) {
+            log(`❌ Upload error: ${error.message}`);
+            updateProgress(0, 'Upload failed');
+            updateStatus('Upload failed', 'error');
+            showNotification(`Upload failed: ${error.message}`, 'error');
+        } finally {
+            uploadBtn.disabled = false;
+            loadingSpinner.style.display = 'none';
+        }
+    }
+
+    async function uploadFileToMinIO(file, uploadData) {
+        return new Promise((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            xhr.open('PUT', initData.uploadUrl, true);
-            xhr.setRequestHeader('Content-Type', file.type);
+            xhr.open('PUT', uploadData.uploadUrl, true);
 
+            // Thiết lập các headers cần thiết cho MinIO
+            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+            // Theo dõi tiến trình upload
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
-                    const percent = (e.loaded / e.total) * 90 + 10; // Keep 10% for initialization
+                    const percent = (e.loaded / e.total) * 100;
                     updateProgress(percent, `Uploading: ${formatFileSize(e.loaded)} / ${formatFileSize(e.total)}`);
                 }
             };
 
             xhr.onload = () => {
                 if (xhr.status >= 200 && xhr.status < 300) {
-                    updateProgress(100, 'Upload complete!');
-                    log("Upload successful!");
-                    showNotification('File uploaded successfully!', 'success');
-                    updateStatus('Upload complete', 'active');
+                    log(`✅ File uploaded to MinIO successfully! Status: ${xhr.status}`);
+                    resolve({
+                        success: true,
+                        status: xhr.status,
+                        uploadId: uploadData.uploadId
+                    });
                 } else {
-                    log(`Upload failed: ${xhr.status} - ${xhr.responseText}`);
-                    updateProgress(0, 'Upload failed');
-                    showNotification('Upload failed!', 'error');
-                    updateStatus('Upload failed', 'error');
+                    log(`❌ MinIO upload failed: ${xhr.status} - ${xhr.responseText}`);
+                    reject(new Error(`MinIO upload failed: ${xhr.status}`));
                 }
-                uploadBtn.disabled = false;
-                loadingSpinner.style.display = 'none';
             };
 
             xhr.onerror = () => {
-                log("Network error during upload");
-                updateProgress(0, 'Network error');
-                showNotification('Network error during upload', 'error');
-                updateStatus('Network error', 'error');
-                uploadBtn.disabled = false;
-                loadingSpinner.style.display = 'none';
+                log("❌ Network error during MinIO upload");
+                reject(new Error('Network error during MinIO upload'));
             };
 
-            xhr.send(file);
+            xhr.onabort = () => {
+                log("⚠️ MinIO upload aborted");
+                reject(new Error('Upload aborted'));
+            };
 
-        } catch (error) {
-            log("Upload error:", error.message);
-            updateProgress(0, 'Error');
-            showNotification(`Upload failed: ${error.message}`, 'error');
-            updateStatus('Upload failed', 'error');
-            uploadBtn.disabled = false;
-            loadingSpinner.style.display = 'none';
-        }
+            // Gửi file binary
+            xhr.send(file);
+            log(`🚀 Starting direct upload to MinIO: ${uploadData.objectKey}`);
+        });
     }
 
-    // Auto-load JWT
+    function toggleAuthSection() {
+        const authContent = document.getElementById('authContent');
+        const toggleIcon = document.querySelector('.toggle-icon');
+
+        authContent.classList.toggle('expanded');
+        toggleIcon.textContent = authContent.classList.contains('expanded') ? '▲' : '▼';
+    }
+
+    // Update loadJwtToken để hiển thị thông báo trong logs
     async function loadJwtToken() {
         try {
             const response = await fetch('jwt-dev.txt');
             if (response.ok) {
                 const token = (await response.text()).trim();
                 document.getElementById('jwt').value = token;
-                log("JWT token loaded from jwt-dev.txt");
+                log("✅ JWT token loaded from jwt-dev.txt");
+                showNotification('JWT token loaded successfully', 'success');
+            } else {
+                log("⚠️ Could not load jwt-dev.txt. Status: " + response.status);
+                showNotification('Could not load JWT from file', 'error');
             }
         } catch (error) {
-            console.log("Could not load jwt-dev.txt:", error);
+            log("❌ Error loading jwt-dev.txt: " + error.message);
+            showNotification('Error loading JWT: ' + error.message, 'error');
+        }
+    }
+
+    // Auto-expand auth section nếu JWT chưa có
+    function checkAndExpandAuth() {
+        const jwt = document.getElementById('jwt').value.trim();
+        if (!jwt) {
+            // Tự động mở rộng section nếu chưa có JWT
+            setTimeout(() => {
+                const authContent = document.getElementById('authContent');
+                const toggleIcon = document.querySelector('.toggle-icon');
+                if (!authContent.classList.contains('expanded')) {
+                    authContent.classList.add('expanded');
+                    toggleIcon.textContent = '▲';
+                }
+            }, 500);
         }
     }
 
@@ -1183,6 +1371,7 @@
     loadJwtToken();
     updateStatus('Ready');
     updateProgress(0, 'Ready');
+    checkAndExpandAuth();
 </script>
 </body>
 </html>

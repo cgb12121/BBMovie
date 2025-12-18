@@ -30,8 +30,12 @@ import static com.bbmovie.transcodeworker.util.Converter.hexStringToByteArray;
 @RequiredArgsConstructor
 public class VideoTranscoderService {
 
+    // Eg: http://localhost:xxxx/api/stream
     @Value("${app.transcode.key-server-url}")
-    private String keyServerUrl;
+    private String streamApiBaseUrl;
+
+    @Value("${app.minio.public-hls-url}")
+    private String minioPublicUrl;
 
     @Value("${app.transcode.key-rotation-interval:10}")
     private int keyRotationInterval; // number of segments before rotating the key
@@ -151,7 +155,9 @@ public class VideoTranscoderService {
                 // Encryption with a key info file
                 .addExtraArgs("-hls_key_info_file", keyInfoPath.toString())
                 // Enable periodic key rotation (every N segments)
-                .addExtraArgs("-hls_flags", "periodic_rekey")
+                // THIS arg will tell FFMPEG to AUTO generate keys
+                //NOTE: TEMPORARY DISABLE THIS TO PREVENT UNEXPECTED ERROR when manually creating key
+//                .addExtraArgs("-hls_flags", "periodic_rekey")
                 // Rekey every X segments (default 10)
                 // THÍS ARG IS NOT SUPPORTED IN THIS VERSION
 //                .addExtraArgs("-hls_periodic_rekey_interval", String.valueOf(keyRotationInterval))
@@ -224,7 +230,8 @@ public class VideoTranscoderService {
         StringBuilder content = new StringBuilder();
 
         // PUBLIC URL pattern for key files
-        String publicKeyBaseUrl = String.format("%s/%s/%s/", keyServerUrl, uploadId, resolution);
+        // streamApiBaseUrl = http://localhost:1205/api/stream
+        String publicKeyBaseUrl = String.format("%s/keys/%s/%s/", streamApiBaseUrl, uploadId, resolution);
 
         for (KeyInfo keyInfo : keyInfos) {
             // Format for each entry:
@@ -249,11 +256,11 @@ public class VideoTranscoderService {
             String content = Files.readString(playlistPath);
 
             // PUBLIC segment URL pattern
-            String publicSegmentBaseUrl = String.format("%s/segments/%s/%s/", keyServerUrl, uploadId, resolution);
-
+            // We want http://.../api/stream/segments
+            String publicSegmentBaseUrl = String.format("%s/%s/%s/", minioPublicUrl, uploadId, resolution);
             // DEBUG: Log playlist content before update
-            log.debug("[{}] Playlist before update (first 500 chars): {}",
-                    resolution, content.substring(0, Math.min(500, content.length())));
+            log.debug("[{}] Playlist before update (first 300 chars): {}",
+                    resolution, content.substring(0, Math.min(300, content.length())));
 
             // Replace segment URLs (if needed)
             String segmentRegex = "seg_(\\d+)\\.ts";
@@ -287,6 +294,9 @@ public class VideoTranscoderService {
     }
 
     private void logGeneratedFiles(Path resolutionDir) {
+        if (!log.isTraceEnabled()) {
+            return;
+        }
         try {
             try (Stream<Path> stream = Files.list(resolutionDir)) {
                 List<Path> files = stream.toList();
