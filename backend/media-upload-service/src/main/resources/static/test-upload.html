@@ -1,0 +1,1377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBMovie Upload Tester</title>
+    <style>
+        :root {
+            --netflix-red: #e50914;
+            --netflix-red-dark: #b20710;
+            --netflix-black: #141414;
+            --netflix-dark: #1f1f1f;
+            --netflix-gray: #2d2d2d;
+            --netflix-gray-light: #4a4a4a;
+            --netflix-white: #f5f5f1;
+            --netflix-text: #e5e5e5;
+            --netflix-text-secondary: #b3b3b3;
+            --border-radius: 4px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: var(--netflix-black);
+            color: var(--netflix-text);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            display: flex;
+            min-height: 100vh;
+            max-width: 1600px;
+            margin: 0 auto;
+            gap: 0;
+        }
+
+        /* Left Panel - Upload Controls */
+        .left-panel {
+            flex: 0 0 55%;
+            background: linear-gradient(135deg, var(--netflix-dark), var(--netflix-black));
+            padding: 2.5rem;
+            border-right: 1px solid var(--netflix-gray);
+            overflow-y: auto;
+        }
+
+        /* Right Panel - Logs */
+        .right-panel {
+            flex: 1;
+            background: var(--netflix-black);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .header {
+            margin-bottom: 2.5rem;
+            position: relative;
+            padding-bottom: 1.5rem;
+            border-bottom: 1px solid var(--netflix-gray);
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .logo {
+            color: var(--netflix-red);
+            font-size: 2.8rem;
+            font-weight: 900;
+            letter-spacing: -1px;
+        }
+
+        .logo-gradient {
+            background: linear-gradient(45deg, var(--netflix-red), #ff4500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .tagline {
+            color: var(--netflix-text-secondary);
+            font-size: 1.1rem;
+            font-weight: 300;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            color: var(--netflix-text-secondary);
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Section Styling */
+        .section {
+            background: var(--netflix-dark);
+            border-radius: var(--border-radius);
+            padding: 1.75rem;
+            margin-bottom: 2rem;
+            border: 1px solid var(--netflix-gray);
+            transition: var(--transition);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--netflix-red);
+        }
+
+        .section:hover {
+            border-color: var(--netflix-gray-light);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(229, 9, 20, 0.15);
+        }
+
+        h2 {
+            font-size: 1.4rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--netflix-white);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        h2::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: var(--netflix-red);
+            border-radius: 50%;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: var(--netflix-text);
+            font-size: 0.95rem;
+        }
+
+        .label-with-icon {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .required::after {
+            content: " *";
+            color: var(--netflix-red);
+        }
+
+        input[type="text"],
+        textarea,
+        select {
+            width: 100%;
+            padding: 0.875rem 1rem;
+            background: var(--netflix-gray);
+            border: 2px solid var(--netflix-gray-light);
+            border-radius: var(--border-radius);
+            color: var(--netflix-text);
+            font-size: 0.95rem;
+            transition: var(--transition);
+        }
+
+        input[type="text"]:focus,
+        textarea:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--netflix-red);
+            background: var(--netflix-gray-light);
+            box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.2);
+        }
+
+        textarea {
+            min-height: 120px;
+            resize: vertical;
+            font-family: 'Monaco', 'Consolas', monospace;
+            line-height: 1.4;
+        }
+
+        select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23e50914' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 12px;
+            padding-right: 2.5rem;
+            cursor: pointer;
+        }
+
+        input[readonly] {
+            background: var(--netflix-gray);
+            border-color: var(--netflix-gray);
+            color: var(--netflix-text-secondary);
+            cursor: not-allowed;
+        }
+
+        /* File Input */
+        .file-input-area {
+            border: 3px dashed var(--netflix-gray-light);
+            border-radius: var(--border-radius);
+            padding: 3rem 2rem;
+            text-align: center;
+            transition: var(--transition);
+            background: linear-gradient(135deg, var(--netflix-gray) 0%, transparent 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .file-input-area:hover {
+            border-color: var(--netflix-red);
+            background: linear-gradient(135deg, rgba(229, 9, 20, 0.1) 0%, transparent 100%);
+        }
+
+        .file-input-area.drag-over {
+            border-color: var(--netflix-red);
+            background: linear-gradient(135deg, rgba(229, 9, 20, 0.2) 0%, transparent 100%);
+        }
+
+        .file-input-label {
+            font-size: 1.1rem;
+            color: var(--netflix-text);
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+        }
+
+        .file-input-hint {
+            font-size: 0.9rem;
+            color: var(--netflix-text-secondary);
+        }
+
+        #fileInput {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        /* File Info Grid */
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .info-item {
+            background: var(--netflix-gray);
+            border-radius: var(--border-radius);
+            padding: 1rem;
+            transition: var(--transition);
+            border: 1px solid transparent;
+        }
+
+        .info-item:hover {
+            border-color: var(--netflix-red);
+            transform: translateY(-1px);
+        }
+
+        .info-label {
+            font-size: 0.85rem;
+            color: var(--netflix-text-secondary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .info-value {
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            color: var(--netflix-white);
+            word-break: break-all;
+            line-height: 1.4;
+        }
+
+        .info-value.hash {
+            font-size: 0.8rem;
+            color: #00e054;
+        }
+
+        /* Progress Bar */
+        .progress-section {
+            margin-top: 2rem;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: var(--netflix-gray);
+            border-radius: 3px;
+            overflow: hidden;
+            margin-bottom: 0.5rem;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--netflix-red), #ff4500);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .progress-text {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--netflix-text-secondary);
+        }
+
+        /* Buttons */
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--netflix-gray);
+        }
+
+        button {
+            padding: 0.875rem 2rem;
+            border: none;
+            border-radius: var(--border-radius);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            min-width: 140px;
+        }
+
+        .primary-btn {
+            background: linear-gradient(45deg, var(--netflix-red), var(--netflix-red-dark));
+            color: white;
+            flex: 1;
+        }
+
+        .primary-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(229, 9, 20, 0.4);
+            background: linear-gradient(45deg, #ff1a1a, var(--netflix-red));
+        }
+
+        .primary-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .primary-btn:disabled {
+            background: var(--netflix-gray);
+            color: var(--netflix-text-secondary);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .secondary-btn {
+            background: transparent;
+            border: 2px solid var(--netflix-gray-light);
+            color: var(--netflix-text);
+        }
+
+        .secondary-btn:hover {
+            border-color: var(--netflix-red);
+            background: rgba(229, 9, 20, 0.1);
+        }
+
+        /* Spinner */
+        .spinner {
+            width: 24px;
+            height: 24px;
+            border: 3px solid var(--netflix-gray-light);
+            border-top-color: var(--netflix-red);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Logs Panel */
+        .logs-header {
+            background: var(--netflix-dark);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--netflix-gray);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logs-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--netflix-white);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logs-title::before {
+            content: '📊';
+        }
+
+        .logs-controls {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .logs-btn {
+            padding: 0.5rem 1rem;
+            font-size: 0.9rem;
+            background: var(--netflix-gray);
+            border: 1px solid var(--netflix-gray-light);
+            color: var(--netflix-text);
+        }
+
+        .logs-btn:hover {
+            background: var(--netflix-gray-light);
+        }
+
+        .logs-btn.danger {
+            background: transparent;
+            border-color: var(--netflix-red);
+            color: var(--netflix-red);
+        }
+
+        .logs-btn.danger:hover {
+            background: var(--netflix-red);
+            color: white;
+        }
+
+        #logs {
+            flex: 1;
+            background: var(--netflix-black);
+            color: #00ff88;
+            padding: 1.5rem;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            border: none;
+        }
+
+        .log-entry {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .log-timestamp {
+            color: #ff6b6b;
+            font-weight: 600;
+        }
+
+        .log-message {
+            color: #4ecdc4;
+        }
+
+        .log-data {
+            color: #ffe66d;
+            margin-top: 0.5rem;
+        }
+
+        /* Status Indicator */
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 1rem;
+            background: var(--netflix-gray);
+            border-radius: var(--border-radius);
+            font-size: 0.9rem;
+            margin-left: 1rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--netflix-text-secondary);
+        }
+
+        .status-dot.active {
+            background: #00e054;
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 10px #00e054;
+        }
+
+        .status-dot.error {
+            background: var(--netflix-red);
+            box-shadow: 0 0 10px var(--netflix-red);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Notification */
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 1rem 1.5rem;
+            background: var(--netflix-dark);
+            border: 1px solid var(--netflix-gray);
+            border-left: 4px solid var(--netflix-red);
+            border-radius: var(--border-radius);
+            color: var(--netflix-white);
+            font-weight: 500;
+            transform: translateX(150%);
+            transition: transform 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            max-width: 350px;
+        }
+
+        .notification.show {
+            transform: translateX(0);
+        }
+
+        .notification.success {
+            border-left-color: #00e054;
+        }
+
+        .notification.error {
+            border-left-color: var(--netflix-red);
+        }
+
+        /* Icons */
+        .icon {
+            font-size: 1.2rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1200px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .left-panel {
+                border-right: none;
+                border-bottom: 1px solid var(--netflix-gray);
+            }
+
+            .right-panel {
+                min-height: 400px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .left-panel {
+                padding: 1.5rem;
+            }
+
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--netflix-gray);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--netflix-gray-light);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--netflix-red);
+        }
+
+        /* Glow Effect */
+        .glow-effect {
+            position: relative;
+        }
+
+        .glow-effect::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg,
+            transparent,
+            var(--netflix-red),
+            transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .glow-effect:hover::after {
+            opacity: 1;
+        }
+
+        /* Compact Authentication Section */
+        .compact-auth-section {
+            background: var(--netflix-dark);
+            border-top: 1px solid var(--netflix-gray);
+            margin-top: 0;
+        }
+
+        .auth-header {
+            padding: 12px 20px;
+            background: var(--netflix-gray);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--netflix-white);
+            transition: var(--transition);
+        }
+
+        .auth-header:hover {
+            background: var(--netflix-gray-light);
+        }
+
+        .toggle-icon {
+            margin-left: auto;
+            transition: transform 0.3s ease;
+        }
+
+        .auth-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .auth-content.expanded {
+            max-height: 200px;
+        }
+
+        .auth-form {
+            padding: 15px 20px;
+        }
+
+        .form-row {
+            margin-bottom: 12px;
+        }
+
+        .form-row label {
+            display: block;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+            color: var(--netflix-text-secondary);
+            font-weight: 500;
+        }
+
+        .form-row textarea,
+        .form-row input[type="text"] {
+            width: 100%;
+            padding: 8px 12px;
+            background: var(--netflix-gray);
+            border: 1px solid var(--netflix-gray-light);
+            border-radius: var(--border-radius);
+            color: var(--netflix-text);
+            font-size: 0.85rem;
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+
+        .form-row textarea:focus,
+        .form-row input[type="text"]:focus {
+            outline: none;
+            border-color: var(--netflix-red);
+            box-shadow: 0 0 0 2px rgba(229, 9, 20, 0.1);
+        }
+
+        .auth-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        .auth-btn {
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--netflix-gray-light);
+            border-radius: var(--border-radius);
+            color: var(--netflix-text);
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .auth-btn:hover {
+            border-color: var(--netflix-red);
+            background: rgba(229, 9, 20, 0.1);
+        }
+
+        .auth-info {
+            font-size: 0.75rem;
+            color: var(--netflix-text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Left Panel: Upload Controls -->
+    <div class="left-panel">
+        <div class="header">
+            <div class="logo-container">
+                <div class="logo">N</div>
+                <div>
+                    <h1>Media <span class="logo-gradient">Upload</span> Center</h1>
+                    <div class="tagline">Professional media file management system</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Configuration (Authentication đã bị xóa khỏi đây) -->
+        <div class="section">
+            <h2>⚙️ Upload Configuration</h2>
+            <div class="form-group">
+                <label for="purpose" class="required label-with-icon">
+                    <span class="icon">🎯</span>
+                    Upload Purpose
+                </label>
+                <select id="purpose">
+                    <option value="MOVIE_SOURCE">🎬 MOVIE_SOURCE</option>
+                    <option value="MOVIE_TRAILER">🎥 MOVIE_TRAILER</option>
+                    <option value="MOVIE_POSTER">🖼️ MOVIE_POSTER</option>
+                    <option value="USER_AVATAR">👤 USER_AVATAR</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="apiHost" class="required label-with-icon">
+                    <span class="icon">🌐</span>
+                    API Host
+                </label>
+                <input type="text" id="apiHost" value="http://localhost:6969">
+            </div>
+
+            <div class="form-group">
+                <label class="required label-with-icon">
+                    <span class="icon">📁</span>
+                    Select File
+                </label>
+                <div class="file-input-area" id="fileInputArea">
+                    <div class="file-input-label">
+                        <span class="icon">📤</span>
+                        Click to browse or drag & drop files
+                    </div>
+                    <div class="file-input-hint">Maximum file size: 2GB • All formats supported</div>
+                    <input type="file" id="fileInput">
+                </div>
+            </div>
+        </div>
+
+        <!-- File Information -->
+        <div class="section">
+            <h2>📊 File Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">📝</span>
+                        Filename
+                    </div>
+                    <div class="info-value" id="displayFilename">No file selected</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">📏</span>
+                        Size
+                    </div>
+                    <div class="info-value" id="displaySizeBytes">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">🎞️</span>
+                        Content-Type
+                    </div>
+                    <div class="info-value" id="displayContentType">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">🔢</span>
+                        Sparse Checksum
+                    </div>
+                    <div class="info-value hash" id="displaySparseChecksum">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">🔢</span>
+                        Full Checksum
+                    </div>
+                    <div class="info-value hash" id="displayFullChecksum">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Progress -->
+        <div class="section progress-section">
+            <div class="progress-header">
+                <h2>📈 Upload Progress</h2>
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Ready</span>
+                </div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+            <div class="progress-text">
+                <span id="progressPercentage">0%</span>
+                <span id="progressStatus">Waiting...</span>
+            </div>
+
+            <div class="button-group">
+                <button id="uploadBtn" class="primary-btn" onclick="startUpload()">
+                    <span class="icon">🚀</span>
+                    <span>Start Upload</span>
+                    <div class="spinner" id="loadingSpinner"></div>
+                </button>
+                <button class="secondary-btn" onclick="resetForm()">
+                    <span class="icon">🔄</span>
+                    Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Logs + Authentication (Compact) -->
+    <div class="right-panel">
+        <!-- Logs Header -->
+        <div class="logs-header">
+            <div class="logs-title">System Logs</div>
+            <div class="logs-controls">
+                <button class="logs-btn" onclick="toggleAutoScroll()" id="autoScrollBtn">
+                    <span class="icon">📜</span> Auto-scroll
+                </button>
+                <button class="logs-btn danger" onclick="clearLogs()">
+                    <span class="icon">🗑️</span> Clear Logs
+                </button>
+            </div>
+        </div>
+
+        <!-- Logs Content -->
+        <div id="logs"></div>
+
+        <!-- Compact Authentication Section (Dưới logs) -->
+        <div class="compact-auth-section">
+            <div class="auth-header" onclick="toggleAuthSection()">
+                <span class="icon">🔐</span>
+                <span>Authentication Configuration</span>
+                <span class="toggle-icon">▼</span>
+            </div>
+
+            <div class="auth-content" id="authContent">
+                <div class="auth-form">
+                    <div class="form-row">
+                        <label for="jwt">JWT Token:</label>
+                        <textarea id="jwt" rows="2" placeholder="Paste JWT token..."></textarea>
+                    </div>
+                    <div class="auth-actions">
+                        <button class="auth-btn" onclick="loadJwtToken()">
+                            <span class="icon">🔄</span> Load from File
+                        </button>
+                        <div class="auth-info">
+                            <span class="icon">ℹ️</span> Auto-loaded from jwt-dev.txt
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification -->
+<div class="notification" id="notification"></div>
+
+<script>
+    // Netflix Theme Variables
+    const NETFLIX_RED = '#e50914';
+    const NETFLIX_BLACK = '#141414';
+    const NETFLIX_DARK = '#1f1f1f';
+
+    // Configuration
+    const CHUNK_SIZE = 1 * 1024 * 1024;
+    const SPARSE_CHUNKS_COUNT = 4;
+    let autoScrollEnabled = true;
+    let currentUploadData = null;
+
+    // DOM Elements
+    const fileInput = document.getElementById('fileInput');
+    const fileInputArea = document.getElementById('fileInputArea');
+    const logsDiv = document.getElementById('logs');
+    const notification = document.getElementById('notification');
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const progressBarFill = document.getElementById('progressBarFill');
+    const progressPercentage = document.getElementById('progressPercentage');
+    const progressStatus = document.getElementById('progressStatus');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const autoScrollBtn = document.getElementById('autoScrollBtn');
+
+    // Helper Functions
+    function showNotification(message, type = 'success') {
+        notification.textContent = message;
+        notification.className = `notification ${type}`;
+        notification.classList.add('show');
+
+        setTimeout(() => {
+            notification.classList.remove('show');
+        }, 4000);
+    }
+
+    function updateStatus(message, type = 'default') {
+        statusDot.className = 'status-dot';
+        statusText.textContent = message;
+
+        if (type === 'active') {
+            statusDot.classList.add('active');
+        } else if (type === 'error') {
+            statusDot.classList.add('error');
+        }
+    }
+
+    function updateProgress(percent, status = '') {
+        progressBarFill.style.width = `${percent}%`;
+        progressPercentage.textContent = `${Math.round(percent)}%`;
+        if (status) {
+            progressStatus.textContent = status;
+        }
+    }
+
+    function arrayBufferToHex(buffer) {
+        return Array.from(new Uint8Array(buffer))
+            .map(b => b.toString(16).padStart(2, '0'))
+            .join('');
+    }
+
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function log(message, data = null) {
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+
+        let html = `<div class="log-timestamp">[${timestamp}]</div>`;
+        html += `<div class="log-message">${message}</div>`;
+
+        if (data) {
+            html += `<div class="log-data">${JSON.stringify(data, null, 2)}</div>`;
+        }
+
+        logEntry.innerHTML = html;
+        logsDiv.appendChild(logEntry);
+
+        if (autoScrollEnabled) {
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        console.log(`[${timestamp}]`, message, data);
+    }
+
+    function clearLogs() {
+        logsDiv.innerHTML = '';
+        showNotification('Logs cleared', 'success');
+    }
+
+    function toggleAutoScroll() {
+        autoScrollEnabled = !autoScrollEnabled;
+        autoScrollBtn.innerHTML = autoScrollEnabled ?
+            '<span class="icon">📜</span> Auto-scroll: ON' :
+            '<span class="icon">📜</span> Auto-scroll: OFF';
+        autoScrollBtn.style.background = autoScrollEnabled ? NETFLIX_DARK : NETFLIX_BLACK;
+    }
+
+    function resetForm() {
+        fileInput.value = '';
+        updateFileInfo();
+        updateProgress(0, 'Ready');
+        updateStatus('Ready');
+        uploadBtn.disabled = false;
+        showNotification('Form reset successfully', 'success');
+    }
+
+    // File Handling
+    async function calculateFullHash(file) {
+        log("Calculating Full SHA-256 Hash...");
+        updateStatus('Calculating full hash...', 'active');
+
+        const buffer = await file.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+        const hashHex = arrayBufferToHex(hashBuffer);
+
+        log("Full Hash Calculated:", hashHex);
+        return hashHex;
+    }
+
+    async function calculateSparseHash(file) {
+        log("Calculating Sparse SHA-256 Hash...");
+        updateStatus('Calculating sparse hash...', 'active');
+
+        const size = file.size;
+        const chunksToHash = [];
+        const positions = [0];
+
+        if (size > CHUNK_SIZE) {
+            positions.push(Math.floor(size / 3));
+            positions.push(Math.floor(size * 2 / 3));
+        }
+        if (size > CHUNK_SIZE) {
+            positions.push(Math.max(0, size - CHUNK_SIZE));
+        }
+
+        for (const pos of positions) {
+            const slice = file.slice(pos, Math.min(pos + CHUNK_SIZE, size));
+            const buffer = await slice.arrayBuffer();
+            chunksToHash.push(new Uint8Array(buffer));
+        }
+
+        const sizeBuffer = new TextEncoder().encode(size.toString());
+        chunksToHash.push(sizeBuffer);
+
+        const combinedBlob = new Blob(chunksToHash);
+        const combinedBuffer = await combinedBlob.arrayBuffer();
+        const hashBuffer = await crypto.subtle.digest('SHA-256', combinedBuffer);
+        const hashHex = arrayBufferToHex(hashBuffer);
+
+        log("Sparse Hash Calculated:", hashHex);
+        return hashHex;
+    }
+
+    function updateFileInfo() {
+        const file = fileInput.files[0];
+        const elements = {
+            filename: document.getElementById('displayFilename'),
+            size: document.getElementById('displaySizeBytes'),
+            contentType: document.getElementById('displayContentType'),
+            sparseChecksum: document.getElementById('displaySparseChecksum'),
+            fullChecksum: document.getElementById('displayFullChecksum')
+        };
+
+        if (file) {
+            elements.filename.textContent = file.name;
+            elements.size.textContent = formatFileSize(file.size);
+            elements.contentType.textContent = file.type || 'Unknown';
+            elements.sparseChecksum.textContent = 'Calculating...';
+            elements.fullChecksum.textContent = 'Calculating...';
+
+            // Calculate hashes
+            calculateHashes(file);
+        } else {
+            elements.filename.textContent = 'No file selected';
+            elements.size.textContent = '-';
+            elements.contentType.textContent = '-';
+            elements.sparseChecksum.textContent = '-';
+            elements.fullChecksum.textContent = '-';
+        }
+    }
+
+    async function calculateHashes(file) {
+        loadingSpinner.style.display = 'block';
+        uploadBtn.disabled = true;
+        updateStatus('Calculating hashes...', 'active');
+
+        try {
+            const [sparseHash, fullHash] = await Promise.all([
+                calculateSparseHash(file),
+                calculateFullHash(file)
+            ]);
+
+            document.getElementById('displaySparseChecksum').textContent = sparseHash;
+            document.getElementById('displayFullChecksum').textContent = fullHash;
+
+            showNotification('File hashes calculated successfully', 'success');
+        } catch (error) {
+            log("Error calculating hashes:", error);
+            document.getElementById('displaySparseChecksum').textContent = 'Error';
+            document.getElementById('displayFullChecksum').textContent = 'Error';
+            showNotification('Error calculating hashes', 'error');
+        } finally {
+            loadingSpinner.style.display = 'none';
+            uploadBtn.disabled = false;
+            updateStatus('Ready');
+        }
+    }
+
+    // Event Listeners
+    fileInput.addEventListener('change', updateFileInfo);
+
+    // Drag and Drop
+    fileInputArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        fileInputArea.classList.add('drag-over');
+    });
+
+    fileInputArea.addEventListener('dragleave', () => {
+        fileInputArea.classList.remove('drag-over');
+    });
+
+    fileInputArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        fileInputArea.classList.remove('drag-over');
+
+        if (e.dataTransfer.files.length) {
+            fileInput.files = e.dataTransfer.files;
+            updateFileInfo();
+            showNotification('File added via drag & drop', 'success');
+        }
+    });
+
+    async function startUpload() {
+        const jwt = document.getElementById('jwt').value.trim();
+        const apiHost = document.getElementById('apiHost').value.replace(/\/$/, '');
+        const purpose = document.getElementById('purpose').value;
+        const file = fileInput.files[0];
+
+        if (!file) {
+            showNotification('Please select a file!', 'error');
+            return;
+        }
+        if (!jwt) {
+            showNotification('Please enter a JWT token!', 'error');
+            return;
+        }
+
+        const fullChecksum = document.getElementById('displayFullChecksum').textContent;
+        if (!fullChecksum || fullChecksum === '-' || fullChecksum === 'Error') {
+            showNotification('Please wait for hashes to be calculated!', 'error');
+            return;
+        }
+
+        // Prepare for upload
+        uploadBtn.disabled = true;
+        loadingSpinner.style.display = 'block';
+        updateProgress(0, 'Initializing...');
+        updateStatus('Initializing upload...', 'active');
+
+        try {
+            // 1. Khởi tạo upload với server
+            const uploadRequest = {
+                purpose: purpose,
+                contentType: file.type,
+                sizeBytes: file.size,
+                filename: file.name,
+                checksum: fullChecksum,
+                sparseChecksum: document.getElementById('displaySparseChecksum').textContent
+            };
+
+            log("📤 Initializing upload with server...", uploadRequest);
+
+            const initResponse = await fetch(`${apiHost}/upload/init`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${jwt}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(uploadRequest)
+            });
+
+            if (!initResponse.ok) {
+                const errorText = await initResponse.text();
+                throw new Error(`Server init failed: ${initResponse.status} - ${errorText}`);
+            }
+
+            const initData = await initResponse.json();
+            currentUploadData = initData; // Lưu lại thông tin upload
+
+            log("✅ Upload initialized successfully:", initData);
+            showNotification('Server ready for upload!', 'success');
+            updateProgress(10, 'Server ready, uploading to MinIO...');
+
+            // 2. Tự động upload binary file đến MinIO
+            updateStatus('Uploading to MinIO...', 'active');
+            log(`🔄 Starting direct upload to: ${initData.uploadUrl.substring(0, 100)}...`);
+
+            const uploadResult = await uploadFileToMinIO(file, initData);
+
+            // 3. Upload thành công
+            updateProgress(100, 'Upload complete!');
+            updateStatus('Upload complete!', 'active');
+
+            log("🎉 Upload process completed successfully!");
+            log(`📦 File stored at: ${initData.objectKey}`);
+            log(`⏰ Upload ID: ${initData.uploadId}`);
+
+            showNotification('File uploaded successfully!', 'success');
+
+            // Hiển thị thông tin upload thành công
+            const successInfo = {
+                uploadId: initData.uploadId,
+                objectKey: initData.objectKey,
+                expiresAt: initData.expiresAt,
+                status: 'COMPLETED'
+            };
+
+            log("📋 Upload Summary:", successInfo);
+
+        } catch (error) {
+            log(`❌ Upload error: ${error.message}`);
+            updateProgress(0, 'Upload failed');
+            updateStatus('Upload failed', 'error');
+            showNotification(`Upload failed: ${error.message}`, 'error');
+        } finally {
+            uploadBtn.disabled = false;
+            loadingSpinner.style.display = 'none';
+        }
+    }
+
+    async function uploadFileToMinIO(file, uploadData) {
+        return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', uploadData.uploadUrl, true);
+
+            // Thiết lập các headers cần thiết cho MinIO
+            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+
+            // Theo dõi tiến trình upload
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    updateProgress(percent, `Uploading: ${formatFileSize(e.loaded)} / ${formatFileSize(e.total)}`);
+                }
+            };
+
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    log(`✅ File uploaded to MinIO successfully! Status: ${xhr.status}`);
+                    resolve({
+                        success: true,
+                        status: xhr.status,
+                        uploadId: uploadData.uploadId
+                    });
+                } else {
+                    log(`❌ MinIO upload failed: ${xhr.status} - ${xhr.responseText}`);
+                    reject(new Error(`MinIO upload failed: ${xhr.status}`));
+                }
+            };
+
+            xhr.onerror = () => {
+                log("❌ Network error during MinIO upload");
+                reject(new Error('Network error during MinIO upload'));
+            };
+
+            xhr.onabort = () => {
+                log("⚠️ MinIO upload aborted");
+                reject(new Error('Upload aborted'));
+            };
+
+            // Gửi file binary
+            xhr.send(file);
+            log(`🚀 Starting direct upload to MinIO: ${uploadData.objectKey}`);
+        });
+    }
+
+    function toggleAuthSection() {
+        const authContent = document.getElementById('authContent');
+        const toggleIcon = document.querySelector('.toggle-icon');
+
+        authContent.classList.toggle('expanded');
+        toggleIcon.textContent = authContent.classList.contains('expanded') ? '▲' : '▼';
+    }
+
+    // Update loadJwtToken để hiển thị thông báo trong logs
+    async function loadJwtToken() {
+        try {
+            const response = await fetch('jwt-dev.txt');
+            if (response.ok) {
+                const token = (await response.text()).trim();
+                document.getElementById('jwt').value = token;
+                log("✅ JWT token loaded from jwt-dev.txt");
+                showNotification('JWT token loaded successfully', 'success');
+            } else {
+                log("⚠️ Could not load jwt-dev.txt. Status: " + response.status);
+                showNotification('Could not load JWT from file', 'error');
+            }
+        } catch (error) {
+            log("❌ Error loading jwt-dev.txt: " + error.message);
+            showNotification('Error loading JWT: ' + error.message, 'error');
+        }
+    }
+
+    // Auto-expand auth section nếu JWT chưa có
+    function checkAndExpandAuth() {
+        const jwt = document.getElementById('jwt').value.trim();
+        if (!jwt) {
+            // Tự động mở rộng section nếu chưa có JWT
+            setTimeout(() => {
+                const authContent = document.getElementById('authContent');
+                const toggleIcon = document.querySelector('.toggle-icon');
+                if (!authContent.classList.contains('expanded')) {
+                    authContent.classList.add('expanded');
+                    toggleIcon.textContent = '▲';
+                }
+            }, 500);
+        }
+    }
+
+    // Initialize
+    loadJwtToken();
+    updateStatus('Ready');
+    updateProgress(0, 'Ready');
+    checkAndExpandAuth();
+</script>
+</body>
+</html>

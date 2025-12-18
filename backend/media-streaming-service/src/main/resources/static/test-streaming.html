@@ -1,0 +1,947 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BBMovie Secure Stream</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        :root {
+            --netflix-red: #e50914;
+            --netflix-red-dark: #b20710;
+            --netflix-black: #141414;
+            --netflix-dark: #1f1f1f;
+            --netflix-gray: #2d2d2d;
+            --netflix-gray-light: #4a4a4a;
+            --netflix-white: #f5f5f1;
+            --netflix-text: #e5e5e5;
+            --netflix-text-secondary: #b3b3b3;
+            --success-green: #00e054;
+            --warning-orange: #ff9500;
+            --danger-red: #ff3b30;
+            --border-radius: 4px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: var(--netflix-black);
+            color: var(--netflix-text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1.2fr 2fr;
+            grid-template-rows: auto 1fr;
+            gap: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+            height: calc(100vh - 40px);
+        }
+
+        /* Compact Header - Netflix Style */
+        .header {
+            grid-column: 1 / -1;
+            background: var(--netflix-dark);
+            border-radius: var(--border-radius);
+            padding: 15px 25px;
+            border: 1px solid var(--netflix-gray);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            color: var(--netflix-red);
+            font-size: 28px;
+            font-weight: 900;
+            letter-spacing: -1px;
+        }
+
+        .logo-gradient {
+            background: linear-gradient(45deg, var(--netflix-red), #ff4500);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header h1 {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--netflix-white);
+            letter-spacing: 0.5px;
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* Left Panel - Logs on TOP, Configuration below */
+        .left-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Logs Panel - TOP LEFT */
+        .logs-panel {
+            flex: 1;
+            min-height: 300px;
+            background: var(--netflix-dark);
+            border-radius: var(--border-radius);
+            border: 1px solid var(--netflix-gray);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .logs-header {
+            background: var(--netflix-gray);
+            padding: 12px 20px;
+            border-bottom: 1px solid var(--netflix-gray-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logs-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--netflix-white);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .logs-title::before {
+            content: '📊';
+            font-size: 16px;
+        }
+
+        .logs-controls {
+            display: flex;
+            gap: 8px;
+        }
+
+        .logs-btn {
+            padding: 5px 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--netflix-gray-light);
+            border-radius: 3px;
+            color: var(--netflix-text);
+            font-size: 11px;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .logs-btn:hover {
+            background: var(--netflix-red);
+            border-color: var(--netflix-red);
+            color: white;
+        }
+
+        #logs {
+            flex: 1;
+            background: var(--netflix-black);
+            color: #00ff88;
+            padding: 15px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        /* Configuration Panel - BOTTOM LEFT */
+        .config-panel {
+            background: var(--netflix-dark);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            border: 1px solid var(--netflix-gray);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .config-panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--netflix-red);
+        }
+
+        .config-header {
+            margin-bottom: 20px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--netflix-gray-light);
+        }
+
+        .config-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--netflix-white);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .config-header h2::before {
+            content: '⚙️';
+            font-size: 18px;
+        }
+
+        /* Form Elements */
+        .form-group {
+            margin-bottom: 18px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: var(--netflix-text);
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        textarea, input[type="text"] {
+            width: 100%;
+            padding: 10px 12px;
+            background: var(--netflix-gray);
+            border: 2px solid var(--netflix-gray-light);
+            border-radius: var(--border-radius);
+            color: var(--netflix-text);
+            font-size: 13px;
+            transition: var(--transition);
+        }
+
+        textarea:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--netflix-red);
+            background: var(--netflix-gray-light);
+            box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.2);
+        }
+
+        textarea {
+            min-height: 70px;
+            resize: vertical;
+            font-family: 'Monaco', 'Consolas', monospace;
+            line-height: 1.4;
+        }
+
+        /* Status Indicator */
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: var(--netflix-gray);
+            border-radius: var(--border-radius);
+            margin: 15px 0;
+            border-left: 3px solid var(--netflix-red);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--netflix-text-secondary);
+        }
+
+        .status-dot.active {
+            background: var(--success-green);
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 8px var(--success-green);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        /* Play Button - Netflix Style */
+        .play-btn {
+            background: linear-gradient(45deg, var(--netflix-red), var(--netflix-red-dark));
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            margin-top: 10px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .play-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(229, 9, 20, 0.4);
+            background: linear-gradient(45deg, #ff1a1a, var(--netflix-red));
+        }
+
+        .play-btn:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        .play-btn:disabled {
+            background: var(--netflix-gray);
+            color: var(--netflix-text-secondary);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .play-btn::before {
+            content: '▶';
+        }
+
+        /* Right Panel - Video Player */
+        .right-panel {
+            grid-row: 2;
+            grid-column: 2;
+            background: var(--netflix-dark);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            border: 1px solid var(--netflix-gray);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+        }
+
+        .video-container {
+            flex: 1;
+            background: #000;
+            border-radius: var(--border-radius);
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            border: 1px solid var(--netflix-gray-light);
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+            background: #000;
+        }
+
+        .video-placeholder {
+            position: absolute;
+            color: var(--netflix-text-secondary);
+            text-align: center;
+            padding: 30px;
+            z-index: 1;
+        }
+
+        .video-placeholder h3 {
+            font-size: 20px;
+            margin-bottom: 10px;
+            color: var(--netflix-white);
+        }
+
+        .video-placeholder p {
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        /* Video Info */
+        .video-info {
+            background: var(--netflix-gray);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            border: 1px solid var(--netflix-gray-light);
+        }
+
+        .video-info h3 {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--netflix-white);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .video-info h3::before {
+            content: '📈';
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .stat-item {
+            background: var(--netflix-dark);
+            border-radius: var(--border-radius);
+            padding: 10px;
+            border: 1px solid var(--netflix-gray-light);
+        }
+
+        .stat-label {
+            font-size: 11px;
+            color: var(--netflix-text-secondary);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--netflix-white);
+            font-family: 'Monaco', 'Consolas', monospace;
+        }
+
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--netflix-gray);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--netflix-gray-light);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--netflix-red);
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid var(--netflix-gray-light);
+            border-top-color: var(--netflix-red);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            display: none;
+            margin: 15px auto;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Log Entry Animation */
+        .log-entry {
+            margin-bottom: 6px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateX(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto auto;
+                height: auto;
+            }
+
+            .right-panel {
+                grid-row: 3;
+                grid-column: 1;
+                min-height: 500px;
+            }
+
+            .video-container {
+                min-height: 400px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                gap: 15px;
+            }
+
+            .header {
+                padding: 12px 15px;
+            }
+
+            .header h1 {
+                font-size: 14px;
+            }
+
+            .config-panel, .right-panel {
+                padding: 15px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .video-placeholder h3 {
+                font-size: 16px;
+            }
+        }
+
+        /* Key Highlight */
+        .key-highlight {
+            background: rgba(0, 224, 84, 0.1);
+            border-left: 3px solid var(--success-green);
+            padding: 8px 12px;
+            border-radius: var(--border-radius);
+            margin: 10px 0;
+            font-size: 12px;
+        }
+
+        /* Error Highlight */
+        .error-highlight {
+            background: rgba(255, 59, 48, 0.1);
+            border-left: 3px solid var(--danger-red);
+            padding: 8px 12px;
+            border-radius: var(--border-radius);
+            margin: 10px 0;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- Compact Header -->
+    <div class="header">
+        <div class="logo-container">
+            <div class="logo">N</div>
+            <h1>BBMovie <span class="logo-gradient">Secure</span> Stream</h1>
+        </div>
+        <div class="header-actions">
+            <div class="status-indicator" style="padding: 5px 10px; margin: 0;">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText" style="font-size: 12px;">Ready</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Left Panel: Logs on TOP, Configuration BELOW -->
+    <div class="left-panel">
+        <!-- Logs Panel - TOP -->
+        <div class="logs-panel">
+            <div class="logs-header">
+                <div class="logs-title">System Logs</div>
+                <div class="logs-controls">
+                    <button class="logs-btn" onclick="clearLogs()">
+                        <span>🧹</span> Clear
+                    </button>
+                    <button class="logs-btn" onclick="toggleAutoScroll()" id="autoScrollBtn">
+                        <span>📜</span> Auto
+                    </button>
+                </div>
+            </div>
+            <div id="logs"></div>
+        </div>
+
+        <!-- Configuration Panel - BOTTOM -->
+        <div class="config-panel">
+            <div class="config-header">
+                <h2>Stream Configuration</h2>
+            </div>
+
+            <div class="form-group">
+                <label for="jwt">
+                    <span>🔑</span> JWT Token
+                </label>
+                <textarea id="jwt" placeholder="Paste your JWT bearer token here..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="movieId">
+                    <span>🎬</span> Movie ID
+                </label>
+                <input type="text" id="movieId"
+                       placeholder="Enter upload ID (e.g., 671b5af6-0858-4ab7-9bce-19d7a5d4087c)">
+            </div>
+
+            <div class="status-indicator">
+                <div class="status-dot" id="configStatusDot"></div>
+                <span id="configStatusText" style="font-size: 12px;">Enter Movie ID and JWT to play</span>
+            </div>
+
+            <button class="play-btn" onclick="loadVideo()">
+                <span>▶</span> PLAY STREAM
+            </button>
+
+            <div class="spinner" id="loadingSpinner"></div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Video Player -->
+    <div class="right-panel">
+        <div class="video-container">
+            <div class="video-placeholder" id="videoPlaceholder">
+                <h3>Secure Video Stream</h3>
+                <p>Enter Movie ID and JWT Token to start encrypted streaming</p>
+                <p style="font-size: 11px; margin-top: 10px; color: var(--netflix-text-secondary);">
+                    🔐 AES-128 Encryption • 🔑 JWT Authentication • 📡 HLS Streaming
+                </p>
+            </div>
+            <video id="video" controls></video>
+        </div>
+
+        <div class="video-info">
+            <h3>Stream Statistics</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">Stream URL</div>
+                    <div class="stat-value" id="streamUrl">-</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">HLS Version</div>
+                    <div class="stat-value" id="hlsVersion">-</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Keys Loaded</div>
+                    <div class="stat-value" id="keysLoaded">0</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">Segments</div>
+                    <div class="stat-value" id="segmentsLoaded">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Configuration
+    let autoScrollEnabled = true;
+    let keysLoadedCount = 0;
+    let segmentsLoadedCount = 0;
+    let hls = null;
+
+    // DOM Elements
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const configStatusDot = document.getElementById('configStatusDot');
+    const configStatusText = document.getElementById('configStatusText');
+    const loadingSpinner = document.getElementById('loadingSpinner');
+    const streamUrlElement = document.getElementById('streamUrl');
+    const hlsVersionElement = document.getElementById('hlsVersion');
+    const keysLoadedElement = document.getElementById('keysLoaded');
+    const segmentsLoadedElement = document.getElementById('segmentsLoaded');
+    const videoPlaceholder = document.getElementById('videoPlaceholder');
+    const autoScrollBtn = document.getElementById('autoScrollBtn');
+
+    // Initialize
+    hlsVersionElement.textContent = Hls.version || 'Unknown';
+
+    // Helper Functions
+    function updateStatus(message, type = 'info') {
+        statusText.textContent = message;
+        configStatusText.textContent = message;
+
+        // Update both status dots
+        [statusDot, configStatusDot].forEach(dot => {
+            dot.className = 'status-dot';
+            if (type === 'loading') {
+                dot.classList.add('active');
+                loadingSpinner.style.display = 'block';
+            } else if (type === 'success') {
+                dot.style.background = '#00e054';
+                loadingSpinner.style.display = 'none';
+            } else if (type === 'error') {
+                dot.style.background = '#ff4757';
+                loadingSpinner.style.display = 'none';
+            } else {
+                loadingSpinner.style.display = 'none';
+            }
+        });
+    }
+
+    function log(msg, type = 'info') {
+        const el = document.getElementById('logs');
+        const timestamp = new Date().toLocaleTimeString();
+        const logEntry = document.createElement('div');
+        logEntry.className = 'log-entry';
+
+        let icon = '📝';
+        if (type === 'success') icon = '✅';
+        else if (type === 'error') icon = '❌';
+        else if (type === 'warning') icon = '⚠️';
+        else if (type === 'key') icon = '🔑';
+        else if (type === 'segment') icon = '📦';
+
+        logEntry.textContent = `[${timestamp}] ${icon} ${msg}`;
+
+        // Color code based on type
+        if (type === 'error') {
+            logEntry.style.color = '#ff6b6b';
+        } else if (type === 'success') {
+            logEntry.style.color = '#4ecdc4';
+        } else if (type === 'key') {
+            logEntry.style.color = '#ffe66d';
+        }
+
+        el.appendChild(logEntry);
+
+        if (autoScrollEnabled) {
+            el.scrollTop = el.scrollHeight;
+        }
+
+        console.log(`[${type.toUpperCase()}]`, msg);
+    }
+
+    function clearLogs() {
+        const el = document.getElementById('logs');
+        el.innerHTML = '';
+        keysLoadedCount = 0;
+        segmentsLoadedCount = 0;
+        updateCounters();
+        log("Logs cleared", 'info');
+    }
+
+    function toggleAutoScroll() {
+        autoScrollEnabled = !autoScrollEnabled;
+        autoScrollBtn.innerHTML = autoScrollEnabled ?
+            '<span>📜</span> Auto' : '<span>📜</span> Manual';
+        autoScrollBtn.style.background = autoScrollEnabled ?
+            'rgba(255, 255, 255, 0.1)' : 'rgba(229, 9, 20, 0.2)';
+    }
+
+    function updateCounters() {
+        keysLoadedElement.textContent = keysLoadedCount;
+        segmentsLoadedElement.textContent = segmentsLoadedCount;
+    }
+
+    // Main Function
+    async function loadVideo() {
+        const video = document.getElementById('video');
+        const movieId = document.getElementById('movieId').value.trim();
+        const jwt = document.getElementById('jwt').value.trim();
+
+        if (!movieId) {
+            log("Please enter a Movie ID", 'error');
+            updateStatus("Enter Movie ID", 'error');
+            return;
+        }
+
+        if (!jwt) {
+            log("Please enter a JWT token", 'error');
+            updateStatus("Enter JWT token", 'error');
+            return;
+        }
+
+        // Cleanup previous HLS instance
+        if (hls) {
+            hls.destroy();
+            hls = null;
+        }
+
+        // Reset counters
+        keysLoadedCount = 0;
+        segmentsLoadedCount = 0;
+        updateCounters();
+
+        // Show video and hide placeholder
+        video.style.display = 'block';
+        videoPlaceholder.style.display = 'none';
+
+        const streamUrl = `http://localhost:1205/api/stream/${movieId}/master.m3u8`;
+        streamUrlElement.textContent = streamUrl;
+
+        updateStatus('Initializing secure stream...', 'loading');
+        log(`Starting stream for Movie ID: ${movieId}`, 'info');
+        log(`Stream URL: ${streamUrl}`, 'info');
+
+        if (Hls.isSupported()) {
+            hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: true,
+                backBufferLength: 90,
+                xhrSetup: function(xhr, url) {
+                    console.log("Requesting:", url, xhr.headers);
+
+                    if (url.includes('/keys/') || url.includes(':1205')) {
+                        log(`Loading encryption key: ${url.split('/').pop()}`, 'key');
+                        xhr.setRequestHeader('Authorization', `Bearer ${jwt}`);
+                        keysLoadedCount++;
+                        updateCounters();
+                    }
+                    // 2. Nếu là gọi Segment (.ts) hoặc gọi sang MinIO (:9000)
+                    else if (url.includes('.ts') || url.includes(':9000')) {
+                        // TUYỆT ĐỐI KHÔNG GỬI HEADER AUTHORIZATION
+                        // Để nó request "trần" (anonymous) thì MinIO mới cho tải
+                        // xhr.headers.delete('Authorization');
+                        segmentsLoadedCount++;
+                        updateCounters();
+                    }
+                }
+            });
+
+            hls.loadSource(streamUrl);
+            hls.attachMedia(video);
+
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                updateStatus('Manifest parsed, starting playback...', 'success');
+                log('Manifest parsed successfully', 'success');
+                log(`Found ${hls.levels.length} quality levels`, 'info');
+                video.play().catch(e => {
+                    log(`Auto-play blocked: ${e.message}`, 'warning');
+                    updateStatus('Click play button to start', 'info');
+                });
+            });
+
+            hls.on(Hls.Events.LEVEL_LOADED, function(event, data) {
+                log(`Quality: ${data.level.width}x${data.level.height} @ ${(data.level.bitrate/1000000).toFixed(1)}Mbps`, 'info');
+            });
+
+            hls.on(Hls.Events.KEY_LOADED, function(event, data) {
+                log('Decryption key loaded successfully', 'success');
+            });
+
+            hls.on(Hls.Events.FRAG_LOADED, function(event, data) {
+                log(`Segment ${data.frag.sn} loaded (${(data.stats.loaded/1024).toFixed(0)}KB)`, 'segment');
+            });
+
+            hls.on(Hls.Events.ERROR, function(event, data) {
+                if (data.fatal) {
+                    log(`Fatal error: ${data.type} - ${data.details}`, 'error');
+                    updateStatus(`Error: ${data.details}`, 'error');
+
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            log('Retrying connection...', 'warning');
+                            hls.startLoad();
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            log('Recovering media error...', 'warning');
+                            hls.recoverMediaError();
+                            break;
+                        default:
+                            log('Cannot recover, destroying HLS instance', 'error');
+                            hls.destroy();
+                            break;
+                    }
+                } else {
+                    log(`Non-fatal error: ${data.details}`, 'warning');
+                }
+            });
+
+        } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (Safari)
+            updateStatus('Using native HLS (Safari)', 'info');
+            log('Using native HLS (Safari). Note: Key authentication may not work', 'warning');
+            video.src = streamUrl;
+            video.addEventListener('loadedmetadata', function() {
+                log('Native HLS loaded', 'success');
+                video.play();
+            });
+        } else {
+            updateStatus('HLS not supported in this browser', 'error');
+            log('HLS is not supported in this browser', 'error');
+        }
+    }
+
+    // Auto-load JWT on page load
+    async function loadJwt() {
+        try {
+            const res = await fetch('jwt-dev.txt');
+            if(res.ok) {
+                const token = (await res.text()).trim();
+                document.getElementById('jwt').value = token;
+                log("JWT token loaded from jwt-dev.txt", 'success');
+                updateStatus('JWT loaded, ready to play', 'success');
+            } else {
+                log("Could not load jwt-dev.txt", 'warning');
+            }
+        } catch(e) {
+            log("Error loading JWT: " + e, 'error');
+        }
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', function(e) {
+        // Ctrl/Cmd + L to clear logs
+        if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
+            e.preventDefault();
+            clearLogs();
+        }
+        // Enter to play video when movieId input is focused
+        if (e.key === 'Enter' && document.activeElement.id === 'movieId') {
+            loadVideo();
+        }
+        // Space to play/pause video
+        if (e.key === ' ' && !['TEXTAREA', 'INPUT'].includes(document.activeElement.tagName)) {
+            e.preventDefault();
+            const video = document.getElementById('video');
+            if (video.paused) video.play();
+            else video.pause();
+        }
+    });
+
+    // Initialize
+    loadJwt();
+    updateStatus('Ready to play', 'info');
+
+    // Auto-clear logs every 5 minutes
+    setInterval(() => {
+        if (document.getElementById('logs').childElementCount > 100) {
+            clearLogs();
+            log("Auto-cleared old logs", 'info');
+        }
+    }, 300000);
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changes/001-create-media-files.yaml
+  - include:
+      file: db/changelog/changes/002-add-duplicate-of-id.yaml
+  - include:
+      file: db/changelog/changes/003-add-sparse-checksum.yaml
+  - include:
+      file: db/changelog/changes/004-add-upload-purpose.yaml
+  - include:
+      file: db/changelog/changes/005-remove-media-type.yaml

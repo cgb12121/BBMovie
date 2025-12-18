@@ -38,7 +38,7 @@ pub async fn handle_batch_process(
         results.push(result_item);
     }
 
-    let status_code = if fail_count == 0 {
+    let status_code: StatusCode = if fail_count == 0 {
         // All success -> 200 OK
         StatusCode::OK
     } else if success_count == 0 {

@@ -1,0 +1,8 @@
+databaseChangeLog:
+  - changeSet:
+      id: 005-remove-media-type
+      author: bbmovie
+      changes:
+        - dropColumn:
+            tableName: media_files
+            columnName: media_type

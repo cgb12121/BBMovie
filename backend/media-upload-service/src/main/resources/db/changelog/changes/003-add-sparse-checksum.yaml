@@ -1,0 +1,11 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-add-sparse-checksum
+      author: bbmovie
+      changes:
+        - addColumn:
+            tableName: media_files
+            columns:
+              - column:
+                  name: sparse_checksum
+                  type: VARCHAR(255)
