@@ -28,7 +28,7 @@ public class ClamAVService {
     private String activeProfile;
 
     public boolean scanFile(Path filePath) {
-        if (!enabled) {
+        if (!enabled && isDevProfile()) {
             log.warn("ClamAV is disabled. Skipping scan for: {}", filePath);
             return true;
         }

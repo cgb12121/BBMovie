@@ -50,7 +50,7 @@ public class MediaEventConsumer {
     private final ImageProcessingService imageProcessingService;
     private final MetadataService metadataService;
 
-    // Use Virtual Threads for high concurrency I/O tasks
+    // Use Virtual Threads for high-concurrency I/O tasks
     private final ExecutorService workerExecutor = Executors.newVirtualThreadPerTaskExecutor();
 
     @PostConstruct
@@ -134,8 +134,10 @@ public class MediaEventConsumer {
                 Files.copy(stream, tempFile, StandardCopyOption.REPLACE_EXISTING);
             }
             
+            
             log.info("Downloaded file to {}, size: {} bytes", tempFile, Files.size(tempFile));
 
+            log.info("Starting validation...");
             tikaValidationService.validate(tempFile, purpose);
             boolean isClean = clamAVService.scanFile(tempFile);
             if (!isClean) {
@@ -144,18 +146,20 @@ public class MediaEventConsumer {
                 return;
             }
 
+            log.info("Validation passed. Processing file...");
             processFile(tempFile, purpose, tempDir, uploadId);
             
             publishStatus(uploadId, "READY", null);
             log.info("Successfully processed for uploadId: {}", uploadId);
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("Error processing record for uploadId: {}", uploadId, e);
             if (uploadId != null) {
                 publishStatus(uploadId, "FAILED", e.getMessage());
             }
         } finally {
             // Robust cleanup
+
             if (tempDir != null) {
                 try {
                     FileUtils.deleteDirectory(tempDir.toFile());
@@ -172,12 +176,17 @@ public class MediaEventConsumer {
         
         if (purpose == UploadPurpose.MOVIE_SOURCE || purpose == UploadPurpose.MOVIE_TRAILER) {
              var metadata = metadataService.getMetadata(input);
+             log.info("Metadata retrieved: {}", metadata);
+             
              var resolutions = videoTranscoderService.determineTargetResolutions(metadata);
+             log.info("Target resolutions: {}", resolutions);
              
              Path hlsOutputDir = tempDir.resolve("hls");
              Files.createDirectories(hlsOutputDir);
              
-             videoTranscoderService.transcode(input, resolutions, hlsOutputDir.toString());
+             log.info("Starting transcoding to: {}", hlsOutputDir);
+             videoTranscoderService.transcode(input, resolutions, hlsOutputDir.toString(), uploadId);
+             log.info("Transcoding finished. Uploading...");
              
              uploadDirectory(hlsOutputDir, "bbmovie-hls", "movies/" + uploadId);
              
@@ -196,38 +205,65 @@ public class MediaEventConsumer {
         }
     }
 
+    private String getContentType(Path path) {
+        try {
+            String contentType = Files.probeContentType(path);
+            if (contentType != null) {
+                return contentType;
+            }
+        } catch (Exception ignored) {
+            // Ignore failure, fall back to extension
+        }
+
+        String filename = path.getFileName().toString().toLowerCase();
+        if (filename.endsWith(".m3u8")) return "application/vnd.apple.mpegurl";
+        if (filename.endsWith(".ts")) return "video/MP2T";
+        if (filename.endsWith(".key")) return "application/octet-stream";
+        if (filename.endsWith(".mp4")) return "video/mp4";
+        if (filename.endsWith(".jpg") || filename.endsWith(".jpeg")) return "image/jpeg";
+        if (filename.endsWith(".png")) return "image/png";
+        
+        return "application/octet-stream";
+    }
+
     private void uploadDirectory(Path dir, String bucket, String prefix) throws Exception {
         if (!minioClient.bucketExists(io.minio.BucketExistsArgs.builder().bucket(bucket).build())) {
             minioClient.makeBucket(io.minio.MakeBucketArgs.builder().bucket(bucket).build());
         }
 
+        // Ensure secure bucket exists for keys
+        String secureBucket = "bbmovie-secure";
+        if (!minioClient.bucketExists(io.minio.BucketExistsArgs.builder().bucket(secureBucket).build())) {
+            minioClient.makeBucket(io.minio.MakeBucketArgs.builder().bucket(secureBucket).build());
+        }
+
         try (var stream = Files.walk(dir)) {
             stream.filter(Files::isRegularFile)
-                  .forEach(path -> {
-                      try {
-                          String relativePath = dir.relativize(path).toString().replace("\\", "/");
-                          String objectName = prefix + "/" + relativePath;
-                          
-                          minioClient.putObject(
-                                  io.minio.PutObjectArgs.builder()
-                                          .bucket(bucket)
-                                          .object(objectName)
-                                          .stream(Files.newInputStream(path), Files.size(path), -1)
-                                          .contentType(probeContentType(path))
-                                          .build());
-                          log.info("Uploaded: {}/{}", bucket, objectName);
-                      } catch (Exception e) {
-                          throw new RuntimeException("Failed to upload file " + path, e);
-                      }
-                  });
-        }
-    }
+                    // QUAN TRỌNG: Loại bỏ file pattern và file tạm
+                    .filter(path -> !path.getFileName().toString().contains("%"))
+                    .filter(path -> !path.getFileName().toString().endsWith(".txt")) // Loại bỏ keyinfo.txt
+                    .forEach(path -> {
+                        try {
+                            String relativePath = dir.relativize(path).toString().replace("\\", "/");
+                            String objectName = prefix + "/" + relativePath;
 
-    private String probeContentType(Path path) {
-        try {
-            return Files.probeContentType(path);
-        } catch (Exception e) {
-            return "application/octet-stream";
+                            String targetBucket = bucket;
+                            if (path.toString().endsWith(".key")) {
+                                targetBucket = secureBucket;
+                            }
+
+                            minioClient.putObject(
+                                    io.minio.PutObjectArgs.builder()
+                                            .bucket(targetBucket)
+                                            .object(objectName)
+                                            .stream(Files.newInputStream(path), Files.size(path), -1)
+                                            .contentType(getContentType(path))
+                                            .build());
+                            log.info("Uploaded: {}/{}", targetBucket, objectName);
+                        } catch (Exception e) {
+                            throw new RuntimeException("Failed to upload file " + path, e);
+                        }
+                    });
         }
     }
 
