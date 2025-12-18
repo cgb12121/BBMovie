@@ -267,44 +267,6 @@ public class MediaEventConsumer {
         }
     }
 
-//    private void uploadDirectory(Path dir, String bucket, String prefix) throws Exception {
-//        if (!minioClient.bucketExists(io.minio.BucketExistsArgs.builder().bucket(bucket).build())) {
-//            minioClient.makeBucket(io.minio.MakeBucketArgs.builder().bucket(bucket).build());
-//        }
-//
-//        // Ensure secure bucket exists for keys
-//        String secureBucket = "bbmovie-secure";
-//        if (!minioClient.bucketExists(io.minio.BucketExistsArgs.builder().bucket(secureBucket).build())) {
-//            minioClient.makeBucket(io.minio.MakeBucketArgs.builder().bucket(secureBucket).build());
-//        }
-//
-//        try (var stream = Files.walk(dir)) {
-//            stream.filter(Files::isRegularFile)
-//                  .forEach(path -> {
-//                      try {
-//                          String relativePath = dir.relativize(path).toString().replace("\\", "/");
-//                          String objectName = prefix + "/" + relativePath;
-//
-//                          String targetBucket = bucket;
-//                          if (path.toString().endsWith(".key")) {
-//                              targetBucket = secureBucket;
-//                          }
-//
-//                          minioClient.putObject(
-//                                  io.minio.PutObjectArgs.builder()
-//                                          .bucket(targetBucket)
-//                                          .object(objectName)
-//                                          .stream(Files.newInputStream(path), Files.size(path), -1)
-//                                          .contentType(getContentType(path))
-//                                          .build());
-//                          log.info("Uploaded: {}/{}", targetBucket, objectName);
-//                      } catch (Exception e) {
-//                          throw new RuntimeException("Failed to upload file " + path, e);
-//                      }
-//                  });
-//        }
-//    }
-
     private void publishStatus(String uploadId, String status, String reason) {
         try {
             MediaStatusUpdateEvent event = MediaStatusUpdateEvent.builder()

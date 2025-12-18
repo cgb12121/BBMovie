@@ -150,6 +150,7 @@ public class MediaManagementService {
                         try {
                             return new DeleteObject(itemResult.get().objectName());
                         } catch (Exception e) {
+                            log.warn("Failed to get object details for deletion, skipping.", e);
                             return null;
                         }
                     })

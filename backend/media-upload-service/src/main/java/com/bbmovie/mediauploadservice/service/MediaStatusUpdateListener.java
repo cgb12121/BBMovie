@@ -110,7 +110,7 @@ public class MediaStatusUpdateListener {
                 log.warn("MediaFile not found for uploadId: {}", event.getUploadId());
             }
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
             log.error("Error processing NATS message", e);
         }
     }

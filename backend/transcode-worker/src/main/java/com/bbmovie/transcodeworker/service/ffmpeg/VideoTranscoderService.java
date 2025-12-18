@@ -121,7 +121,8 @@ public class VideoTranscoderService {
         String segmentFilename = resolutionDir.resolve("seg_%03d.ts").toString();
 
         // Calculate estimated number of segments
-        int estimatedSegments = (int) Math.ceil(meta.duration() / 10.0); // each segment is 10 seconds
+        // Ensure at least 1 segment even for zero-duration or extremely short videos
+        int estimatedSegments = Math.max(1, (int) Math.ceil(meta.duration() / 10.0)); // each segment is 10 seconds
         log.debug("[{}] Estimated segments: {}", res.name(), estimatedSegments);
 
         // 1. Create actual key files for each segment or every N segment (key rotation)

@@ -53,7 +53,7 @@ public class StorageJanitorService {
                 mediaFileRepository.save(file);
 
                 log.info("Cleaned up orphan file: {}", file.getId());
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 log.error("Failed to clean file {}", file.getId(), e);
             }
         }
