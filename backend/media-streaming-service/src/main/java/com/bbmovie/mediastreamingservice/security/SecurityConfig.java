@@ -1,4 +1,4 @@
-package com.bbmovie.mediastreamingservice.config;
+package com.bbmovie.mediastreamingservice.security;
 
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.jwk.JWKSet;
@@ -65,7 +65,7 @@ public class SecurityConfig {
                         
                         // Protected endpoints (Keys)
                         .requestMatchers("/api/stream/keys/**").authenticated()
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt

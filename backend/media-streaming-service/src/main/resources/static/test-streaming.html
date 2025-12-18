@@ -811,13 +811,19 @@
                 lowLatencyMode: true,
                 backBufferLength: 90,
                 xhrSetup: function(xhr, url) {
-                    // Add Authorization header for key requests
-                    if (url.includes('/keys/')) {
+                    console.log("Requesting:", url, xhr.headers);
+
+                    if (url.includes('/keys/') || url.includes(':1205')) {
                         log(`Loading encryption key: ${url.split('/').pop()}`, 'key');
                         xhr.setRequestHeader('Authorization', `Bearer ${jwt}`);
                         keysLoadedCount++;
                         updateCounters();
-                    } else if (url.includes('.ts')) {
+                    }
+                    // 2. Nếu là gọi Segment (.ts) hoặc gọi sang MinIO (:9000)
+                    else if (url.includes('.ts') || url.includes(':9000')) {
+                        // TUYỆT ĐỐI KHÔNG GỬI HEADER AUTHORIZATION
+                        // Để nó request "trần" (anonymous) thì MinIO mới cho tải
+                        // xhr.headers.delete('Authorization');
                         segmentsLoadedCount++;
                         updateCounters();
                     }
