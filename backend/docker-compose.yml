@@ -50,6 +50,10 @@ services:
       mc mb myminio/bbmovie-secure || true;
       mc mb myminio/bbmovie-public || true;
       
+      # Allow everyone to download the file
+      mc anonymous set download myminio/bbmovie-hls
+      mc anonymous set download myminio/bbmovie-public
+      
        # Register events
       mc event add myminio/bbmovie-raw arn:minio:sqs::_:nats --event put
       

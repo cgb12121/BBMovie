@@ -30,8 +30,9 @@ import static com.bbmovie.transcodeworker.util.Converter.hexStringToByteArray;
 @RequiredArgsConstructor
 public class VideoTranscoderService {
 
+    // Eg: http://localhost:xxxx/api/stream
     @Value("${app.transcode.key-server-url}")
-    private String keyServerUrl;
+    private String streamApiBaseUrl;
 
     @Value("${app.transcode.key-rotation-interval:10}")
     private int keyRotationInterval; // number of segments before rotating the key
@@ -224,7 +225,8 @@ public class VideoTranscoderService {
         StringBuilder content = new StringBuilder();
 
         // PUBLIC URL pattern for key files
-        String publicKeyBaseUrl = String.format("%s/%s/%s/", keyServerUrl, uploadId, resolution);
+        // streamApiBaseUrl = http://localhost:1205/api/stream
+        String publicKeyBaseUrl = String.format("%s/keys/%s/%s/", streamApiBaseUrl, uploadId, resolution);
 
         for (KeyInfo keyInfo : keyInfos) {
             // Format for each entry:
@@ -249,8 +251,8 @@ public class VideoTranscoderService {
             String content = Files.readString(playlistPath);
 
             // PUBLIC segment URL pattern
-            String publicSegmentBaseUrl = String.format("%s/segments/%s/%s/", keyServerUrl, uploadId, resolution);
-
+            // We want http://.../api/stream/segments
+            String publicSegmentBaseUrl = String.format("%s/segments/%s/%s/", streamApiBaseUrl, uploadId, resolution);
             // DEBUG: Log playlist content before update
             log.debug("[{}] Playlist before update (first 500 chars): {}",
                     resolution, content.substring(0, Math.min(500, content.length())));
@@ -287,6 +289,9 @@ public class VideoTranscoderService {
     }
 
     private void logGeneratedFiles(Path resolutionDir) {
+        if (!log.isTraceEnabled()) {
+            return;
+        }
         try {
             try (Stream<Path> stream = Files.list(resolutionDir)) {
                 List<Path> files = stream.toList();
