@@ -1,5 +1,6 @@
 package com.bbmovie.mediastreamingservice.service;
 
+import com.bbmovie.mediastreamingservice.exception.InaccessibleFileException;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +10,7 @@ import org.springframework.core.io.InputStreamResource;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
+import java.util.UUID;
 
 @Slf4j
 @Service
@@ -23,11 +25,18 @@ public class StreamingService {
     @Value("${minio.bucket.secure}")
     private String secureBucket;
 
-    public InputStreamResource getHlsFile(String objectKey) {
+    public InputStreamResource getHlsFile(UUID movieId, String resolution) {
+        String objectKey = "movies/" + movieId + "/" + resolution + "/playlist.m3u8";
         return getFile(hlsBucket, objectKey);
     }
 
-    public InputStreamResource getSecureKey(String objectKey) {
+    public InputStreamResource getMasterPlaylist(UUID movieId) {
+        String objectKey = "movies/" + movieId.toString() + "/master.m3u8";
+        return getFile(hlsBucket, objectKey);
+    }
+
+    public InputStreamResource getSecureKey(UUID movieId, String resolution, String keyFile) {
+        String objectKey = "movies/" + movieId + "/" + resolution + "/" + keyFile;
         return getFile(secureBucket, objectKey);
     }
 
@@ -41,7 +50,7 @@ public class StreamingService {
             return new InputStreamResource(stream);
         } catch (Exception e) {
             log.error("Failed to fetch file {} from bucket {}", objectKey, bucket, e);
-            throw new RuntimeException("File not found or inaccessible: " + objectKey);
+            throw new InaccessibleFileException("File not found or inaccessible: " + objectKey);
         }
     }
 }
