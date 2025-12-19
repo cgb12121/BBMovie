@@ -460,17 +460,22 @@ public class VideoTranscoderService {
     }
 
     /**
-     * Estimates the required bandwidth for a given video resolution.
-     * This method provides rough bandwidth estimates based on common streaming standards.
+     * Estimates the required bandwidth for a given video resolution based on common streaming standards.
+     * This method provides appropriate bandwidth estimates for various resolutions from 144p to 4K and beyond.
      *
      * @param res the video resolution to estimate bandwidth for
      * @return the estimated bandwidth in bits per second
      */
     private long getEstimatedBandwidth(VideoResolution res) {
-        if (res.height() >= 1080) return 6000000;
-        if (res.height() >= 720) return 3000000;
-        if (res.height() >= 480) return 1500000;
-        return 800000;
+        if (res.height() >= 4320) return 35000000; // 8K: 35 Mbps
+        if (res.height() >= 2160) return 15000000; // 4K: 15 Mbps
+        if (res.height() >= 1440) return 10000000; // 1440p: 10 Mbps
+        if (res.height() >= 1080) return 6000000;  // 1080p: 6 Mbps
+        if (res.height() >= 720) return 3000000;   // 720p: 3 Mbps
+        if (res.height() >= 480) return 1500000;   // 480p: 1.5 Mbps
+        if (res.height() >= 360) return 800000;    // 360p: 800 Kbps
+        if (res.height() >= 240) return 450000;    // 240p: 450 Kbps
+        return 256000;                             // 144p and below: 256 Kbps
     }
 
     /**
