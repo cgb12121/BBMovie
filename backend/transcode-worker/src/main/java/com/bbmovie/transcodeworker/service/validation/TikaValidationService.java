@@ -10,13 +10,27 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Path;
 
+/**
+ * Service class for validating file content types using Apache Tika.
+ * Determines the actual content type of uploaded files and checks it against allowed types for the upload purpose.
+ */
 @Log4j2
 @Service
 @RequiredArgsConstructor
 public class TikaValidationService {
 
+    /** Apache Tika instance used for content type detection */
     private final Tika tika;
 
+    /**
+     * Validates the content type of a file against the allowed types for the specified upload purpose.
+     * This method detects the actual content type of the file (not relying on extension) and ensures
+     * it matches the allowed MIME types for the given purpose.
+     *
+     * @param path the path to the file to validate
+     * @param purpose the upload purpose that determines which content types are allowed
+     * @throws UnsupportedExtension if the detected content type is not allowed for the specified purpose
+     */
     public void validate(Path path, UploadPurpose purpose) {
         try {
             String detectedContentType = tika.detect(path.toFile());

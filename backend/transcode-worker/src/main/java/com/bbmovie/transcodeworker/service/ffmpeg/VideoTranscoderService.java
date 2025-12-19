@@ -25,33 +25,66 @@ import java.util.stream.Stream;
 
 import static com.bbmovie.transcodeworker.util.Converter.hexStringToByteArray;
 
+/**
+ * Service class responsible for video transcoding operations.
+ * This service handles the conversion of video files into multiple resolutions (HLS format) with encryption.
+ * It generates multiple quality versions of the original video, creates encrypted HLS segments,
+ * and manages encryption key rotation for secure streaming.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class VideoTranscoderService {
 
+    /** Base URL for the stream API where keys will be served */
     // Eg: http://localhost:xxxx/api/stream
     @Value("${app.transcode.key-server-url}")
     private String streamApiBaseUrl;
 
+    /** Base URL for public HLS content in MinIO storage */
     @Value("${app.minio.public-hls-url}")
     private String minioPublicUrl;
 
+    /** Number of segments before rotating encryption keys */
     @Value("${app.transcode.key-rotation-interval:10}")
     private int keyRotationInterval; // number of segments before rotating the key
 
+    /** FFmpeg instance used for video transcoding operations */
     private final FFmpeg ffmpeg;
+    /** Metadata service used to extract video metadata */
     private final MetadataService metadataService;
+    /** Encryption service used for generating encryption keys and IVs */
     private final EncryptionService encryptionService;
 
+    /**
+     * Record class that represents a video resolution configuration for transcoding.
+     *
+     * @param width the target width of the resolution
+     * @param height the target height of the resolution
+     * @param filename the name used for the output resolution (e.g., "720p", "1080p")
+     */
     public record VideoResolution(int width, int height, String filename) {
+        /**
+         * Returns the name of the resolution which is the same as the filename.
+         *
+         * @return the resolution name (e.g., "720p", "1080p")
+         */
         public String name() {
             return filename; // e.g., "720p", "1080p"
         }
     }
 
+    /**
+     * Record class that defines parameters for video resolution presets.
+     *
+     * @param minWidth the minimum input width required to use this resolution
+     * @param targetWidth the target width for the output video
+     * @param targetHeight the target height for the output video
+     * @param suffix the suffix used to identify the resolution (e.g., "1080p")
+     */
     public record ResolutionDefinition(int minWidth, int targetWidth, int targetHeight, String suffix) { }
 
+    /** Predefined list of resolution definitions that determine which resolutions to generate based on input video size */
     public static final List<ResolutionDefinition> PREDEFINED_RESOLUTIONS = List.of(
             new ResolutionDefinition(1920, 1920, 1080, "1080p"),
             new ResolutionDefinition(1280, 1280, 720, "720p"),
@@ -61,6 +94,14 @@ public class VideoTranscoderService {
             new ResolutionDefinition(256, 256, 144, "144p")
     );
 
+    /**
+     * Determines the target resolutions to generate based on the metadata of the input video.
+     * This method selects appropriate resolutions from the predefined list based on the input video's width,
+     * or defaults to the original resolution if no suitable presets are found.
+     *
+     * @param meta the metadata of the input video
+     * @return a list of VideoResolution objects representing the target resolutions to generate
+     */
     public List<VideoResolution> determineTargetResolutions(FFmpegVideoMetadata meta) {
         List<VideoResolution> targets = new ArrayList<>();
         for (ResolutionDefinition def : PREDEFINED_RESOLUTIONS) {
@@ -74,6 +115,16 @@ public class VideoTranscoderService {
         return targets;
     }
 
+    /**
+     * Performs the complete video transcoding process for multiple resolutions.
+     * This method generates encrypted HLS segments for each target resolution with custom key rotation.
+     * It creates the master playlist and manages the entire transcoding workflow.
+     *
+     * @param input the path to the input video file
+     * @param videoResolutions the list of resolutions to generate
+     * @param outputDir the directory where transcoded files should be stored
+     * @param uploadId the unique identifier for the upload operation
+     */
     public void transcode(Path input, List<VideoResolution> videoResolutions, String outputDir, String uploadId) {
         FFmpegVideoMetadata meta = metadataService.getMetadata(input);
 
@@ -107,6 +158,21 @@ public class VideoTranscoderService {
         createMasterPlaylist(videoResolutions, outputDirPath);
     }
 
+    /**
+     * Executes the HLS transcode job for a specific video resolution.
+     * This method creates the necessary directory structure, calculates encryption keys,
+     * runs FFmpeg to transcode the video into HLS format, and updates the playlist URLs.
+     *
+     * @param executor the FFmpegExecutor to run the transcoding job
+     * @param input the input video file path
+     * @param res the target resolution to transcode to
+     * @param outputDir the base output directory
+     * @param meta the metadata of the input video
+     * @param uploadId the unique identifier for the upload operation
+     * @param masterKey the master encryption key
+     * @param masterIV the master initialization vector
+     * @throws IOException if there's an issue during the transcoding process
+     */
     private void executeHlsTranscodeJob(
             FFmpegExecutor executor, Path input, VideoResolution res, Path outputDir,
             FFmpegVideoMetadata meta, String uploadId, String masterKey, String masterIV) throws IOException {
@@ -187,7 +253,16 @@ public class VideoTranscoderService {
     }
 
     /**
-     * Create actual key files and return the list of key info
+     * Generates encryption key files for HLS segment encryption with rotation.
+     * This method creates individual key files for groups of segments based on the key rotation interval.
+     * Each key is derived from the master key using segment-specific derivation.
+     *
+     * @param resolutionDir the directory where key files should be created
+     * @param masterKey the master encryption key used for key derivation
+     * @param masterIV the master initialization vector used for IV derivation
+     * @param estimatedSegments the estimated number of segments for the video
+     * @return a list of KeyInfo objects containing information about the generated keys
+     * @throws IOException if there's an issue creating the key files
      */
     private List<KeyInfo> generateKeyFiles(Path resolutionDir, String masterKey, String masterIV, int estimatedSegments) throws IOException {
         List<KeyInfo> keyInfos = new ArrayList<>();
@@ -223,8 +298,15 @@ public class VideoTranscoderService {
     }
 
     /**
-     * Create a key info file for FFmpeg
+     * Creates a key info file for FFmpeg to use during HLS encryption.
+     * The file contains the public URL, local path, and IV for each encryption key.
      * Format per entry: key_URI\nlocal_key_file_path\nIV_value
+     *
+     * @param keyInfoPath the path where the key info file should be created
+     * @param keyInfos the list of key information objects
+     * @param uploadId the unique identifier for the upload operation
+     * @param resolution the resolution name for this HLS stream
+     * @throws IOException if there's an issue writing the key info file
      */
     private void createKeyInfoFile(Path keyInfoPath, List<KeyInfo> keyInfos, String uploadId, String resolution) throws IOException {
         StringBuilder content = new StringBuilder();
@@ -248,8 +330,14 @@ public class VideoTranscoderService {
     }
 
     /**
-     * Update URLs in the playlist (FFmpeg replaces key URIs when using a key info file)
-     * But still ensure the segment URLs are correct
+     * Updates URLs in the playlist file to point to the correct public locations.
+     * FFmpeg replaces key URIs when using a key info file, but this method ensures
+     * the segment URLs are updated to point to the public MinIO location.
+     *
+     * @param playlistPath the path to the playlist file to update
+     * @param uploadId the unique identifier for the upload operation
+     * @param resolution the resolution name for this HLS stream
+     * @param keyInfos the list of key information objects
      */
     private void updatePlaylistUrls(Path playlistPath, String uploadId, String resolution, List<KeyInfo> keyInfos) {
         try {
@@ -282,6 +370,13 @@ public class VideoTranscoderService {
         }
     }
 
+    /**
+     * Counts the number of key URLs in the playlist content.
+     * This method parses the playlist to identify lines that contain key information.
+     *
+     * @param content the playlist content as a string
+     * @return the number of key URLs found in the content
+     */
     private int countKeyUrls(String content) {
         int count = 0;
         String[] lines = content.split("\n");
@@ -293,6 +388,12 @@ public class VideoTranscoderService {
         return count;
     }
 
+    /**
+     * Logs information about the generated files for a specific resolution.
+     * This method provides detailed information about the types and sizes of files generated during transcoding.
+     *
+     * @param resolutionDir the directory containing the generated files for a specific resolution
+     */
     private void logGeneratedFiles(Path resolutionDir) {
         if (!log.isTraceEnabled()) {
             return;
@@ -329,6 +430,13 @@ public class VideoTranscoderService {
         }
     }
 
+    /**
+     * Creates a master playlist file that references all the generated resolution playlists.
+     * This HLS master playlist allows clients to select from multiple quality streams.
+     *
+     * @param resolutions the list of resolutions that have been generated
+     * @param outputDir the output directory where the master playlist should be created
+     */
     public void createMasterPlaylist(List<VideoResolution> resolutions, Path outputDir) {
         Path masterPath = outputDir.resolve("master.m3u8");
 
@@ -351,6 +459,13 @@ public class VideoTranscoderService {
         }
     }
 
+    /**
+     * Estimates the required bandwidth for a given video resolution.
+     * This method provides rough bandwidth estimates based on common streaming standards.
+     *
+     * @param res the video resolution to estimate bandwidth for
+     * @return the estimated bandwidth in bits per second
+     */
     private long getEstimatedBandwidth(VideoResolution res) {
         if (res.height() >= 1080) return 6000000;
         if (res.height() >= 720) return 3000000;
@@ -359,7 +474,13 @@ public class VideoTranscoderService {
     }
 
     /**
-     * Record to store key information
+     * Record to store encryption key information for HLS segment encryption.
+     *
+     * @param index the sequential index of the key
+     * @param filename the name of the key file
+     * @param localPath the local path to the key file
+     * @param keyValue the hexadecimal value of the encryption key
+     * @param iv the initialization vector for encryption
      */
     private record KeyInfo(int index, String filename, Path localPath, String keyValue, String iv) {}
 }

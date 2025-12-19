@@ -14,14 +14,22 @@ import java.util.Arrays;
 import static com.bbmovie.transcodeworker.util.Converter.bytesToHex;
 import static com.bbmovie.transcodeworker.util.Converter.hexStringToByteArray;
 
+/**
+ * Service class responsible for encryption-related operations in the video transcoding workflow.
+ * Provides methods for generating encryption keys, calculating checksums, and performing cryptographic operations.
+ */
 @Slf4j
 @Service
 public class EncryptionService {
 
+    /** Instance of SecureRandom for generating cryptographically secure random numbers */
     private final SecureRandom secureRandom = new SecureRandom();
 
     /**
-     * Generate a random hex string
+     * Generate a random hex string of the specified byte length.
+     *
+     * @param byteLength the length of the random bytes to generate
+     * @return a hexadecimal string representation of the random bytes
      */
     public String generateRandomHex(int byteLength) {
         byte[] bytes = new byte[byteLength];
@@ -30,7 +38,13 @@ public class EncryptionService {
     }
 
     /**
-     * Generate unique key for a segment based on master key and segment index
+     * Generate a unique encryption key for a specific segment based on the master key and segment index.
+     * This method derives a unique key for each segment to enhance security by ensuring each segment
+     * uses a different key even if the same master key is used.
+     *
+     * @param masterKey the master encryption key in hexadecimal format
+     * @param segmentIndex the index of the segment for which to generate the key
+     * @return a hexadecimal string representation of the derived encryption key for the segment
      */
     public String generateKeyForSegment(String masterKey, int segmentIndex) {
         try {
@@ -53,7 +67,13 @@ public class EncryptionService {
     }
 
     /**
-     * Generate unique IV for segment
+     * Generate a unique initialization vector (IV) for a specific segment based on a master IV and segment index.
+     * This method creates a unique IV for each segment to enhance security by ensuring each segment
+     * uses a different IV even if the same master IV is used.
+     *
+     * @param masterIV the master initialization vector in hexadecimal format
+     * @param segmentIndex the index of the segment for which to generate the IV
+     * @return a hexadecimal string representation of the derived IV for the segment
      */
     public String generateIVForSegment(String masterIV, int segmentIndex) {
         try {

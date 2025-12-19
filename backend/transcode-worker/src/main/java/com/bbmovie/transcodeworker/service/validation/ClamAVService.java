@@ -14,19 +14,34 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Service class for malware scanning using ClamAV.
+ * Provides file scanning capabilities to detect malware in uploaded files before processing.
+ */
 @Log4j2
 @Service
 @RequiredArgsConstructor
 public class ClamAVService {
 
+    /** ClamAV client instance for performing malware scans */
     private final ClamavClient clamAVClient;
 
+    /** Flag to enable or disable ClamAV scanning */
     @Value("${app.clamav.enabled:true}")
     private boolean enabled;
 
+    /** Current active Spring profile */
     @Value("${spring.profiles.active:default}")
     private String activeProfile;
 
+    /**
+     * Scans a file for malware using ClamAV.
+     * This method performs a malware scan on the specified file and returns whether it's clean.
+     * In development profiles, scanning can be bypassed if disabled for testing purposes.
+     *
+     * @param filePath the path to the file to scan
+     * @return true if the file is clean (no malware detected), false otherwise
+     */
     public boolean scanFile(Path filePath) {
         if (!enabled && isDevProfile()) {
             log.warn("ClamAV is disabled. Skipping scan for: {}", filePath);
@@ -58,6 +73,13 @@ public class ClamAVService {
         }
     }
 
+    /**
+     * Checks if the current active profile is a development profile.
+     * This method determines if the application is running in a development environment
+     * where certain security checks might be relaxed for testing purposes.
+     *
+     * @return true if the active profile is considered a development profile, false otherwise
+     */
     private boolean isDevProfile() {
         return Set.of("dev", "default", "local", "docker").contains(activeProfile.toLowerCase());
     }
