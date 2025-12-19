@@ -1,4 +1,7 @@
 spring:
+  autoconfigure:
+    exclude:
+      - org.springframework.cloud.gateway.config.GatewayRedisAutoConfiguration
   application:
     name: gateway
   cloud:
@@ -135,7 +138,7 @@ spring:
           globalcors:
             cors-configurations:
               '[/**]':
-                  allowedOrigins: "http://localhost:3000"
+                  allowedOrigins: "http://localhost:5173"
                   allowedMethods: "*"
                   allowedHeaders: "*"
                   allowCredentials: true
@@ -171,8 +174,6 @@ ip:
 
 logging:
   level:
-    org.springframework.cloud.gateway.filter.ratelimit: DEBUG
-    org.springframework.cloud.gateway.filter.ratelimit.RedisRateLimiter: DEBUG
     Bucket4j: DEBUG
 
 

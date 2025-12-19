@@ -75,7 +75,7 @@ class FileService {
       });
 
       // Open and send request
-      xhr.open('POST', `${this.baseUrl}/api/file/upload/v1`);
+      xhr.open('POST', `${this.baseUrl}/api/v1/files/upload`);
       xhr.withCredentials = true;
       const token = localStorage.getItem('accessToken');
       if (token) {
@@ -155,7 +155,7 @@ class FileService {
       });
 
       // Open and send request
-      xhr.open('POST', `${this.baseUrl}/api/file/upload/v2`);
+      xhr.open('POST', `${this.baseUrl}/api/v1/files/upload/stream`);
       xhr.withCredentials = true;
       const token = localStorage.getItem('accessToken');
       if (token) {
@@ -177,7 +177,7 @@ class FileService {
     formData.append('file', file);
     formData.append('metadata', JSON.stringify(metadata));
 
-    const response = await fetch(`${this.baseUrl}/api/file/upload/v1`, {
+    const response = await fetch(`${this.baseUrl}/api/v1/files/upload`, {
       method: 'POST',
       body: formData,
       credentials: 'include'
@@ -203,7 +203,7 @@ class FileService {
     formData.append('file', file);
     formData.append('metadata', JSON.stringify(metadata));
 
-    const response = await fetch(`${this.baseUrl}/api/file/upload/test`, {
+    const response = await fetch(`${this.baseUrl}/api/v1/files/upload/test`, {
       method: 'POST',
       body: formData,
       credentials: 'include'

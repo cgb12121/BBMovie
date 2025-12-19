@@ -6,6 +6,7 @@ import com.bbmovie.auth.entity.enumerate.AuthProvider;
 import com.bbmovie.auth.entity.enumerate.Role;
 import com.bbmovie.auth.exception.*;
 import com.bbmovie.auth.repository.UserRepository;
+import com.bbmovie.auth.security.SecurityConfig;
 import com.bbmovie.auth.service.auth.verify.magiclink.EmailVerifyTokenService;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.nats.EmailEventProducer;
@@ -21,7 +22,6 @@ import java.util.List;
 import static com.bbmovie.auth.constant.AuthErrorMessages.EMAIL_ALREADY_EXISTS;
 import static com.bbmovie.auth.constant.UserErrorMessages.USER_NOT_FOUND_BY_EMAIL;
 import static com.bbmovie.auth.security.SecurityConfig.ACTIVE_ENCODER;
-import static com.bbmovie.auth.security.SecurityConfig.getActiveEncoderPrefixes;
 
 @Log4j2
 @Service
@@ -217,10 +217,16 @@ public class RegistrationServiceImpl implements RegistrationService {
     }
 
     private String encodeWithRandomAlgorithm(String rawPassword) {
-        List<String> algos = getActiveEncoderPrefixes();
-        String chosen = algos.get(new SecureRandom().nextInt(algos.size()));
-        PasswordEncoder encoder = ACTIVE_ENCODER.get(chosen);
+        List<String> algos = SecurityConfig.getActiveEncodersName();
+        
+        String chosenId = algos.get(new SecureRandom().nextInt(algos.size()));
+        
+        PasswordEncoder encoder = ACTIVE_ENCODER.get(chosenId);
+        
+        if (encoder == null) {
+            throw new RuntimeException("Encoder not found for id: " + chosenId);
+        }
 
-        return "{" + chosen + "}" + encoder.encode(rawPassword);
+        return "{" + chosenId + "}" + encoder.encode(rawPassword);
     }
 }

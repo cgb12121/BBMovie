@@ -101,6 +101,11 @@ public class JoseConstraint {
         public static final String SUB = "sub";
 
         /**
+         * Email of the authenticated user.
+         */
+        public static final String EMAIL = "email";
+
+        /**
          * Expiration time of the token (in epoch seconds).
          */
         public static final String EXP = "exp";

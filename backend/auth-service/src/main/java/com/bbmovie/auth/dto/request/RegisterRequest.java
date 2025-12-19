@@ -1,11 +1,12 @@
 package com.bbmovie.auth.dto.request;
 
-import com.bbmovie.auth.entity.enumerate.Region;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
+import lombok.Builder;
 import lombok.Data;
 
 @Data
+@Builder
 @Schema(description = "User registration request")
 public class RegisterRequest {
     @Schema(description = "User's email address", example = "[email]")

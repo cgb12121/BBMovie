@@ -119,29 +119,29 @@ function mapPage<T, R>(raw: RawPage<R>, mapper: (value: R) => T): Page<T> {
 const watchlistService = {
     async listCollections(page = 0, size = 20): Promise<Page<WatchlistCollection>> {
         const response = await api.get<ApiResponse<RawPage<RawCollection>>>(
-            '/api/watchlist/collections',
+            '/api/v1/watchlist/collections',
             { params: { page, size } }
         );
         return mapPage(response.data.data, mapCollection);
     },
 
     async createCollection(payload: CreateCollectionRequest): Promise<WatchlistCollection> {
-        const response = await api.post<ApiResponse<RawCollection>>('/api/watchlist/collections', payload);
+        const response = await api.post<ApiResponse<RawCollection>>('/api/v1/watchlist/collections', payload);
         return mapCollection(response.data.data);
     },
 
     async updateCollection(id: string, payload: UpdateCollectionRequest): Promise<WatchlistCollection> {
-        const response = await api.put<ApiResponse<RawCollection>>(`/api/watchlist/collections/${id}`, payload);
+        const response = await api.put<ApiResponse<RawCollection>>(`/api/v1/watchlist/collections/${id}`, payload);
         return mapCollection(response.data.data);
     },
 
     async deleteCollection(id: string): Promise<void> {
-        await api.delete<ApiResponse<string>>(`/api/watchlist/collections/${id}`);
+        await api.delete<ApiResponse<string>>(`/api/v1/watchlist/collections/${id}`);
     },
 
     async listItems(collectionId: string, page = 0, size = 20): Promise<Page<WatchlistItem>> {
         const response = await api.get<ApiResponse<RawPage<RawItem>>>(
-            `/api/watchlist/collections/${collectionId}/items`,
+            `/api/v1/watchlist/collections/${collectionId}/items`,
             { params: { page, size } }
         );
         return mapPage(response.data.data, mapItem);
@@ -149,7 +149,7 @@ const watchlistService = {
 
     async addItem(collectionId: string, payload: UpsertItemRequest): Promise<WatchlistItem> {
         const response = await api.post<ApiResponse<RawItem>>(
-            `/api/watchlist/collections/${collectionId}/items`,
+            `/api/v1/watchlist/collections/${collectionId}/items`,
             payload
         );
         return mapItem(response.data.data);
@@ -157,14 +157,14 @@ const watchlistService = {
 
     async updateItem(collectionId: string, movieId: string, payload: UpsertItemRequest): Promise<WatchlistItem> {
         const response = await api.put<ApiResponse<RawItem>>(
-            `/api/watchlist/collections/${collectionId}/items/${movieId}`,
+            `/api/v1/watchlist/collections/${collectionId}/items/${movieId}`,
             payload
         );
         return mapItem(response.data.data);
     },
 
     async deleteItem(collectionId: string, movieId: string): Promise<void> {
-        await api.delete<ApiResponse<string>>(`/api/watchlist/collections/${collectionId}/items/${movieId}`);
+        await api.delete<ApiResponse<string>>(`/api/v1/watchlist/collections/${collectionId}/items/${movieId}`);
     }
 };
 

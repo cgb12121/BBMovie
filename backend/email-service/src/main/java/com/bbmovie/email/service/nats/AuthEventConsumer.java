@@ -88,10 +88,10 @@ public class AuthEventConsumer {
             case "auth.registration" ->
                     email.sendVerificationEmail(toUserEmail, verificationToken);
             case "auth.forgot_password" ->
-                    email.sendForgotPasswordEmail(event.get(toUserEmail), verificationToken);
+                    email.sendForgotPasswordEmail(event.get("email"), verificationToken);
             case "auth.changed_password" ->
                     email.notifyChangedPassword(
-                            event.get(toUserEmail),
+                            event.get("email"),
                             ZonedDateTime.parse(event.get("timeChangedPassword"))
                     );
             case "auth.otp" -> log.info("OTP event for {} received", event.get("phone"));

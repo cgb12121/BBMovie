@@ -12,21 +12,31 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 @Configuration
 public class RedisConfig {
-    @Value("${spring.data.redis.host:localhost}")
-    private String redisHost;
 
-    @Value("${spring.data.redis.port:6379}")
-    private int redisPort;
+    private final String redisHost;
+    private final int redisPort;
+    private final String redisPassword;
 
-    @Value("${spring.data.redis.password:}")
-    private String redisPassword;
+    public RedisConfig(
+            @Value("${spring.data.redis.host:localhost}") String redisHost,
+            @Value("${spring.data.redis.port:6379}") int redisPort,
+            @Value("${spring.data.redis.password:}") String redisPassword) {
+        this.redisHost = redisHost;
+        this.redisPort = redisPort;
+        this.redisPassword = redisPassword;
+    }
 
     @Bean
     public RedisConnectionFactory redisConnectionFactory() {
         RedisStandaloneConfiguration config = new RedisStandaloneConfiguration();
         config.setHostName(redisHost);
         config.setPort(redisPort);
-        config.setPassword(redisPassword);
+
+        // Only set password if it's not null and not empty
+        if (redisPassword != null && !redisPassword.trim().isEmpty()) {
+            config.setPassword(redisPassword);
+        }
+
         return new LettuceConnectionFactory(config);
     }
 

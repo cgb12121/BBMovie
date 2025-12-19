@@ -237,5 +237,5 @@ public class SecurityConfig {
             String headerValue = request.getHeader(csrfToken.getHeaderName());
             return (StringUtils.hasText(headerValue) ? this.plain : this.xor).resolveCsrfTokenValue(request, csrfToken);
         }
-    }   
+    }
 }

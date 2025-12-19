@@ -63,16 +63,17 @@ public class PasswordServiceImpl implements PasswordService {
     @Override
     public void changePassword(String requestEmail, ChangePasswordRequest request) {
         User user = userRepository.findByDisplayedUsername(requestEmail)
-                .orElseThrow(() -> new UserNotFoundException("User not found for username: " + requestEmail));
+                .orElse(userRepository.findByEmail(requestEmail)
+                        .orElseThrow(() -> new UserNotFoundException("User not found for username or email: " + requestEmail)));
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(requestEmail, request.getCurrentPassword())
+                new UsernamePasswordAuthenticationToken(requestEmail, request.getOldPassword())
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
-        boolean correctPassword = passwordEncoder.matches(request.getCurrentPassword(), user.getPassword());
+        boolean correctPassword = passwordEncoder.matches(request.getOldPassword(), user.getPassword());
         if (!correctPassword) {
             throw new AuthenticationException("Current password is incorrect");
         }
-        if (request.getNewPassword().equals(request.getCurrentPassword())) {
+        if (request.getNewPassword().equals(request.getOldPassword())) {
             throw new AuthenticationException("New password can not be the same as the current password. Please try again.");
         }
         if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
@@ -98,9 +99,12 @@ public class PasswordServiceImpl implements PasswordService {
     @Override
     public void sendForgotPasswordEmail(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UserNotFoundException("User not found for email: " + email));
-        String token = changePasswordTokenService.generateChangePasswordToken(user);
-        emailEventProducer.sendMagicLinkOnForgotPassword(email, token);
+                .orElse(null);
+        if (user != null) {
+            String token = changePasswordTokenService.generateChangePasswordToken(user);
+            emailEventProducer.sendMagicLinkOnForgotPassword(email, token);
+        }
+        // Don't throw exception if user not found to avoid exposing user existence
     }
 
     /**
@@ -117,13 +121,13 @@ public class PasswordServiceImpl implements PasswordService {
         String email = changePasswordTokenService.getEmailForToken(token);
         if (email == null) {
             log.warn("Reset password token {} was already used or is invalid", token);
-            return;
+            throw new AuthenticationException("Invalid or expired token. Please try again.");
         }
         User user = userRepository.findByEmail(email).orElseThrow(
                 () -> new UserNotFoundException("User not found for email: " + email)
         );
 
-        if (request.getNewPassword().equals(request.getConfirmNewPassword())) {
+        if (!request.getNewPassword().equals(request.getConfirmNewPassword())) {
             throw new AuthenticationException("New password and confirm password do not match. Please try again.");
         }
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));

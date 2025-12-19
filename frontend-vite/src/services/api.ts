@@ -48,8 +48,11 @@ const api = axios.create({
 const serviceBaseUrls: Record<string, string | undefined> = {
     '/api/payment': import.meta.env.VITE_PAYMENT_SERVICE_URL,
     '/api/subscription': import.meta.env.VITE_PAYMENT_SERVICE_URL,
+    '/api/subscriptions': import.meta.env.VITE_PAYMENT_SERVICE_URL,
     '/api/v1/subscription': import.meta.env.VITE_PAYMENT_SERVICE_URL,
+    '/api/v1/subscriptions': import.meta.env.VITE_PAYMENT_SERVICE_URL,
     '/api/watchlist': import.meta.env.VITE_WATCHLIST_SERVICE_URL,
+    '/api/v1/watchlist': import.meta.env.VITE_WATCHLIST_SERVICE_URL,
     '/api/v1/chat': import.meta.env.VITE_AI_SERVICE_URL,
     '/internal/files': import.meta.env.VITE_AI_SERVICE_URL,
     '/health': import.meta.env.VITE_AI_SERVICE_URL,
@@ -58,6 +61,8 @@ const serviceBaseUrls: Record<string, string | undefined> = {
 
 function getBaseUrlForPath(url?: string): string | undefined {
     if (!url) return undefined;
+
+    // Sort prefixes by length (descending) to match longer prefixes first
     const matchedPrefix = Object.keys(serviceBaseUrls)
         .sort((a, b) => b.length - a.length)
         .find(prefix => url.startsWith(prefix));

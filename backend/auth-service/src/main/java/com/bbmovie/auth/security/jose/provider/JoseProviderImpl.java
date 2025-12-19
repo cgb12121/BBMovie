@@ -1,6 +1,8 @@
 package com.bbmovie.auth.security.jose.provider;
 
 import com.bbmovie.auth.entity.User;
+import com.bbmovie.auth.entity.enumerate.Region;
+import com.bbmovie.auth.entity.enumerate.SubscriptionTier;
 import com.bbmovie.auth.exception.UnsupportedOAuth2Provider;
 import com.bbmovie.auth.exception.UnsupportedPrincipalType;
 import com.bbmovie.auth.security.jose.KeyCache;
@@ -87,16 +89,29 @@ public class JoseProviderImpl implements JoseProvider {
         try {
             RSAKey currentActiveKey = keyCache.getActiveRsaKey();
             String username = getUsernameFromAuthentication(authentication);
+            if (!username.equals(loggedInUser.getUsername())) {
+                log.error("Username does not match? {} & {}", username, loggedInUser.getUsername());
+            }
             String role = getRoleFromAuthentication(authentication);
             Date now = new Date();
             Date expiryDate = new Date(now.getTime() + expirationInMs);
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                    .subject(username)
+                    .subject(loggedInUser.getId().toString())  // Use user's ID as a subject for security
+                    .claim(EMAIL, loggedInUser.getEmail())       // Add email as separate claim
                     .claim(ROLE, role)
-                    .claim(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
-                    .claim(AGE, loggedInUser.getAge())
-                    .claim(REGION, loggedInUser.getRegion().name())
+                    .claim(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier() != null
+                            ? loggedInUser.getSubscriptionTier().name()
+                            : SubscriptionTier.FREE.name()
+                    )
+                    .claim(AGE, loggedInUser.getAge() != null
+                            ? loggedInUser.getAge()
+                            : 0
+                    )
+                    .claim(REGION, loggedInUser.getRegion() != null
+                            ? loggedInUser.getRegion().name()
+                            : Region.GLOBAL.name()
+                    )
                     .claim(PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
                     .claim(IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
                     .issueTime(now)
@@ -126,17 +141,30 @@ public class JoseProviderImpl implements JoseProvider {
         try {
             RSAKey currentActiveKey = keyCache.getActiveRsaKey();
             String username = getUsernameFromAuthentication(authentication);
+            if (!username.equals(loggedInUser.getUsername())) {
+                log.error("Username does not match when generate token? {} & {}", username, loggedInUser.getUsername());
+            }
             String role = getRoleFromAuthentication(authentication);
             Date now = new Date();
             Date expiryDate = new Date(now.getTime() + expirationInMs);
 
             JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                     .issuer(issuer)
-                    .subject(username)
+                    .subject(loggedInUser.getId().toString())  // Use user's ID as a subject for security
+                    .claim(EMAIL, loggedInUser.getEmail())       // Add email as separate claim
                     .claim(ROLE, role)
-                    .claim(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier().name())
-                    .claim(AGE, loggedInUser.getAge())
-                    .claim(REGION, loggedInUser.getRegion().name())
+                    .claim(SUBSCRIPTION_TIER, loggedInUser.getSubscriptionTier() != null
+                            ? loggedInUser.getSubscriptionTier().name()
+                            : SubscriptionTier.FREE.name()
+                    )
+                    .claim(AGE, loggedInUser.getAge() != null
+                            ? loggedInUser.getAge()
+                            : 0
+                    )
+                    .claim(REGION, loggedInUser.getRegion() != null
+                            ? loggedInUser.getRegion().name()
+                            : Region.GLOBAL.name()
+                    )
                     .claim(PARENTAL_CONTROLS_ENABLED, loggedInUser.isParentalControlsEnabled())
                     .claim(IS_ACCOUNTING_ENABLED, loggedInUser.getIsEnabled())
                     .issueTime(now)
@@ -216,11 +244,26 @@ public class JoseProviderImpl implements JoseProvider {
     }
 
     @Override
+    public UUID getUserIdFromToken(String token) {
+        return resolveAndVerify(token)
+                .map(jwt -> {
+                    try {
+                        return UUID.fromString(jwt.getJWTClaimsSet().getSubject());
+                    } catch (Exception e) {
+                        throw new IllegalStateException("Failed to parse token subject: " + e.getMessage());
+                    }
+                })
+                .orElseThrow(() -> new IllegalStateException("Failed to parse id from token"));
+    }
+
+    @Override
     public String getUsernameFromToken(String token) {
         return resolveAndVerify(token)
                 .map(jwt -> {
                     try {
-                        return jwt.getJWTClaimsSet().getSubject();
+                        // Return the email from the EMAIL claim instead of the subject
+                        //  now contains the user ID for security reasons
+                        return (String) jwt.getJWTClaimsSet().getClaim(EMAIL);
                     } catch (Exception e) {
                         throw new IllegalArgumentException("Invalid JWK username", e);
                     }

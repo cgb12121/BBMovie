@@ -104,7 +104,7 @@ public class SessionServiceImpl implements SessionService {
             throw new AccountNotEnabledException("Account is not enabled. Please verify your email first.");
         }
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(user.getEmail(), user.getPassword(), user.getAuthorities())
+                new UsernamePasswordAuthenticationToken(user.getEmail(), loginRequest.getPassword(), user.getAuthorities())
         );
         SecurityContextHolder.getContext().setAuthentication(authentication);
 

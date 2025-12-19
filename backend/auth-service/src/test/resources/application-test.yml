@@ -12,15 +12,6 @@ app:
   frontend:
     url: http://localhost:3000
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health, info, prometheus
-  metrics:
-    tags:
-      application: ${spring.application.name}
-
 spring:
   threads:
     virtual:
@@ -110,8 +101,8 @@ spring:
             #Spring can't getActiveProvider nested data from JSON such as data.username => must implement custom service
             user-name-attribute: data
       authorizationserver:
-          endpoint:
-            jwk-set-uri: http://localhost:8080/.well-known/jwks.json
+        endpoint:
+          jwk-set-uri: http://localhost:8080/.well-known/jwks.json
 
 logging:
   level:

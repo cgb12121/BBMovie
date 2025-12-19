@@ -44,7 +44,8 @@ public class EmailEventProducer extends AbstractNatsJetStreamService {
         JetStream jetStream = getJetStream();
         if (jetStream == null) {
             log.warn("NATS JetStream not available. Skipping event publication to subject: {}", subject);
-            return; // Silently fail if NATS is not connected
+            // Don't throw exception, just log and continue - email delivery should not break registration
+            return;
         }
         try {
             byte[] data = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsBytes(event);
@@ -52,7 +53,8 @@ public class EmailEventProducer extends AbstractNatsJetStreamService {
             log.info("Sent event to subject: {} for user: {}", subject, event.get(EMAIL_KEY) != null ? event.get(EMAIL_KEY) : event.get(PHONE_NUMBER_KEY));
         } catch (Exception e) {
             log.error("Failed to send event to subject {}: {}", subject, e.getMessage());
-            throw exception;
+            // Don't throw exception, just log and continue - email delivery should not break registration
+            // The user registration should still succeed even if email notification fails
         }
     }
 }

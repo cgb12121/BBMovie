@@ -16,6 +16,10 @@ set "services[7]=watchlist-quarkus|QUARKUS"
 set "services[8]=payment-service|SPRING"
 set "services[9]=search-service|SPRING"
 set "services[10]=email-service|SPRING"
+set "services[11]=media-streaming-service|SPRING"
+set "services[12]=media-upload-service|SPRING"
+set "services[13]=transcode-worker|SPRING"
+set "services[14]=rust-transcode-worker|RUST"
 
 :: Màu sắc
 set GREEN=[92m
@@ -165,6 +169,7 @@ echo %RED%Killing all java, cargo, rust processes...%RESET%
 taskkill /F /IM java.exe 2>nul
 taskkill /F /IM cargo.exe 2>nul
 taskkill /F /IM ai-refinery.exe 2>nul
+taskkill /F /IM transcode-worker.exe 2>nul
 taskkill /F /IM createdump.exe 2>nul
 echo %GREEN%Cleaned up.%RESET%
 timeout /t 2 >nul

@@ -8,6 +8,7 @@ import org.springframework.security.core.Authentication;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * An interface that defines a strategy for working with JOSE (JavaScript Object Signing and Encryption).
@@ -25,6 +26,8 @@ public interface JoseProvider {
 
     @SuppressWarnings("BooleanMethodIsAlwaysInverted")
     boolean validateToken(String token);
+
+    UUID getUserIdFromToken(String token);
 
     String getUsernameFromToken(String token);
 

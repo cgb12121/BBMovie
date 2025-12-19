@@ -47,7 +47,7 @@ export const apiCall = {
     }
     
     try {
-      const response = await api.get('/api/movies');
+      const response = await api.get('/api/v1/movies');
       return {
         success: true,
         data: response.data,
@@ -71,7 +71,7 @@ export const apiCall = {
     }
     
     try {
-      const response = await api.get(`/api/movies/${id}`);
+      const response = await api.get(`/api/v1/movies/${id}`);
       return {
         success: true,
         data: response.data,
@@ -95,7 +95,7 @@ export const apiCall = {
     }
     
     try {
-      const response = await api.get('/api/categories');
+      const response = await api.get('/api/v1/categories');
       return {
         success: true,
         data: response.data,
@@ -119,7 +119,7 @@ export const apiCall = {
     }
     
     try {
-      const response = await api.get(`/api/categories/${categoryId}/movies`);
+      const response = await api.get(`/api/v1/categories/${categoryId}/movies`);
       return {
         success: true,
         data: response.data,
@@ -146,8 +146,8 @@ export const apiCall = {
       const params = new URLSearchParams();
       if (query) params.append('query', query);
       if (limit) params.append('limit', limit.toString());
-      
-      const response = await api.get(`/api/search/similar-search?${params.toString()}`);
+
+      const response = await api.get(`/api/v1/search/similar?${params.toString()}`);
       return {
         success: true,
         data: response.data,
@@ -171,7 +171,7 @@ export const apiCall = {
     }
     
     try {
-      const response = await api.get(`/api/movies/${movieId}/similar`);
+      const response = await api.get(`/api/v1/movies/${movieId}/similar`);
       return {
         success: true,
         data: response.data,

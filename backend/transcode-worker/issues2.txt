@@ -1,0 +1,75 @@
+Chuẩn luôn bác ơi, code này chạy xong là **Subtitles (Phụ đề), Chapters (Chương), Metadata (Tags), và các Audio tracks phụ (nếu có)** sẽ "bay màu" sạch sẽ! 💨
+
+Đây là lý do tại sao:
+
+### 1. Cơ chế "Chọn lọc tự nhiên" của FFmpeg 🦁
+
+Khi bác dùng `FFmpegBuilder` và set cứng:
+
+* `.setVideoCodec(...)`
+* `.setAudioCodec(...)`
+
+Và **KHÔNG** dùng lệnh `-map`, FFmpeg sẽ áp dụng chế độ mặc định (Stream Selection):
+
+1. Nó chỉ chọn **1 Video stream** tốt nhất.
+2. Nó chỉ chọn **1 Audio stream** tốt nhất (thường là cái đầu tiên hoặc cái nhiều kênh nhất).
+3. **Subtitles?** Với định dạng output là HLS (MPEG-TS segments), FFmpeg mặc định sẽ **BỎ QUA** phụ đề dạng text (SRT, ASS) vì cái container `.ts` nó hỗ trợ phụ đề text rất kém (nó chỉ thích DVB bitmaps hoặc Closed Captions).
+
+### 2. Tại sao HLS lại khó chịu với Subtitle? 🤔
+
+HLS không giống như file `MKV` hay `MP4` mà bác có thể nhét cả đống phụ đề vào trong 1 file.
+
+Để HLS có phụ đề (Soft sub - bật tắt được), bác phải:
+
+1. Tách phụ đề ra thành file **WebVTT (`.vtt`)**.
+2. Cắt nhỏ file `.vtt` đó thành từng segment (giống video).
+3. Khai báo nó trong `master.m3u8` (Dòng `#EXT-X-MEDIA:TYPE=SUBTITLES...`).
+
+Code hiện tại của bác chỉ tập trung vào **Transcode Video/Audio**, nên phụ đề bị rơi rụng là điều hiển nhiên.
+
+---
+
+### 🛠️ Giải pháp (Nếu bác muốn giữ Subtitle)
+
+Có 2 trường phái để xử lý vụ này:
+
+#### Cách 1: "Hard Sub" (Dán cứng vào video) - Dễ nhất ✅
+
+Cách này sẽ "vẽ" luôn chữ vào hình ảnh. Không tắt được, nhưng chắc chắn hiển thị trên mọi thiết bị.
+
+Bác sửa đoạn `.setVideoFilter` lại một chút:
+
+```java
+// Giả sử bác muốn hardcode phụ đề từ chính file gốc (stream sub đầu tiên)
+// Bác phải chain các filter lại với nhau bằng dấu phẩy
+// Cú pháp: "subtitles=filename='path/to/video.mp4',scale=WIDTH:-2"
+
+String videoFilter = String.format("subtitles=filename='%s',scale=%d:-2",
+                                   input.toAbsolutePath().toString().replace("\\", "/").replace(":", "\\:"), // Escape path trên Windows cực cực quan trọng
+                                   res.width());
+
+builder.setVideoFilter(videoFilter);
+
+```
+
+*Lưu ý: Escape path trên Windows cho cái filter `subtitles=` là một cơn ác mộng (vì dấu `:` và `\` là ký tự đặc biệt). Nên test kỹ.*
+
+#### Cách 2: "Soft Sub" chuẩn HLS - Khó vãi chưởng 🤯
+
+Bác phải chạy một job FFmpeg riêng để convert sub.
+
+1. **Job 1 (Video/Audio):** Code hiện tại của bác (Giữ nguyên).
+2. **Job 2 (Extract Sub):**
+```bash
+ffmpeg -i input.mp4 -map 0:s:0 -c:s webvtt -f segment ... output_%d.vtt
+
+```
+
+
+3. **Job 3 (Merge):** Viết lại code tạo `master.m3u8` để link cái sub đó vào.
+
+### 💡 Lời khuyên
+
+Hiện tại bác đang tập trung vào **Streaming Core (Key, Segment, Flow)**.
+Đừng ôm đồm vụ Subtitle vội. **Cứ để nó "bay màu" đi.**
+Sau này hệ thống ổn định, bác làm thêm một tính năng riêng là "Extract Subtitle" sau. Code bây giờ cứ giữ đơn giản cho nhẹ đầu bác ạ! 👍

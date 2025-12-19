@@ -2,6 +2,7 @@ package com.bbmovie.gateway.config.ratelimit;
 
 import io.github.bucket4j.distributed.proxy.AsyncProxyManager;
 import io.github.bucket4j.redis.lettuce.cas.LettuceBasedProxyManager;
+import io.github.bucket4j.distributed.ExpirationAfterWriteStrategy;
 import io.lettuce.core.ClientOptions;
 import io.lettuce.core.RedisClient;
 import io.lettuce.core.RedisURI;
@@ -19,6 +20,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import reactor.core.publisher.Flux;
 
 import java.time.Duration;
@@ -67,9 +69,20 @@ public class Bucket4jRedisConfig {
         return redisClient.connect(ByteArrayCodec.INSTANCE);
     }
 
+    /**
+     * <span style="color:#FF0000;">DANGEROUS</span>
+     * This is not well tested and can lead to unexpected behaviour
+     * <p>
+     * Override auto configuration, cant turn off auto configuration because of protected access.
+     * @param connection connection to redis
+     * @return
+     */
+    @SuppressWarnings("all")
+    @Primary
     @Bean
-    public AsyncProxyManager<byte[]> asyncProxyManager(StatefulRedisConnection<byte[], byte[]> connection) {
+    public AsyncProxyManager asyncProxyManager(StatefulRedisConnection<byte[], byte[]> connection) {
         return LettuceBasedProxyManager.builderFor(connection)
+                .withExpirationStrategy(ExpirationAfterWriteStrategy.fixedTimeToLive(Duration.ofHours(1)))
                 .build()
                 .asAsync();
     }
