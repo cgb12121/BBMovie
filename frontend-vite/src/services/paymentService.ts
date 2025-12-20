@@ -150,12 +150,12 @@ const mapPaymentCreation = (raw: RawPaymentCreation): PaymentCreationResponse =>
 
 const paymentService = {
     async listPlans(): Promise<SubscriptionPlan[]> {
-        const response = await api.get<RawPlan[]>('/api/v1/subscriptions/plans');
+        const response = await api.get<RawPlan[]>('/api/v1/subscription/plans');
         return (response.data ?? []).map(mapPlan);
     },
 
     async quotePrice(plan: string, cycle: 'monthly' | 'annual' = 'monthly'): Promise<PricingQuote> {
-        const response = await api.get<number | string>('/api/v1/subscriptions/quote', {
+        const response = await api.get<number | string>('/api/v1/subscription/quote', {
             params: { plan, cycle }
         });
         const amount = typeof response.data === 'string' ? Number(response.data) : Number(response.data ?? 0);
@@ -169,22 +169,22 @@ const paymentService = {
             billingCycle: request.billingCycle,
             voucherCode: request.voucherCode || undefined
         };
-        const response = await api.post<ApiResponse<RawPaymentCreation>>('/api/v1/subscriptions/initiate', payload);
+        const response = await api.post<ApiResponse<RawPaymentCreation>>('/api/v1/subscription/initiate', payload);
         return mapPaymentCreation(response.data.data);
     },
 
     async mySubscriptions(): Promise<UserSubscription[]> {
-        const response = await api.get<ApiResponse<RawUserSubscription[]>>('/api/v1/subscriptions/mine');
+        const response = await api.get<ApiResponse<RawUserSubscription[]>>('/api/v1/subscription/mine');
         return (response.data.data ?? []).map(mapSubscription);
     },
 
     async toggleAutoRenew(id: string, req: ToggleAutoRenewRequest): Promise<UserSubscription> {
-        const response = await api.post<ApiResponse<RawUserSubscription>>(`/api/v1/subscriptions/${id}/auto-renew`, req);
+        const response = await api.post<ApiResponse<RawUserSubscription>>(`/api/v1/subscription/${id}/auto-renew`, req);
         return mapSubscription(response.data.data);
     },
 
     async cancelSubscription(id: string, req: CancelSubscriptionRequest): Promise<UserSubscription> {
-        const response = await api.post<ApiResponse<RawUserSubscription>>(`/api/v1/subscriptions/${id}/cancel`, req);
+        const response = await api.post<ApiResponse<RawUserSubscription>>(`/api/v1/subscription/${id}/cancel`, req);
         return mapSubscription(response.data.data);
     }
 };

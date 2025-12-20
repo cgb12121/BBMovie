@@ -149,7 +149,7 @@ class AuthService {
 
     async login(credentials: LoginCredentials): Promise<ApiResponse<LoginResponse>> {
         const response = await api.post<ApiResponse<LoginResponse>>(
-            '/api/v1/auth/login',
+            '/api/auth/login',
             credentials,
             {
                 headers: this.getHeaders()
@@ -175,7 +175,7 @@ class AuthService {
 
     async logout(): Promise<ApiResponse<void>> {
         const response = await api.post<ApiResponse<void>>(
-            '/api/v1/auth/logout',
+            '/api/auth/logout',
             {},
             {
                 headers: this.getHeaders()
@@ -219,7 +219,7 @@ class AuthService {
 
     async logoutDevice(deviceName: string, ipAddress: string): Promise<void> {
         await api.post(
-            '/api/device/v1/sessions/revoke',
+            '/api/device/sessions/revoke',
             {
                 devices: [
                     {
@@ -245,7 +245,7 @@ class AuthService {
         }
 
         this.refreshAccessTokenPromise = api.post<ApiResponse<AccessTokenResponse>>(
-            '/api/v1/auth/refresh-token',
+            '/api/auth/refresh-token',
             {},
             {
                 headers: { ...this.getHeaders(), Authorization: `Bearer ${token}` }
@@ -273,7 +273,7 @@ class AuthService {
         }
 
         this.refreshAccessTokenAbacPromise = api.get<string>(
-            '/api/v1/auth/abac/access-token',
+            '/api/auth/abac/access-token',
             {
                 headers: { ...this.getHeaders(), Authorization: `Bearer ${token}` },
                 // ensure axios does not attempt to parse JSON; response is plain string
@@ -331,7 +331,7 @@ class AuthService {
 
     async getAllLoggedInDevices(): Promise<ApiResponse<{ deviceName: string; ipAddress: string; current: boolean; }[]>> {
         try {
-            const response = await api.get('/api/v1/device/sessions', {
+            const response = await api.get('/api/device/sessions', {
                 headers: this.getHeaders()
             });
             return response.data;
@@ -343,7 +343,7 @@ class AuthService {
 
     async revokeDevices(deviceRevokeEntries: { deviceName: string; ip: string; }[]): Promise<ApiResponse<Record<string, string>>> {
         const response = await api.post<ApiResponse<Record<string, string>>>(
-            '/api/v1/device/sessions/revoke',
+            '/api/device/sessions/revoke',
             {
                 devices: deviceRevokeEntries
             },
@@ -356,7 +356,7 @@ class AuthService {
 
     async getUserAgent(): Promise<UserAgentResponse> {
         try {
-            const response = await api.get<ApiResponse<UserAgentResponse>>('/api/v1/auth/user-agent', {
+            const response = await api.get<ApiResponse<UserAgentResponse>>('/api/auth/user-agent', {
                 headers: this.getHeaders()
             });
             return response.data.data;

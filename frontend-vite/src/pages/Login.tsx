@@ -97,7 +97,7 @@ const Login: React.FC = () => {
     setError(null);
   
     try {
-      const response = await authService.getInstance().login(values);
+      const response = await authService.login(values);
       if (response.success) {
         const { userResponse, authResponse, userAgentResponse } = response.data;
         dispatch(setCredentials({ user: userResponse, auth: authResponse, userAgent: userAgentResponse }));
@@ -123,11 +123,9 @@ const Login: React.FC = () => {
       return;
     }
   
-    const auth = authService.getInstance();
-    
-    auth.setTokens(authResponse.accessToken);
+    authService.setTokens(authResponse.accessToken);
     if (userAgentResponse) {
-      auth.setDeviceInfo(userAgentResponse);
+      authService.setDeviceInfo(userAgentResponse);
     }
   
     dispatch(setCredentials({ 

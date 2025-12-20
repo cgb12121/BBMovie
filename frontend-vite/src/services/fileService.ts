@@ -15,7 +15,28 @@ export interface FileUploadResponse {
 
 class FileService {
 
-  private readonly baseUrl = import.meta.env.VITE_API_URL;
+  /**
+   * Get the appropriate base URL based on the API path
+   * Following the same logic as the axios interceptors in api.ts
+   */
+  private getBaseUrlForPath(path: string): string {
+    // Define service mappings similar to the api.ts serviceBaseUrls
+    const serviceBaseUrls: Record<string, string | undefined> = {
+      '/api/v1/chat': import.meta.env.VITE_AI_SERVICE_URL,
+      '/internal/files': import.meta.env.VITE_AI_SERVICE_URL,
+      '/health': import.meta.env.VITE_AI_SERVICE_URL,
+      '/api/health': import.meta.env.VITE_AI_SERVICE_URL,
+      '/api/v1/files': import.meta.env.VITE_AI_SERVICE_URL, // Add file service mapping
+    };
+
+    // Sort prefixes by length (descending) to match longer prefixes first
+    const matchedPrefix = Object.keys(serviceBaseUrls)
+        .sort((a, b) => b.length - a.length)
+        .find(prefix => path.startsWith(prefix));
+    const override = matchedPrefix ? serviceBaseUrls[matchedPrefix] : undefined;
+
+    return override || import.meta.env.VITE_API_URL;
+  }
 
   /**
    * Upload a single file with real-time progress tracking
@@ -75,7 +96,7 @@ class FileService {
       });
 
       // Open and send request
-      xhr.open('POST', `${this.baseUrl}/api/v1/files/upload`);
+      xhr.open('POST', `${this.getBaseUrlForPath('/api/v1/files/upload')}/api/v1/files/upload`);
       xhr.withCredentials = true;
       const token = localStorage.getItem('accessToken');
       if (token) {
@@ -155,7 +176,7 @@ class FileService {
       });
 
       // Open and send request
-      xhr.open('POST', `${this.baseUrl}/api/v1/files/upload/stream`);
+      xhr.open('POST', `${this.getBaseUrlForPath('/api/v1/files/upload/stream')}/api/v1/files/upload/stream`);
       xhr.withCredentials = true;
       const token = localStorage.getItem('accessToken');
       if (token) {
@@ -177,7 +198,7 @@ class FileService {
     formData.append('file', file);
     formData.append('metadata', JSON.stringify(metadata));
 
-    const response = await fetch(`${this.baseUrl}/api/v1/files/upload`, {
+    const response = await fetch(`${this.getBaseUrlForPath('/api/v1/files/upload')}/api/v1/files/upload`, {
       method: 'POST',
       body: formData,
       credentials: 'include'
@@ -203,7 +224,7 @@ class FileService {
     formData.append('file', file);
     formData.append('metadata', JSON.stringify(metadata));
 
-    const response = await fetch(`${this.baseUrl}/api/v1/files/upload/test`, {
+    const response = await fetch(`${this.getBaseUrlForPath('/api/v1/files/upload/test')}/api/v1/files/upload/test`, {
       method: 'POST',
       body: formData,
       credentials: 'include'
