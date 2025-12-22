@@ -17,6 +17,7 @@ import com.bbmovie.ai_assistant_service.utils.MetricsUtil;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
 import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.f4b6a3.uuid.UuidCreator;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.model.output.TokenUsage;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,10 @@ import java.util.stream.Stream;
 public class RagServiceImpl implements RagService {
 
     private static final RgbLogger log = RgbLoggerFactory.getLogger(RagServiceImpl.class);
+    /** Hard guard to avoid exceeding embedding model context length. */
+    private static final int MAX_EMBED_CHARS = 12_000;
+    /** Trim the text returned to LLMs from RAG lookups to avoid oversized prompts. */
+    private static final int MAX_RETRIEVAL_CONTEXT_CHARS = 6_000;
 
     @Qualifier("embeddingModel") private final EmbeddingModel embeddingModel;
     @Qualifier("elasticsearchAsyncClient") private final ElasticsearchAsyncClient esClient;
@@ -47,7 +52,7 @@ public class RagServiceImpl implements RagService {
     // Hybrid Movie Context Retrieval
     @Override
     public Mono<RagRetrievalResult> retrieveMovieContext(UUID sessionId, String query, int topK) {
-        return embedText(sessionId, query, InteractionType.EMBEDDING)
+        return embedText(sessionId, query)
                 .flatMap(vector -> hybridSearch(sessionId, vector, topK))
                 .map(movies -> {
                     if (movies.isEmpty()) {
@@ -60,7 +65,8 @@ public class RagServiceImpl implements RagService {
                             .map(RagServiceImpl::formatMovieDetails)
                             .collect(Collectors.joining("\n\n"));
 
-                    return new RagRetrievalResult(contextText, movies);
+                    String safeContext = truncateRetrievalContext(contextText);
+                    return new RagRetrievalResult(safeContext, movies);
                 })
                 .onErrorResume(ex -> {
                     log.warn("[rag] Retrieval failed: {}", ex.getMessage());
@@ -76,7 +82,7 @@ public class RagServiceImpl implements RagService {
                 .stream()
                 .flatMap(RagServiceImpl::getMovieOverview)
                 .collect(Collectors.joining("\n"));
-        return embedText(sessionId, text + pastResultsString, InteractionType.EMBEDDING)
+        return embedText(sessionId, text + pastResultsString)
                 .flatMap(vector -> {
                     if (embeddingSelector.getDimension() != vector.length) {
                         String err = "Embedding dimension mismatch: expected %s but got %s"
@@ -87,7 +93,7 @@ public class RagServiceImpl implements RagService {
                     }
 
                     Map<String, Object> doc = Map.of(
-                            "id", UUID.randomUUID().toString(),
+                            "id", UuidCreator.getTimeOrderedEpoch().toString(),
                             "sessionId", sessionId.toString(),
                             "timestamp", Instant.now().toString(),
                             "text", text,
@@ -128,7 +134,7 @@ public class RagServiceImpl implements RagService {
             fullContent.append("\n\nExtracted content from files:\n").append(extractedContent);
         }
 
-        return embedText(sessionId, fullContent.toString(), InteractionType.EMBEDDING)
+        return embedText(sessionId, fullContent.toString())
                 .flatMap(vector -> {
                     if (embeddingSelector.getDimension() != vector.length) {
                         String err = "Embedding dimension mismatch: expected %s but got %s"
@@ -138,7 +144,7 @@ public class RagServiceImpl implements RagService {
                     }
 
                     Map<String, Object> doc = Map.of(
-                            "id", UUID.randomUUID().toString(),
+                            "id", UuidCreator.getTimeOrderedEpoch().toString(),
                             "sessionId", sessionId.toString(),
                             "timestamp", Instant.now().toString(),
                             "text", text,
@@ -273,10 +279,12 @@ public class RagServiceImpl implements RagService {
     }
 
     //   Embedding helper — clean separation
-    private Mono<float[]> embedText(UUID sessionId, String text, InteractionType type) {
+    private Mono<float[]> embedText(UUID sessionId, String text) {
         long start = System.currentTimeMillis();
 
-        return Mono.fromCallable(() -> embeddingModel.embed(text))
+        final String safeText = truncateForEmbedding(text);
+
+        return Mono.fromCallable(() -> embeddingModel.embed(safeText))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMap(embedding -> {
                     long latency = System.currentTimeMillis() - start;
@@ -287,13 +295,45 @@ public class RagServiceImpl implements RagService {
 
                     AuditRecord auditRecord = AuditRecord.builder()
                             .sessionId(sessionId)
-                            .type(type)
-                            .details(Map.of("text", text))
+                            .type(InteractionType.EMBEDDING)
+                            .details(Map.of(
+                                    "text", safeText,
+                                    "originalLength", text == null ? 0 : text.length(),
+                                    "truncated", safeText.length() < (text == null ? 0 : text.length())
+                            ))
                             .metrics(metrics)
                             .build();
                     return auditService.recordInteraction(auditRecord)
                             .thenReturn(embedding.content().vector());
                 });
+    }
+
+    /**
+     * Prevents very large inputs from blowing up embedding model with context-length errors.
+     */
+    private String truncateForEmbedding(String text) {
+        if (text == null) {
+            return "";
+        }
+        if (text.length() <= MAX_EMBED_CHARS) {
+            return text;
+        }
+        log.warn("[rag] Embedding input length {} exceeds limit {}, truncating.", text.length(), MAX_EMBED_CHARS);
+        return text.substring(0, MAX_EMBED_CHARS) + "... [truncated]";
+    }
+
+    /**
+     * Prevents RAG tool responses from returning huge context blocks to the LLM.
+     */
+    private String truncateRetrievalContext(String contextText) {
+        if (contextText == null) {
+            return "";
+        }
+        if (contextText.length() <= MAX_RETRIEVAL_CONTEXT_CHARS) {
+            return contextText;
+        }
+        log.warn("[rag] Retrieval context length {} exceeds limit {}, truncating.", contextText.length(), MAX_RETRIEVAL_CONTEXT_CHARS);
+        return contextText.substring(0, MAX_RETRIEVAL_CONTEXT_CHARS) + "... [truncated]";
     }
 
     private static @NonNull Stream<String> getMovieOverview(RagMovieDto m) {

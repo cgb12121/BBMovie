@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.service.impl;
 
 import com.bbmovie.ai_assistant_service.dto.FileContentInfo;
+import com.bbmovie.ai_assistant_service.dto.response.ChatMessageResponse;
 import com.bbmovie.ai_assistant_service.entity.ChatMessage;
 import com.bbmovie.ai_assistant_service.entity.Sender;
 import com.bbmovie.ai_assistant_service.repository.ChatMessageRepository;
@@ -34,7 +35,7 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public Mono<ChatMessage> saveUserMessage(UUID sessionId, String message) {
-        return createAndSaveMessage(sessionId, Sender.USER, message, null);
+        return createAndSaveMessage(sessionId, Sender.USER, message);
     }
 
     @Override
@@ -54,7 +55,7 @@ public class MessageServiceImpl implements MessageService {
 
     @Override
     public Mono<ChatMessage> saveAiResponse(UUID sessionId, String content) {
-        return createAndSaveMessage(sessionId, Sender.AI, content, null);
+        return createAndSaveMessage(sessionId, Sender.AI, content);
     }
 
     @Override
@@ -72,12 +73,12 @@ public class MessageServiceImpl implements MessageService {
         return createAndSaveMessageWithFileContent(sessionId, Sender.AI, content, fileContentInfo);
     }
 
-    private Mono<ChatMessage> createAndSaveMessage(UUID sessionId, Sender sender, String content, String fileContentJson) {
+    private Mono<ChatMessage> createAndSaveMessage(UUID sessionId, Sender sender, String content) {
         ChatMessage message = ChatMessage.builder()
                 .sessionId(sessionId)
                 .sender(sender)
                 .content(content)
-                .fileContentJson(fileContentJson)
+                .fileContentJson(null)
                 .build();
         return repository.save(message);
     }
@@ -103,7 +104,7 @@ public class MessageServiceImpl implements MessageService {
     }
 
     @Override
-    public Mono<CursorPageResponse<ChatMessage>> getMessagesWithCursor(
+    public Mono<CursorPageResponse<ChatMessageResponse>> getMessagesWithCursor(
             UUID sessionId, UUID userId, String cursor, int size) {
 
         return sessionService.getAndValidateSessionOwnership(sessionId, userId)
@@ -121,7 +122,7 @@ public class MessageServiceImpl implements MessageService {
                 });
     }
 
-    private static CursorPageResponse<ChatMessage> paginateChatMessages(int size, List<ChatMessage> messages) {
+    private static CursorPageResponse<ChatMessageResponse> paginateChatMessages(int size, List<ChatMessage> messages) {
         boolean hasMore = messages.size() > size;
         List<ChatMessage> content = hasMore
                 ? messages.subList(0, size)
@@ -138,8 +139,10 @@ public class MessageServiceImpl implements MessageService {
         // Reverse to get the oldest -> the newest order for display
         Collections.reverse(content);
 
-        return CursorPageResponse.<ChatMessage>builder()
-                .content(content)
+        return CursorPageResponse.<ChatMessageResponse>builder()
+                .content(content.stream()
+                        .map(ChatMessageResponse::fromEntity)
+                        .toList())
                 .nextCursor(nextCursor)
                 .hasMore(hasMore)
                 .size(content.size()) // Return the actual size of the content list

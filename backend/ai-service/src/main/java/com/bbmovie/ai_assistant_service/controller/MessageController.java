@@ -1,6 +1,6 @@
 package com.bbmovie.ai_assistant_service.controller;
 
-import com.bbmovie.ai_assistant_service.entity.ChatMessage;
+import com.bbmovie.ai_assistant_service.dto.response.ChatMessageResponse;
 import com.bbmovie.ai_assistant_service.service.MessageService;
 import com.bbmovie.common.dtos.ApiResponse;
 import com.bbmovie.common.dtos.CursorPageResponse;
@@ -23,7 +23,7 @@ public class MessageController {
 
     // Does not support deleting sent messages or "try again..." yet
     @GetMapping("/{sessionId}")
-    public Mono<ApiResponse<CursorPageResponse<ChatMessage>>> getMessages(
+    public Mono<ApiResponse<CursorPageResponse<ChatMessageResponse>>> getMessages(
             @PathVariable UUID sessionId,
             @RequestParam(required = false) String cursor,
             @RequestParam(defaultValue = "20") int size,

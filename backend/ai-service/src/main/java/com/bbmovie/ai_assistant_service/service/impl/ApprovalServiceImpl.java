@@ -19,6 +19,7 @@ import java.time.ZoneOffset;
 import java.util.Map;
 import com.bbmovie.ai_assistant_service.exception.ServiceUnavailableException;
 import java.util.Objects;
+import com.github.f4b6a3.uuid.UuidCreator;
 import java.util.UUID;
 import com.bbmovie.ai_assistant_service.dto.request.ApprovalDecisionDto;
 import com.bbmovie.ai_assistant_service.dto.request.ChatRequestDto;
@@ -73,7 +74,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             String toolName, ActionType actionType, RiskLevel riskLevel, Map<String, Object> args,
             String userId, UUID sessionId, String messageId) {
 
-        String requestId = UUID.randomUUID().toString();
+        String requestId = UuidCreator.getTimeOrderedEpoch().toString();
         String internalToken = UUID.randomUUID().toString();
         LocalDateTime now = LocalDateTime.now(ZoneOffset.UTC);
         LocalDateTime expiresAt = now.plusMinutes(5);

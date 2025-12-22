@@ -45,6 +45,11 @@
         </dependencies>
     </dependencyManagement>
     <dependencies>
+        <dependency>
+            <groupId>com.github.f4b6a3</groupId>
+            <artifactId>uuid-creator</artifactId>
+            <version>6.1.1</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/dev.langchain4j/langchain4j-reactor -->
         <dependency>
             <groupId>dev.langchain4j</groupId>

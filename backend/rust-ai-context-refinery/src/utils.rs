@@ -9,6 +9,7 @@ use symphonia::core::io::MediaSourceStream;
 use symphonia::core::probe::Hint;
 use tempfile::{NamedTempFile, Builder};
 use uuid::Uuid;
+use futures::StreamExt;
 
 /// Saves the first file from multipart to a secure temporary file.
 /// Returns `(NamedTempFile, original_filename)`.
@@ -50,25 +51,74 @@ pub async fn save_temp_file(multipart: &mut Multipart) -> Result<(NamedTempFile,
     Err(anyhow!("No file found in multipart request"))
 }
 
-// Fix th signature: Take  original_filename
+/// Downloads a file from a URL (supports HTTP/HTTPS, including MinIO presigned URLs).
+/// 
+/// This function handles:
+/// - Presigned URLs from MinIO/S3 (authentication in query string)
+/// - Regular HTTP/HTTPS URLs
+/// - Redirects (follows redirects automatically)
+/// - Large file downloads (streams to disk)
+/// 
+/// # Arguments
+/// * `url` - The URL to download from (can be presigned URL)
+/// * `original_filename` - Original filename for extension detection
+/// 
+/// # Returns
+/// Tuple of (temp_file_path, original_filename)
 pub async fn download_file(url: &str, original_filename: &str) -> Result<(PathBuf, String)> {
-    let resp = reqwest::get(url).await?;
+    tracing::debug!("Downloading file from URL: {}", url);
+    
+    // Create a reqwest client with proper configuration for MinIO/S3
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(300)) // 5 minutes for large files
+        .redirect(reqwest::redirect::Policy::limited(5)) // Follow redirects (MinIO might use redirects)
+        .build()
+        .map_err(|e| anyhow!("Failed to create HTTP client: {}", e))?;
+
+    // Make the request
+    let resp = client
+        .get(url)
+        .send()
+        .await
+        .map_err(|e| anyhow!("Failed to download file from {}: {}", url, e))?;
+
+    // Check if the request was successful
+    if !resp.status().is_success() {
+        let status = resp.status();
+        let error_text = resp.text().await.unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(anyhow!(
+            "Download failed with status {}: {}",
+            status,
+            error_text
+        ));
+    }
 
     // Extract extension from original file (Eg: .mp3)
     let extension = Path::new(original_filename)
         .extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| format!(".{}", ext))
-        .unwrap_or_default(); // Nếu không có đuôi thì thôi
+        .unwrap_or_default();
 
     let temp_name = format!("download_{}_{}", Uuid::new_v4(), extension);
     let temp_path = std::env::temp_dir().join(&temp_name);
 
-    let content = resp.bytes().await?;
+    // Stream the response body to file (more memory efficient for large files)
+    let mut file = tokio::fs::File::create(&temp_path).await
+        .map_err(|e| anyhow!("Failed to create temp file: {}", e))?;
+    
+    let mut stream = resp.bytes_stream();
+    
+    while let Some(chunk_result) = stream.next().await {
+        let chunk = chunk_result.map_err(|e| anyhow!("Failed to read chunk from response: {}", e))?;
+        file.write_all(&chunk).await
+            .map_err(|e| anyhow!("Failed to write chunk to file: {}", e))?;
+    }
+    
+    file.flush().await
+        .map_err(|e| anyhow!("Failed to flush file: {}", e))?;
 
-    let mut file = tokio::fs::File::create(&temp_path).await?;
-    file.write_all(&content).await?;
-
+    tracing::debug!("Successfully downloaded file to: {:?}", temp_path);
     Ok((temp_path, original_filename.to_string()))
 }
 

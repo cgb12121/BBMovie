@@ -101,13 +101,7 @@ public class ChatServiceImpl implements ChatService {
             return Flux.error(new IllegalArgumentException("Unknown assistant type: " + assistantType));
         }
 
-        if (chatContext.getAiMode() == AiMode.FAST || chatContext.getAiMode() == AiMode.NORMAL) {
-            return assistant.processMessage(chatContext);
-        }
-
-        return assistant.processMessage(chatContext)
-                .startWith(ChatStreamChunk.system("Assistant is thinking..."))
-                .concatWithValues(ChatStreamChunk.system("Done"));
+        return assistant.processMessage(chatContext);
     }
 
     private String formatExtractedContent(List<ProcessedFileContent> processedFiles) {
@@ -129,7 +123,7 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private void logFileProcessingResult(UUID sessionId, FileProcessingResult result) {
-        log.info("Session {}: Processed {} files, {} with extracted content, {} references",
+        log.debug("Session {}: Processed {} files, {} with extracted content, {} references",
                 sessionId,
                 result.uploadedFiles().size(),
                 result.processedFiles().size(),

@@ -1,6 +1,7 @@
 package com.bbmovie.ai_assistant_service.service;
 
 import com.bbmovie.ai_assistant_service.dto.FileContentInfo;
+import com.bbmovie.ai_assistant_service.dto.response.ChatMessageResponse;
 import com.bbmovie.ai_assistant_service.entity.ChatMessage;
 import com.bbmovie.common.dtos.CursorPageResponse;
 import reactor.core.publisher.Mono;
@@ -21,5 +22,5 @@ public interface MessageService {
 
     Mono<ChatMessage> saveAiResponseWithFileContentInfo(UUID sessionId, String content, FileContentInfo fileContentInfo);
 
-    Mono<CursorPageResponse<ChatMessage>> getMessagesWithCursor(UUID sessionId, UUID userId, String cursor, int size);
+    Mono<CursorPageResponse<ChatMessageResponse>> getMessagesWithCursor(UUID sessionId, UUID userId, String cursor, int size);
 }

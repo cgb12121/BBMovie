@@ -18,6 +18,7 @@ import reactor.core.publisher.Mono;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import com.github.f4b6a3.uuid.UuidCreator;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -50,7 +51,7 @@ public class SessionServiceImpl implements SessionService {
     @Transactional
     public Mono<ChatSessionResponse> createSession(UUID userId, String sessionName) {
         ChatSession session = ChatSession.builder()
-                .id(UUID.randomUUID())
+                .id(UuidCreator.getTimeOrderedEpoch())
                 .userId(userId)
                 .sessionName(sessionName)
                 .build()
