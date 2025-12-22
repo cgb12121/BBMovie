@@ -1,6 +1,10 @@
 Go here to download whisper-cpp model: https://huggingface.co/ggerganov/whisper.cpp/tree/main
 Select: ggml-base.en.bin or ggml-base.en-q5_1.bin (cheaper)
+Put the model file in ../models/whisper-cpp/
+
 Then put the model name in rust-ai-context-refinery/src/services/whisper.rs
+
+
 fn load_model() -> Result<WhisperCppEngine> {
     // Get a model path from env or fallback to a default relative path
     let model_path_str: String = std::env::var("WHISPER_MODEL_PATH")

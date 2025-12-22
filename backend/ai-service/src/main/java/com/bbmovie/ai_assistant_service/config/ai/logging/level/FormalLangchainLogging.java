@@ -16,8 +16,6 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static com.bbmovie.ai_assistant_service.utils.log.AnsiRainbowUtil.*;
-
 /**
  * Lightweight, safe chat listener that logs a short, readable summary of requests/responses.
  * Defensive about ChatMessage implementations: it checks known classes, then falls back to reflection,
@@ -34,9 +32,7 @@ public class FormalLangchainLogging implements LangchainLogging {
         List<ChatMessage> messages = request.messages();
         List<ToolSpecification> tools = request.toolSpecifications();
 
-        String header = getLightRainbowUnderlined(
-                String.format("[listener] Request to %s", provider.name())
-        );
+        String header = String.format("[listener] Request to %s", provider.name());
 
         int msgCount = messages != null ? messages.size() : 0;
         int toolCount = tools != null ? tools.size() : 0;
@@ -44,9 +40,9 @@ public class FormalLangchainLogging implements LangchainLogging {
         StringBuilder sb = new StringBuilder("\n")
                 .append(header)
                 .append("\n")
-                .append(getLightRainbow("Messages: " + msgCount))
+                .append("Messages: ").append(msgCount)
                 .append("\n")
-                .append(getLightRainbow("Tools: " + toolCount))
+                .append("Tools: ").append(toolCount)
                 .append("\n");
 
         if (messages != null && !messages.isEmpty()) {
@@ -56,24 +52,24 @@ public class FormalLangchainLogging implements LangchainLogging {
             for (ChatMessage m : tail) {
                 String role = safeMessageTypeName(m);
                 String preview = safeExtractMessageText(m);
-                sb.append(getLightRainbowUnderlined(role + ":"))
+                sb.append(role).append(":")
                         .append("\n")
-                        .append(getLightRainbow(preview))
+                        .append(preview)
                         .append("\n");
             }
         }
 
         if (tools != null && !tools.isEmpty()) {
             sb.append("\n")
-                    .append(getLightRainbowUnderlined("Tool specs (names only):"))
+                    .append("Tool specs (names only):")
                     .append("\n");
             String toolNames = tools.stream()
                     .map(ToolSpecification::name)
                     .limit(10)
                     .collect(Collectors.joining(", "));
-            sb.append(getLightRainbow(toolNames));
+            sb.append(toolNames);
             if (tools.size() > 10) {
-                sb.append("\n").append(getLightRainbow("... and " + (tools.size() - 10) + " more"));
+                sb.append("\n").append("... and ").append(tools.size() - 10).append(" more");
             }
             sb.append("\n");
         }
@@ -86,9 +82,7 @@ public class FormalLangchainLogging implements LangchainLogging {
         ModelProvider provider = responseContext.modelProvider();
         ChatResponse response = responseContext.chatResponse();
 
-        String header = getLightRainbowUnderlined(
-                String.format("[listener] Response from %s", provider.name())
-        );
+        String header = String.format("[listener] Response from %s", provider.name());
 
         StringBuilder sb = new StringBuilder("\n").append(header).append("\n");
 
@@ -97,17 +91,17 @@ public class FormalLangchainLogging implements LangchainLogging {
             sb.append("AI Message: <unavailable>\n");
         } else {
             sb.append("AI Message:\n")
-                    .append(getLightRainbow(ai.text() != null ? ai.text() : "<no text>"))
+                    .append(ai.text() != null ? ai.text() : "<no text>")
                     .append("\n");
 
             if (ai.thinking() != null && !ai.thinking().isBlank()) {
-                sb.append(getLightRainbowUnderlined("AI Thinking:\n"))
-                        .append(getLightRainbow(ai.thinking()))
+                sb.append("AI Thinking:\n")
+                        .append(ai.thinking())
                         .append("\n");
             }
 
             if (ai.toolExecutionRequests() != null && !ai.toolExecutionRequests().isEmpty()) {
-                sb.append(getLightRainbowUnderlined("Tool Requests:"))
+                sb.append("Tool Requests:")
                         .append("\n");
 
                 StringBuilder toolRq = new StringBuilder();
@@ -116,7 +110,7 @@ public class FormalLangchainLogging implements LangchainLogging {
                         .append(" => args=")
                         .append(req.arguments())
                 );
-                sb.append(getLightRainbow(toolRq.toString())).append("\n");
+                sb.append(toolRq.toString()).append("\n");
             }
         }
 
@@ -128,7 +122,7 @@ public class FormalLangchainLogging implements LangchainLogging {
         ModelProvider provider = errorContext.modelProvider();
         Throwable error = errorContext.error();
 
-        String header = getErrorLightRedUnderlined(String.format("[listener] Error from %s", provider.name()));
+        String header = String.format("[listener] Error from %s", provider.name());
 
         String errorMsg = error != null && error.getMessage() != null
                 ? error.getMessage()
@@ -137,7 +131,7 @@ public class FormalLangchainLogging implements LangchainLogging {
         String sb = "\n" +
                 header +
                 "\n" +
-                getErrorLightRed("Message: " + errorMsg) +
+                "Message: " + errorMsg +
                 "\n";
 
         log.error(sb, error);

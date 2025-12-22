@@ -7,6 +7,7 @@ import com.bbmovie.mediauploadservice.enums.MediaStatus;
 import com.bbmovie.mediauploadservice.enums.StorageProvider;
 import com.bbmovie.mediauploadservice.exception.PresignUrlException;
 import com.bbmovie.mediauploadservice.repository.MediaFileRepository;
+import com.bbmovie.mediauploadservice.enums.UploadPurpose;
 import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MinioClient;
 import io.minio.http.Method;
@@ -39,6 +40,9 @@ public class ClientUploadService {
 
     @Value("${minio.bucket.movie-raw:bbmovie-raw}")
     private String rawBucketName;
+
+    @Value("${minio.bucket.ai-assets:bbmovie-ai-assets}")
+    private String aiAssetsBucketName;
 
     private final MinioClient minioClient;
     private final MediaFileRepository mediaFileRepository;
@@ -82,8 +86,11 @@ public class ClientUploadService {
                 Instant.now().plus(1, ChronoUnit.HOURS).toEpochMilli()
         );
 
+        // Determine bucket based on purpose
+        String bucketName = determineBucket(request.getPurpose());
+
         // Save to DB
-        registerUploadRequest(request, uploadId, userId, objectName);
+        registerUploadRequest(request, uploadId, userId, objectName, bucketName);
 
         // Generate Metadata
         Map<String, String> metadata = createS3metadata(request, uploadId, userId, expireAt);
@@ -92,7 +99,7 @@ public class ClientUploadService {
             String url = minioClient.getPresignedObjectUrl(
                     GetPresignedObjectUrlArgs.builder()
                             .method(Method.PUT)
-                            .bucket(rawBucketName)
+                            .bucket(bucketName)
                             .object(objectName)
                             .expiry(1, TimeUnit.HOURS)
                             .extraQueryParams(metadata)
@@ -127,12 +134,19 @@ public class ClientUploadService {
         return metadata;
     }
 
-    private void registerUploadRequest(UploadInitRequest request, String uploadId, String userId, String objectName) {
+    private String determineBucket(UploadPurpose purpose) {
+        return switch (purpose) {
+            case AI_ASSET -> aiAssetsBucketName;
+            case USER_AVATAR, MOVIE_POSTER, MOVIE_TRAILER, MOVIE_SOURCE -> rawBucketName;
+        };
+    }
+
+    private void registerUploadRequest(UploadInitRequest request, String uploadId, String userId, String objectName, String bucketName) {
         MediaFile mediaFile = MediaFile.builder()
                 .uploadId(uploadId)
                 .userId(userId)
                 .originalFilename(request.getFilename())
-                .bucket(rawBucketName)
+                .bucket(bucketName)
                 .objectKey(objectName)
                 .status(MediaStatus.INITIATED)
                 .purpose(request.getPurpose())

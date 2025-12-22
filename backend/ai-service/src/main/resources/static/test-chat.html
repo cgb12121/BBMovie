@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBMovie AI Chat Tester</title>
+    <link rel="stylesheet" href="test-chat.css">
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="logo-container">
+            <div class="logo">N</div>
+            <div>
+                <h1>AI <span class="logo-gradient">Chat</span> Tester</h1>
+                <div class="tagline">Test AI chat functionality with file attachments</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Configuration Panel -->
+    <div class="config-panel">
+        <div class="config-group">
+            <label>AI API Host:</label>
+            <input type="text" id="apiHost" value="http://localhost:8888" style="width: 200px;">
+        </div>
+        <div class="config-group">
+            <label>Upload API Host:</label>
+            <input type="text" id="uploadApiHost" value="http://localhost:6969" style="width: 200px;">
+        </div>
+        <div class="config-group">
+            <label>JWT Token:</label>
+            <input type="text" id="jwtInput" placeholder="Paste JWT token here..." style="width: 300px;" onchange="updateJwtToken()">
+            <button class="secondary-btn" onclick="loadJwtToken()" style="font-size: 0.85rem; padding: 0.5rem 1rem;">Load from File</button>
+        </div>
+        <div class="config-group">
+            <label>Session ID:</label>
+            <input type="text" id="sessionId" placeholder="New session..." style="width: 250px;">
+            <button class="secondary-btn" onclick="createSession()">New Session</button>
+        </div>
+        <div class="config-group">
+            <label>Assistant:</label>
+            <select id="assistantType">
+                <option value="user">User</option>
+                <option value="admin" selected>Admin</option>
+                <option value="mod">Mod</option>
+                <option value="anonymous">Anonymous</option>
+            </select>
+        </div>
+        <div class="config-group">
+            <label>AI Mode:</label>
+            <select id="aiMode">
+                <!-- <option value="FAST">Fast</option> -->
+                <option value="NORMAL" selected>Normal</option>
+                <option value="THINKING">Thinking</option>
+                <!-- <option value="CREATIVE">Creative</option>
+                <option value="REASONING">Reasoning</option> -->
+            </select>
+        </div>
+        <div class="config-group">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Ready</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Container -->
+    <div class="chat-container">
+        <!-- Sessions Sidebar -->
+        <div class="sessions-sidebar">
+            <div class="sessions-header">
+                <h3>💬 Sessions</h3>
+            </div>
+            <div class="sessions-list" id="sessionsList">
+                <div class="session-item-empty">Loading sessions...</div>
+            </div>
+        </div>
+
+        <!-- Chat Messages -->
+        <div class="chat-messages">
+            <div class="messages-area" id="messagesArea">
+                <div class="message assistant">
+                    <div class="message-avatar">🤖</div>
+                    <div class="message-content">
+                        <div class="message-meta">AI Assistant</div>
+                        <div class="message-text">Hello! I'm your AI assistant. Select a session from the sidebar or create a new one to start chatting!</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="input-area">
+                <div class="input-wrapper">
+                    <div class="attachments-preview" id="attachmentsPreview"></div>
+                    <textarea id="messageInput" placeholder="Type your message here... (Press Enter to send, Shift+Enter for new line)"></textarea>
+                </div>
+                <div class="input-actions">
+                    <label class="file-input-btn" id="fileInputLabel">
+                        📎 Select File
+                        <input type="file" id="fileInput" accept=".mp3,.wav,.m4a,.png,.jpg,.jpeg,.pdf,.txt,.md,.json,.xml,.csv">
+                    </label>
+                    <button class="secondary-btn" onclick="uploadSelectedFile()" id="uploadFileBtn" style="display: none;">
+                        ⬆️ Upload File
+                    </button>
+                    <button class="primary-btn" onclick="sendMessage()" id="sendBtn">
+                        Send
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-section">
+                <h3>📋 Session Info</h3>
+                <div class="log-entry">Session: <span id="sessionDisplay">Not set</span></div>
+                <div class="log-entry">JWT: <span id="jwtStatus">Loading...</span></div>
+                <div class="log-entry" style="font-size: 0.7rem; margin-top: 0.5rem; color: var(--netflix-text-secondary);">
+                    💡 Tip: If file loading fails, paste JWT in the config panel above
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>📎 File Upload</h3>
+                <div class="log-entry" style="font-size: 0.7rem; margin-bottom: 0.5rem;">
+                    Select a file and click "Upload File" to upload directly
+                </div>
+                <div class="log-entry" style="font-size: 0.7rem; margin-bottom: 0.75rem; color: var(--netflix-text-secondary);">
+                    Or manually add uploadId below:
+                </div>
+                <div class="add-attachment-form">
+                    <input type="text" id="uploadIdInput" placeholder="Upload ID (UUID)">
+                    <button class="secondary-btn" onclick="addAttachmentById()" style="font-size: 0.75rem; padding: 0.5rem 0.75rem;">Add</button>
+                </div>
+                <div class="add-attachment-form" style="margin-top: 0.5rem;">
+                    <input type="text" id="filenameInput" placeholder="Filename (optional)">
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>📊 Logs</h3>
+                <div id="logs" style="max-height: 400px; overflow-y: auto; font-size: 0.75rem; color: var(--netflix-text-secondary); font-family: 'Monaco', 'Consolas', monospace;">
+                    <div class="log-entry">Ready to chat...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification -->
+<div class="notification" id="notification"></div>
+
+<script src="test-chat.js"></script>
+</body>
+</html>

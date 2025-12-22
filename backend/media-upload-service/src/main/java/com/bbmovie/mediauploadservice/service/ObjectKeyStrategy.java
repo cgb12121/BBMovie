@@ -19,6 +19,7 @@ public class ObjectKeyStrategy {
             case MOVIE_POSTER -> "movies/posters/%s.%s".formatted(uploadId, ext);
             case MOVIE_TRAILER -> "movies/trailers/%s/%s".formatted(uploadId, filename);
             case MOVIE_SOURCE -> "movies/sources/%s/%s".formatted(uploadId, filename);
+            case AI_ASSET -> "ai/assets/%s/%s".formatted(uploadId, filename);
         };
     }
 }

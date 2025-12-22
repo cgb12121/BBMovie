@@ -16,6 +16,7 @@ import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -44,9 +45,17 @@ public class SecurityConfig {
     @Value("classpath:jwk-dev.json")
     private Resource jwkResource;
 
+    private CorsConfiguration getCorsConfiguration() {
+        CorsConfiguration corsConfiguration = new CorsConfiguration();
+        corsConfiguration.addAllowedOrigin("*");
+        corsConfiguration.addAllowedHeader("*");
+        corsConfiguration.addAllowedMethod("*");
+        return corsConfiguration;
+    }
     @Bean
     public SecurityWebFilterChain securityWebFilterChain(ServerHttpSecurity http) {
         http
+            .cors(cors -> cors.configurationSource(request -> getCorsConfiguration()))
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .authorizeExchange(exchanges -> exchanges
                 .pathMatchers("/admin/**").hasAnyRole("ROLE_ADMIN", "ADMIN")

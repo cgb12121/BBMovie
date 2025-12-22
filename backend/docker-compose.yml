@@ -49,10 +49,13 @@ services:
       mc mb myminio/bbmovie-hls || true;
       mc mb myminio/bbmovie-secure || true;
       mc mb myminio/bbmovie-public || true;
+      mc mb myminio/bbmovie-ai-assets || true;
       
       # Allow everyone to download the file
       mc anonymous set download myminio/bbmovie-hls
       mc anonymous set download myminio/bbmovie-public
+      
+      # bbmovie-ai-assets is private (no anonymous access)
       
        # Register events
       mc event add myminio/bbmovie-raw arn:minio:sqs::_:nats --event put

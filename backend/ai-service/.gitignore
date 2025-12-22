@@ -34,3 +34,4 @@ build/
 intellij.md
 jooq-codegen.properties
 src/main/resources/jwk-dev.json
+jwt-dev.txt

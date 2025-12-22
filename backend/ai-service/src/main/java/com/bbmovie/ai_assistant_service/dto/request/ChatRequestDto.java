@@ -40,9 +40,26 @@ public class ChatRequestDto {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class FileAttachment {
-        private Long fileId;
+        /**
+         * Upload ID from media-upload-service (UUID string).
+         * This replaces the old fileId (Long) from file-service.
+         */
+        private String uploadId;
+        
+        /**
+         * Optional: Direct file URL. If provided, will be used directly.
+         * If not provided, uploadId will be used to fetch URL from media-upload-service.
+         */
         private String fileUrl; 
+        
         private String storageType;
         private String filename;
+        
+        /**
+         * Legacy field for backward compatibility.
+         * @deprecated Use uploadId instead. Will be removed in future version.
+         */
+        @Deprecated
+        private Long fileId;
     }
 }

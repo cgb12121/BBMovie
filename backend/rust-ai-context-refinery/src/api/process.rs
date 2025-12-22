@@ -1,4 +1,3 @@
-use std::path::PathBuf;
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
 use serde_json::{json, Value};
 use tracing::log::__private_api::log;

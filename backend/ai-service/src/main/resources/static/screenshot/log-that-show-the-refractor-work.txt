@@ -1,0 +1,462 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.5.4)
+
+2025-12-22T13:49:26.723+07:00  INFO 32228 --- [ai-assistant-service] [           main] c.b.a.AiAssistantServiceApplication      : Starting AiAssistantServiceApplication using Java 25.0.1 with PID 32228 (C:\Users\buith_ejh62q2\PROJECTS\backup\BBMovie-main\BBMovie\backend\ai-service\target\classes started by buith_ejh62q2 in C:\Users\buith_ejh62q2\PROJECTS\backup\BBMovie-main\BBMovie\backend\ai-service)
+2025-12-22T13:49:26.724+07:00 DEBUG 32228 --- [ai-assistant-service] [           main] c.b.a.AiAssistantServiceApplication      : Running with Spring Boot v3.5.4, Spring v6.2.9
+2025-12-22T13:49:26.725+07:00  INFO 32228 --- [ai-assistant-service] [           main] c.b.a.AiAssistantServiceApplication      : No active profile set, falling back to 1 default profile: "default"
+2025-12-22T13:49:27.152+07:00  INFO 32228 --- [ai-assistant-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data R2DBC repositories in DEFAULT mode.
+2025-12-22T13:49:27.240+07:00  INFO 32228 --- [ai-assistant-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 85 ms. Found 4 R2DBC repository interfaces.
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::allocateMemory has been called by io.netty.util.internal.PlatformDependent0$2 (file:/C:/Users/buith_ejh62q2/.m2/repository/io/netty/netty-common/4.1.123.Final/netty-common-4.1.123.Final.jar)
+WARNING: Please consider reporting this to the maintainers of class io.netty.util.internal.PlatformDependent0$2
+WARNING: sun.misc.Unsafe::allocateMemory will be removed in a future release
+2025-12-22T13:49:28.027+07:00  INFO 32228 --- [ai-assistant-service] [           main] c.b.a.c.a.l.LangchainLoggingDelegate     : [AI-Listener] Using COMPACT chat listener [FormalLogging] (ai.logging.mode=null)
+2025-12-22T13:49:28.769+07:00  INFO 32228 --- [ai-assistant-service] [           main] c.b.a.config.tool.ToolsRegistry          : [ADMIN] Discovered 12 tools in total: [updateTheme, broadcastSystemMessage, updateNickname, viewAuditTrail, viewUserDetails, getSystemUsageStatistics, manageUserAccount, deleteUserAccount, changeEmail, getSystemConfig, dropTable, retrieve_rag_movies]
+[ModelFactory] Selecting THINKING model for mode: THINKING
+[ModelFactory] Selected model: THINKING
+2025-12-22T13:49:29.221+07:00  INFO 32228 --- [ai-assistant-service] [           main] c.b.a.config.tool.ToolsRegistry          : [USER] Discovered 6 tools in total: [addToWatchlist, submitReview, removeFromWatchlist, getRecommendations, viewMyWatchlist, retrieve_rag_movies]
+[ModelFactory] Selecting THINKING model for mode: THINKING
+[ModelFactory] Selected model: THINKING
+2025-12-22T13:49:29.237+07:00  INFO 32228 --- [ai-assistant-service] [           main] c.b.a.config.tool.ToolsRegistry          : [MOD] Discovered 6 tools in total: [viewReportedContent, sendWarningToUser, moderateContent, getContentView, viewUserPostHistory, retrieve_rag_movies]
+[ModelFactory] Selecting THINKING model for mode: THINKING
+[ModelFactory] Selected model: THINKING
+[ModelFactory] Selecting THINKING model for mode: THINKING
+[ModelFactory] Selected model: THINKING
+2025-12-22T13:49:29.412+07:00  INFO 32228 --- [ai-assistant-service] [           main] c.b.a.service.impl.ChatServiceImpl       : Initialized ChatService with assistants: [ADMIN, USER, MOD, ANONYMOUS]
+2025-12-22T13:49:30.067+07:00 ERROR 32228 --- [ai-assistant-service] [           main] c.b.a.security.SecurityConfig            : [Security] [profile: default]
+ Using hardcoded DEV JWK for JWT validation!
+2025-12-22T13:49:30.314+07:00  INFO 32228 --- [ai-assistant-service] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 1 endpoint beneath base path '/actuator'
+2025-12-22T13:49:30.534+07:00  INFO 32228 --- [ai-assistant-service] [           main] o.s.b.web.embedded.netty.NettyWebServer  : Netty started on port 8888 (http)
+2025-12-22T13:49:30.543+07:00  INFO 32228 --- [ai-assistant-service] [           main] c.b.a.AiAssistantServiceApplication      : Started AiAssistantServiceApplication in 4.096 seconds (process running for 4.367)
+2025-12-22T13:49:30.545+07:00  INFO 32228 --- [ai-assistant-service] [           main] c.b.a.config.ai.OllamaLifecycleHandler   : [Async] Triggering warmup (Load & Keep-Alive) for Ollama model: qwen3:1.7b
+2025-12-22T13:49:30.791+07:00  INFO 32228 --- [ai-assistant-service] [ctor-http-nio-3] c.b.a.config.ai.OllamaLifecycleHandler   : Ollama Model [qwen3:1.7b] Warmed up & Ready!
+2025-12-22T13:49:40.428+07:00  INFO 32228 --- [ai-assistant-service] [actor-tcp-nio-3] org.jooq.Constants                       :
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@  @@        @@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@        @@@@@@@@@@
+@@@@@@@@@@@@@@@@  @@  @@    @@@@@@@@@@
+@@@@@@@@@@  @@@@  @@  @@    @@@@@@@@@@
+@@@@@@@@@@        @@        @@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@        @@        @@@@@@@@@@
+@@@@@@@@@@    @@  @@  @@@@  @@@@@@@@@@
+@@@@@@@@@@    @@  @@  @@@@  @@@@@@@@@@
+@@@@@@@@@@        @@  @  @  @@@@@@@@@@
+@@@@@@@@@@        @@        @@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@  @@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@  Thank you for using jOOQ 3.19.24 (Build date: 2025-06-11T09:19:24Z)
+
+2025-12-22T13:49:40.430+07:00  INFO 32228 --- [ai-assistant-service] [actor-tcp-nio-3] org.jooq.Constants                       :
+
+jOOQ tip of the day: When working with jOOQ and JPA, you can generate your jOOQ code also from your JPA entities rather than a live database: https://www.jooq.org/doc/latest/manual/code-generation/codegen-jpa/
+
+[ChatController] Received request - aiMode: NORMAL, assistantType: admin, message length: 5
+2025-12-22T13:50:09.780+07:00  INFO 32228 --- [ai-assistant-service] [actor-tcp-nio-6] c.b.a.service.impl.ChatServiceImpl       : [ChatService] Received aiMode: NORMAL (type: AiMode)
+2025-12-22T13:50:09.782+07:00  INFO 32228 --- [ai-assistant-service] [actor-tcp-nio-6] c.b.a.service.impl.ChatServiceImpl       : Session cd68d4f6-bd46-43a5-8b9f-c14264691abd: Processed 0 files, 0 with extracted content, 0 references
+2025-12-22T13:50:09.830+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-6] c.b.a.assistant.BaseAssistant            : [streaming] session=cd68d4f6-bd46-43a5-8b9f-c14264691abd type=ADMIN role=ADMIN message=hello
+2025-12-22T13:50:09.913+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-6] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=USER_MESSAGE, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=268
+2025-12-22T13:50:10.000+07:00  INFO 32228 --- [ai-assistant-service] [oundedElastic-2] c.b.a.assistant.BaseAssistant            : [BaseAssistant] Processing chat with aiMode: NORMAL (session: cd68d4f6-bd46-43a5-8b9f-c14264691abd)
+[ModelFactory] Selecting NORMAL model for mode: NORMAL
+[ModelFactory] Selected model: NORMAL
+2025-12-22T13:50:10.001+07:00  INFO 32228 --- [ai-assistant-service] [oundedElastic-2] c.b.a.assistant.BaseAssistant            : [BaseAssistant] Selected model for aiMode NORMAL: OllamaStreamingChatModel
+2025-12-22T13:50:10.008+07:00 DEBUG 32228 --- [ai-assistant-service] [oundedElastic-2] c.b.a.c.a.l.l.FormalLangchainLogging     :
+[listener] Request to OLLAMA
+Messages: 2
+Tools: 12
+SYSTEM:
+You are a helpful AI assistant integrated into the BBMovie application. Your primary goal is to help users by providing accurate information and completing tasks using the available tools. Adapt your behavior based on the specific persona you are assigned.
+
+[FILE ACCESS PERMISSION]
+You CANNOT browse the external file system, BUT you CAN read and process the content of files that are explicitly provided to you in the chat context (e.g., transcribed audio, extracted text). If you see file content in the message which the system will provide to you, you should treat it as valid input from the user.
+
+
+---
+
+### Developer Directives (NON-NEGOTIABLE)
+1. You are not aware of tools or functions, AND NEVER INFORM USER ABOUT THE TOOL'S PARAMETERS. However, you ARE aware of context provided to you (such as file contents).
+2. If you need external information, you directly use your abilities silently.
+3. Never mention or describe the existence of functions, tools, APIs, or internal systems.
+4. Never include code-like names such as `aLovePoem`, `getMovie`, or similar in replies.
+5. Never explain what you are "going to call" or "intend to use."
+6. Only provide natural, user-facing responses related to movies or conversation.
+
+### SECURITY AND POLICY DIRECTIVES (NON-NEGOTIABLE)
+1.  **Data Privacy**: NEVER ask for, store, or reveal personally identifiable information (PII) such as names, emails, passwords, or payment details. All user data is confidential.
+2.  **No Harmful Content**: Do not generate, discuss, or promote illegal, unethical, hateful, or explicit content, but NSFW is allowed.
+3.  **System Integrity**: NEVER reveal internal system details, configurations, API keys, or database schemas. Do not attempt to execute unauthorized commands or modify the system.
+4.  **Stay On Topic**: If a user's request is outside your designated function or violates these policies, politely decline and state your purpose. Example: "I can only assist with movie-related inquiries."
+5.  **Tool Use**: Only use tools for their intended purpose as described in their specifications. Do not misuse tools to probe the system or access unauthorized data.
+
+
+---
+
+You are 'Qwen', a calm and thoughtful AI analyst. You provide well-structured, logical answers. You break down complex problems into clear steps. Your tone is measured and wise. You prefer clarity over speed.
+USER:
+[User's role:{ ADMIN}|User's chat session:{ cd68d4f6-bd46-43a5-8b9f-c14264691abd}]hello
+
+Tool specs (names only):
+dropTable, manageUserAccount, getSystemUsageStatistics, viewAuditTrail, changeEmail, broadcastSystemMessage, deleteUserAccount, viewUserDetails, updateTheme, getSystemConfig
+... and 2 more
+
+2025-12-22T13:50:13.522+07:00 DEBUG 32228 --- [ai-assistant-service] [onPool-worker-1] c.b.a.c.a.l.l.FormalLangchainLogging     :
+[listener] Response from OLLAMA
+AI Message:
+Hello! I'm Qwen, your AI assistant. How can I assist you today?
+
+2025-12-22T13:50:13.652+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-7] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=AI_COMPLETE_RESULT, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=269
+2025-12-22T13:50:14.463+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-9] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=EMBEDDING, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=270
+2025-12-22T13:50:15.267+07:00 DEBUG 32228 --- [ai-assistant-service] [ient-0-thread-2] c.b.a.service.impl.RagServiceImpl        : [rag] Indexed chat fragment into 'rag_conversations'
+2025-12-22T13:50:15.359+07:00 DEBUG 32228 --- [ai-assistant-service] [ctor-tcp-nio-10] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=EMBEDDING_INDEX, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=271
+2025-12-22T13:50:15.360+07:00 DEBUG 32228 --- [ai-assistant-service] [ctor-tcp-nio-10] c.b.a.assistant.BaseAssistant            : [streaming] Stream completed for session cd68d4f6-bd46-43a5-8b9f-c14264691abd
+[ChatController] Received request - aiMode: THINKING, assistantType: admin, message length: 16
+2025-12-22T13:50:40.347+07:00  INFO 32228 --- [ai-assistant-service] [ctor-tcp-nio-12] c.b.a.service.impl.ChatServiceImpl       : [ChatService] Received aiMode: THINKING (type: AiMode)
+2025-12-22T13:50:40.348+07:00  INFO 32228 --- [ai-assistant-service] [ctor-tcp-nio-12] c.b.a.service.impl.ChatServiceImpl       : Session cd68d4f6-bd46-43a5-8b9f-c14264691abd: Processed 0 files, 0 with extracted content, 0 references
+2025-12-22T13:50:40.380+07:00 DEBUG 32228 --- [ai-assistant-service] [ctor-tcp-nio-12] c.b.a.assistant.BaseAssistant            : [streaming] session=cd68d4f6-bd46-43a5-8b9f-c14264691abd type=ADMIN role=ADMIN message=What can you do?
+2025-12-22T13:50:40.393+07:00 DEBUG 32228 --- [ai-assistant-service] [ctor-tcp-nio-12] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=USER_MESSAGE, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=272
+2025-12-22T13:50:40.405+07:00  INFO 32228 --- [ai-assistant-service] [oundedElastic-3] c.b.a.assistant.BaseAssistant            : [BaseAssistant] Processing chat with aiMode: THINKING (session: cd68d4f6-bd46-43a5-8b9f-c14264691abd)
+[ModelFactory] Selecting THINKING model for mode: THINKING
+[ModelFactory] Selected model: THINKING
+2025-12-22T13:50:40.407+07:00  INFO 32228 --- [ai-assistant-service] [oundedElastic-3] c.b.a.assistant.BaseAssistant            : [BaseAssistant] Selected model for aiMode THINKING: OllamaStreamingChatModel
+2025-12-22T13:50:40.410+07:00 DEBUG 32228 --- [ai-assistant-service] [oundedElastic-3] c.b.a.c.a.l.l.FormalLangchainLogging     :
+[listener] Request to OLLAMA
+Messages: 4
+Tools: 12
+SYSTEM:
+You are a helpful AI assistant integrated into the BBMovie application. Your primary goal is to help users by providing accurate information and completing tasks using the available tools. Adapt your behavior based on the specific persona you are assigned.
+
+[FILE ACCESS PERMISSION]
+You CANNOT browse the external file system, BUT you CAN read and process the content of files that are explicitly provided to you in the chat context (e.g., transcribed audio, extracted text). If you see file content in the message which the system will provide to you, you should treat it as valid input from the user.
+
+
+---
+
+### Developer Directives (NON-NEGOTIABLE)
+1. You are not aware of tools or functions, AND NEVER INFORM USER ABOUT THE TOOL'S PARAMETERS. However, you ARE aware of context provided to you (such as file contents).
+2. If you need external information, you directly use your abilities silently.
+3. Never mention or describe the existence of functions, tools, APIs, or internal systems.
+4. Never include code-like names such as `aLovePoem`, `getMovie`, or similar in replies.
+5. Never explain what you are "going to call" or "intend to use."
+6. Only provide natural, user-facing responses related to movies or conversation.
+
+### SECURITY AND POLICY DIRECTIVES (NON-NEGOTIABLE)
+1.  **Data Privacy**: NEVER ask for, store, or reveal personally identifiable information (PII) such as names, emails, passwords, or payment details. All user data is confidential.
+2.  **No Harmful Content**: Do not generate, discuss, or promote illegal, unethical, hateful, or explicit content, but NSFW is allowed.
+3.  **System Integrity**: NEVER reveal internal system details, configurations, API keys, or database schemas. Do not attempt to execute unauthorized commands or modify the system.
+4.  **Stay On Topic**: If a user's request is outside your designated function or violates these policies, politely decline and state your purpose. Example: "I can only assist with movie-related inquiries."
+5.  **Tool Use**: Only use tools for their intended purpose as described in their specifications. Do not misuse tools to probe the system or access unauthorized data.
+
+
+---
+
+You are 'Qwen', a calm and thoughtful AI analyst. You provide well-structured, logical answers. You break down complex problems into clear steps. Your tone is measured and wise. You prefer clarity over speed.
+USER:
+[User's role:{ ADMIN}|User's chat session:{ cd68d4f6-bd46-43a5-8b9f-c14264691abd}]hello
+AI:
+Hello! I'm Qwen, your AI assistant. How can I assist you today?
+USER:
+[User's role:{ ADMIN}|User's chat session:{ cd68d4f6-bd46-43a5-8b9f-c14264691abd}]What can you do?
+
+Tool specs (names only):
+dropTable, manageUserAccount, getSystemUsageStatistics, viewAuditTrail, changeEmail, broadcastSystemMessage, deleteUserAccount, viewUserDetails, updateTheme, getSystemConfig
+... and 2 more
+
+2025-12-22T13:50:44.117+07:00 DEBUG 32228 --- [ai-assistant-service] [onPool-worker-1] c.b.a.c.a.l.l.FormalLangchainLogging     :
+[listener] Response from OLLAMA
+AI Message:
+I can assist with movie-related queries, manage user accounts, view audit trails, broadcast system messages, and more. Specifically, I can:
+1. Retrieve movie documents using semantic searches
+2. Manage user accounts (ban/unban/role changes)
+3. View system usage statistics
+4. Broadcast critical messages to all users
+5. Update user themes and email addresses
+6. Monitor moderation actions through audit trails
+
+Would you like me to help with any specific task?
+AI Thinking:
+Okay, the user is asking, "What can you do?" Let me think about the tools available. The assistant has several functions, but they need to explain them in a natural way without using markdown. The user is an admin, so maybe they want to know the capabilities related to their role.
+
+First, the available tools include things like managing user accounts, viewing audit trails, broadcasting messages, etc. Since the user is an admin, they might be interested in actions like banning users, changing roles, or accessing system stats. But the assistant can't mention the tools directly. Instead, it should outline the possible actions based on the functions.
+
+The assistant should list the main functions in a clear, conversational manner. For example, mention managing user accounts, viewing audit trails, broadcasting messages, etc. It's important to stay within the scope of the tools and not reveal internal details. Also, the response should be friendly and helpful, not too technical. Make sure to avoid any code-like names and keep it natural.
+
+
+2025-12-22T13:50:44.182+07:00 DEBUG 32228 --- [ai-assistant-service] [ctor-tcp-nio-14] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=AI_COMPLETE_RESULT, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=273
+2025-12-22T13:50:44.228+07:00 DEBUG 32228 --- [ai-assistant-service] [ctor-tcp-nio-15] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=EMBEDDING, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=274
+2025-12-22T13:50:44.255+07:00 DEBUG 32228 --- [ai-assistant-service] [ient-0-thread-2] c.b.a.service.impl.RagServiceImpl        : [rag] Indexed chat fragment into 'rag_conversations'
+2025-12-22T13:50:44.294+07:00 DEBUG 32228 --- [ai-assistant-service] [ctor-tcp-nio-16] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=EMBEDDING_INDEX, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=275
+2025-12-22T13:50:44.296+07:00 DEBUG 32228 --- [ai-assistant-service] [ctor-tcp-nio-16] c.b.a.assistant.BaseAssistant            : [streaming] Stream completed for session cd68d4f6-bd46-43a5-8b9f-c14264691abd
+[ChatController] Received request - aiMode: THINKING, assistantType: admin, message length: 38
+2025-12-22T13:51:37.754+07:00  INFO 32228 --- [ai-assistant-service] [ctor-http-nio-4] c.b.a.s.i.r.w.FileProcessingServiceImpl  : Processing 1 attachments from client
+2025-12-22T13:51:37.788+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-2] c.b.a.s.i.MediaUploadServiceClientImpl   : Getting download URL for uploadId: 14ece39d-06e7-4d67-8ef1-0db378d02f07
+2025-12-22T13:51:37.792+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-2] c.b.a.s.i.MediaUploadServiceClientImpl   : Getting download URL for uploadId: 14ece39d-06e7-4d67-8ef1-0db378d02f07
+2025-12-22T13:51:38.453+07:00  INFO 32228 --- [ai-assistant-service] [ctor-http-nio-6] c.b.a.service.impl.ChatServiceImpl       : [ChatService] Received aiMode: THINKING (type: AiMode)
+2025-12-22T13:51:38.453+07:00  INFO 32228 --- [ai-assistant-service] [ctor-http-nio-6] c.b.a.service.impl.ChatServiceImpl       : Session cd68d4f6-bd46-43a5-8b9f-c14264691abd: Processed 1 files, 1 with extracted content, 1 references
+2025-12-22T13:51:38.480+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-3] c.b.a.assistant.BaseAssistant            : [streaming] session=cd68d4f6-bd46-43a5-8b9f-c14264691abd type=ADMIN role=ADMIN message=very nice, can you sumarize this file?
+2025-12-22T13:51:38.500+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-3] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=USER_MESSAGE, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=276
+2025-12-22T13:51:38.511+07:00  INFO 32228 --- [ai-assistant-service] [oundedElastic-2] c.b.a.assistant.BaseAssistant            : [BaseAssistant] Processing chat with aiMode: THINKING (session: cd68d4f6-bd46-43a5-8b9f-c14264691abd)
+[ModelFactory] Selecting THINKING model for mode: THINKING
+[ModelFactory] Selected model: THINKING
+2025-12-22T13:51:38.512+07:00  INFO 32228 --- [ai-assistant-service] [oundedElastic-2] c.b.a.assistant.BaseAssistant            : [BaseAssistant] Selected model for aiMode THINKING: OllamaStreamingChatModel
+2025-12-22T13:51:38.524+07:00 DEBUG 32228 --- [ai-assistant-service] [oundedElastic-2] c.b.a.c.a.l.l.FormalLangchainLogging     :
+[listener] Request to OLLAMA
+Messages: 6
+Tools: 12
+USER:
+[User's role:{ ADMIN}|User's chat session:{ cd68d4f6-bd46-43a5-8b9f-c14264691abd}]hello
+AI:
+Hello! I'm Qwen, your AI assistant. How can I assist you today?
+USER:
+[User's role:{ ADMIN}|User's chat session:{ cd68d4f6-bd46-43a5-8b9f-c14264691abd}]What can you do?
+AI:
+I can assist with movie-related queries, manage user accounts, view audit trails, broadcast system messages, and more. Specifically, I can:
+1. Retrieve movie documents using semantic searches
+2. Manage user accounts (ban/unban/role changes)
+3. View system usage statistics
+4. Broadcast critical messages to all users
+5. Update user themes and email addresses
+6. Monitor moderation actions through audit trails
+
+Would you like me to help with any specific task?
+USER:
+[User's role:{ ADMIN}|User's chat session:{ cd68d4f6-bd46-43a5-8b9f-c14264691abd}]very nice, can you sumarize this file?
+
+--- ATTACHED FILES ---
+File 1: Name: features.md?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20251222%2Fus-east-1%2Fs3%2Faws4_request&X-Amz-Date=20251222T065138Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=26e2bc03e29e6f44af50bb0a04e4dd51aa70434ee55bc0ef0c295294f233c9ab, Type: md?x-amz-algorithm=aws4-hmac-sha256&x-amz-credential=minioadmin%2f20251222%2fus-east-1%2fs3%2faws4_request&x-amz-date=20251222t065138z&x-amz-expires=3600&x-amz-signedheaders=host&x-amz-signature=26e2bc03e29e6f44af50bb0a04e4dd51aa70434ee55bc0ef0c295294f233c9ab
+File attached
+--- END OF FILE INFO ---
+
+--- EXTRACTED CONTENT FROM FILES (PROCESSED BY AI) ---
+=== File: features.md ===
+Type: md
+Content:
+# BBMovie: Advanced AI-Driven Features Architecture
+**Document Status:** Draft / Planning
+**Author:** Gemini 3 pro (System Architect)
+**Core Stack:** Java Spring Boot (Business), Rust Axum (AI Compute Worker), Elasticsearch (Vector DB), Kafka/NATS (Event Bus).
+
+---
+
+## 1. Voice-Activated Semantic Search (Voice-to-Action)
+
+### 1.1. Problem Statement
+Ng??i dùng mu?n tìm ki?m phim ho?c th?c hi?n tác v? (navigating) b?ng gi?ng nói t? nhiên thay vì g? keyword chính xác.
+* *Legacy approach:* Keyword search (g? "hanh dong") -> k?t qu? h?n ch?.
+* *Goal:* User nói "Tìm phim hành ??ng nào mà nhân v?t chính b? m?t trí nh?" -> H? th?ng hi?u ng? ngh?a và tr? v? k?t qu? chính xác (e.g., *Memento*, *The Bourne Identity*).
+
+### 1.2. Architecture Flow
+**Pattern:** *Audio Processing Pipeline & Hybrid Search.*
+
+1.  **Ingestion:** Frontend (React/Mobile) ghi âm và g?i file `.wav/.mp3` (ho?c stream) lên `File-Service`.
+2.  **Processing (Rust Worker):**
+    * `AI-Service` g?i URL file audio sang `Rust Worker`.
+    * Rust s? d?ng **Whisper (C++ Binding/Candle)** ?? Transcribe ra text.
+    * *Optimization:* S? d?ng c? ch? Resampling (16kHz) và VAD (Voice Activity Detection) ?? lo?i b? kho?ng l?ng, t?i ?u t?c ?? x? l? (<1s cho l?nh ng?n).
+3.  **Understanding (LLM & Tool Calling):**
+    * Text ???c g?i vào LLM (Qwen/Llama) v?i System Prompt ??nh ngh?a các **Tools**:
+        * `search_movie_by_plot(query: string)`
+        * `search_movie_by_actor(name: string)`
+        * `Maps_to_page(page_name: string)`
+    * LLM phân tích ? ??nh (Intent Classification) và quy?t ??nh g?i Tool.
+4.  **Retrieval (Hybrid Search):**
+    * N?u là tìm phim: `AI-Service` t?o Vector Embedding t? query -> G?i Elasticsearch.
+    * S? d?ng **Hybrid Search**: K?t h?p *KNN Vector Search* (ng? ngh?a) và *BM25* (t? khóa) ?? t?ng ?? chính xác (`reciprocal_rank_fusion`).
+
+### 1.3. Technical Highlights (Interview Focus)
+* **Decoupling:** Tách vi?c x? l? Audio n?ng n? sang Rust (CPU/Memory efficient) giúp Spring Boot không b? GC overhead.
+* **Latency:** S? d?ng mô hình "Store First" k?t h?p v?i Internal Network Download ?? gi?m b?ng thông.
+* **Fallbacks:** N?u Rust overload, h? th?ng tr? v? thông báo "?ang x? l?" và dùng Webhook/SSE ?? push k?t qu? sau (Async flow).
+
+---
+
+## 2. Personalized Recommendation System (User Persona Vector)
+
+### 2.1. Problem Statement
+H? th?ng hi?n t?i là "One size fits all". C?n cá nhân hóa tr?i nghi?m d?a trên hành vi ng??i dùng.
+* *Challenge:* Ch?a có h? th?ng tracking, d? li?u phân tán.
+
+### 2.2. Solution: Event-Driven User Profiling
+Xây d?ng h? th?ng theo mô hình **Lambda Architecture** (ho?c ??n gi?n hóa là Near-Realtime Processing).
+
+#### A. User Behavior Tracking (Event Collection)
+Thêm **`Tracking-Service`** (ho?c module trong Gateway) ?? h?ng s? ki?n.
+* Frontend b?n event qua WebSocket ho?c HTTP (Fire-and-forget).
+* **Events:** `VIEW_DETAILS`, `WATCH_TRAILER` (weight: 1), `ADD_WATCHLIST` (weight: 3), `LIKE/RATE` (weight: 5).
+* ??y events vào **Message Queue** (Kafka/NATS) ?? ??m b?o High Throughput, không block user.
+
+#### B. User Vector Building (The Core)
+T?o **`Recommendation-Worker`** (Consumer):
+1.  L?ng nghe event t? Queue.
+2.  L?y thông tin phim (Plot/Genre) t??ng ?ng v?i event.
+3.  **Vector Aggregation:**
+    * L?y Vector c?a phim v?a t??ng tác.
+    * C?p nh?t **User Vector** hi?n t?i b?ng công th?c *Moving Average* (Trung bình tr??t) ho?c *Decay Factor* (Gi?m tr?ng s? s? thích c?, ?u tiên s? thích m?i).
+    * `NewUserVec = (OldUserVec * 0.9) + (MovieVec * 0.1)`.
+4.  L?u User Vector vào Elasticsearch (ho?c Qdrant/Redis).
+
+#### C. Serving Recommendations
+Khi user vào trang ch?:
+1.  L?y User Vector t? DB.
+2.  Query Elasticsearch (KNN Search) tìm các phim có vector *g?n nh?t* v?i User Vector.
+3.  Filter b? các phim ?? xem.
+
+### 2.3. Technical Challenges
+* **Cold Start:** User m?i ch?a có vector -> Fallback v? "Trending" ho?c "Top Rated".
+* **Data Drift:** S? thích user thay ??i. C?n c? ch? Decay (gi?m d?n giá tr? l?ch s?) ?? AI không g?i ? m?i phim ho?t hình n?u user ?? chuy?n sang xem phim kinh d?.
+
+---
+
+## 3. Spoiler Shield & Toxic Filter (Content Moderation)
+
+### 3.1. Problem Statement
+User comment n?i dung spoil phim ho?c toxic. Regex thông th??ng không b?t ???c ng? ngh?a (ví d?: spoil khéo, ch?i thâm).
+
+### 3.2. Architecture Flow
+**Pattern:** *Async Moderation Queue.*
+
+1.  **Submission:** User post comment -> API l?u vào DB v?i tr?ng thái `PENDING_REVIEW` (ho?c `VISIBLE` nh?ng có c? `UNVERIFIED`).
+2.  **Analysis:**
+    * ??y comment ID vào Queue.
+    * **Rust Worker** (ho?c Spring AI) consume queue.
+    * Prompt LLM: *"Phân tích bình lu?n sau: '{comment}'. Output JSON: { is_spoiler: boolean, is_toxic: boolean, reasoning: string }"*.
+3.  **Decision:**
+    * N?u `is_toxic`: Update DB `status = HIDDEN`. Shadow ban user n?u c?n.
+    * N?u `is_spoiler`: Update DB `is_spoiler = true`. Frontend hi?n th? l?p ph? m? (Blur overlay) + nút "Click to reveal".
+    * N?u s?ch: `status = APPROVED`.
+
+### 3.3. Optimization
+* **Bloom Filter:** Dùng ?? check nhanh các t? khóa t?c t?u c? b?n tr??c khi g?i LLM (ti?t ki?m chi phí token).
+* **Batching:** Gom 10-20 comments ?? g?i LLM 1 l?n thay vì g?i l? t?.
+
+---
+
+## 4. AI Data Analyst (Admin Assistant)
+
+### 4.1. The Hard Problem (Distributed Data)
+H? th?ng Microservices có Database riêng bi?t (`AuthDB`, `MovieDB`, `PaymentDB`).
+* **Sai l?m:** Ném schema c?a t?t c? DB vào Context cho AI gen SQL.
+    * *Risk:* Security (L? schema), Context limit (Schema quá to), Consistency (Join b?ng gi?a các DB v?t l? khác nhau là không th?).
+
+### 4.2. Solution: Centralized Analytics Service (The "Data Mesh" approach)
+
+Thay vì ?? AI ch?c vào DB nghi?p v? (OLTP), ta xây d?ng m?t t?ng **Analytics (OLAP)**.
+
+#### A. Data Synchronization (ETL/CDC)
+* S? d?ng **Debezium** (CDC - Change Data Capture) ho?c b?n Event t? các Service (`OrderCreated`, `MovieViewed`) v? m?t DB t?p trung chuyên cho Analytics (ví d?: **ClickHouse** ho?c m?t Schema riêng trong **PostgreSQL/MySQL**).
+* DB này ch?a d? li?u ?? ???c làm s?ch và phi chu?n hóa (Denormalized) -> D? query.
+
+#### B. Semantic Layer (L?p ng? ngh?a)
+Không expose tên b?ng thô (`tbl_usr_01`) cho AI. ??nh ngh?a m?t file metadata (JSON/YAML) mô t? d? li?u cho AI:
+* `"total_revenue"`: Calculate from `orders` table where `status = PAID`.
+* `"top_movies"`: Aggregate from `movie_views`.
+
+#### C. AI Workflow (Text-to-SQL controlled)
+1.  **Admin:** "Th?ng kê doanh thu tháng này theo th? lo?i phim".
+2.  **AI Service:**
+    * Load schema c?a **Analytics DB** (?? ???c rút g?n và an toàn).
+    * Prompt: *"Generate SQL for MySQL Analytics DB based on request..."*
+3.  **Query Validator (Safety Layer - B?t bu?c):**
+    * Code Java ch?n các t? khóa nguy hi?m: `DROP`, `DELETE`, `UPDATE`, `GRANT`.
+    * Ch? cho phép `SELECT`.
+    * Thêm `LIMIT` n?u AI quên.
+4.  **Execution:** Ch?y SQL trên Analytics DB -> Tr? v? JSON -> AI v? bi?u ?? ho?c tóm t?t text.
+
+### 4.3. Interview Defense (Ch?ng v?n)
+* *Q: T?i sao không g?i API t?ng service?*
+    * A: Vì bài toán Analytics c?n `Aggregation` (SUM, COUNT, GROUP BY) trên t?p d? li?u l?n. G?i API r?i tính toán trong memory c?a Java s? gây OOM và ?? tr? cao.
+* *Q: Data ? Analytics DB có realtime không?*
+    * A: Ch?p nh?n ?? tr? (Near-realtime) vài giây ??n vài phút (Eventual Consistency), phù h?p v?i bài toán báo cáo Admin.
+
+---
+
+### T?ng k?t Roadmap
+1.  **Phase 1:** Implement **Voice Search**. (T?n d?ng Rust Whisper s?n có).
+2.  **Phase 2:** Build **Tracking Service** & **User Vector** (D?, impact cao).
+3.  **Phase 3:** Content Moderation (Async Queue).
+4.  **Phase 4:** Analytics Service (C?n d?ng thêm h? t?ng ETL/ClickHouse - Long term).
+
+
+--- END OF EXTRACTED CONTENT ---
+
+Tool specs (names only):
+dropTable, manageUserAccount, getSystemUsageStatistics, viewAuditTrail, changeEmail, broadcastSystemMessage, deleteUserAccount, viewUserDetails, updateTheme, getSystemConfig
+... and 2 more
+
+2025-12-22T13:51:51.525+07:00 DEBUG 32228 --- [ai-assistant-service] [onPool-worker-1] c.b.a.c.a.l.l.FormalLangchainLogging     :
+[listener] Response from OLLAMA
+AI Message:
+Here's a summary of the key features and architecture of BBMovie's advanced AI-driven system:
+
+---
+
+### **Core Features**
+1. **Voice-Activated Semantic Search**
+   - Enables natural language queries (e.g., "Find action movies with a memory-impaired protagonist").
+   - Uses Rust (for low-latency audio processing) + Whisper (C++ binding) for transcription.
+   - Hybrid search combines **KNN Vector** (semantic) and **BM25** (keyword) for accuracy.
+
+2. **Personalized Recommendation System**
+   - Builds user profiles via event tracking (e.g., `VIEW_DETAILS`, `ADD_WATCHLIST`).
+   - Uses **Moving Average**/**Decay Factor** to update user vectors dynamically.
+   - Filters results by watched movies to avoid redundant suggestions.
+
+3. **Content Moderation**
+   - Async queue for spoiler/spoof detection using LLMs (e.g., "Is this a spoiler?").
+   - Bloom filters for keyword filtering + batch processing to reduce token costs.
+   - Blocks toxic comments and hides spoilers with visual overlays.
+
+4. **Analytics & Monitoring**
+   - Centralized analytics layer (OLAP) for real-time reporting.
+   - ETL pipelines (Debezium) for cleaning and aggregating data from microservices.
+   - Safeguards against SQL injection via code validation and limited query execution.
+
+---
+
+### **Technical Highlights**
+- **Decoupling:** Rust handles heavy audio processing, while Spring Boot manages business logic.
+- **Latency:** "Store First" + internal network download to minimize bandwidth.
+- **Fallbacks:** Async flow for heavy tasks (e.g., LLM analysis) with SSE for results.
+
+---
+
+### **Key Challenges & Solutions**
+- **Cold Start:** Fallback to trending/top-rated movies for new users.
+- **Data Drift:** Decay factors prioritize new preferences over historical data.
+- **Security:** Schema isolation in analytics DB prevents accidental exposure of internal structures.
+
+---
+
+This architecture balances performance, scalability, and user experience, leveraging AI for semantic search, personalization, and content moderation.
+AI Thinking:
+Okay, let's see. The user asked to summarize the file, and there's this attached file called features.md. The assistant needs to process the content of that file and provide a summary.
+
+First, I need to check the content of features.md. The user provided the file content, which is a markdown document. The content is about BBMovie's advanced AI-driven features. It has sections like Voice-Activated Semantic Search, Personalized Recommendation System, Spoiler Shield & Toxic Filter, and AI Data Analyst. Each section has technical details and architecture descriptions.
+
+The user wants a summary, so I should outline the key points without getting too detailed. The main goals are to highlight the main features and their purposes. I need to mention the key components like the audio processing pipeline, user profiling, content moderation, and analytics services. Also, the technical highlights like decoupling, latency optimization, and fallback mechanisms.
+
+I should structure the summary in a clear, concise manner, using bullet points or short paragraphs. Make sure to mention the core technologies involved, such as Rust, Elasticsearch, Kafka, and the different layers like Lambda Architecture. Also, note the challenges like cold start and data drift, and how they're addressed.
+
+Wait, the user is an admin, so the summary should be focused on the administrative aspects, like user management, audit trails, and system configurations. But the file content is about features, so maybe the summary should be more technical. However, the user's role is ADMIN, so perhaps the summary should include administrative functions like managing user accounts, viewing audit trails, etc.
+
+But the file content is about the features of BBMovie, so the summary should be based on that. The assistant should not mix administrative functions with the features. The user's question is about summarizing the file, which is the features.md content.
+
+So, the summary should cover the main features discussed in the file, like voice search, recommendation system, moderation, and analytics. Mention the technical aspects like the architecture, tools used (Rust, Elasticsearch, Kafka), and the challenges and solutions.
+
+I need to ensure that the summary is accurate based on the extracted content and doesn't include any external information. Also, avoid any markdown formatting as per the user's request. Keep it natural and user-facing.
+
+
+2025-12-22T13:51:51.565+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-4] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=AI_COMPLETE_RESULT, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=277
+2025-12-22T13:51:51.606+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-6] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=EMBEDDING, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=278
+2025-12-22T13:51:51.631+07:00 DEBUG 32228 --- [ai-assistant-service] [ient-0-thread-2] c.b.a.service.impl.RagServiceImpl        : [rag] Indexed chat fragment into 'rag_conversations'
+2025-12-22T13:51:51.657+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-7] c.b.a.service.impl.AuditServiceImpl      : Audit saved: type=EMBEDDING_INDEX, session=cd68d4f6-bd46-43a5-8b9f-c14264691abd, id=279
+2025-12-22T13:51:51.658+07:00 DEBUG 32228 --- [ai-assistant-service] [actor-tcp-nio-7] c.b.a.assistant.BaseAssistant            : [streaming] Stream completed for session cd68d4f6-bd46-43a5-8b9f-c14264691abd

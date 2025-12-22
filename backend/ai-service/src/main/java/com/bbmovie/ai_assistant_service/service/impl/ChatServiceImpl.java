@@ -62,7 +62,7 @@ public class ChatServiceImpl implements ChatService {
         String userRole = jwt.getClaimAsString(ROLE);
 
         Mono<FileProcessingResult> fileProcessingMono = hasAttachments(request)
-                ? fileProcessingService.processAttachments(request.getAttachments())
+                ? fileProcessingService.processAttachments(request.getAttachments(), jwt)
                 : Mono.just(FileProcessingResult.empty());
 
         return sessionService.getAndValidateSessionOwnership(sessionId, userId)
@@ -72,11 +72,14 @@ public class ChatServiceImpl implements ChatService {
                             String contentStr = formatExtractedContent(fileResult.processedFiles());
 
                             // Pass approval token from request to context
+                            AiMode aiMode = request.getAiMode();
+                            log.debug("[ChatService] Received aiMode: {} (type: {})", aiMode, aiMode != null ? aiMode.getClass().getSimpleName() : "null");
+                            
                             ChatContext chatContext = ChatContext.builder()
                                     .sessionId(sessionId)
                                     .userId(userId.toString()) // Added for HITL
                                     .message(request.getMessage())
-                                    .aiMode(request.getAiMode())
+                                    .aiMode(aiMode)
                                     .userRole(userRole)
                                     .fileReferences(fileResult.fileReferences())
                                     .extractedFileContent(contentStr)

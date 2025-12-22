@@ -3,6 +3,8 @@ package com.bbmovie.ai_assistant_service.controller;
 import com.bbmovie.ai_assistant_service.dto.request.ChatRequestDto;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.service.ChatService;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLogger;
+import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.ServerSentEvent;
@@ -25,6 +27,8 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/chat")
 public class ChatController {
+
+    private static final RgbLogger log = RgbLoggerFactory.getLogger(ChatController.class);
 
     private final ChatService chatService;
 
@@ -49,6 +53,8 @@ public class ChatController {
             @PathVariable UUID sessionId,
             @RequestBody @Valid ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {
+        log.trace("[ChatController] Received request - aiMode: {}, assistantType: {}, message length: {}",
+                request.getAiMode(), request.getAssistantType(), request.getMessage() != null ? request.getMessage().length() : 0);
         return chatService.chat(sessionId, request, jwt)
                 .map(chunk -> ServerSentEvent.builder(chunk).build());
     }

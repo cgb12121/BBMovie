@@ -790,6 +790,7 @@
                     <option value="MOVIE_TRAILER">🎥 MOVIE_TRAILER</option>
                     <option value="MOVIE_POSTER">🖼️ MOVIE_POSTER</option>
                     <option value="USER_AVATAR">👤 USER_AVATAR</option>
+                    <option value="AI_ASSET" selected>🤖 AI_ASSET (Audio, Images, PDF, Text)</option>
                 </select>
             </div>
 
@@ -811,7 +812,7 @@
                         <span class="icon">📤</span>
                         Click to browse or drag & drop files
                     </div>
-                    <div class="file-input-hint">Maximum file size: 2GB • All formats supported</div>
+                    <div class="file-input-hint" id="fileInputHint">Maximum file size: 2GB • All formats supported</div>
                     <input type="file" id="fileInput">
                 </div>
             </div>
@@ -1010,6 +1011,40 @@
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
     }
 
+    // MIME type detection for files that don't have a browser-set MIME type
+    function detectMimeType(filename, browserMimeType) {
+        // If browser already detected a MIME type, use it (unless it's generic)
+        if (browserMimeType && browserMimeType !== 'application/octet-stream') {
+            return browserMimeType;
+        }
+
+        // Get file extension
+        const ext = filename.split('.').pop().toLowerCase();
+
+        // MIME type mapping for AI_ASSET supported file types
+        const mimeTypeMap = {
+            // Audio formats
+            'mp3': 'audio/mpeg',
+            'wav': 'audio/wav',
+            'm4a': 'audio/mp4',
+            // Image formats
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            // PDF
+            'pdf': 'application/pdf',
+            // Text formats
+            'txt': 'text/plain',
+            'md': 'text/markdown',
+            'markdown': 'text/markdown',
+            'json': 'application/json',
+            'xml': 'application/xml',
+            'csv': 'text/csv'
+        };
+
+        return mimeTypeMap[ext] || 'application/octet-stream';
+    }
+
     function log(message, data = null) {
         const timestamp = new Date().toLocaleTimeString();
         const logEntry = document.createElement('div');
@@ -1112,11 +1147,15 @@
         };
 
         if (file) {
+            const detectedMimeType = detectMimeType(file.name, file.type);
             elements.filename.textContent = file.name;
             elements.size.textContent = formatFileSize(file.size);
-            elements.contentType.textContent = file.type || 'Unknown';
+            elements.contentType.textContent = detectedMimeType || 'Unknown';
             elements.sparseChecksum.textContent = 'Calculating...';
             elements.fullChecksum.textContent = 'Calculating...';
+
+            // Store detected MIME type for upload
+            file.detectedMimeType = detectedMimeType;
 
             // Calculate hashes
             calculateHashes(file);
@@ -1156,8 +1195,25 @@
         }
     }
 
+    // Update file input hint based on selected purpose
+    function updateFileInputHint() {
+        const purpose = document.getElementById('purpose').value;
+        const hintElement = document.getElementById('fileInputHint');
+        
+        const hints = {
+            'MOVIE_SOURCE': 'Maximum file size: 2GB • Supported: MP4, MKV, MOV',
+            'MOVIE_TRAILER': 'Maximum file size: 2GB • Supported: MP4, WebM',
+            'MOVIE_POSTER': 'Maximum file size: 50MB • Supported: JPEG, PNG',
+            'USER_AVATAR': 'Maximum file size: 10MB • Supported: JPEG, PNG',
+            'AI_ASSET': 'Maximum file size: 100MB • Supported: MP3, WAV, M4A, PNG, JPG, JPEG, PDF, TXT, MD, JSON, XML, CSV'
+        };
+        
+        hintElement.textContent = hints[purpose] || 'Maximum file size: 2GB • All formats supported';
+    }
+
     // Event Listeners
     fileInput.addEventListener('change', updateFileInfo);
+    document.getElementById('purpose').addEventListener('change', updateFileInputHint);
 
     // Drag and Drop
     fileInputArea.addEventListener('dragover', (e) => {
@@ -1209,9 +1265,12 @@
 
         try {
             // 1. Khởi tạo upload với server
+            // Use detected MIME type if available, otherwise fall back to browser's type
+            const contentType = file.detectedMimeType || file.type || detectMimeType(file.name, file.type);
+            
             const uploadRequest = {
                 purpose: purpose,
-                contentType: file.type,
+                contentType: contentType,
                 sizeBytes: file.size,
                 filename: file.name,
                 checksum: fullChecksum,
@@ -1284,7 +1343,9 @@
             xhr.open('PUT', uploadData.uploadUrl, true);
 
             // Thiết lập các headers cần thiết cho MinIO
-            xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+            // Use detected MIME type if available, otherwise fall back to browser's type
+            const contentType = file.detectedMimeType || file.type || detectMimeType(file.name, file.type);
+            xhr.setRequestHeader('Content-Type', contentType);
 
             // Theo dõi tiến trình upload
             xhr.upload.onprogress = (e) => {
@@ -1371,6 +1432,7 @@
     loadJwtToken();
     updateStatus('Ready');
     updateProgress(0, 'Ready');
+    updateFileInputHint(); // Set initial hint based on default purpose
     checkAndExpandAuth();
 </script>
 </body>

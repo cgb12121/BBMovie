@@ -44,7 +44,9 @@ public class FileTypeUtils {
     public static boolean isTextFile(String fileUrl) {
         if (fileUrl == null) return false;
         String lowerFile = fileUrl.toLowerCase();
-        return lowerFile.matches("\\.txt$");
+        // Match text file extensions supported by rust-ai-context-refinery
+        // See: rust-ai-context-refinery/src/api/process.rs line 108
+        return lowerFile.matches(".*\\.(txt|md|json|xml|csv)$");
     }
 
     public static boolean hasAudioFile(List<String> fileReferences) {

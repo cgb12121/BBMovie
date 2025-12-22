@@ -11,3 +11,4 @@ e2e-tests
 
 .gemini/
 gha-creds-*.json
+private/

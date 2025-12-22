@@ -9,6 +9,7 @@ import com.bbmovie.ai_assistant_service.utils.log.RgbLoggerFactory;
 import com.bbmovie.common.dtos.nats.FileUploadResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -23,30 +24,66 @@ public class FileProcessingServiceImpl implements FileProcessingService {
 
     private static final RgbLogger log = RgbLoggerFactory.getLogger(FileProcessingServiceImpl.class);
 
-    private final FileUploadClient fileUploadClient;
+    private final MediaUploadServiceClient mediaUploadServiceClient;
     private final RustAiContextRefineryClient rustClient;
 
     @Override
-    public Mono<FileProcessingResult> processAttachments(List<FileAttachment> attachments) {
+    public Mono<FileProcessingResult> processAttachments(List<FileAttachment> attachments, Jwt jwt) {
         if (attachments == null || attachments.isEmpty()) {
             return Mono.just(FileProcessingResult.empty());
         }
 
-        log.info("Processing {} attachments from client", attachments.size());
+        log.debug("Processing {} attachments from client", attachments.size());
 
-        // 1. Confirm all files with File Service (in parallel)
-        Mono<Void> confirmTask = Flux.fromIterable(attachments)
-                .flatMap(att -> fileUploadClient.confirmFile(att.getFileId()))
-                .then();
+        // 1. Get download URLs for all files (if not already provided)
+        // For files with uploadId but no fileUrl, fetch URL from media-upload-service
+        Mono<List<FileAttachment>> enrichedAttachments = Flux.fromIterable(attachments)
+                .flatMap(att -> {
+                    // If fileUrl is already provided, use it directly
+                    if (att.getFileUrl() != null && !att.getFileUrl().isEmpty()) {
+                        return Mono.just(att);
+                    }
+                    
+                    // If uploadId is provided, fetch URL from media-upload-service
+                    final String uploadId;
+                    String tempUploadId = att.getUploadId();
+                    if (tempUploadId == null || tempUploadId.isEmpty()) {
+                        // Fallback to legacy fileId for backward compatibility
+                        if (att.getFileId() != null) {
+                            log.warn("Using deprecated fileId field. Please migrate to uploadId.");
+                            uploadId = String.valueOf(att.getFileId());
+                        } else {
+                            return Mono.error(new IllegalArgumentException("FileAttachment must have either uploadId or fileUrl"));
+                        }
+                    } else {
+                        uploadId = tempUploadId;
+                    }
+                    
+                    if (jwt == null) {
+                        return Mono.error(new IllegalStateException("JWT token required to get file download URL from media-upload-service"));
+                    }
+                    
+                    String jwtToken = jwt.getTokenValue();
+                    return mediaUploadServiceClient.getDownloadUrl(uploadId, jwtToken)
+                            .map(fileUrl -> {
+                                att.setFileUrl(fileUrl);
+                                return att;
+                            })
+                            .doOnError(e -> log.error("Failed to get download URL for uploadId {}: {}", 
+                                    uploadId, e.getMessage()));
+                })
+                .collectList();
 
-        // 2. Prepare Batch Request for Rust
-        List<RustProcessRequest> rustRequests = attachments.stream()
+        // 2. Prepare Batch Request for Rust (after getting URLs)
+        Mono<List<RustProcessRequest>> rustRequestsMono = enrichedAttachments
+                .map(atts -> atts.stream()
                 .filter(att -> isSupportedByRust(att.getFilename()))
                 .map(att -> new RustProcessRequest(att.getFileUrl(), att.getFilename()))
-                .toList();
+                        .toList());
 
         // 3. Process Batch via Rust
-        Mono<Map<String, String>> processingTask = rustClient.processBatch(rustRequests)
+        Mono<Map<String, String>> processingTask = rustRequestsMono
+                .flatMap(rustClient::processBatch)
                 .map(results -> results.stream()
                         .filter(node -> node.has("filename") && (node.has("result") || node.has("error")))
                         .collect(Collectors.toMap(
@@ -59,10 +96,13 @@ public class FileProcessingServiceImpl implements FileProcessingService {
                 });
 
         // 4. Combine Results
-        return Mono.when(confirmTask) // Ensure confirmation happens
-                .then(processingTask)
-                .map(resultsMap -> {
-                    List<ProcessedFileContent> processedFiles = attachments.stream()
+        return enrichedAttachments
+                .zipWith(processingTask)
+                .map(tuple -> {
+                    List<FileAttachment> finalAttachments = tuple.getT1();
+                    Map<String, String> resultsMap = tuple.getT2();
+                    
+                    List<ProcessedFileContent> processedFiles = finalAttachments.stream()
                             .map(att -> {
                                 String extractedText = resultsMap.getOrDefault(att.getFilename(), "");
                                 return new ProcessedFileContent(
@@ -79,7 +119,7 @@ public class FileProcessingServiceImpl implements FileProcessingService {
                             .map(ProcessedFileContent::url)
                             .toList();
                     
-                    List<FileUploadResult> synthesizedUploads = attachments.stream()
+                    List<FileUploadResult> synthesizedUploads = finalAttachments.stream()
                             .map(att -> new FileUploadResult(att.getFileUrl(), att.getFilename()))
                             .toList();
 
@@ -88,7 +128,7 @@ public class FileProcessingServiceImpl implements FileProcessingService {
     }
 
     private String extractResultText(JsonNode node) {
-        // 🔥 FIX: Check lỗi cấp Item trước - Handle error case first
+        // FIX: Check error at Item level first - Handle error case first
         if (node.has("error") && !node.get("error").isNull()) {
             String errorMsg = node.get("error").asText();
             log.warn("File {} failed in Rust: {}", node.get("filename"), errorMsg);

@@ -23,6 +23,7 @@ import dev.langchain4j.data.message.SystemMessage;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.memory.ChatMemory;
 import dev.langchain4j.memory.chat.ChatMemoryProvider;
+import dev.langchain4j.model.chat.StreamingChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.StreamingChatResponseHandler;
 import lombok.AccessLevel;
@@ -132,9 +133,13 @@ public abstract class BaseAssistant implements Assistant {
         return Mono.create(monoSink -> {
             ChatMemory chatMemory = chatMemoryProvider.get(sessionId.toString());
             try {
+                log.debug("[BaseAssistant] Processing chat with aiMode: {} (session: {})", aiMode, sessionId);
+                StreamingChatModel selectedModel = modelFactory.getModel(aiMode);
+                log.debug("[BaseAssistant] Selected model for aiMode {}: {}", aiMode, selectedModel.getClass().getSimpleName());
+                
                 // Pass context to factory
                 StreamingChatResponseHandler handler = getHandlerFactory().create(sessionId, chatMemory, sink, monoSink, aiMode, context);
-                modelFactory.getModel(aiMode).chat(chatRequest, handler);
+                selectedModel.chat(chatRequest, handler);
             } catch (Exception ex) {
                 log.error("[streaming] chatModel.chat failed: {}", ex.getMessage());
                 // Ensure both sinks are terminated on the initial error
@@ -232,7 +237,7 @@ public abstract class BaseAssistant implements Assistant {
 
         // Add extracted content if available (from Rust service processing)
         if (extractedContent != null && !extractedContent.trim().isEmpty()) {
-            enhancedMessage.append("\n\n--- EXTRACTED CONTENT FROM FILES (PROCESSED BY AI) ---\n");
+            enhancedMessage.append("\n\n--- EXTRACTED CONTENT FROM FILES (PROCESSED BY SERVER'S AI) ---\n");
             enhancedMessage.append(extractedContent);
             enhancedMessage.append("\n--- END OF EXTRACTED CONTENT ---");
         }
