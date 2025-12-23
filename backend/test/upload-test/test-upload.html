@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBMovie Upload Tester</title>
+    <link rel="stylesheet" href="./test-upload.css">
+</head>
+<body>
+<div class="container">
+    <!-- Left Panel: Upload Controls -->
+    <div class="left-panel">
+        <div class="header">
+            <div class="logo-container">
+                <div class="logo">N</div>
+                <div>
+                    <h1>Media <span class="logo-gradient">Upload</span> Center</h1>
+                    <div class="tagline">Professional media file management system</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Configuration (Authentication đã bị xóa khỏi đây) -->
+        <div class="section">
+            <h2>⚙️ Upload Configuration</h2>
+            <div class="form-group">
+                <label for="purpose" class="required label-with-icon">
+                    <span class="icon">🎯</span>
+                    Upload Purpose
+                </label>
+                <select id="purpose">
+                    <option value="MOVIE_SOURCE">🎬 MOVIE_SOURCE</option>
+                    <option value="MOVIE_TRAILER">🎥 MOVIE_TRAILER</option>
+                    <option value="MOVIE_POSTER">🖼️ MOVIE_POSTER</option>
+                    <option value="USER_AVATAR">👤 USER_AVATAR</option>
+                    <option value="AI_ASSET" selected>🤖 AI_ASSET (Audio, Images, PDF, Text)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="apiHost" class="required label-with-icon">
+                    <span class="icon">🌐</span>
+                    API Host
+                </label>
+                <input type="text" id="apiHost" value="http://localhost:6969">
+            </div>
+
+            <div class="form-group">
+                <label class="required label-with-icon">
+                    <span class="icon">📁</span>
+                    Select File
+                </label>
+                <div class="file-input-area" id="fileInputArea">
+                    <div class="file-input-label">
+                        <span class="icon">📤</span>
+                        Click to browse or drag & drop files
+                    </div>
+                    <div class="file-input-hint" id="fileInputHint">Maximum file size: 2GB • All formats supported</div>
+                    <input type="file" id="fileInput">
+                </div>
+            </div>
+        </div>
+
+        <!-- File Information -->
+        <div class="section">
+            <h2>📊 File Information</h2>
+            <div class="info-grid">
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">📝</span>
+                        Filename
+                    </div>
+                    <div class="info-value" id="displayFilename">No file selected</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">📏</span>
+                        Size
+                    </div>
+                    <div class="info-value" id="displaySizeBytes">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">🎞️</span>
+                        Content-Type
+                    </div>
+                    <div class="info-value" id="displayContentType">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">🔢</span>
+                        Sparse Checksum
+                    </div>
+                    <div class="info-value hash" id="displaySparseChecksum">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">
+                        <span class="icon">🔢</span>
+                        Full Checksum
+                    </div>
+                    <div class="info-value hash" id="displayFullChecksum">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Upload Progress -->
+        <div class="section progress-section">
+            <div class="progress-header">
+                <h2>📈 Upload Progress</h2>
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Ready</span>
+                </div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-bar-fill" id="progressBarFill"></div>
+            </div>
+            <div class="progress-text">
+                <span id="progressPercentage">0%</span>
+                <span id="progressStatus">Waiting...</span>
+            </div>
+
+            <div class="button-group">
+                <button id="uploadBtn" class="primary-btn" onclick="startUpload()">
+                    <span class="icon">🚀</span>
+                    <span>Start Upload</span>
+                    <div class="spinner" id="loadingSpinner"></div>
+                </button>
+                <button class="secondary-btn" onclick="resetForm()">
+                    <span class="icon">🔄</span>
+                    Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Logs + Authentication (Compact) -->
+    <div class="right-panel">
+        <!-- Logs Header -->
+        <div class="logs-header">
+            <div class="logs-title">System Logs</div>
+            <div class="logs-controls">
+                <button class="logs-btn" onclick="toggleAutoScroll()" id="autoScrollBtn">
+                    <span class="icon">📜</span> Auto-scroll
+                </button>
+                <button class="logs-btn danger" onclick="clearLogs()">
+                    <span class="icon">🗑️</span> Clear Logs
+                </button>
+            </div>
+        </div>
+
+        <!-- Logs Content -->
+        <div id="logs"></div>
+
+        <!-- Compact Authentication Section (Dưới logs) -->
+        <div class="compact-auth-section">
+            <div class="auth-header" onclick="toggleAuthSection()">
+                <span class="icon">🔐</span>
+                <span>Authentication Configuration</span>
+                <span class="toggle-icon">▼</span>
+            </div>
+
+            <div class="auth-content" id="authContent">
+                <div class="auth-form">
+                    <div class="form-row">
+                        <label for="jwt">JWT Token:</label>
+                        <textarea id="jwt" rows="2" placeholder="Paste JWT token..."></textarea>
+                    </div>
+                    <div class="auth-actions">
+                        <button class="auth-btn" onclick="loadJwtToken()">
+                            <span class="icon">🔄</span> Load from File
+                        </button>
+                        <div class="auth-info">
+                            <span class="icon">ℹ️</span> Auto-loaded from jwt-dev.txt
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification -->
+<div class="notification" id="notification"></div>
+<script src="./test-upload.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+databaseChangeLog:
+  - changeSet:
+      id: 008-drop-media-variants
+      author: bbmovie
+      preConditions:
+        - onFail: MARK_RAN
+        - tableExists:
+            tableName: media_variants
+      changes:
+        - dropTable:
+            tableName: media_variants
+            cascadeConstraints: true
+

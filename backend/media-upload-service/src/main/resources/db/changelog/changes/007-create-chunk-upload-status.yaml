@@ -1,0 +1,71 @@
+databaseChangeLog:
+  - changeSet:
+      id: 007-create-chunk-upload-status
+      author: bbmovie
+      changes:
+        - createTable:
+            tableName: chunk_upload_status
+            columns:
+              - column:
+                  name: id
+                  type: BINARY(16)
+                  constraints:
+                    primaryKey: true
+                    nullable: false
+              - column:
+                  name: upload_id
+                  type: VARCHAR(255)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: part_number
+                  type: INT
+                  constraints:
+                    nullable: false
+              - column:
+                  name: status
+                  type: VARCHAR(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: etag
+                  type: VARCHAR(255)
+              - column:
+                  name: upload_url
+                  type: VARCHAR(2048)
+              - column:
+                  name: url_expires_at
+                  type: DATETIME
+              - column:
+                  name: retry_count
+                  type: INT
+              - column:
+                  name: error_message
+                  type: VARCHAR(1024)
+              - column:
+                  name: created_at
+                  type: DATETIME
+                  constraints:
+                    nullable: false
+              - column:
+                  name: updated_at
+                  type: DATETIME
+              - column:
+                  name: uploaded_at
+                  type: DATETIME
+        - createIndex:
+            indexName: idx_chunk_upload_id_part
+            tableName: chunk_upload_status
+            unique: true
+            columns:
+              - column:
+                  name: upload_id
+              - column:
+                  name: part_number
+        - createIndex:
+            indexName: idx_chunk_status
+            tableName: chunk_upload_status
+            columns:
+              - column:
+                  name: status
+

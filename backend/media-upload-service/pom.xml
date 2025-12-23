@@ -143,7 +143,13 @@
         <dependency>
             <groupId>io.minio</groupId>
             <artifactId>minio</artifactId>
-            <version>8.5.7</version>
+            <version>8.6.0</version>
+        </dependency>
+        <!-- https://mvnrepository.com/artifact/io.minio/minio-admin -->
+        <dependency>
+            <groupId>io.minio</groupId>
+            <artifactId>minio-admin</artifactId>
+            <version>8.6.0</version>
         </dependency>
         <dependency>
             <groupId>com.bbmovie</groupId>
@@ -165,6 +171,22 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>target/generated-sources/jooq</source> </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

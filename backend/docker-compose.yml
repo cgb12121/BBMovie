@@ -2,10 +2,11 @@ version: '3.8'
 
 services:
   mysql:
+    env_file:
+      - .env.mysql
     image: mysql:8.0
+    command: --performance-schema=OFF --innodb-buffer-pool-size=128M
     container_name: shared_mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: 123456
     ports:
       - "3306:3306"
     volumes:
@@ -16,17 +17,8 @@ services:
     ports:
       - "9000:9000"
       - "9001:9001"
-    environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin123
-      MINIO_NOTIFY_NATS_ENABLE: "on"
-      MINIO_NOTIFY_NATS_ADDRESS: "nats:4222"
-      MINIO_NOTIFY_NATS_SUBJECT: "minio.events"
-      MINIO_NOTIFY_NATS_USERNAME: ""
-      MINIO_NOTIFY_NATS_PASSWORD: ""
-      MINIO_NOTIFY_NATS_JETSTREAM_ENABLE: "on"
-      MINIO_NOTIFY_NATS_STREAM: "MINIO_EVENTS"
-      MINIO_NOTIFY_NATS_TLS: "off"
+    env_file:
+      - .env.minio
     volumes:
       - C:/Users/buith_ejh62q2/Desktop/minio/data:/data
     command: server /data --console-address ":9001"
@@ -35,34 +27,17 @@ services:
   minio-mc:
     image: minio/mc
     container_name: minio-setup
+    env_file:
+      - .env.minio-mc
     depends_on:
       - minio
-    entrypoint: >
-      /bin/sh -c "
-      until mc alias set myminio http://minio:9000 minioadmin minioadmin123; do
-        echo 'Waiting for MinIO...'
-        sleep 1
-      done;
-      
-      # Create bucket if not exist
-      mc mb myminio/bbmovie-raw || true;
-      mc mb myminio/bbmovie-hls || true;
-      mc mb myminio/bbmovie-secure || true;
-      mc mb myminio/bbmovie-public || true;
-      mc mb myminio/bbmovie-ai-assets || true;
-      
-      # Allow everyone to download the file
-      mc anonymous set download myminio/bbmovie-hls
-      mc anonymous set download myminio/bbmovie-public
-      
-      # bbmovie-ai-assets is private (no anonymous access)
-      
-       # Register events
-      mc event add myminio/bbmovie-raw arn:minio:sqs::_:nats --event put
-      
-      echo 'MinIO Setup Complete!';
-      exit 0;
-      "
+    environment:
+      - MINIO_HOST=${MINIO_HOST}
+      - MINIO_ACCESS_KEY=${MINIO_ROOT_USER}  
+      - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD}
+    volumes:
+      - ./scripts/minio-init.sh:/minio-init.sh
+    entrypoint: ["/bin/sh", "/minio-init.sh"]
   nats:
     image: nats:2.9-alpine
     container_name: nats_server

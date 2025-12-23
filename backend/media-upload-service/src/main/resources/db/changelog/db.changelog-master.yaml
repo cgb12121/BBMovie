@@ -9,3 +9,9 @@ databaseChangeLog:
       file: db/changelog/changes/004-add-upload-purpose.yaml
   - include:
       file: db/changelog/changes/005-remove-media-type.yaml
+  - include:
+      file: db/changelog/changes/006-create-multipart-upload-sessions.yaml
+  - include:
+      file: db/changelog/changes/007-create-chunk-upload-status.yaml
+  - include:
+      file: db/changelog/changes/008-drop-media-variants.yaml

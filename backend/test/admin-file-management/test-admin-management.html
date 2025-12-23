@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BBMovie Admin Media Management</title>
+    <link rel="stylesheet" href="./test-admin-management.css">
+</head>
+<body>
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <div class="logo-container">
+            <div class="logo">N</div>
+            <div>
+                <h1>Admin <span class="logo-gradient">Media</span> Management</h1>
+                <div class="subtitle">Manage all media files and monitor upload activities</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Left Panel: Controls and Logs -->
+    <div class="left-panel">
+        <!-- Authentication -->
+        <div class="control-card">
+            <h3><span class="icon">🔐</span> Authentication</h3>
+            <div class="compact-form">
+                <div class="form-group">
+                    <label for="jwt">JWT Token (ADMIN)</label>
+                    <textarea id="jwt" rows="2" placeholder="Paste your ADMIN JWT here..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="apiHost">API Host</label>
+                    <input type="text" id="apiHost" value="http://localhost:6969">
+                </div>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="control-card">
+            <div class="filter-header">
+                <h3><span class="icon">🔍</span> Filters</h3>
+                <div class="file-count" id="fileCount">0 files</div>
+            </div>
+            <div class="filter-grid">
+                <div class="filter-group">
+                    <label for="filterSearch">Search</label>
+                    <input type="text" id="filterSearch" placeholder="Filename or Upload ID">
+                </div>
+                <div class="filter-group">
+                    <label for="filterStatus">Status</label>
+                    <select id="filterStatus">
+                        <option value="">ALL STATUS</option>
+                        <option value="INITIATED">🟡 INITIATED</option>
+                        <option value="UPLOADED">🟢 UPLOADED</option>
+                        <option value="VALIDATED">✅ VALIDATED</option>
+                        <option value="REJECTED">❌ REJECTED</option>
+                        <option value="TRANSCODING">🔄 TRANSCODING</option>
+                        <option value="READY">✅ READY</option>
+                        <option value="FAILED">💥 FAILED</option>
+                        <option value="EXPIRED">⏰ EXPIRED</option>
+                        <option value="DELETED">🗑️ DELETED</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterPurpose">Purpose</label>
+                    <select id="filterPurpose">
+                        <option value="">ALL PURPOSES</option>
+                        <option value="MOVIE_SOURCE">🎬 MOVIE_SOURCE</option>
+                        <option value="MOVIE_TRAILER">🎥 MOVIE_TRAILER</option>
+                        <option value="MOVIE_POSTER">🖼️ MOVIE_POSTER</option>
+                        <option value="USER_AVATAR">👤 USER_AVATAR</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterUserId">User ID</label>
+                    <input type="text" id="filterUserId" placeholder="Filter by User ID">
+                </div>
+                <div class="filter-group">
+                    <label for="filterFromDate">From Date</label>
+                    <input type="date" id="filterFromDate">
+                </div>
+                <div class="filter-group">
+                    <label for="filterToDate">To Date</label>
+                    <input type="date" id="filterToDate">
+                </div>
+            </div>
+            <div class="compact-buttons">
+                <button class="primary-btn" onclick="listMediaFiles()">
+                    <span class="icon">🔍</span>
+                    Apply Filters
+                </button>
+                <button class="secondary-btn" onclick="clearFilters()">
+                    <span class="icon">🔄</span>
+                    Clear
+                </button>
+            </div>
+        </div>
+
+        <!-- Delete Section -->
+        <div class="control-card delete-section">
+            <h3><span class="icon">🗑️</span> Delete File</h3>
+            <div class="form-group">
+                <label for="deleteUploadId">Upload ID to Delete</label>
+                <div class="delete-input-group">
+                    <input type="text" id="deleteUploadId" placeholder="Enter Upload ID">
+                    <button class="danger-btn" onclick="deleteMediaFile()">
+                        <span class="icon">🗑️</span>
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="logs-section">
+            <div class="logs-header">
+                <div class="logs-title">
+                    <span class="icon">📝</span>
+                    System Logs
+                </div>
+                <div>
+                    <button class="secondary-btn" onclick="clearLogs()" style="padding: 0.4rem 0.75rem; font-size: 0.8rem;">
+                        <span class="icon">🧹</span>
+                        Clear
+                    </button>
+                </div>
+            </div>
+            <div id="logs"></div>
+        </div>
+    </div>
+
+    <!-- Right Panel: Results -->
+    <div class="right-panel">
+        <div class="results-section">
+            <div class="results-header">
+                <div class="results-title">
+                    <span class="icon">📊</span>
+                    Media Files Results
+                </div>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>Upload ID</th>
+                        <th>Filename</th>
+                        <th>User ID</th>
+                        <th>Purpose</th>
+                        <th>Status</th>
+                        <th>Mime Type</th>
+                        <th>Size</th>
+                        <th>Created At</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="fileListBody">
+                    <!-- Files will be rendered here -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination">
+                <button class="page-btn" id="prevPage" onclick="changePage(-1)" disabled>
+                    <span class="icon">←</span> Prev
+                </button>
+                <span class="page-info" id="currentPageInfo">Page 1 of 1</span>
+                <button class="page-btn" id="nextPage" onclick="changePage(1)" disabled>
+                    Next <span class="icon">→</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Notification -->
+<div class="notification" id="notification"></div>
+<script src="./test-admin-management.js"></script>
+</body>
+</html>

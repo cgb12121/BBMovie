@@ -11,8 +11,6 @@ import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 
-import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.NOT_STUDENT;
-
 @Builder
 @Entity
 @Table(name = "users")

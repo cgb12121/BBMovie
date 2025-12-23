@@ -24,10 +24,12 @@ public class StreamController {
 
     private final StreamingService streamingService;
 
+    public static final String HLS_MIME_TYPE = "application/vnd.apple.mpegurl";
+
     // Master Playlist
     @GetMapping("/{movieId}/master.m3u8")
     public ResponseEntity<@NonNull Resource> getMasterPlaylist(@PathVariable UUID movieId) {
-        return serveFile(streamingService.getMasterPlaylist(movieId), "application/vnd.apple.mpegurl");
+        return serveFile(streamingService.getMasterPlaylist(movieId), HLS_MIME_TYPE);
     }
 
     // Resolution Playlist
@@ -35,7 +37,7 @@ public class StreamController {
     public ResponseEntity<@NonNull Resource> getResolutionPlaylist(
             @PathVariable UUID movieId,  // No need to regex, uuid safe
             @PathVariable @Pattern(regexp = "^(?:144|240|360|480|720|1080|1440|2160|4080)p$") String resolution) {
-        return serveFile(streamingService.getHlsFile(movieId, resolution), "application/vnd.apple.mpegurl");
+        return serveFile(streamingService.getHlsFile(movieId, resolution), HLS_MIME_TYPE);
     }
 
     // Encryption Keys (Secure)
@@ -44,7 +46,7 @@ public class StreamController {
             @PathVariable UUID movieId, // No need to regex, uuid safe
             @PathVariable @Pattern(regexp = "^(?:144|240|360|480|720|1080|1440|2160|4080)p$") String resolution,
             @PathVariable @Pattern(regexp = "^key_\\d+\\.key$") String keyFile) {
-        return serveFile(streamingService.getSecureKey(movieId, resolution, keyFile), "application/octet-stream");
+        return serveFile(streamingService.getSecureKey(movieId, resolution, keyFile), MediaType.APPLICATION_OCTET_STREAM_VALUE);
     }
 
     private ResponseEntity<@NonNull Resource> serveFile(Resource resource, String contentType) {
