@@ -1,0 +1,8 @@
+.env.minio
+.env.ollama
+.env.redis
+.env.elasticsearch
+.env.mysql
+.env.nats
+.env.minio-mc
+minio-init.sh
