@@ -1,6 +1,5 @@
 use deadpool_redis::{Config, Runtime, Pool};
 use redis::AsyncCommands;
-use serde_json::Value;
 use anyhow::Result;
 use async_compression::tokio::write::GzipEncoder;
 use async_compression::futures::bufread::GzipDecoder;
@@ -13,15 +12,15 @@ pub struct CacheService {
 }
 
 impl CacheService {
-    // 1. Khởi tạo Pool kết nối
+    // Init connection to Redis
     pub fn new(redis_url: &str) -> Self {
         let cfg = Config::from_url(redis_url);
         let pool = cfg.create_pool(Some(Runtime::Tokio1))
-            .expect("❌ Failed to create Redis pool");
+            .expect("Failed to create Redis pool");
 
         Self { pool }
     }
-    // 2. Tạo Key chuẩn: "refinery:result:{filename}"
+    // Create key for Redis: "refinery:result:{filename}"
     fn generate_key(&self, filename: &str) -> String {
         format!("refinery:result:{}", filename)
     }
@@ -35,9 +34,9 @@ impl CacheService {
         let mut conn = self.pool.get().await?;
         let key = self.generate_key(filename);
 
-        // Lưu dưới dạng Bytes (Redis hỗ trợ binary safe)
+        // Store data as bytes (Redis supports binary safe)
         conn.set_ex::<_, _, ()>(key, compressed_bytes, 86400).await?;
-        tracing::debug!("💾 Cached compressed result for: {}", filename);
+        tracing::debug!("Cached compressed result for: {}", filename);
         Ok(())
     }
 
@@ -45,13 +44,13 @@ impl CacheService {
         let mut conn = self.pool.get().await?;
         let key = self.generate_key(filename);
 
-        // Lấy dữ liệu nén từ Redis
+        // Get compressed data from Redis
         let compressed_bytes: Option<Vec<u8>> = conn.get(&key).await?;
 
         if let Some(bytes) = compressed_bytes {
-            tracing::info!("🎯 Compressed Cache HIT for: {}", filename);
+            tracing::info!("Compressed Cache HIT for: {}", filename);
 
-            // Giải nén dữ liệu
+            // Uncompress data
             let cursor = Cursor::new(bytes);
             let mut decoder = GzipDecoder::new(cursor);
             let mut buffer = Vec::new();
@@ -61,7 +60,7 @@ impl CacheService {
             return Ok(Some(text));
         }
 
-        tracing::info!("💨 Compressed Cache MISS for: {}", filename);
+        tracing::info!("Compressed Cache MISS for: {}", filename);
         Ok(None)
     }
 }

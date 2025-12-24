@@ -5,7 +5,7 @@ title Rust Worker (Auto-Detect MSVC)
 :: ==========================================
 :: 1. SETUP ENV CHO RUST
 :: ==========================================
-:: Nếu bác đã cài LLVM thì giữ nguyên
+:: Nếu đã cài LLVM thì giữ nguyên
 set LIBCLANG_PATH=C:\Program Files\LLVM\bin
 set RUST_LOG=info
 

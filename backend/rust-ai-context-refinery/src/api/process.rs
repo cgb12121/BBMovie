@@ -1,14 +1,15 @@
 use axum::{http::StatusCode, response::IntoResponse, Extension, Json};
-use serde_json::{json, Value};
-use tracing::log::__private_api::log;
+use serde_json::json;
 use crate::{services, utils};
-use crate::dto::response::{ApiResponse, response};
+use crate::dto::response::ApiResponse;
 use crate::dto::request::{ProcessBatchRequest, ProcessRequest};
 use crate::dto::batch_result::BatchResultItem;
 use crate::services::redis::CacheService;
+use crate::services::nats::NatsService;
 
 pub async fn handle_batch_process(
     Extension(cache_service): Extension<CacheService>,
+    Extension(nats_service): Extension<NatsService>,
     Json(payload): Json<ProcessBatchRequest>
 ) -> impl IntoResponse {
     let mut results: Vec<BatchResultItem> = Vec::new();
@@ -18,7 +19,7 @@ pub async fn handle_batch_process(
     for req in payload.requests {
         let filename_backup = req.filename.clone();
 
-        let result_item = match process_single_request(req, cache_service.clone()).await {
+        let result_item = match process_single_request(req, cache_service.clone(), &nats_service).await {
             Ok(item) => {
                 success_count += 1;
                 item
@@ -56,12 +57,17 @@ pub async fn handle_batch_process(
     )
 }
 
-async fn process_single_request(req: ProcessRequest, cache_service: CacheService) -> anyhow::Result<BatchResultItem> {
+async fn process_single_request(req: ProcessRequest, cache_service: CacheService, nats_service: &NatsService) -> anyhow::Result<BatchResultItem> {
     tracing::info!("Processing file from URL: {} (Type based on {})", req.file_url, req.filename);
 
     // First, check if we have the result in the cache
     if let Some(cached_result) = cache_service.get_compressed(&req.filename).await? {
         tracing::info!("Cache HIT for filename: {}", req.filename);
+        // Even for cache hits, we should publish status update if uploadId is provided
+        // This ensures the file status is updated even if processing was cached
+        if let Some(ref upload_id) = req.upload_id {
+            nats_service.publish_media_status_update(upload_id, "VALIDATED").await;
+        }
         return Ok(BatchResultItem {
             filename: req.filename,
             result: Some(cached_result.parse()?),
@@ -73,7 +79,7 @@ async fn process_single_request(req: ProcessRequest, cache_service: CacheService
         tracing::error!("Download failed for {}: {}", req.filename, e);
         anyhow::anyhow!("Download failed: {}", e)
     })?;
-    // Vệ sĩ dọn rác (RAII)
+    // RAII GUARD auto delete temp file as it is dropped outside the scope
     let _guard = utils::TempFileGuard::new(temp_path.clone());
 
     // Determine a file type from extension
@@ -90,8 +96,8 @@ async fn process_single_request(req: ProcessRequest, cache_service: CacheService
         },
         "png" | "jpg" | "jpeg" => {
             let path_ocr = temp_path.clone();
-            // Chạy OCR song song Vision (nếu muốn tối ưu thêm thì dùng tokio::join!)
-            // Ở đây chạy tuần tự cho an toàn RAM
+            // Run OCR in parallel with Vision, can use tokio::join!! for more performance
+            // But we will run on sequence to save RAM
             let ocr_text = tokio::task::spawn_blocking(move || services::ocr::run_ocr(&path_ocr)).await??;
             let vision_desc = services::vision::describe_image(&temp_path).await?;
 
@@ -126,11 +132,16 @@ async fn process_single_request(req: ProcessRequest, cache_service: CacheService
     let data_to_cache = json_string.clone();
 
     tokio::spawn(async move {
-        // set_compressed nhận (filename, &str)
+        // set_compressed receive (filename, &str)
         if let Err(e) = cache.set_compressed(&fname, &data_to_cache).await {
             tracing::warn!("Cache failed for {}: {}", fname, e);
         }
     });
+
+    // Publish status update after successful processing (not cache hit)
+    if let Some(ref upload_id) = req.upload_id {
+        nats_service.publish_media_status_update(upload_id, "VALIDATED").await;
+    }
 
     Ok(BatchResultItem {
         filename: req.filename,

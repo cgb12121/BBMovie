@@ -30,7 +30,12 @@ async fn main() {
 
     let redis_url = std::env::var("REDIS_URL")
         .unwrap_or_else(|_| "redis://127.0.0.1:6379".to_string());
+    let nats_url = std::env::var("NATS_URL")
+        .unwrap_or_else(|_| "nats://localhost:4222".to_string());
     let cache_service = services::redis::CacheService::new(&redis_url);
+
+    // Initialize NATS service for status updates
+    let nats_service = services::nats::NatsService::new(&nats_url).await;
 
     // 2. Setup Routes
     let app = Router::new()
@@ -39,6 +44,7 @@ async fn main() {
         // New Unified Batch Processing Route
         .route("/api/process-batch", post(api::handle_batch_process))
         .layer(Extension(cache_service))
+        .layer(Extension(nats_service))
         // Limit upload size 50MB (prevent OOM)
         .layer(DefaultBodyLimit::max(50 * 1024 * 1024))
         .layer(TraceLayer::new_for_http());

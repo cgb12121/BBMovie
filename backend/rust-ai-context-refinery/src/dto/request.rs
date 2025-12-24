@@ -4,6 +4,8 @@ use serde::Deserialize;
 pub struct ProcessRequest {
     pub file_url: String, 
     pub filename: String,
+    #[serde(default)]
+    pub upload_id: Option<String>, // Optional uploadId for status updates
 }
 
 #[derive(Deserialize)]

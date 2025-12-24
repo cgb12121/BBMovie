@@ -44,3 +44,6 @@ csv = "1.4.0"
 
 # Compression
 tokio-util = { version = "0.7", features = ["compat"] }
+
+# NATS client for publishing events
+async-nats = "0.33"

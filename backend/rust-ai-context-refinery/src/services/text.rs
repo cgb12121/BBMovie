@@ -20,14 +20,14 @@ pub fn summarize_csv(path: &Path) -> Result<String> {
     markdown.push_str(&format!("Columns: {:?}\n", headers));
     markdown.push_str("First 5 rows:\n");
 
-    // Chỉ lấy 5 dòng đầu
+    // Only take first 5 rows
     for (i, result) in rdr.records().take(5).enumerate() {
         let record = result?;
         markdown.push_str(&format!("{}. {:?}\n", i + 1, record));
     }
 
-    // Đếm tổng dòng (nếu cần, nhưng coi chừng tốn IO đọc hết file)
-    // Hoặc chỉ cần return đoạn sample kia là đủ để AI viết SQL/Query rồi.
+    // Count total rows (if needed, but be careful with IO read the whole file)
+    // Or just return the sample section is enough for AI to write SQL/Query.
 
     Ok(markdown)
 }

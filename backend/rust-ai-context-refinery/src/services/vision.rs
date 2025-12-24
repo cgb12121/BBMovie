@@ -32,7 +32,7 @@ pub async fn describe_image(path: &Path) -> Result<String> {
 
     let body: serde_json::Value = res.json().await?;
     
-    // Issue 8: Don't use unwrap_or(""), return error if the response is missing/invalid
+    // Don't use unwrap_or(""), return error if the response is missing/invalid
     let description: String = body["response"].as_str()
         .ok_or_else(|| anyhow!("Invalid response from Ollama: 'response' field missing or not a string"))?
         .to_string();

@@ -148,6 +148,6 @@ pub fn run_whisper(path: &Path) -> Result<String> {
 }
 
 pub fn eager_init() -> Result<()> {
-    let _ = get_engine()?; // Gọi phát đầu tiên để trigger load_model
+    let _ = get_engine()?; // Call first to trigger load_model
     Ok(())
 }

@@ -13,5 +13,6 @@ pub mod whisper;
 pub mod text;
 pub mod vision;
 pub mod redis;
+pub mod nats;
 
 
