@@ -66,6 +66,7 @@ public class RustAiContextRefineryClient {
     public static class RustProcessRequest {
         private String file_url;
         private String filename;
+        private String upload_id; // Optional uploadId for status updates
     }
 
     @Data

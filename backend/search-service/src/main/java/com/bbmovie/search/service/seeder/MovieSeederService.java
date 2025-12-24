@@ -1,6 +1,8 @@
 package com.bbmovie.search.service.seeder;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
+import co.elastic.clients.elasticsearch._types.mapping.DenseVectorIndexOptionsType;
+import co.elastic.clients.elasticsearch._types.mapping.DenseVectorSimilarity;
 import co.elastic.clients.elasticsearch.core.BulkRequest;
 import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
@@ -135,12 +137,12 @@ public class MovieSeederService {
                         // FIXED: correct ordering + ANN enabled
                         .properties("embedding", p -> p.denseVector(v -> v
                                 .dims(EMBEDDING_DIM)
-                                .similarity("cosine")     // MUST come before index(true)
+                                .similarity(DenseVectorSimilarity.Cosine)     // MUST come before index(true)
                                 .index(true)               // enable ANN
                                 .indexOptions(io -> io
-                                        .type("hnsw")
-                                        .m(16)
-                                        .efConstruction(100)
+                                        .type(DenseVectorIndexOptionsType.BbqDisk)
+//                                        .m(16) // Only used with HNSW
+//                                        .efConstruction(100) // Only used with HNSW
                                 )
                         ))
                 )

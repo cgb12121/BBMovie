@@ -309,7 +309,7 @@ public class RagServiceImpl implements RagService {
     }
 
     /**
-     * Prevents very large inputs from blowing up embedding model with context-length errors.
+     * Prevents very large inputs from blowing up an embedding model with context-length errors.
      */
     private String truncateForEmbedding(String text) {
         if (text == null) {

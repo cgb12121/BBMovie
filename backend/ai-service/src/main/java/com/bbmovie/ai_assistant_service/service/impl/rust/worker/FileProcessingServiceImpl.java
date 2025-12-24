@@ -78,7 +78,14 @@ public class FileProcessingServiceImpl implements FileProcessingService {
         Mono<List<RustProcessRequest>> rustRequestsMono = enrichedAttachments
                 .map(atts -> atts.stream()
                 .filter(att -> isSupportedByRust(att.getFilename()))
-                .map(att -> new RustProcessRequest(att.getFileUrl(), att.getFilename()))
+                .map(att -> {
+                    // Get uploadId for status updates
+                    String uploadId = att.getUploadId();
+                    if ((uploadId == null || uploadId.isEmpty()) && att.getFileId() != null) {
+                        uploadId = String.valueOf(att.getFileId());
+                    }
+                    return new RustProcessRequest(att.getFileUrl(), att.getFilename(), uploadId);
+                })
                         .toList());
 
         // 3. Process Batch via Rust
