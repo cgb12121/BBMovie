@@ -324,7 +324,7 @@ public class LegacyMediaEventConsumer {
                 } catch (Exception e) {
                     log.warn("Error sending heartbeat", e);
                 }
-            }, heartbeatIntervalSeconds, heartbeatIntervalSeconds, TimeUnit.SECONDS);
+            }, 0, heartbeatIntervalSeconds, TimeUnit.SECONDS);
 
             // --- Main logic ---
             String json = new String(msg.getData(), StandardCharsets.UTF_8);
