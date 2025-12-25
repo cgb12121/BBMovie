@@ -80,6 +80,11 @@ services:
     volumes:
       - redis_data:/data
 
+  consul:
+    image: hashicorp/consul
+    ports:
+      - "8500:8500"
+
 volumes:
   mysql_data:
   es_data:

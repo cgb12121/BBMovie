@@ -3,6 +3,9 @@ package com.bbmovie.transcodeworker.service.ffmpeg;
 import com.bbmovie.transcodeworker.exception.FileUploadException;
 import com.bbmovie.transcodeworker.service.ffmpeg.option.CodecOptions;
 import com.bbmovie.transcodeworker.service.ffmpeg.option.PresetOptions;
+
+import com.bbmovie.transcodeworker.service.scheduler.ResolutionCostCalculator;
+import com.bbmovie.transcodeworker.service.scheduler.TranscodeScheduler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFmpeg;
@@ -20,6 +23,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -49,12 +55,14 @@ public class VideoTranscoderService {
     @Value("${app.transcode.key-rotation-interval:10}")
     private int keyRotationInterval; // number of segments before rotating the key
 
-    /** FFmpeg instance used for video transcoding operations */
     private final FFmpeg ffmpeg;
-    /** Metadata service used to extract video metadata */
     private final MetadataService metadataService;
-    /** Encryption service used for generating encryption keys and IVs */
     private final EncryptionService encryptionService;
+    private final TranscodeScheduler scheduler;
+    private final ResolutionCostCalculator costCalculator;
+    
+    /** Executor for parallel transcoding tasks */
+    private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
 
     /**
      * Record class that represents a video resolution configuration for transcoding.
@@ -71,6 +79,17 @@ public class VideoTranscoderService {
          */
         public String name() {
             return filename; // e.g., "720p", "1080p"
+        }
+        
+        /**
+         * Gets the cost weight for this resolution based on transcoding complexity.
+         * This is calculated by the ResolutionCostCalculator.
+         * 
+         * @param calculator The cost calculator to use
+         * @return Cost weight (1-8, where 8 is max for 1080p)
+         */
+        public int getCostWeight(ResolutionCostCalculator calculator) {
+            return calculator.calculateCost(this.filename);
         }
     }
 
@@ -119,6 +138,8 @@ public class VideoTranscoderService {
      * Performs the complete video transcoding process for multiple resolutions.
      * This method generates encrypted HLS segments for each target resolution with custom key rotation.
      * It creates the master playlist and manages the entire transcoding workflow.
+     * <p>
+     * Resolutions are processed in parallel with resource management to prevent CPU overload.
      *
      * @param input the path to the input video file
      * @param videoResolutions the list of resolutions to generate
@@ -127,34 +148,67 @@ public class VideoTranscoderService {
      */
     public void transcode(Path input, List<VideoResolution> videoResolutions, String outputDir, String uploadId) {
         FFmpegVideoMetadata meta = metadataService.getMetadata(input);
-
-        FFmpegExecutor executor;
-        try {
-            executor = new FFmpegExecutor(ffmpeg);
-        } catch (IOException e) {
-            log.error("Failed to initialize FFmpegExecutor: {}", e.getMessage(), e);
-            throw new FileUploadException("Unable to process file.");
-        }
-
         Path outputDirPath = Paths.get(outputDir);
 
         // Generate Initial Encryption Key & IV (Hex) for the video
         String masterKey = encryptionService.generateRandomHex(16);
         String masterIV = encryptionService.generateRandomHex(16);
 
-        log.info("Generated master encryption - Key: {}, IV: {}",
+        log.trace("Generated master encryption - Key: {}, IV: {}",
                 masterKey.substring(0, 8) + "...",
                 masterIV.substring(0, 8) + "...");
 
-        for (VideoResolution res : videoResolutions) {
-            try {
-                executeHlsTranscodeJob(executor, input, res, outputDirPath, meta, uploadId, masterKey, masterIV);
-            } catch (Exception e) {
-                log.error("Failed to transcode file {}: {}", input, e.getMessage(), e);
-                throw new RuntimeException("Transcoding failed for resolution " + res.filename(), e);
-            }
-        }
+        log.info("Starting parallel transcoding for {} resolutions with resource management", videoResolutions.size());
+        
+        // Process all resolutions in parallel with resource constraints
+        List<CompletableFuture<Void>> futures = videoResolutions.stream()
+                .map(res -> CompletableFuture.runAsync(() -> {
+                    TranscodeScheduler.ResourceHandle handle = null;
+                    try {
+                        // Calculate cost weight for this resolution (exponential scaling: 1, 2, 4, 8, 16, 32)
+                        int costWeight = res.getCostWeight(costCalculator);
+                        
+                        // Acquire resources from scheduler
+                        //  will clamp threads to maxCapacity if cost > maxCapacity
+                        handle = scheduler.acquire(costWeight);
+                        
+                        // Get actual threads to use (maybe clamped to maxCapacity)
+                        int threadsToUse = handle.getActualThreads();
+                        
+                        log.info("[{}] Starting transcoding (cost: {}, threads: {}, maxCapacity: {})", 
+                                res.name(), costWeight, threadsToUse, scheduler.getMaxCapacity());
+                        
+                        // Create a new FFmpegExecutor per task for thread safety
+                        // This ensures each transcoding job has its own executor instance
+                        FFmpegExecutor executor;
+                        try {
+                            executor = new FFmpegExecutor(ffmpeg);
+                        } catch (IOException e) {
+                            log.error("[{}] Failed to initialize FFmpegExecutor: {}", res.name(), e.getMessage(), e);
+                            throw new FileUploadException("Unable to process file for resolution " + res.name());
+                        }
+                        
+                        // Execute transcoding for this resolution with a thread limit
+                        executeHlsTranscodeJob(executor, input, res, outputDirPath, meta, uploadId, masterKey, masterIV, threadsToUse);
+                        
+                        log.info("[{}] Completed transcoding successfully", res.name());
+                        
+                    } catch (Exception e) {
+                        log.error("[{}] Failed to transcode resolution: {}", res.name(), e.getMessage(), e);
+                        throw new RuntimeException("Transcoding failed for resolution " + res.filename(), e);
+                    } finally {
+                        // Always release resources
+                        if (handle != null) {
+                            scheduler.release(handle);
+                        }
+                    }
+                }, executorService))
+                .toList();
 
+        // Wait for all transcoding tasks to complete
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        
+        log.info("All resolutions transcoded successfully, creating master playlist");
         createMasterPlaylist(videoResolutions, outputDirPath);
     }
 
@@ -171,11 +225,12 @@ public class VideoTranscoderService {
      * @param uploadId the unique identifier for the upload operation
      * @param masterKey the master encryption key
      * @param masterIV the master initialization vector
+     * @param threadsToUse the number of threads to allocate to FFmpeg (also serves as cost weight)
      * @throws IOException if there's an issue during the transcoding process
      */
     private void executeHlsTranscodeJob(
             FFmpegExecutor executor, Path input, VideoResolution res, Path outputDir,
-            FFmpegVideoMetadata meta, String uploadId, String masterKey, String masterIV) throws IOException {
+            FFmpegVideoMetadata meta, String uploadId, String masterKey, String masterIV, int threadsToUse) throws IOException {
         // Create folder for resolution: /tmp/uuid/720p/
         Path resolutionDir = outputDir.resolve(res.name());
         try {
@@ -217,6 +272,10 @@ public class VideoTranscoderService {
                 .addExtraArgs("-hls_list_size", "0")
                 .addExtraArgs("-hls_segment_filename", segmentFilename)
                 .addExtraArgs("-hls_playlist_type", "vod")
+                
+                // CRITICAL: Limit FFmpeg threads to prevent CPU overload
+                // This ensures each job uses exactly the allocated threads, not 100% CPU
+                .addExtraArgs("-threads", String.valueOf(threadsToUse))
 
                 // Encryption with a key info file
                 .addExtraArgs("-hls_key_info_file", keyInfoPath.toString())
@@ -225,9 +284,11 @@ public class VideoTranscoderService {
                 //NOTE: TEMPORARY DISABLE THIS TO PREVENT UNEXPECTED ERROR when manually creating key
 //                .addExtraArgs("-hls_flags", "periodic_rekey")
                 // Rekey every X segments (default 10)
-                // THÍS ARG IS NOT SUPPORTED IN THIS VERSION
+                // THIS ARG IS NOT SUPPORTED IN THIS VERSION
 //                .addExtraArgs("-hls_periodic_rekey_interval", String.valueOf(keyRotationInterval))
                 .done();
+        
+        log.debug("[{}] FFmpeg configured with {} threads", res.name(), threadsToUse);
 
         FFmpegJob job = executor.createJob(builder, progress -> {
             if (meta.duration() > 0) {
@@ -401,7 +462,7 @@ public class VideoTranscoderService {
         try {
             try (Stream<Path> stream = Files.list(resolutionDir)) {
                 List<Path> files = stream.toList();
-                log.info("[{}] Generated files:", resolutionDir.getFileName());
+                log.trace("[{}] Generated files:", resolutionDir.getFileName());
 
                 Map<String, List<Path>> grouped = files.stream()
                         .collect(Collectors.groupingBy(p -> {
@@ -413,13 +474,13 @@ public class VideoTranscoderService {
                         }));
 
                 for (Map.Entry<String, List<Path>> entry : grouped.entrySet()) {
-                    log.info("  {}: {} files", entry.getKey(), entry.getValue().size());
+                    log.trace("  {}: {} files", entry.getKey(), entry.getValue().size());
                     if (entry.getKey().equals("keys")) {
                         entry.getValue().forEach(p -> {
                             try {
-                                log.info("    - {} ({} bytes)", p.getFileName(), Files.size(p));
+                                log.trace("    - {} ({} bytes)", p.getFileName(), Files.size(p));
                             } catch (IOException e) {
-                                log.warn("    - {} (size unknown)", p.getFileName());
+                                log.error("    - {} (size unknown)", p.getFileName());
                             }
                         });
                     }
@@ -461,14 +522,14 @@ public class VideoTranscoderService {
 
     /**
      * Estimates the required bandwidth for a given video resolution based on common streaming standards.
-     * This method provides appropriate bandwidth estimates for various resolutions from 144p to 4K and beyond.
+     * This method provides appropriate bandwidth estimates for various resolutions from 144p to 4 K and beyond.
      *
      * @param res the video resolution to estimate bandwidth for
      * @return the estimated bandwidth in bits per second
      */
     private long getEstimatedBandwidth(VideoResolution res) {
-        if (res.height() >= 4320) return 35000000; // 8K: 35 Mbps
-        if (res.height() >= 2160) return 15000000; // 4K: 15 Mbps
+        if (res.height() >= 4320) return 35000000; // 8 K: 35 Mbps
+        if (res.height() >= 2160) return 15000000; // 4 K: 15 Mbps
         if (res.height() >= 1440) return 10000000; // 1440p: 10 Mbps
         if (res.height() >= 1080) return 6000000;  // 1080p: 6 Mbps
         if (res.height() >= 720) return 3000000;   // 720p: 3 Mbps

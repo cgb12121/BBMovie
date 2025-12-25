@@ -28,7 +28,6 @@ public class MetadataService {
      *
      * @param videoPath the path to the video file to analyze
      * @return an FFmpegVideoMetadata object containing the extracted metadata
-     * @throws IOException if there's an issue reading the video file
      * @throws IllegalStateException if no video stream is found in the file
      */
     public FFmpegVideoMetadata getMetadata(Path videoPath) {

@@ -20,6 +20,7 @@ set "services[11]=media-streaming-service|SPRING"
 set "services[12]=media-upload-service|SPRING"
 set "services[13]=transcode-worker|SPRING"
 set "services[14]=rust-transcode-worker|RUST"
+set "services[15]=media-service|SPRING"
 
 :: Màu sắc
 set GREEN=[92m
