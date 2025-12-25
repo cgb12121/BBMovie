@@ -46,6 +46,7 @@ public class ImageProcessingService {
      * @param purpose the upload purpose that determines which sizes to generate
      * @return a list of paths to the generated output images
      */
+    @SuppressWarnings("UnusedReturnValue")
     public List<Path> processImageHierarchy(Path input, String outputDir, String format, UploadPurpose purpose) {
         List<Path> outputs = new ArrayList<>();
         List<ImageSize> targetSizes = getSizesForPurpose(purpose);
@@ -93,6 +94,7 @@ public class ImageProcessingService {
      * @param format the target format for the output image
      * @return the path to the processed image
      */
+    @SuppressWarnings("UnusedReturnValue")
     public Path processImage(Path input, Path output, int width, int height, String format) {
         try {
             String outputPath = output.toString();

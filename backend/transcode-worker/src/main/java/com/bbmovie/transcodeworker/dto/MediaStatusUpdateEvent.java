@@ -33,4 +33,7 @@ public class MediaStatusUpdateEvent {
 
     /** Sparse checksum for integrity verification */
     private String sparseChecksum;
+
+    /** Duration of the video in seconds (extracted from metadata) */
+    private Double duration;
 }
