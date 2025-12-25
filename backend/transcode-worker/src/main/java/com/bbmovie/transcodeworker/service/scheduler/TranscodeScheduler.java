@@ -2,10 +2,14 @@ package com.bbmovie.transcodeworker.service.scheduler;
 
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -44,8 +48,8 @@ public class TranscodeScheduler {
      * 
      * @param maxCapacityOverride Optional override for max capacity (if not provided, auto-detects)
      */
-    public TranscodeScheduler(
-            @Value("${app.transcode.max-capacity:0}") int maxCapacityOverride) {
+    @Autowired
+    public TranscodeScheduler(@Value("${app.transcode.max-capacity:0}") int maxCapacityOverride) {
         
         // Detect total logical processors
         this.totalLogicalProcessors = Runtime.getRuntime().availableProcessors();
@@ -94,7 +98,7 @@ public class TranscodeScheduler {
         // This ensures the system never overloads
 
         if (costWeight > maxCapacity) {
-            log.info("Cost weight {} exceeds max capacity {}. Will wait for {} slots and use {} threads for FFmpeg", 
+            log.debug("Cost weight {} exceeds max capacity {}. Will wait for {} slots and use {} threads for FFmpeg",
                     costWeight, maxCapacity, actualThreads, actualThreads);
         } else {
             log.debug("Acquiring {} resource slots (current usage: {}/{})",
@@ -106,12 +110,91 @@ public class TranscodeScheduler {
         semaphore.acquire(actualThreads);
         
         int newUsage = currentUsage.addAndGet(actualThreads);
-        log.info("Acquired {} slots (cost: {}, threads: {}) - Total usage: {}/{}, {}%",
+        log.debug("Acquired {} slots (cost: {}, threads: {}) - Total usage: {}/{}, {}%",
                 actualThreads, costWeight, actualThreads, newUsage, maxCapacity,
                 String.format("%.1f", newUsage * 100.0 / maxCapacity));
         
         // Store both costWeight and actualThreads in the handle
         return new ResourceHandle(costWeight, actualThreads);
+    }
+
+    /**
+     * Tries to acquire permits for a transcoding job with timeout.
+     * Non-blocking alternative to acquire() - returns empty Optional if resources are unavailable.
+     * <p>
+     * Used by ProberStage to acquire resources before adding a task to execute queue.
+     * This enables early cost discovery and prevents queue buildup.
+     *
+     * @param costWeight The cost weight of the resolution
+     * @param timeout    Maximum time to wait for resources
+     * @return Optional containing ResourceHandle if acquired, empty if timeout
+     */
+    public Optional<ResourceHandle> tryAcquire(int costWeight, Duration timeout) {
+        int actualThreads = Math.min(costWeight, maxCapacity);
+
+        try {
+            boolean acquired = semaphore.tryAcquire(
+                    actualThreads,
+                    timeout.toMillis(),
+                    TimeUnit.MILLISECONDS
+            );
+
+            if (acquired) {
+                int newUsage = currentUsage.addAndGet(actualThreads);
+                log.debug("Acquired {} slots via tryAcquire (cost: {}) - Total: {}/{}, {}%",
+                        actualThreads, costWeight, newUsage, maxCapacity,
+                        String.format("%.1f", newUsage * 100.0 / maxCapacity));
+                return Optional.of(new ResourceHandle(costWeight, actualThreads));
+            }
+
+            log.debug("tryAcquire failed for cost {} (timeout: {}ms) - current usage: {}/{}",
+                    costWeight, timeout.toMillis(), currentUsage.get(), maxCapacity);
+            return Optional.empty();
+
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("tryAcquire interrupted for cost {}", costWeight);
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * Checks if resources can be immediately acquired without blocking.
+     * Useful for quick capacity checks before committing to a task.
+     *
+     * @param costWeight The cost weight to check
+     * @return true if resources are available, false otherwise
+     */
+    public boolean canAcquire(int costWeight) {
+        int actualThreads = Math.min(costWeight, maxCapacity);
+        return semaphore.availablePermits() >= actualThreads;
+    }
+
+    /**
+     * Returns the currently available capacity (unused slots).
+     *
+     * @return Number of available slots
+     */
+    public int getAvailableCapacity() {
+        return semaphore.availablePermits();
+    }
+
+    /**
+     * Returns the current usage as a percentage.
+     *
+     * @return Usage percentage (0.0 to 100.0)
+     */
+    public double getUsagePercentage() {
+        return currentUsage.get() * 100.0 / maxCapacity;
+    }
+
+    /**
+     * Returns the current number of slots in use.
+     *
+     * @return Number of slots currently in use
+     */
+    public int getCurrentUsage() {
+        return currentUsage.get();
     }
 
     /**
@@ -135,7 +218,7 @@ public class TranscodeScheduler {
         semaphore.release(slotsToRelease);
         
         int newUsage = currentUsage.addAndGet(-slotsToRelease);
-        log.info("Released {} slots (cost: {}, threads: {}) - Total usage: {}/{}, {}%",
+        log.debug("Released {} slots (cost: {}, threads: {}) - Total usage: {}/{}, {}%",
                 slotsToRelease, costWeight, slotsToRelease, newUsage, maxCapacity,
                 String.format("%.1f", newUsage * 100.0 / maxCapacity));
         

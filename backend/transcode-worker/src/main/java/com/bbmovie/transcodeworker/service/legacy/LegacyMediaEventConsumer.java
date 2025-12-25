@@ -1,4 +1,4 @@
-package com.bbmovie.transcodeworker.service.nats;
+package com.bbmovie.transcodeworker.service.legacy;
 
 import com.bbmovie.transcodeworker.dto.MediaStatusUpdateEvent;
 import com.bbmovie.transcodeworker.enums.UploadPurpose;
@@ -10,8 +10,20 @@ import com.bbmovie.transcodeworker.service.validation.ClamAVService;
 import com.bbmovie.transcodeworker.service.validation.TikaValidationService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.minio.*;
-import io.nats.client.*;
+import io.minio.BucketExistsArgs;
+import io.minio.GetObjectArgs;
+import io.minio.MakeBucketArgs;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
+import io.minio.StatObjectArgs;
+import io.minio.StatObjectResponse;
+import io.nats.client.Connection;
+import io.nats.client.JetStream;
+import io.nats.client.JetStreamApiException;
+import io.nats.client.JetStreamManagement;
+import io.nats.client.JetStreamSubscription;
+import io.nats.client.Message;
+import io.nats.client.PullSubscribeOptions;
 import io.nats.client.api.ConsumerConfiguration;
 import io.nats.client.api.DeliverPolicy;
 import io.nats.client.api.StorageType;
@@ -22,6 +34,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
@@ -33,22 +46,52 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
- * Service class that consumes media events from NATS messaging system.
- * This consumer listens for MinIO object creation events and processes uploaded files
- * based on their upload purpose (video transcoding, image processing, etc.).
- * It handles file validation, malware scanning, and processes files accordingly.
+ * LEGACY: Original monolithic media event consumer.
+ * <p>
+ * This class is DEPRECATED and kept for backward compatibility.
+ * Use the new 3-Stage Pipeline (PipelineOrchestrator) instead by setting:
+ * <pre>
+ * app.pipeline.enabled=true
+ * </pre>
+ * <p>
+ * Issues with this class:
+ * - Does too many things (violates Single Responsibility Principle)
+ * - Duplicate MetadataService calls
+ * - No early cost discovery (Chicken-and-Egg problem)
+ * - Head-of-line blocking potential
+ * <p>
+ * This consumer is only loaded when app.pipeline.enabled=false (default).
+ * 
+ * @deprecated Use {@link com.bbmovie.transcodeworker.service.pipeline.PipelineOrchestrator} instead
+ * @see com.bbmovie.transcodeworker.service.pipeline.PipelineOrchestrator
  */
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class MediaEventConsumer {
+@Deprecated(since = "2025-12-25", forRemoval = true)
+@ConditionalOnProperty(name = "app.pipeline.enabled", havingValue = "false", matchIfMissing = true)
+public class LegacyMediaEventConsumer {
 
     /** Base temporary directory for processing files */
     @Value("${app.transcode.temp-dir}")
     private String baseTempDir;
+
+    /** MinIO bucket names */
+    @Value("${app.minio.hls-bucket}")
+    private String hlsBucket;
+
+    @Value("${app.minio.public-bucket}")
+    private String publicBucket;
+
+    @Value("${app.minio.secure-bucket}")
+    private String secureBucket;
 
     private final Connection natsConnection;
     private final MinioClient minioClient;
@@ -99,6 +142,9 @@ public class MediaEventConsumer {
      */
     @PostConstruct
     public void init() {
+        log.warn("=== LEGACY MediaEventConsumer is being used ===");
+        log.warn("Consider migrating to the new 3-Stage Pipeline by setting app.pipeline.enabled=true");
+        
         try {
             // Get JetStreamManagement for stream/consumer management
             JetStreamManagement jsm = natsConnection.jetStreamManagement();
@@ -468,7 +514,7 @@ public class MediaEventConsumer {
              videoTranscoderService.transcode(input, resolutions, hlsOutputDir.toString(), uploadId);
              log.info("Transcoding finished. Uploading...");
 
-             uploadDirectory(hlsOutputDir, "bbmovie-hls", "movies/" + uploadId);
+             uploadDirectory(hlsOutputDir, hlsBucket, "movies/" + uploadId);
 
         } else if (purpose == UploadPurpose.MOVIE_POSTER || purpose == UploadPurpose.USER_AVATAR) {
              Path imgOutputDir = tempDir.resolve("images");
@@ -481,7 +527,7 @@ public class MediaEventConsumer {
              imageProcessingService.processImageHierarchy(input, imgOutputDir.toString(), format, purpose);
 
              String prefix = (purpose == UploadPurpose.USER_AVATAR ? "users/avatars/" : "movies/posters/") + uploadId;
-             uploadDirectory(imgOutputDir, "bbmovie-public", prefix);
+             uploadDirectory(imgOutputDir, publicBucket, prefix);
         }
         
         return videoDuration; // Return duration (null for images)
@@ -532,7 +578,6 @@ public class MediaEventConsumer {
         }
 
         // Ensure a secure bucket exists for keys
-        String secureBucket = "bbmovie-secure";
         if (!minioClient.bucketExists(BucketExistsArgs.builder().bucket(secureBucket).build())) {
             minioClient.makeBucket(MakeBucketArgs.builder().bucket(secureBucket).build());
         }
@@ -592,3 +637,4 @@ public class MediaEventConsumer {
         }
     }
 }
+

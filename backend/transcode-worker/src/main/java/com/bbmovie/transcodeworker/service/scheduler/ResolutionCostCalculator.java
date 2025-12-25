@@ -1,6 +1,7 @@
 package com.bbmovie.transcodeworker.service.scheduler;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -28,16 +29,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class ResolutionCostCalculator {
 
-    public ResolutionCostCalculator(
-            @Value("${spring.profiles.active:dev}") String activeProfile) {
+    @Autowired
+    public ResolutionCostCalculator(@Value("${spring.profiles.active:dev}") String activeProfile) {
         boolean isProduction = "prod".equals(activeProfile) || "production".equals(activeProfile);
         
         // Auto-detect total logical processors (same as TranscodeScheduler)
         // This avoids circular dependency and ensures consistency
         int totalCores = Runtime.getRuntime().availableProcessors();
         
-        log.info("ResolutionCostCalculator initialized - Total cores: {}, Production: {}",
-                totalCores, isProduction);
+        log.info("ResolutionCostCalculator initialized - Total cores: {}, Production: {}", totalCores, isProduction);
     }
 
     /**
@@ -87,12 +87,12 @@ public class ResolutionCostCalculator {
             // 144p: 1 point (minimum)
             case "144p" -> 1;
             
-            // Unknown resolution: Default to 1 point
-            case "original" -> 1;
+            // Unknown resolution: Most video should be 720p, but we will put it to be 2^6/5
+            case "original" -> 12;
             
             default -> {
-                log.warn("Unknown resolution: {}, using default cost of 1", normalized);
-                yield 1;
+                log.warn("Unknown resolution: {}, using default cost of median", normalized);
+                yield 6;
             }
         };
         

@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+ai_council/
+docker-compose.test.yml
+TESTING.md

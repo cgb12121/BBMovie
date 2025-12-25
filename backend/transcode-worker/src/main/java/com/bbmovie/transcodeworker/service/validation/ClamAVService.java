@@ -48,10 +48,10 @@ public class ClamAVService {
             return true;
         }
 
-        log.info("Scan file: {}", filePath);
+        log.trace("Scan file: {}", filePath);
         try (InputStream is = Files.newInputStream(filePath)) {
             ScanResult scanResult = clamAVClient.scan(is);
-            log.info("Scan result: {}", scanResult);
+            log.trace("[File {}]Scan result: {}", filePath, scanResult);
             if (scanResult instanceof ScanResult.OK) {
                 return true;
             }
