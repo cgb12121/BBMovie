@@ -93,34 +93,42 @@ public class NatsConnectionManager {
 
     /**
      * Sets up or updates the consumer with specified max_ack_pending.
-     * If the consumer exists with incompatible config, it will be deleted and recreated.
+     * <p>
+     * IMPORTANT: Do NOT delete existing consumer! Deleting consumer loses ACK position,
+     * causing all messages to be redelivered from the beginning of the stream.
      *
      * @param maxAckPending Maximum number of unacknowledged messages
      */
     public void setupConsumer(int maxAckPending) {
         try {
-            // Try to delete existing consumer first to avoid config mismatch
-            // This is safe because messages are stored in the stream, not the consumer
+            // Check if consumer already exists
+            boolean consumerExists = false;
             try {
-                jetStreamManagement.deleteConsumer(streamName, consumerDurable);
-                log.info("Deleted existing consumer '{}' to recreate with correct config", consumerDurable);
+                jetStreamManagement.getConsumerInfo(streamName, consumerDurable);
+                consumerExists = true;
+                log.info("Consumer '{}' already exists, updating config if needed", consumerDurable);
             } catch (JetStreamApiException e) {
-                if (e.getErrorCode() != 404) {
-                    log.debug("Consumer '{}' doesn't exist yet, will create new", consumerDurable);
+                if (e.getErrorCode() == 404) {
+                    log.info("Consumer '{}' doesn't exist, will create new", consumerDurable);
                 }
             }
 
+            // Build consumer config - use DeliverPolicy.New for new consumers to skip old messages
             ConsumerConfiguration consumerConfig = ConsumerConfiguration.builder()
                     .durable(consumerDurable)
                     .filterSubject(minioSubject)  // CRITICAL: Must match subscribe subject
                     .ackWait(Duration.ofMinutes(ackWaitMinutes))
                     .maxAckPending(maxAckPending)
-                    .deliverPolicy(DeliverPolicy.All)
+                    // DeliverPolicy.All for existing (resume from last ACK position)
+                    // DeliverPolicy.New for new (only new messages, skip historical)
+                    .deliverPolicy(consumerExists ? DeliverPolicy.All : DeliverPolicy.New)
                     .build();
 
             jetStreamManagement.addOrUpdateConsumer(streamName, consumerConfig);
-            log.info("Consumer '{}' configured with filterSubject={}, max_ack_pending={}, ack_wait={} minutes",
-                    consumerDurable, minioSubject, maxAckPending, ackWaitMinutes);
+            log.info("Consumer '{}' {} with filterSubject={}, max_ack_pending={}, ack_wait={} minutes, deliverPolicy={}",
+                    consumerDurable, consumerExists ? "updated" : "created",
+                    minioSubject, maxAckPending, ackWaitMinutes,
+                    consumerExists ? "All (resume)" : "New (skip old)");
         } catch (JetStreamApiException e) {
             if (e.getErrorCode() == 404) {
                 log.warn("Stream '{}' not found when setting up consumer", streamName);
