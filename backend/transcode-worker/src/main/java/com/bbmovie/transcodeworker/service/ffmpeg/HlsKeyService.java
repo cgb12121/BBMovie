@@ -1,5 +1,6 @@
 package com.bbmovie.transcodeworker.service.ffmpeg;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -35,7 +36,11 @@ public class HlsKeyService {
     @Value("${app.transcode.key-server-url}")
     private String streamApiBaseUrl;
 
-    /** Number of segments before rotating encryption keys */
+    /** Number of segments before rotating encryption keys
+     * -- GETTER --
+     *  Returns the key rotation interval.
+     */
+    @Getter
     @Value("${app.transcode.key-rotation-interval:10}")
     private int keyRotationInterval;
 
@@ -160,13 +165,6 @@ public class HlsKeyService {
         } catch (IOException e) {
             log.warn("Failed to delete key info file: {}", keyInfoPath, e);
         }
-    }
-
-    /**
-     * Returns the key rotation interval.
-     */
-    public int getKeyRotationInterval() {
-        return keyRotationInterval;
     }
 }
 

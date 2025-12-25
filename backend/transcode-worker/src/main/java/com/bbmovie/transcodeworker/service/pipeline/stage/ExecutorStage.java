@@ -163,11 +163,17 @@ public class ExecutorStage {
             MediaProcessor.ProcessingResult result = processor.process(task, inputFile, outputDir);
 
             if (result.success()) {
-                // Success!
+                // Success! ACK the message FIRST before any other operations
                 heartbeatManager.stopAndAck(heartbeat);
-                heartbeat = null;
-                statusPublisher.publishCompleted(task.uploadId(), result.duration());
-                log.info("Completed task: {} (duration: {}s)", taskId, result.duration());
+                heartbeat = null;  // Prevent double ACK/NAK
+                log.info("✅ ACK sent - Completed task: {} (duration: {}s)", taskId, result.duration());
+
+                // Status publishing is best-effort, don't fail on this
+                try {
+                    statusPublisher.publishCompleted(task.uploadId(), result.duration());
+                } catch (Exception statusEx) {
+                    log.warn("Failed to publish completed status for {}: {}", taskId, statusEx.getMessage());
+                }
             } else {
                 throw new RuntimeException(result.errorMessage());
             }
@@ -175,14 +181,18 @@ public class ExecutorStage {
         } catch (Exception e) {
             log.error("Failed to execute task: {}", taskId, e);
 
-            // NAK for redelivery
+            // NAK for redelivery - ONLY if we haven't already ACKed
             if (heartbeat != null) {
                 heartbeatManager.stopAndNak(heartbeat);
-            } else {
-                task.nak();
+                log.info("❌ NAK sent - Task will be redelivered: {}", taskId);
             }
+            // If heartbeat is null, message was already ACKed - don't NAK!
 
-            statusPublisher.publishFailed(task.uploadId(), e.getMessage());
+            try {
+                statusPublisher.publishFailed(task.uploadId(), e.getMessage());
+            } catch (Exception statusEx) {
+                log.warn("Failed to publish failed status for {}: {}", taskId, statusEx.getMessage());
+            }
 
         } finally {
             // ALWAYS release resources

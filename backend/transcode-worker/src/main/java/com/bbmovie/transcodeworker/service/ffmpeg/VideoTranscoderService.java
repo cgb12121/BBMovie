@@ -32,7 +32,7 @@ import java.util.concurrent.Executors;
  * - {@link HlsPlaylistService} for playlist generation
  * - {@link TranscodeScheduler} for resource management
  * <p>
- * Refactored to follow Single Responsibility Principle.
+ * Refactored to follow the Single Responsibility Principle.
  */
 @Slf4j
 @Service
@@ -120,7 +120,7 @@ public class VideoTranscoderService {
                           String uploadId, FFmpegVideoMetadata meta) {
         Path outputDirPath = Paths.get(outputDir);
 
-        // Generate master encryption key pair
+        // Generate a master encryption key pair
         HlsKeyService.MasterKeyPair masterKeyPair = hlsKeyService.generateMasterKeyPair();
 
         log.info("Starting parallel transcoding for {} resolutions with resource management", videoResolutions.size());
@@ -133,33 +133,6 @@ public class VideoTranscoderService {
                 .toList();
 
         // Wait for all transcoding tasks to complete
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
-
-        log.info("All resolutions transcoded successfully, creating master playlist");
-        hlsPlaylistService.createMasterPlaylist(videoResolutions, outputDirPath);
-    }
-
-    /**
-     * Overloaded method for backward compatibility with legacy code.
-     * Uses MetadataService internally to get metadata.
-     */
-    @SuppressWarnings("All")
-    @Deprecated
-    public void transcode(Path input, List<VideoResolution> videoResolutions, String outputDir, String uploadId) {
-        // For backward compatibility - will be removed when legacy code is removed
-        log.warn("Using deprecated transcode() without pre-probed metadata. This causes duplicate MetadataService calls.");
-        
-        Path outputDirPath = Paths.get(outputDir);
-        HlsKeyService.MasterKeyPair masterKeyPair = hlsKeyService.generateMasterKeyPair();
-
-        log.info("Starting parallel transcoding for {} resolutions", videoResolutions.size());
-
-        List<CompletableFuture<Void>> futures = videoResolutions.stream()
-                .map(res -> CompletableFuture.runAsync(() -> 
-                        transcodeResolutionLegacy(input, res, outputDirPath, uploadId, masterKeyPair), 
-                        executorService))
-                .toList();
-
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
         log.info("All resolutions transcoded successfully, creating master playlist");
@@ -192,52 +165,6 @@ public class VideoTranscoderService {
             if (handle != null) {
                 scheduler.release(handle);
             }
-        }
-    }
-
-    /**
-     * Legacy method that probes metadata per resolution (causes duplicate calls).
-     * @deprecated Use transcodeResolution with pre-probed metadata
-     */
-    @SuppressWarnings("all")
-    @Deprecated
-    private void transcodeResolutionLegacy(Path input, VideoResolution res, Path outputDir,
-                                           String uploadId, HlsKeyService.MasterKeyPair masterKeyPair) {
-        TranscodeScheduler.ResourceHandle handle = null;
-        try {
-            int costWeight = res.getCostWeight(costCalculator);
-            handle = scheduler.acquire(costWeight);
-            int threadsToUse = handle.getActualThreads();
-
-            log.info("[{}] Starting transcoding (cost: {}, threads: {})", res.name(), costWeight, threadsToUse);
-
-            // Probe metadata here (legacy behavior - causes duplicate probing)
-            FFmpegVideoMetadata meta = probeMetadataForLegacy(input);
-            executeHlsTranscode(input, res, outputDir, meta, uploadId, masterKeyPair, threadsToUse);
-
-            log.info("[{}] Completed transcoding successfully", res.name());
-
-        } catch (Exception e) {
-            log.error("[{}] Failed to transcode: {}", res.name(), e.getMessage(), e);
-            throw new RuntimeException("Transcoding failed for resolution " + res.filename(), e);
-        } finally {
-            if (handle != null) {
-                scheduler.release(handle);
-            }
-        }
-    }
-
-    /**
-     * Simple duration probe for legacy compatibility.
-     */
-    private FFmpegVideoMetadata probeMetadataForLegacy(Path input) {
-        try {
-            var probeResult = new net.bramp.ffmpeg.FFprobe().probe(input.toString());
-            var format = probeResult.getFormat();
-            return new FFmpegVideoMetadata(0, 0, format.duration, "unknown");
-        } catch (IOException e) {
-            log.warn("Failed to probe metadata, using default duration");
-            return new FFmpegVideoMetadata(0, 0, 0, "unknown");
         }
     }
 

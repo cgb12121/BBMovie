@@ -2,6 +2,8 @@ package com.bbmovie.mediaservice.event;
 
 import com.bbmovie.mediaservice.entity.MovieStatus;
 import com.bbmovie.mediaservice.service.MovieService;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.nats.client.Connection;
 import io.nats.client.Dispatcher;
 import io.nats.client.Message;
@@ -12,8 +14,6 @@ import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
 
-import java.util.UUID;
-
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -21,12 +21,10 @@ public class TranscodeEventListener {
 
     private final Connection natsConnection;
     private final MovieService movieService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Value("${nats.transcode.subject:media.status.update}")
     private String transcodeSubject;
-
-    @Value("${nats.movie.published.subject:movie.published}")
-    private String moviePublishedSubject;
 
     @PostConstruct
     public void init() {
@@ -45,70 +43,80 @@ public class TranscodeEventListener {
             String messageData = new String(msg.getData());
             log.info("Received transcode event: {}", messageData);
 
-            // Parse the event data - in a real implementation, you'd deserialize the JSON
-            // For now, let's assume the message contains file_id and status
-            if (messageData.contains("\"status\":\"READY\"") || messageData.contains("\"status\":\"SUCCESS\"")) {
-                // Extract file_id from the message - this is a simplified approach
-                // In a real implementation, you'd properly parse the JSON
-                String fileId = extractFileId(messageData);
-                if (fileId != null && !fileId.isEmpty()) {
-                    // Find the movie associated with this file ID
-                    movieService.updateMovieStatusByFileId(fileId, MovieStatus.PUBLISHED)
-                        .ifPresent(movie -> {
-                            log.info("Updated movie status to PUBLISHED for file ID: {}", fileId);
-                            // Publish MoviePublishedEvent to notify other services
-                            publishMoviePublishedEvent(movie.getMovieId(), movie.getTitle(), movie.getFilePath());
-                        });
-                }
-            } else if (messageData.contains("\"status\":\"FAILED\"") || messageData.contains("\"status\":\"REJECTED\"")) {
-                String fileId = extractFileId(messageData);
-                if (fileId != null && !fileId.isEmpty()) {
-                    movieService.updateMovieStatusByFileId(fileId, MovieStatus.ERROR)
-                        .ifPresent(movie -> {
-                            log.info("Updated movie status to ERROR for file ID: {}", fileId);
-                        });
-                }
+            // Parse JSON properly
+            JsonNode eventNode = objectMapper.readTree(messageData);
+
+            String status = eventNode.path("status").asText();
+            
+            // Transcode worker sends uploadId, which is the same as fileId in upload-service
+            // Try fileId first, then uploadId as fallback
+            String fileId = eventNode.path("fileId").asText();
+            if (fileId == null || fileId.isEmpty()) {
+                fileId = eventNode.path("file_id").asText();
+            }
+            if (fileId == null || fileId.isEmpty()) {
+                // Fallback to uploadId (they are the same UUID in upload-service)
+                fileId = eventNode.path("uploadId").asText();
+            }
+            
+            if (fileId == null || fileId.isEmpty()) {
+                log.warn("No fileId/uploadId found in transcode event: {}", messageData);
+                return;
+            }
+
+            // Extract filePath if available (for HLS, it's the path to master.m3u8)
+            String filePath = eventNode.path("filePath").asText();
+            if (filePath == null || filePath.isEmpty()) {
+                // Construct default HLS path based on uploadId
+                filePath = "movies/" + fileId + "/master.m3u8";
+            }
+
+            // Extract duration (in seconds) and convert to minutes
+            Double durationSeconds = null;
+            if (eventNode.has("duration") && !eventNode.path("duration").isNull()) {
+                durationSeconds = eventNode.path("duration").asDouble();
+            }
+            Integer durationMinutes = null;
+            if (durationSeconds != null && durationSeconds > 0) {
+                // Convert seconds to minutes (round up)
+                durationMinutes = (int) Math.ceil(durationSeconds / 60.0);
+            }
+
+            log.info("Processing transcode event: fileId={}, status={}, filePath={}, duration={}s ({}min)", 
+                    fileId, status, filePath, durationSeconds, durationMinutes);
+
+            // StatusPublisher sends: COMPLETED, FAILED, MALWARE_DETECTED, INVALID_FILE
+            if ("COMPLETED".equalsIgnoreCase(status) || "SUCCESS".equalsIgnoreCase(status) || "READY".equalsIgnoreCase(status)) {
+                // Find movie by fileId and update status to PUBLISHED
+                String finalFileId = fileId;
+                String finalFilePath = filePath;
+                Integer finalDuration = durationMinutes;
+                
+                movieService.updateMovieStatusByFileId(fileId, MovieStatus.PUBLISHED)
+                    .ifPresent(movie -> {
+                        // Update file path if not already set
+                        if (movie.getFilePath() == null || movie.getFilePath().isEmpty()) {
+                            movieService.updateMovieFilePath(movie.getMovieId(), finalFilePath);
+                        }
+                        // Update duration if available and not already set
+                        if (finalDuration != null && (movie.getDuration() == null || movie.getDuration() == 0)) {
+                            movieService.updateMovieDuration(movie.getMovieId(), finalDuration);
+                        }
+                        log.info("Updated movie {} status to PUBLISHED for file ID: {} (duration: {}min)", 
+                                movie.getMovieId(), finalFileId, finalDuration);
+                        // MovieService will handle publishing MoviePublishedEvent if status changes to PUBLISHED
+                    });
+            } else if ("FAILED".equalsIgnoreCase(status) || "REJECTED".equalsIgnoreCase(status) 
+                    || "MALWARE_DETECTED".equalsIgnoreCase(status) || "INVALID_FILE".equalsIgnoreCase(status)) {
+                String finalFileId = fileId;
+                movieService.updateMovieStatusByFileId(fileId, MovieStatus.ERROR)
+                    .ifPresent(movie -> log.info("Updated movie {} status to ERROR for file ID: {}", movie.getMovieId(), finalFileId));
+            } else {
+                log.warn("Unknown transcode status: {} for file ID: {}", status, fileId);
             }
         } catch (Exception e) {
             log.error("Error processing transcode event", e);
         }
     }
 
-    private String extractFileId(String messageData) {
-        // This is a simplified extraction - in real implementation, properly parse JSON
-        // Looking for patterns like "fileId": "some-id" or "file_id": "some-id"
-        if (messageData.contains("\"fileId\"")) {
-            int start = messageData.indexOf("\"fileId\"") + 9;
-            int quoteStart = messageData.indexOf("\"", start);
-            if (quoteStart != -1) {
-                int quoteEnd = messageData.indexOf("\"", quoteStart + 1);
-                if (quoteEnd != -1) {
-                    return messageData.substring(quoteStart + 1, quoteEnd);
-                }
-            }
-        } else if (messageData.contains("\"file_id\"")) {
-            int start = messageData.indexOf("\"file_id\"") + 10;
-            int quoteStart = messageData.indexOf("\"", start);
-            if (quoteStart != -1) {
-                int quoteEnd = messageData.indexOf("\"", quoteStart + 1);
-                if (quoteEnd != -1) {
-                    return messageData.substring(quoteStart + 1, quoteEnd);
-                }
-            }
-        }
-        return null;
-    }
-
-    public void publishMoviePublishedEvent(UUID movieId, String title, String filePath) {
-        try {
-            String eventPayload = String.format(
-                "{\"movieId\":\"%s\",\"title\":\"%s\",\"filePath\":\"%s\",\"timestamp\":\"%s\"}",
-                movieId, title, filePath, System.currentTimeMillis()
-            );
-            natsConnection.publish(moviePublishedSubject, eventPayload.getBytes());
-            log.info("Published movie published event for movie: {}", movieId);
-        } catch (Exception e) {
-            log.error("Failed to publish movie published event", e);
-        }
-    }
 }

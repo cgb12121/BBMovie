@@ -12,6 +12,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 /**
@@ -102,11 +103,24 @@ public class MinioUploadService {
      * @param destKeyPrefix Prefix for all uploaded objects (e.g., "movies/abc123")
      */
     public void uploadDirectory(Path sourceDir, String bucket, String destKeyPrefix) {
+        uploadDirectoryFiltered(sourceDir, bucket, destKeyPrefix, path -> true);
+    }
+
+    /**
+     * Uploads files from a directory to MinIO with a filter predicate.
+     *
+     * @param sourceDir     Local directory to upload
+     * @param bucket        Target bucket
+     * @param destKeyPrefix Prefix for all uploaded objects (e.g., "movies/abc123")
+     * @param filter        Predicate to filter which files to upload
+     */
+    public void uploadDirectoryFiltered(Path sourceDir, String bucket, String destKeyPrefix, Predicate<Path> filter) {
         log.trace("Uploading directory {} to {}/{}", sourceDir, bucket, destKeyPrefix);
         AtomicInteger fileCount = new AtomicInteger(0);
 
         try (Stream<Path> paths = Files.walk(sourceDir)) {
             paths.filter(Files::isRegularFile)
+                    .filter(filter)
                     .forEach(file -> {
                         String relativePath = sourceDir.relativize(file).toString()
                                 .replace("\\", "/"); // Windows path fix

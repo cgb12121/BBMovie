@@ -27,6 +27,9 @@ public class VideoProcessor implements MediaProcessor {
     @Value("${app.minio.hls-bucket}")
     private String hlsBucket;
 
+    @Value("${app.minio.secure-bucket}")
+    private String secureBucket;
+
     private final ValidationService validationService;
     private final VideoTranscoderService videoTranscoderService;
     private final MinioUploadService uploadService;
@@ -88,11 +91,29 @@ public class VideoProcessor implements MediaProcessor {
 
     /**
      * Uploads HLS output to MinIO.
+     * - Segments (.ts, .m3u8) go to HLS bucket (public)
+     * - Keys (.key) go to Secure bucket (protected)
      */
     private void uploadHlsOutput(ExecuteTask task, Path hlsOutputDir) {
         String destination = getDestinationPath(task);
-        uploadService.uploadDirectory(hlsOutputDir, hlsBucket, destination);
-        log.debug("Uploaded HLS output to: {}/{}", hlsBucket, destination);
+
+        // Upload segments and playlists to HLS bucket (exclude .key files)
+        uploadService.uploadDirectoryFiltered(
+                hlsOutputDir,
+                hlsBucket,
+                destination,
+                path -> !path.toString().endsWith(".key")
+        );
+        log.debug("Uploaded HLS segments to: {}/{}", hlsBucket, destination);
+
+        // Upload encryption keys to Secure bucket
+        uploadService.uploadDirectoryFiltered(
+                hlsOutputDir,
+                secureBucket,
+                destination,
+                path -> path.toString().endsWith(".key")
+        );
+        log.debug("Uploaded encryption keys to: {}/{}", secureBucket, destination);
     }
 
     /**
@@ -101,7 +122,8 @@ public class VideoProcessor implements MediaProcessor {
     private String getDestinationPath(ExecuteTask task) {
         return switch (task.purpose()) {
             case MOVIE_SOURCE -> "movies/" + task.uploadId();
-            default -> "other/" + task.uploadId();
+            case MOVIE_TRAILER -> "trailers/" + task.uploadId();
+            default -> throw new IllegalArgumentException("Unsupported purpose: " + task.purpose());
         };
     }
 }

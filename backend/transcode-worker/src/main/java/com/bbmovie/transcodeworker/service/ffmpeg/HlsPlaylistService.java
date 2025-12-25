@@ -21,7 +21,7 @@ import java.util.stream.Stream;
  * - Resolution playlist URL updates
  * - Bandwidth estimation
  * <p>
- * Extracted from VideoTranscoderService to follow Single Responsibility Principle.
+ * Extracted from VideoTranscoderService to follow the Single Responsibility Principle.
  */
 @Slf4j
 @Service

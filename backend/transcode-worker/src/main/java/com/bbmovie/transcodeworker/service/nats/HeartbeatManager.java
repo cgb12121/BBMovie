@@ -88,8 +88,12 @@ public class HeartbeatManager {
     public void stopAndAck(HeartbeatHandle handle) {
         stopHeartbeat(handle);
         if (handle != null && handle.message() != null) {
-            handle.message().ack();
-            log.debug("ACK sent for heartbeat: {}", handle.heartbeatId());
+            try {
+                handle.message().ack();
+                log.info("NATS ACK sent successfully for: {}", handle.heartbeatId());
+            } catch (Exception e) {
+                log.error("Failed to send NATS ACK for {}: {}", handle.heartbeatId(), e.getMessage());
+            }
         }
     }
 
@@ -102,8 +106,12 @@ public class HeartbeatManager {
     public void stopAndNak(HeartbeatHandle handle) {
         stopHeartbeat(handle);
         if (handle != null && handle.message() != null) {
-            handle.message().nak();
-            log.debug("NAK sent for heartbeat: {}", handle.heartbeatId());
+            try {
+                handle.message().nak();
+                log.info("⚠️ NATS NAK sent (will redeliver) for: {}", handle.heartbeatId());
+            } catch (Exception e) {
+                log.error("❌ Failed to send NATS NAK for {}: {}", handle.heartbeatId(), e.getMessage());
+            }
         }
     }
 

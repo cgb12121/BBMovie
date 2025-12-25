@@ -12,7 +12,6 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 import java.util.concurrent.Executors;
@@ -38,7 +37,6 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-@ConditionalOnProperty(name = "app.pipeline.enabled", havingValue = "true", matchIfMissing = false)
 public class PipelineOrchestrator {
 
     private final NatsConnectionManager natsConnectionManager;
