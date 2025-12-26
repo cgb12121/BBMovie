@@ -140,19 +140,21 @@ public class VideoTranscoderService {
     }
 
     /**
-     * Transcode a single resolution with resource management.
+     * Transcode a single resolution.
+     * Note: Resources are already acquired at task level by ProberStage.
+     * Thread allocation is based on resolution cost weight divided among parallel resolutions.
      */
     private void transcodeResolution(Path input, VideoResolution res, Path outputDir,
                                      FFmpegVideoMetadata meta, String uploadId,
                                      HlsKeyService.MasterKeyPair masterKeyPair) {
-        TranscodeScheduler.ResourceHandle handle = null;
         try {
             int costWeight = res.getCostWeight(costCalculator);
-            handle = scheduler.acquire(costWeight);
-            int threadsToUse = handle.getActualThreads();
+            // Use cost weight as thread hint, clamped to reasonable bounds
+            // Resources already acquired at task level - no additional acquisition needed
+            int threadsToUse = Math.max(1, Math.min(costWeight, scheduler.getMaxCapacity() / 2));
 
-            log.info("[{}] Starting transcoding (cost: {}, threads: {}, maxCapacity: {})",
-                    res.name(), costWeight, threadsToUse, scheduler.getMaxCapacity());
+            log.info("[{}] Starting transcoding (cost: {}, threads: {})",
+                    res.name(), costWeight, threadsToUse);
 
             executeHlsTranscode(input, res, outputDir, meta, uploadId, masterKeyPair, threadsToUse);
 
@@ -161,10 +163,6 @@ public class VideoTranscoderService {
         } catch (Exception e) {
             log.error("[{}] Failed to transcode resolution: {}", res.name(), e.getMessage(), e);
             throw new RuntimeException("Transcoding failed for resolution " + res.filename(), e);
-        } finally {
-            if (handle != null) {
-                scheduler.release(handle);
-            }
         }
     }
 

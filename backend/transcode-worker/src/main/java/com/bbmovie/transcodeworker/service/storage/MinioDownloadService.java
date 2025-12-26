@@ -35,7 +35,7 @@ public class MinioDownloadService {
      * @throws IOException If download fails
      */
     public void downloadToFile(String bucket, String key, Path targetPath) throws IOException {
-        log.trace("Downloading {}/{} to {}", bucket, key, targetPath);
+        log.info("Downloading {}/{} to {}", bucket, key, targetPath);
 
         try (GetObjectResponse response = minioClient.getObject(
                 GetObjectArgs.builder()
@@ -44,7 +44,7 @@ public class MinioDownloadService {
                         .build())) {
 
             Files.copy(response, targetPath, StandardCopyOption.REPLACE_EXISTING);
-            log.debug("Downloaded {}/{} to {} ({} bytes)", bucket, key, targetPath, Files.size(targetPath));
+            log.info("Downloaded {}/{} to {} ({} bytes)", bucket, key, targetPath, Files.size(targetPath));
         } catch (Exception e) {
             log.error("Failed to download {}/{}", bucket, key, e);
             throw new IOException("Failed to download from MinIO", e);
@@ -61,7 +61,7 @@ public class MinioDownloadService {
      */
     public InputStream getInputStream(String bucket, String key) {
         try {
-            log.trace("Getting input stream for {}/{}", bucket, key);
+            log.info("Getting input stream for {}/{}", bucket, key);
 
             return minioClient.getObject(
                     GetObjectArgs.builder()
@@ -86,7 +86,7 @@ public class MinioDownloadService {
      * @return Byte array with partial content
      */
     public byte[] downloadPartial(String bucket, String key, long maxBytes) {
-        log.trace("Downloading partial content {}/{} (max {} bytes)", bucket, key, maxBytes);
+        log.info("Downloading partial content {}/{} (max {} bytes)", bucket, key, maxBytes);
 
         try (GetObjectResponse response = minioClient.getObject(
                 GetObjectArgs.builder()
@@ -97,9 +97,8 @@ public class MinioDownloadService {
                         .build())) {
 
             byte[] data = response.readAllBytes();
-            log.debug("Downloaded {} bytes (partial) from {}/{}", data.length, bucket, key);
+            log.info("Downloaded {} bytes (partial) from {}/{}", data.length, bucket, key);
             return data;
-
         } catch (Exception e) {
             log.error("Failed to download partial content from {}/{}", bucket, key, e);
             throw new RuntimeException("Failed to download partial content", e);

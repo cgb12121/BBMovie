@@ -144,8 +144,8 @@ public class ExecutorStage {
             // Start heartbeat for long-running processing
             heartbeat = heartbeatManager.startHeartbeat(task.natsMessage(), taskId);
 
-            // Publish transcoding status
-            statusPublisher.publishTranscoding(task.uploadId());
+            // Publish processing status
+            statusPublisher.publishProcessing(task.uploadId());
 
             // Create a temp directory
             tempDir = createTempDir(task.uploadId());
@@ -170,9 +170,9 @@ public class ExecutorStage {
 
                 // Status publishing is best-effort, don't fail on this
                 try {
-                    statusPublisher.publishReady(task.uploadId(), result.duration());
+                    statusPublisher.publishCompleted(task.uploadId(), result.duration());
                 } catch (Exception statusEx) {
-                    log.warn("Failed to publish ready status for {}: {}", taskId, statusEx.getMessage());
+                    log.warn("Failed to publish completed status for {}: {}", taskId, statusEx.getMessage());
                 }
             } else {
                 throw new RuntimeException(result.errorMessage());
@@ -184,7 +184,7 @@ public class ExecutorStage {
             // NAK for redelivery - ONLY if we haven't already ACKed
             if (heartbeat != null) {
                 heartbeatManager.stopAndNak(heartbeat);
-                log.info("❌ NAK sent - Task will be redelivered: {}", taskId);
+                log.info("NAK sent - Task will be redelivered: {}", taskId);
             }
             // If heartbeat is null, message was already ACKed - don't NAK!
 

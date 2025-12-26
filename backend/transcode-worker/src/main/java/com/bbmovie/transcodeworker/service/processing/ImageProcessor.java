@@ -46,13 +46,13 @@ public class ImageProcessor implements MediaProcessor {
         log.info("Processing image: {} for purpose: {}", taskId, task.purpose());
 
         try {
-            // 1. Validate file
+            //  Validate file
             validationService.validate(inputFile, task.purpose());
 
-            // 2. Determine format from input file
+            //  Determine format from input file
             String format = getFormat(task.key());
 
-            // 3. Process image (resize to multiple sizes)
+            //  Process image (resize to multiple sizes)
             Path imageOutputDir = outputDir.resolve("images");
             List<Path> outputs = imageProcessingService.processImageHierarchy(
                     inputFile,
@@ -105,7 +105,7 @@ public class ImageProcessor implements MediaProcessor {
         return switch (task.purpose()) {
             case USER_AVATAR -> "avatars/" + task.uploadId();
             case MOVIE_POSTER -> "movies/" + task.uploadId() + "/poster";
-            default -> "other/" + task.uploadId();
+            default -> throw new IllegalArgumentException("Unsupported purpose: " + task.purpose());
         };
     }
 }

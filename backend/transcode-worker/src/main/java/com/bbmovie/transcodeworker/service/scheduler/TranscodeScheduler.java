@@ -50,10 +50,8 @@ public class TranscodeScheduler {
      */
     @Autowired
     public TranscodeScheduler(@Value("${app.transcode.max-capacity:0}") int maxCapacityOverride) {
-        
         // Detect total logical processors
         this.totalLogicalProcessors = Runtime.getRuntime().availableProcessors();
-        
         // Use override if provided, otherwise auto-calculate
         if (maxCapacityOverride > 0) {
             this.maxCapacity = maxCapacityOverride;
@@ -61,7 +59,7 @@ public class TranscodeScheduler {
         } else {
             // Auto-detect: Reserve cores for OS/DB on systems with > 4 cores
             if (totalLogicalProcessors > 4) {
-                this.maxCapacity = totalLogicalProcessors - 2; // Reserve 2 cores
+                this.maxCapacity = totalLogicalProcessors - 2; // Reserve 2 cores for OS and NATS JS
             } else {
                 this.maxCapacity = totalLogicalProcessors; // Use all cores on budget VPS
             }
@@ -101,8 +99,7 @@ public class TranscodeScheduler {
             log.debug("Cost weight {} exceeds max capacity {}. Will wait for {} slots and use {} threads for FFmpeg",
                     costWeight, maxCapacity, actualThreads, actualThreads);
         } else {
-            log.debug("Acquiring {} resource slots (current usage: {}/{})",
-                    actualThreads, currentUsage.get(), maxCapacity);
+            log.debug("Acquiring {} resource slots (current usage: {}/{})", actualThreads, currentUsage.get(), maxCapacity);
         }
         
         // Acquire permits (blocks if not enough available)

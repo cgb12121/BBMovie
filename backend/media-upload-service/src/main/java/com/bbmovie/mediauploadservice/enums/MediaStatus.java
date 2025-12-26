@@ -24,12 +24,22 @@ public enum MediaStatus {
     REJECTED,
 
     /**
-     * Processing (Transcoding/Analyzing)
+     * Processing started (sent by transcode-worker)
+     */
+    PROCESSING,
+
+    /**
+     * Processing (Transcoding/Analyzing) - legacy, use PROCESSING
      */
     TRANSCODING,
 
     /**
-     * HLS / MP4 ready
+     * Processing completed successfully (sent by transcode-worker)
+     */
+    COMPLETED,
+
+    /**
+     * HLS / MP4 ready - legacy, use COMPLETED
      */
     READY,
 
@@ -37,6 +47,16 @@ public enum MediaStatus {
      * Processing failed
      */
     FAILED,
+
+    /**
+     * Malware detected in file
+     */
+    MALWARE_DETECTED,
+
+    /**
+     * Invalid file format/content
+     */
+    INVALID_FILE,
     
     /**
      * Cleaned up due to timeout or manual deletion

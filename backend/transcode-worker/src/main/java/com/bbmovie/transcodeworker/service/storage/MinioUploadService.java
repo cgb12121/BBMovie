@@ -46,7 +46,7 @@ public class MinioUploadService {
                             .build()
             );
 
-            log.debug("Uploaded {} to {}/{} ({} bytes)", sourcePath, bucket, key, Files.size(sourcePath));
+            log.trace("Uploaded {} to {}/{} ({} bytes)", sourcePath, bucket, key, Files.size(sourcePath));
         } catch (Exception e) {
             log.error("Failed to upload {} to {}/{}", sourcePath, bucket, key, e);
             throw new RuntimeException("Failed to upload to MinIO", e);
@@ -75,8 +75,7 @@ public class MinioUploadService {
                             .build()
             );
 
-            log.debug("Uploaded stream to {}/{} ({} bytes)", bucket, key, size);
-
+            log.trace("Uploaded stream to {}/{} ({} bytes)", bucket, key, size);
         } catch (Exception e) {
             log.error("Failed to upload stream to {}/{}", bucket, key, e);
             throw new RuntimeException("Failed to upload stream to MinIO", e);
@@ -129,8 +128,7 @@ public class MinioUploadService {
                         fileCount.incrementAndGet();
                     });
 
-            log.debug("Uploaded {} files from {} to {}/{}", fileCount.get(), sourceDir, bucket, destKeyPrefix);
-
+            log.trace("Uploaded {} files from {} to {}/{}", fileCount.get(), sourceDir, bucket, destKeyPrefix);
         } catch (IOException e) {
             log.error("Failed to walk directory: {}", sourceDir, e);
             throw new RuntimeException("Failed to upload directory to MinIO", e);

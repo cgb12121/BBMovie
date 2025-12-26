@@ -50,9 +50,8 @@ public class PresignedUrlService {
                             .build()
             );
 
-            log.debug("Generated presigned URL for {}/{} (expires in {} minutes)", bucket, key, expiryMinutes);
+            log.info("Generated presigned URL for {}/{} (expires in {} minutes)", bucket, key, expiryMinutes);
             return url;
-
         } catch (Exception e) {
             log.error("Failed to generate presigned URL for {}/{}", bucket, key, e);
             throw new RuntimeException("Failed to generate presigned URL", e);
