@@ -1,8 +1,5 @@
 package com.bbmovie.search.dto;
 
-import co.elastic.clients.elasticsearch.core.SearchResponse;
-import co.elastic.clients.elasticsearch.core.search.Hit;
-
 import java.util.List;
 
 public record PageResponse<T>(
@@ -17,10 +14,11 @@ public record PageResponse<T>(
         Integer prevPage
 ) {
     public PageResponse() {
-        this(List.of(), 0, 0, 0L, 1, false, false, null, null);
+        this(List.of(), 0, 0, 0L, 0, false, false, null, null);
     }
 
-    public static <T> PageResponse<T> toPageResponse(SearchResponse<T> response, int page, int size) {
+    public static <T> PageResponse<T> toPageResponse(
+            co.elastic.clients.elasticsearch.core.SearchResponse<T> response, int page, int size) {
         long totalItems = response.hits().total() != null
                 ? response.hits().total().value()
                 : 0;
@@ -30,7 +28,7 @@ public record PageResponse<T>(
                 .hits()
                 .hits()
                 .stream()
-                .map(Hit::source)
+                .map(co.elastic.clients.elasticsearch.core.search.Hit::source)
                 .toList();
 
         return new PageResponse<>(
@@ -43,6 +41,20 @@ public record PageResponse<T>(
                 page > 0,
                 page + 1 < totalPages ? page + 1 : null,
                 page > 0 ? page - 1 : null
+        );
+    }
+
+    public PageResponse(List<T> items, int page, int size, long totalItems, int totalPages) {
+        this(
+                items,
+                page,
+                size,
+                totalItems,
+                totalPages,
+                page + 1 < totalPages,      // Auto calc hasNext
+                page > 0,                   // Auto calc hasPrevious
+                page + 1 < totalPages ? page + 1 : null, // Auto calc nextPage
+                page > 0 ? page - 1 : null  // Auto calc prevPage
         );
     }
 }

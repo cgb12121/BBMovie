@@ -1,4 +1,4 @@
-package com.bbmovie.search.service.elasticsearch;
+package com.bbmovie.search.service.search.elasticsearch;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.bbmovie.search.dto.event.ElasticsearchDownEvent;
@@ -10,6 +10,7 @@ import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,7 @@ import java.util.concurrent.Callable;
 
 @Service
 @Log4j2
+@ConditionalOnProperty(name = "app.search.engine", havingValue = "elasticsearch")
 public class ElasticsearchConnectionManager {
 
     private final ElasticsearchClient elasticsearchClient;

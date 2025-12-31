@@ -8,9 +8,18 @@ import co.elastic.clients.elasticsearch.core.BulkResponse;
 import co.elastic.clients.elasticsearch.core.search.TotalHits;
 import com.bbmovie.search.entity.MovieDocument;
 import com.bbmovie.search.service.embedding.DjLEmbeddingService;
+import com.bbmovie.search.utils.EmbeddingUtils;
+import com.bbmovie.search.utils.QdrantHelper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.qdrant.client.QdrantClient;
+import io.qdrant.client.grpc.Collections.Distance;
+import io.qdrant.client.grpc.Collections.VectorParams;
+import io.qdrant.client.grpc.JsonWithInt;
+import io.qdrant.client.grpc.Points.PointStruct;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.embedding.EmbeddingModel;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
@@ -27,58 +36,147 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
+import static io.qdrant.client.PointIdFactory.id;
+import static io.qdrant.client.VectorsFactory.vectors;
+
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class MovieSeederService {
 
-    private final ElasticsearchClient elasticsearchClient;
+    private final Optional<ElasticsearchClient> elasticsearchClientOptional;
+    private final Optional<QdrantClient> qdrantClientOptional;
     private final Optional<EmbeddingModel> embeddingModel;
     private final Optional<DjLEmbeddingService> djlEmbeddingService;
     private final Environment environment;
+    private final ObjectMapper objectMapper;
 
     @Value("${spring.ai.vectorstore.elasticsearch.index-name}")
     private String indexName;
+
+    @Value("${app.search.engine}")
+    private String searchEngine;
 
     private static final int SAMPLE_COUNT = 500;
     private static final int EMBEDDING_DIM = 384;
 
     private boolean seedingComplete = false;
 
-    @Autowired
-    public MovieSeederService(
-            ElasticsearchClient elasticsearchClient,
-            Optional<EmbeddingModel> embeddingModel,
-            Optional<DjLEmbeddingService> djlEmbeddingService,
-            Environment environment) {
-        this.elasticsearchClient = elasticsearchClient;
-        this.embeddingModel = embeddingModel;
-        this.djlEmbeddingService = djlEmbeddingService;
-        this.environment = environment;
-    }
-
     @EventListener(ApplicationReadyEvent.class)
     public void seedIfEmpty() {
-        if (isProdProfile()) return;
-        if (seedingComplete) return;
+        if (isProdProfile())
+            return;
+        if (seedingComplete)
+            return;
 
         try {
-            if (!indexExists()) {
-                log.warn("Index '{}' not found — creating...", indexName);
-                createIndex();
+            // Elasticsearch Seeding
+            if (searchEngine.equalsIgnoreCase("elasticsearch")) {
+                seedElasticsearch();
             }
 
-            if (isIndexEmpty()) {
-                log.info("Index '{}' is empty — inserting {} sample movies...", indexName, SAMPLE_COUNT);
-                insertSamples().block();
-            } else {
-                log.info("Index '{}' already contains data — skipping seeding.", indexName);
+            // Qdrant Seeding
+            if (searchEngine.equalsIgnoreCase("qdrant")) {
+                seedQdrant();
             }
-
         } catch (Exception e) {
             log.error("Error during seeding: ", e);
         } finally {
             seedingComplete = true;
         }
+    }
+
+    private void seedElasticsearch() throws IOException {
+        if (!indexExists()) {
+            log.warn("ES Index '{}' not found — creating...", indexName);
+            createIndex();
+        }
+
+        if (isIndexEmpty()) {
+            log.info("ES Index '{}' is empty — inserting {} sample movies...", indexName, SAMPLE_COUNT);
+            insertSamples().block();
+        } else {
+            log.info("ES Index '{}' already contains data — skipping seeding.", indexName);
+        }
+    }
+
+    private void seedQdrant() {
+        try {
+            QdrantClient qdrantClient;
+            if (qdrantClientOptional.isPresent()) {
+                qdrantClient = qdrantClientOptional.get();
+            } else {
+                log.warn("Qdrant Client not available, skipping seeding...");
+                return;
+            }
+            List<String> collections = qdrantClient.listCollectionsAsync().get();
+
+            boolean collectionExists = collections != null && collections.contains(indexName);
+
+            if (collectionExists) {
+                log.info("Collection '{}' exists!", indexName);
+            } else {
+                log.warn("Collection '{}' NOT found.", indexName);
+            }
+
+            if (!collectionExists) {
+                log.warn("Qdrant Collection '{}' not found — creating...", indexName);
+                qdrantClient.createCollectionAsync(
+                        indexName,
+                        VectorParams.newBuilder()
+                                .setSize(EMBEDDING_DIM)
+                                .setDistance(Distance.Cosine)
+                                .build())
+                        .get();
+                log.info("Qdrant Collection '{}' created.", indexName);
+            }
+
+            Long result = qdrantClient.countAsync(indexName).get();
+            long count = result == null ? 0 : result;
+
+            if (count == 0) {
+                log.info("Qdrant Collection '{}' is empty — inserting sample movies...", indexName);
+                List<MovieDocument> movies = generateMovies();
+
+                // Batch insert to Qdrant
+                int batchSize = 50;
+                for (int i = 0; i < movies.size(); i += batchSize) {
+                    List<MovieDocument> batch = movies.subList(i, Math.min(i + batchSize, movies.size()));
+                    List<PointStruct> points = new ArrayList<>();
+
+                    for (MovieDocument m : batch) {
+                        points.add(toPointStruct(m));
+                    }
+
+                    qdrantClient.upsertAsync(indexName, points).get();
+                    log.info("Seeded batch {} to Qdrant", i / batchSize + 1);
+                }
+                log.info("Qdrant seeding completed.");
+            } else {
+                log.info("Qdrant Collection '{}' already contains data — skipping seeding.", indexName);
+            }
+
+        } catch (Exception e) {
+            log.error("Failed to seed Qdrant", e);
+        }
+    }
+
+    private PointStruct toPointStruct(MovieDocument m) {
+        Map<String, Object> rawMap = objectMapper.convertValue(m, new TypeReference<>() {});
+        Map<String, JsonWithInt.Value> qdrantPayload = new HashMap<>();
+
+        for (Map.Entry<String, Object> entry : rawMap.entrySet()) {
+            JsonWithInt.Value convertedValue = QdrantHelper.objectToValue(entry.getValue()); // Hàm helper bên dưới
+            if (convertedValue != null) {
+                qdrantPayload.put(entry.getKey(), convertedValue);
+            }
+        }
+
+        return PointStruct.newBuilder()
+                .setId(id(UUID.fromString(m.getId())))
+                .setVectors(vectors(EmbeddingUtils.convertToFloatList(m.getEmbedding())))
+                .putAllPayload(qdrantPayload)
+                .build();
     }
 
     private boolean isProdProfile() {
@@ -87,16 +185,29 @@ public class MovieSeederService {
     }
 
     private boolean indexExists() throws IOException {
+        ElasticsearchClient elasticsearchClient;
+        if (elasticsearchClientOptional.isPresent()) {
+            elasticsearchClient = elasticsearchClientOptional.get();
+        } else {
+            log.warn("Elasticsearch client not available. Skipping indexExists...");
+            return true;
+        }
         return elasticsearchClient.indices().exists(e -> e.index(indexName)).value();
     }
 
     private boolean isIndexEmpty() throws IOException {
+        ElasticsearchClient elasticsearchClient;
+        if (elasticsearchClientOptional.isPresent()) {
+            elasticsearchClient = elasticsearchClientOptional.get();
+        } else {
+            log.warn("Elasticsearch client not available. Skipping isIndexEmpty...");
+            return true;
+        }
         var response = elasticsearchClient.search(s -> s.index(indexName)
                 .size(0)
                 .query(q -> q
-                        .matchAll(m -> m)
-                ), Void.class
-        );
+                        .matchAll(m -> m)),
+                Void.class);
         long count = Optional.ofNullable(response.hits().total())
                 .map(TotalHits::value)
                 .orElse(0L);
@@ -104,6 +215,13 @@ public class MovieSeederService {
     }
 
     private void createIndex() throws IOException {
+        ElasticsearchClient elasticsearchClient;
+        if (elasticsearchClientOptional.isPresent()) {
+            elasticsearchClient = elasticsearchClientOptional.get();
+        } else {
+            log.warn("Elasticsearch client not available. Skipping createIndex...");
+            return;
+        }
         // If the index already exists, skip creation
         boolean exists = elasticsearchClient.indices()
                 .exists(e -> e.index(indexName))
@@ -137,41 +255,44 @@ public class MovieSeederService {
                         // FIXED: correct ordering + ANN enabled
                         .properties("embedding", p -> p.denseVector(v -> v
                                 .dims(EMBEDDING_DIM)
-                                .similarity(DenseVectorSimilarity.Cosine)     // MUST come before index(true)
-                                .index(true)               // enable ANN
+                                .similarity(DenseVectorSimilarity.Cosine) // MUST come before index(true)
+                                .index(true) // enable ANN
                                 .indexOptions(io -> io
                                         .type(DenseVectorIndexOptionsType.BbqDisk)
-//                                        .m(16) // Only used with HNSW
-//                                        .efConstruction(100) // Only used with HNSW
-                                )
-                        ))
-                )
-        );
+                                // .m(16) // Only used with HNSW
+                                // .efConstruction(100) // Only used with HNSW
+                                )))));
         log.info("Index '{}' created.", indexName);
     }
 
     private Mono<Void> insertSamples() {
+        ElasticsearchClient elasticsearchClient;
+        if (elasticsearchClientOptional.isPresent()) {
+            elasticsearchClient = elasticsearchClientOptional.get();
+        } else {
+            log.warn("Elasticsearch client not available. Skipping insertSamples...");
+            return Mono.empty();
+        }
+
         List<MovieDocument> movies = generateMovies();
         int batchSize = 20;
         AtomicInteger inserted = new AtomicInteger();
 
         return Flux.fromIterable(movies)
                 .buffer(batchSize)
-                .concatMap(batch ->
-                        Mono.fromCallable(() -> {
-                                    BulkRequest.Builder br = createBatchRequest(batch);
-                                    BulkResponse bulk = elasticsearchClient.bulk(br.build());
-                                    if (bulk.errors()) {
-                                        log.warn("Bulk insert had errors.");
-                                    }
-                                    return batch.size();
-                                })
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .doOnSuccess(count -> {
-                                    int total = inserted.addAndGet(count);
-                                    log.info("Inserted {}/{} movies...", total, movies.size());
-                                })
-                )
+                .concatMap(batch -> Mono.fromCallable(() -> {
+                    BulkRequest.Builder br = createBatchRequest(batch);
+                    BulkResponse bulk = elasticsearchClient.bulk(br.build());
+                    if (bulk.errors()) {
+                        log.warn("Bulk insert had errors.");
+                    }
+                    return batch.size();
+                })
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .doOnSuccess(count -> {
+                            int total = inserted.addAndGet(count);
+                            log.info("Inserted {}/{} movies...", total, movies.size());
+                        }))
                 .then();
     }
 
@@ -189,11 +310,13 @@ public class MovieSeederService {
 
     private List<MovieDocument> generateMovies() {
         List<MovieDocument> docs = new ArrayList<>();
-        String[] genres = {"Sci-Fi", "Drama", "Romance", "Action", "Thriller", "Comedy", "Fantasy", "Mystery"};
-        String[] directors = {"Christopher Nolan", "Ridley Scott", "Denis Villeneuve", "James Cameron", "Patty Jenkins"};
-        String[] actors = {"Tom Hanks", "Natalie Portman", "Ryan Gosling", "Emma Stone", "Matt Damon", "Scarlett Johansson"};
-        String[] countries = {"United States", "United Kingdom", "Japan", "France", "South Korea", "Canada"};
-        String[] types = {"movie", "series"};
+        String[] genres = { "Sci-Fi", "Drama", "Romance", "Action", "Thriller", "Comedy", "Fantasy", "Mystery" };
+        String[] directors = { "Christopher Nolan", "Ridley Scott", "Denis Villeneuve", "James Cameron",
+                "Patty Jenkins" };
+        String[] actors = { "Tom Hanks", "Natalie Portman", "Ryan Gosling", "Emma Stone", "Matt Damon",
+                "Scarlett Johansson" };
+        String[] countries = { "United States", "United Kingdom", "Japan", "France", "South Korea", "Canada" };
+        String[] types = { "movie", "series" };
 
         String[] titleTemplates = {
                 "The {adjective} {noun}",
@@ -202,9 +325,9 @@ public class MovieSeederService {
                 "Rise of the {adjective} {noun}",
                 "{place} Diaries"
         };
-        String[] adjectives = {"Silent", "Hidden", "Eternal", "Neon", "Lost", "Crimson", "Forgotten", "Infinite"};
-        String[] nouns = {"Dreams", "Empire", "Voyage", "Legacy", "Code", "Mind", "Horizon"};
-        String[] places = {"Mars", "Tokyo", "Tomorrow", "Atlantis", "Eden", "The Stars"};
+        String[] adjectives = { "Silent", "Hidden", "Eternal", "Neon", "Lost", "Crimson", "Forgotten", "Infinite" };
+        String[] nouns = { "Dreams", "Empire", "Voyage", "Legacy", "Code", "Mind", "Horizon" };
+        String[] places = { "Mars", "Tokyo", "Tomorrow", "Atlantis", "Eden", "The Stars" };
 
         ThreadLocalRandom rnd = ThreadLocalRandom.current();
 
@@ -218,8 +341,7 @@ public class MovieSeederService {
             String genre = genres[rnd.nextInt(genres.length)];
             List<String> cast = List.of(
                     actors[rnd.nextInt(actors.length)],
-                    actors[rnd.nextInt(actors.length)]
-            );
+                    actors[rnd.nextInt(actors.length)]);
             List<String> dir = List.of(directors[rnd.nextInt(directors.length)]);
             String country = countries[rnd.nextInt(countries.length)];
             String type = types[rnd.nextInt(types.length)];
@@ -230,9 +352,8 @@ public class MovieSeederService {
                     genre.toLowerCase(),
                     cast.get(0),
                     cast.get(1),
-                    places[rnd.nextInt(places.length)],
-                    nouns[rnd.nextInt(nouns.length)]
-            );
+                    cast.get(0),
+                    nouns[rnd.nextInt(nouns.length)]);
 
             int releaseYear = rnd.nextInt(1980, 2025);
             String poster = "https://picsum.photos/seed/" + i + "/300/400";
@@ -294,4 +415,3 @@ public class MovieSeederService {
         return Instant.ofEpochMilli(randomMillis);
     }
 }
-

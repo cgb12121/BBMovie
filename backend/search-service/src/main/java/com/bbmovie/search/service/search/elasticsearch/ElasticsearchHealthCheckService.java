@@ -1,10 +1,11 @@
-package com.bbmovie.search.service.elasticsearch;
+package com.bbmovie.search.service.search.elasticsearch;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import com.bbmovie.search.dto.event.ElasticsearchDownEvent;
 import com.bbmovie.search.dto.event.ElasticsearchUpEvent;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import java.io.IOException;
 
 @Service
 @Log4j2
+@ConditionalOnProperty(name = "app.search.engine", havingValue = "elasticsearch")
 public class ElasticsearchHealthCheckService {
 
     private final ElasticsearchClient elasticsearchClient;

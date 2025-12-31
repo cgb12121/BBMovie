@@ -1,13 +1,14 @@
-package com.bbmovie.search.service.elasticsearch;
+package com.bbmovie.search.service.search.elasticsearch;
 
 import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import com.bbmovie.search.dto.PageResponse;
 import com.bbmovie.search.dto.SearchCriteria;
 import com.bbmovie.search.repository.search.SearchRepository;
 import com.bbmovie.search.service.embedding.EmbeddingService;
+import com.bbmovie.search.service.search.SearchService;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Primary;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -16,9 +17,9 @@ import java.util.List;
 import static com.bbmovie.search.dto.PageResponse.toPageResponse;
 import static com.bbmovie.search.utils.EmbeddingUtils.convertToFloatList;
 
-@Service
 @Log4j2
-@Primary
+@Service("elasticsearch")
+@ConditionalOnProperty(name = "app.search.engine", havingValue = "elasticsearch")
 public class ESClientSearchService implements SearchService {
 
     private final SearchRepository searchRepository;

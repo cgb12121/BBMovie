@@ -1,4 +1,4 @@
-package com.bbmovie.search.config.ai_vector;
+package com.bbmovie.search.config.vector;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.json.jackson.JacksonJsonpMapper;
@@ -11,11 +11,13 @@ import org.apache.http.HttpHost;
 import org.elasticsearch.client.Node;
 import org.elasticsearch.client.RestClient;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Log4j2
 @Configuration
+@ConditionalOnProperty(name = "app.search.engine", havingValue = "elasticsearch")
 public class ElasticsearchConfig {
 
     @Bean(destroyMethod = "close")

@@ -1,4 +1,4 @@
-package com.bbmovie.search.service.elasticsearch;
+package com.bbmovie.search.service.search;
 
 import com.bbmovie.search.dto.PageResponse;
 import com.bbmovie.search.dto.SearchCriteria;
