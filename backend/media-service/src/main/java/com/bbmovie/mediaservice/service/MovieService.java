@@ -159,6 +159,18 @@ public class MovieService {
                 });
     }
 
+    public Optional<MovieResponse> updateMovieDuration(UUID movieId, Integer durationMinutes) {
+        return movieRepository.findByMovieId(movieId)
+                .map(movie -> {
+                    movie.setDuration(durationMinutes);
+                    movie.setUpdatedAt(LocalDateTime.now());
+
+                    Movie updatedMovie = movieRepository.save(movie);
+                    log.info("Updated movie {} duration to {} minutes", movieId, durationMinutes);
+                    return mapToResponse(updatedMovie);
+                });
+    }
+
     public Optional<MovieResponse> updateMovieStatusByFileId(String fileId, MovieStatus status) {
         return movieRepository.findByFileId(fileId)
                 .map(movie -> {

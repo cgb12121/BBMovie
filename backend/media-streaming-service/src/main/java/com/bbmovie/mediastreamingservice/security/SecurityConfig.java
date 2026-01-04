@@ -57,13 +57,12 @@ public class SecurityConfig {
                     return config;
                 }))
                 .authorizeHttpRequests(auth -> auth
-                        // Public endpoints (Playlists and Segments)
-                        // If these are encrypted, they are safe to be public (cannot play without a key)
+                        // Public endpoints (Segments)
                         .requestMatchers("/api/stream/segments/**").permitAll()
-                        .requestMatchers("/api/stream/*/*.m3u8").permitAll()  // For: /api/stream/{uploadId}/master.m3u8
-                        .requestMatchers("/api/stream/*/*/playlist.m3u8").permitAll()
                         
-                        // Protected endpoints (Keys)
+                        // Protected endpoints (Playlists and Keys) - require authentication for tier-based filtering
+                        .requestMatchers("/api/stream/*/*.m3u8").authenticated()  // For: /api/stream/{movieId}/master.m3u8
+                        .requestMatchers("/api/stream/*/*/playlist.m3u8").authenticated()
                         .requestMatchers("/api/stream/keys/**").authenticated()
                         .anyRequest().authenticated()
                 )

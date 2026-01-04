@@ -29,4 +29,15 @@ public class UserMovieController {
         return movie.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+    @PatchMapping("/{movieId}/file")
+    public ResponseEntity<MovieResponse> linkFileToMovie(
+            @PathVariable UUID movieId,
+            @RequestBody LinkFileRequest request) {
+        Optional<MovieResponse> movie = movieService.linkFileToMovie(movieId, request.fileId());
+        return movie.map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    public record LinkFileRequest(String fileId) {}
 }
