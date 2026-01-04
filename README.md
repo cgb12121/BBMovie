@@ -6,6 +6,7 @@
 [![GitHub stars](https://img.shields.io/github/stars/cgb12121/BBMovie?style=social)](https://github.com/cgb12121/BBMovie/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/cgb12121/BBMovie?style=social)](https://github.com/cgb12121/BBMovie/network/members)
 
+
 **BBMovie** is a modern, scalable video streaming platform built as a microservices architecture. It supports HLS adaptive streaming, AI-powered features like semantic search and multimodal processing, event-driven media transcoding, and secure payment integrations.
 
 This project started as a personal endeavor in March 2025 to explore cutting-edge backend technologies, including Java virtual threads, Rust for performance-critical tasks, and local AI integrations.
@@ -155,5 +156,9 @@ LinkedIn: [bui-thai-bao](https://www.linkedin.com/in/bui-thai-bao)
 
 ---
 
+> 📊 **Recent Activity**: This project has received significant attention from recruiters and developers, with 40+ clones and 100+ views in the past week (26/12/2025-1/1/2026).
+![GitHub Traffic](/backend/docs/stats/traffic.png)
+
+---
 **Star the repo if you find it useful!** ⭐  
 Feedback and suggestions appreciated. This project is a learning journey—help make it better!
