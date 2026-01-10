@@ -1,5 +1,6 @@
 package com.bbmovie.mediastreamingservice.controller.advice;
 
+import com.bbmovie.mediastreamingservice.exception.AccessDeniedException;
 import com.bbmovie.mediastreamingservice.exception.InaccessibleFileException;
 import lombok.NonNull;
 import lombok.extern.log4j.Log4j2;
@@ -28,6 +29,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(InaccessibleFileException.class)
     public ResponseEntity<@NonNull String> handleInaccessibleFileException(InaccessibleFileException e) {
         return new ResponseEntity<>(e.getMessage(), HttpStatus.NOT_FOUND);
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<@NonNull String> handleAccessDeniedException(AccessDeniedException e) {
+        log.warn("Access denied: {}", e.getMessage());
+        return new ResponseEntity<>(e.getMessage(), HttpStatus.FORBIDDEN);
     }
 
     @ExceptionHandler(Exception.class)
