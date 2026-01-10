@@ -3,7 +3,8 @@ package com.bbmovie.mediastreamingservice.model;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
-import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Enum representing video resolutions.
@@ -25,7 +26,20 @@ public enum Resolution {
     private final int height;
 
     /**
+     * Static map for O(1) lookup by height.
+     * Initialized once when the enum is loaded.
+     */
+    private static final Map<Integer, Resolution> HEIGHT_TO_RESOLUTION = new HashMap<>();
+
+    static {
+        for (Resolution resolution : values()) {
+            HEIGHT_TO_RESOLUTION.put(resolution.height, resolution);
+        }
+    }
+
+    /**
      * Parses a resolution string (e.g., "1080p" or "1080") to a Resolution enum.
+     * Uses a static map for O(1) lookup performance.
      *
      * @param text The resolution string
      * @return The corresponding Resolution enum
@@ -40,13 +54,25 @@ public enum Resolution {
         String heightStr = text.toLowerCase().replace("p", "").trim();
         try {
             int height = Integer.parseInt(heightStr);
-            return Arrays.stream(values())
-                    .filter(r -> r.height == height)
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalArgumentException("Unknown resolution: " + text));
+            Resolution resolution = HEIGHT_TO_RESOLUTION.get(height);
+            if (resolution == null) {
+                throw new IllegalArgumentException("Unknown resolution: " + text);
+            }
+            return resolution;
         } catch (NumberFormatException e) {
             throw new IllegalArgumentException("Invalid resolution format: " + text, e);
         }
+    }
+
+    /**
+     * Gets a Resolution by height value.
+     * Uses a static map for O(1) lookup performance.
+     *
+     * @param height The height in pixels
+     * @return The corresponding Resolution enum, or null if not found
+     */
+    public static Resolution fromHeight(int height) {
+        return HEIGHT_TO_RESOLUTION.get(height);
     }
 
     /**

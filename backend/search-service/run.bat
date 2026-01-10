@@ -10,7 +10,7 @@ if exist .env (
         if not "!line:~0,1!"=="#" (
             if not "!line!"=="" (
                 set "%%A"
-                echo Loaded: %%A
+                for /f "tokens=1 delims==" %%i in ("!line!") do echo Loaded: %%i
             )
         )
     )

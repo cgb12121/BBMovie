@@ -21,7 +21,8 @@ public class DevStreamingPolicy implements StreamingPolicy {
     public Resolution getMaxAllowedResolution(SubscriptionTier tier) {
         return switch (tier) {
             case FREE -> Resolution.P144;      // Dev: FREE gets 144p only
-            case STANDARD -> Resolution.P240;   // Dev: STANDARD gets 240p
+            case BASIC -> Resolution.P240;   // Dev: STANDARD gets 240p
+            case FAMILY -> Resolution.P240;
             case PREMIUM -> Resolution.P2160;    // Dev: PREMIUM gets 2160p for debugging
         };
     }

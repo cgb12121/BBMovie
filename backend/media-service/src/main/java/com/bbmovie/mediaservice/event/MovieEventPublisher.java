@@ -1,11 +1,14 @@
 package com.bbmovie.mediaservice.event;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.nats.client.Connection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
 @Component
@@ -14,6 +17,7 @@ import java.util.UUID;
 public class MovieEventPublisher {
 
     private final Connection natsConnection;
+    private final ObjectMapper objectMapper;
 
     @Value("${nats.movie.published.subject:movie.published}")
     private String moviePublishedSubject;
@@ -23,10 +27,13 @@ public class MovieEventPublisher {
 
     public void publishMoviePublishedEvent(UUID movieId, String title, String filePath) {
         try {
-            String eventPayload = String.format(
-                "{\"movieId\":\"%s\",\"title\":\"%s\",\"filePath\":\"%s\",\"timestamp\":%d}",
-                movieId, title != null ? title.replace("\"", "\\\"") : "", filePath != null ? filePath : "", System.currentTimeMillis()
-            );
+            Map<String, Object> payloadMap = new HashMap<>();
+            payloadMap.put("movieId", movieId != null ? movieId.toString() : null);
+            payloadMap.put("title", title);
+            payloadMap.put("filePath", filePath);
+            payloadMap.put("timestamp", System.currentTimeMillis());
+            
+            String eventPayload = objectMapper.writeValueAsString(payloadMap);
             natsConnection.publish(moviePublishedSubject, eventPayload.getBytes());
             log.info("Published movie published event for movie: {} to subject: {}", movieId, moviePublishedSubject);
         } catch (Exception e) {
@@ -36,10 +43,12 @@ public class MovieEventPublisher {
 
     public void publishMovieDeletedEvent(UUID movieId, String title) {
         try {
-            String eventPayload = String.format(
-                "{\"movieId\":\"%s\",\"title\":\"%s\",\"timestamp\":%d}",
-                movieId, title != null ? title.replace("\"", "\\\"") : "", System.currentTimeMillis()
-            );
+            Map<String, Object> payloadMap = new HashMap<>();
+            payloadMap.put("movieId", movieId != null ? movieId.toString() : null);
+            payloadMap.put("title", title);
+            payloadMap.put("timestamp", System.currentTimeMillis());
+            
+            String eventPayload = objectMapper.writeValueAsString(payloadMap);
             natsConnection.publish(movieDeletedSubject, eventPayload.getBytes());
             log.info("Published movie deleted event for movie: {} to subject: {}", movieId, movieDeletedSubject);
         } catch (Exception e) {

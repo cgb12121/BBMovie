@@ -11,7 +11,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum SubscriptionTier {
     FREE(Resolution.P480),           // FREE users can access up to 480p
-    STANDARD(Resolution.P1080),       // STANDARD users can access up to 1080p
+    BASIC(Resolution.P1080),       // BASIC users can access up to 1080p
+    FAMILY(Resolution.P1080),
     PREMIUM(Resolution.P2160);       // PREMIUM users can access up to 2160p (4K)
 
     private final Resolution maxResolution;

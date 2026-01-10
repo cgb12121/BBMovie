@@ -8,8 +8,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
-import java.util.Comparator;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,6 +28,11 @@ public class StreamingAccessControlService {
      * Matches: RESOLUTION=1920x1080 and captures the height (1080).
      */
     private static final Pattern RESOLUTION_PATTERN = Pattern.compile("RESOLUTION=(\\d+)x(\\d+)");
+
+    /**
+     * Highest resolution available. Calculated once since resolutions are fixed.
+     */
+    private static final Resolution HIGHEST_RESOLUTION = Resolution.P4080;
 
     /**
      * Filters the master playlist content based on the user subscription tier.
@@ -88,11 +91,7 @@ public class StreamingAccessControlService {
      */
     private String filterPlaylistByResolution(String content, Resolution maxAllowed) {
         // If max allowed is the highest resolution, return original content
-        Resolution highestRes = Arrays.stream(Resolution.values())
-                .max(Comparator.comparingInt(Resolution::getHeight))
-                .orElse(Resolution.P4080);
-        
-        if (maxAllowed.getHeight() >= highestRes.getHeight()) {
+        if (maxAllowed.getHeight() >= HIGHEST_RESOLUTION.getHeight()) {
             return content;
         }
 
@@ -125,6 +124,7 @@ public class StreamingAccessControlService {
     /**
      * Extracts resolution from an HLS stream info line using regex.
      * Parses the RESOLUTION=WIDTHxHEIGHT attribute and returns the Resolution enum.
+     * Uses O(1) lookup via static map for better performance.
      *
      * @param streamInfoLine The #EXT-X-STREAM-INF line containing resolution info
      * @return The Resolution enum, or null if not found or invalid
@@ -136,11 +136,8 @@ public class StreamingAccessControlService {
                 // Group 2 is the height (e.g., 1080 from "1920x1080")
                 int height = Integer.parseInt(matcher.group(2));
                 
-                // Find matching Resolution enum
-                return Arrays.stream(Resolution.values())
-                        .filter(r -> r.getHeight() == height)
-                        .findFirst()
-                        .orElse(null);
+                // Use O(1) lookup instead of streaming
+                return Resolution.fromHeight(height);
             } catch (NumberFormatException e) {
                 log.warn("Failed to parse resolution height from line: {}", streamInfoLine);
                 return null;
