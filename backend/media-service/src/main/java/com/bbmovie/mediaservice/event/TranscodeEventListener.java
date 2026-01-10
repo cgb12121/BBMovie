@@ -111,6 +111,9 @@ public class TranscodeEventListener {
                 String finalFileId = fileId;
                 movieService.updateMovieStatusByFileId(fileId, MovieStatus.ERROR)
                     .ifPresent(movie -> log.info("Updated movie {} status to ERROR for file ID: {}", movie.getMovieId(), finalFileId));
+            } else if ("PROCESSING".equalsIgnoreCase(status) || "TRANSCODING".equalsIgnoreCase(status)) {
+                // Intermediate status - just log, no action needed
+                log.debug("Transcode in progress for file ID: {}", fileId);
             } else {
                 log.warn("Unknown transcode status: {} for file ID: {}", status, fileId);
             }

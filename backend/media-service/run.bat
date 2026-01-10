@@ -11,6 +11,7 @@ if exist .env (
             if not "!line!"=="" (
                 set "%%A"
                 for /f "tokens=1 delims==" %%i in ("!line!") do echo Loaded: %%i
+
             )
         )
     )
@@ -20,6 +21,6 @@ if exist .env (
 
 :: 2. Chạy Maven với cờ tối ưu cho máy yếu
 echo.
-echo [2/2] Building and Running Payment-Service...
+echo [2/2] Building and Running Media-Upload-Service...
 mvn spring-boot:run -DskipTests -Dspring-boot.run.jvmArguments="-Xmx512m -Dspring.output.ansi.enabled=ALWAYS"
 endlocal

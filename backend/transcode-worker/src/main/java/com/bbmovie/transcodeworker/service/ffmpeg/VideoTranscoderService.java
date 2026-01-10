@@ -74,20 +74,22 @@ public class VideoTranscoderService {
     /**
      * Record defining parameters for video resolution presets.
      */
-    public record ResolutionDefinition(int minWidth, int targetWidth, int targetHeight, String suffix) {}
+    public record ResolutionDefinition(int minHeight, int targetWidth, int targetHeight, String suffix) {}
 
     /** Predefined resolution definitions */
     public static final List<ResolutionDefinition> PREDEFINED_RESOLUTIONS = List.of(
-            new ResolutionDefinition(1920, 1920, 1080, "1080p"),
-            new ResolutionDefinition(1280, 1280, 720, "720p"),
-            new ResolutionDefinition(854, 854, 480, "480p"),
-            new ResolutionDefinition(640, 640, 360, "360p"),
-            new ResolutionDefinition(426, 426, 240, "240p"),
-            new ResolutionDefinition(256, 256, 144, "144p")
+            new ResolutionDefinition(1080, 1920, 1080, "1080p"),
+            new ResolutionDefinition(720, 1280, 720, "720p"),
+            new ResolutionDefinition(480, 854, 480, "480p"),
+            new ResolutionDefinition(360, 640, 360, "360p"),
+            new ResolutionDefinition(240, 426, 240, "240p"),
+            new ResolutionDefinition(144, 256, 144, "144p")
     );
 
     /**
      * Determines the target resolutions based on input video metadata.
+     * Transcodes to all resolutions that are equal to or lower than the source video height.
+     * For example, a 1080p video (height >= 1080) will be transcoded to 1080p, 720p, 480p, 360p, 240p, and 144p.
      *
      * @param meta the metadata of the input video
      * @return list of VideoResolution objects to generate
@@ -95,13 +97,18 @@ public class VideoTranscoderService {
     public List<VideoResolution> determineTargetResolutions(FFmpegVideoMetadata meta) {
         List<VideoResolution> targets = new ArrayList<>();
         for (ResolutionDefinition def : PREDEFINED_RESOLUTIONS) {
-            if (meta.width() >= def.minWidth()) {
+            // Check if video height is sufficient for this resolution
+            // This ensures a 1080p video will be transcoded to 1080p and all lower resolutions
+            if (meta.height() >= def.minHeight()) {
                 targets.add(new VideoResolution(def.targetWidth(), def.targetHeight(), def.suffix()));
             }
         }
         if (targets.isEmpty()) {
             targets.add(new VideoResolution(meta.width(), meta.height(), "original"));
         }
+        log.info("Determined {} target resolutions for video {}x{}: {}", 
+                targets.size(), meta.width(), meta.height(), 
+                targets.stream().map(VideoResolution::filename).toList());
         return targets;
     }
 
