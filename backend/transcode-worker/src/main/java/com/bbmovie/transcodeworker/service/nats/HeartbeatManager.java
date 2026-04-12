@@ -108,9 +108,9 @@ public class HeartbeatManager {
         if (handle != null && handle.message() != null) {
             try {
                 handle.message().nak();
-                log.info("⚠️ NATS NAK sent (will redeliver) for: {}", handle.heartbeatId());
+                log.info("NATS NAK sent (will redeliver) for: {}", handle.heartbeatId());
             } catch (Exception e) {
-                log.error("❌ Failed to send NATS NAK for {}: {}", handle.heartbeatId(), e.getMessage());
+                log.error("Failed to send NATS NAK for {}: {}", handle.heartbeatId(), e.getMessage());
             }
         }
     }

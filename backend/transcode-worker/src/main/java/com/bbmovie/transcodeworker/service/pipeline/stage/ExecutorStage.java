@@ -166,7 +166,7 @@ public class ExecutorStage {
                 // Success! ACK the message FIRST before any other operations
                 heartbeatManager.stopAndAck(heartbeat);
                 heartbeat = null;  // Prevent double ACK/NAK
-                log.info("✅ ACK sent - Completed task: {} (duration: {}s)", taskId, result.duration());
+                log.info("ACK sent - Completed task: {} (duration: {}s)", taskId, result.duration());
 
                 // Status publishing is best-effort, don't fail on this
                 try {

@@ -37,7 +37,7 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 @Component
 @RequiredArgsConstructor
-public class PipelineOrchestrator {
+public class PipelineOrchestratorSetup {
 
     private final NatsConnectionManager natsConnectionManager;
     private final TranscodeScheduler scheduler;

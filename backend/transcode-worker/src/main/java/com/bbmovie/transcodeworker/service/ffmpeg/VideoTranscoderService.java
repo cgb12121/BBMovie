@@ -140,7 +140,8 @@ public class VideoTranscoderService {
                 .toList();
 
         // Wait for all transcoding tasks to complete
-        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+            .join();
 
         log.info("All resolutions transcoded successfully, creating master playlist");
         hlsPlaylistService.createMasterPlaylist(videoResolutions, outputDirPath);

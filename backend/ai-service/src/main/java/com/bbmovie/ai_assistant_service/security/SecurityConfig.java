@@ -42,7 +42,7 @@ public class SecurityConfig {
     @Value("${spring.profiles.active:default}")
     private String activeProfile;
 
-    @Value("classpath:jwk-dev.json")
+    @Value("classpath:/static/jwk-dev.json")
     private Resource jwkResource;
 
     private CorsConfiguration getCorsConfiguration() {

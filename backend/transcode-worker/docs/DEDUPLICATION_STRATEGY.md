@@ -77,5 +77,5 @@ flowchart TD
     C -- NOT FOUND (New File) --> G[New Processing]
     G --> G1[Create new record: physical_files]
     G --> G2[Create new record: user_media_assets]
-    G --> H[🚀 Publish Event: START_TRANSCODE]
+    G --> H[Publish Event: START_TRANSCODE]
     H --> I[Transcode Worker picks up job]
