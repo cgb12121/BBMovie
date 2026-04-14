@@ -94,6 +94,26 @@ spring:
                   args:
                     regexp: /api/(subscription|v1/subscription)(?<remaining>/.*)
                     replacement: /api/${remaining}
+            - id: homepage_trending_public_route
+              uri: lb://homepage-recommendations
+              predicates:
+                - Path=/api/homepage/v1/trending
+              metadata:
+                public: true
+              filters:
+                - name: RewritePath
+                  args:
+                    regexp: /api/homepage(?<remaining>/.*)
+                    replacement: /api/homepage${remaining}
+            - id: homepage_recommendations_route
+              uri: lb://homepage-recommendations
+              predicates:
+                - Path=/api/homepage/**
+              filters:
+                - name: RewritePath
+                  args:
+                    regexp: /api/homepage(?<remaining>/.*)
+                    replacement: /api/homepage${remaining}
             - id: search_route
               uri: lb://bbmovie-search
               predicates:
@@ -112,6 +132,28 @@ spring:
                   args:
                     regexp: /api/watchlist(?<remaining>/.*)
                     replacement: /api/watchlist${remaining}
+            - id: watch_history_ws_route
+              uri: lb:ws://watch-history
+              predicates:
+                - Path=/api/watch-history/v1/ws
+            - id: watch_history_route
+              uri: lb://watch-history
+              predicates:
+                - Path=/api/watch-history/**
+              filters:
+                - name: RewritePath
+                  args:
+                    regexp: /api/watch-history(?<remaining>/.*)
+                    replacement: /api/watch-history${remaining}
+            - id: revenue_dashboard_route
+              uri: lb://revenue-dashboard
+              predicates:
+                - Path=/dashboard/**
+              filters:
+                - name: RewritePath
+                  args:
+                    regexp: /dashboard(?<remaining>/.*)
+                    replacement: ${remaining}
             - id: ai_route
               uri: lb://ai-assistant-service
               predicates:

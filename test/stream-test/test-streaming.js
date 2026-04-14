@@ -3,6 +3,16 @@ let autoScrollEnabled = true;
 let keysLoadedCount = 0;
 let segmentsLoadedCount = 0;
 let hls = null;
+let watchHistoryFlushTimerId = null;
+let watchHistoryEndedHandler = null;
+let resumeSeekCleanup = null;
+let playbackWs = null;
+let wsSendChain = Promise.resolve();
+let trackingTimeUpdateFn = null;
+let trackingPauseFn = null;
+let trackingSeekedFn = null;
+let trackingPageHideFn = null;
+let trackingVisibilityFn = null;
 
 // DOM Elements
 const statusDot = document.getElementById('statusDot');
@@ -17,6 +27,8 @@ const segmentsLoadedElement = document.getElementById('segmentsLoaded');
 const videoPlaceholder = document.getElementById('videoPlaceholder');
 const autoScrollBtn = document.getElementById('autoScrollBtn');
 const qualitySelector = document.getElementById('qualitySelector');
+const watchHistoryStatusEl = document.getElementById('watchHistoryStatus');
+const resumePositionEl = document.getElementById('resumePosition');
 
 // Initialize
 hlsVersionElement.textContent = Hls.version || 'Unknown';
@@ -99,6 +111,490 @@ function updateCounters() {
     segmentsLoadedElement.textContent = segmentsLoadedCount;
 }
 
+function clearResumeSeekListeners() {
+    if (typeof resumeSeekCleanup === 'function') {
+        resumeSeekCleanup();
+        resumeSeekCleanup = null;
+    }
+}
+
+function closePlaybackWs() {
+    resetWsSendChain();
+    if (playbackWs) {
+        try {
+            playbackWs.close();
+        } catch (e) {
+            /* ignore */
+        }
+        playbackWs = null;
+    }
+}
+
+function resetWsSendChain() {
+    wsSendChain = Promise.resolve();
+}
+
+function clearWatchHistoryTracking(video) {
+    clearResumeSeekListeners();
+    closePlaybackWs();
+    if (watchHistoryFlushTimerId != null) {
+        clearInterval(watchHistoryFlushTimerId);
+        watchHistoryFlushTimerId = null;
+    }
+    if (video && trackingTimeUpdateFn) {
+        video.removeEventListener('timeupdate', trackingTimeUpdateFn);
+        trackingTimeUpdateFn = null;
+    }
+    if (video && trackingPauseFn) {
+        video.removeEventListener('pause', trackingPauseFn);
+        trackingPauseFn = null;
+    }
+    if (video && trackingSeekedFn) {
+        video.removeEventListener('seeked', trackingSeekedFn);
+        trackingSeekedFn = null;
+    }
+    if (trackingPageHideFn) {
+        window.removeEventListener('pagehide', trackingPageHideFn);
+        trackingPageHideFn = null;
+    }
+    if (trackingVisibilityFn) {
+        document.removeEventListener('visibilitychange', trackingVisibilityFn);
+        trackingVisibilityFn = null;
+    }
+    if (video && watchHistoryEndedHandler) {
+        video.removeEventListener('ended', watchHistoryEndedHandler);
+        watchHistoryEndedHandler = null;
+    }
+}
+
+function isValidUuid(str) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(str);
+}
+
+function normalizeGatewayBase(url) {
+    return (url || '').trim().replace(/\/+$/, '');
+}
+
+function readLocalResume(movieId) {
+    try {
+        const raw = localStorage.getItem(`bbmovie_wh:${movieId}`);
+        if (!raw) {
+            return null;
+        }
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+}
+
+function writeLocalResume(movieId, video, completed, useLocal) {
+    if (!useLocal) {
+        return;
+    }
+    try {
+        localStorage.setItem(
+            `bbmovie_wh:${movieId}`,
+            JSON.stringify({
+                positionSec: video.currentTime,
+                durationSec: video.duration > 0 ? video.duration : 0,
+                completed: !!completed,
+                clientTs: Date.now()
+            })
+        );
+    } catch (e) {
+        /* quota / private mode */
+    }
+}
+
+function mergeServerAndLocalResume(serverResume, movieId, useLocal) {
+    if (!useLocal) {
+        return serverResume;
+    }
+    const local = readLocalResume(movieId);
+    if (!local || local.completed) {
+        return serverResume;
+    }
+    const lp = Number(local.positionSec);
+    if (!Number.isFinite(lp) || lp <= 0.5) {
+        return serverResume;
+    }
+    if (!serverResume) {
+        return {
+            completed: false,
+            positionSec: lp,
+            durationSec: Number(local.durationSec) || 0
+        };
+    }
+    if (serverResume.completed) {
+        return serverResume;
+    }
+    const sp = Number(serverResume.positionSec);
+    if (!Number.isFinite(sp) || lp > sp + 1.5) {
+        return {
+            completed: false,
+            positionSec: lp,
+            durationSec:
+                Number(local.durationSec) > 0
+                    ? Number(local.durationSec)
+                    : Number(serverResume.durationSec) || 0
+        };
+    }
+    return serverResume;
+}
+
+async function fetchResumePayload(gatewayBase, jwt, movieId) {
+    resumePositionEl.textContent = '—';
+    if (!isValidUuid(movieId)) {
+        watchHistoryStatusEl.textContent = 'Invalid movie UUID';
+        log('Watch-history resume skipped: movieId must be a UUID', 'warning');
+        return null;
+    }
+    const base = normalizeGatewayBase(gatewayBase);
+    const url = `${base}/api/watch-history/v1/resume/${movieId}`;
+    try {
+        const res = await fetch(url, {
+            headers: { Authorization: `Bearer ${jwt}` }
+        });
+        if (res.status === 404) {
+            watchHistoryStatusEl.textContent = 'No saved position';
+            log('No resume data for this movie', 'info');
+            return null;
+        }
+        if (!res.ok) {
+            watchHistoryStatusEl.textContent = `HTTP ${res.status}`;
+            log(`Resume request failed: ${res.status}`, 'error');
+            return null;
+        }
+        const data = await res.json();
+        return {
+            completed: Boolean(data.completed),
+            positionSec: Number(data.positionSec),
+            durationSec: Number(data.durationSec)
+        };
+    } catch (e) {
+        watchHistoryStatusEl.textContent = 'Error';
+        log(`Resume fetch error: ${e.message}`, 'error');
+        return null;
+    }
+}
+
+function applySmartResume(video, hlsInstance, resume) {
+    clearResumeSeekListeners();
+    if (!resume) {
+        return;
+    }
+    if (resume.completed) {
+        watchHistoryStatusEl.textContent = 'Marked completed';
+        log('Watch history: title marked completed; starting from beginning', 'info');
+        return;
+    }
+    const pos = Number(resume.positionSec);
+    if (!Number.isFinite(pos) || pos <= 0.5) {
+        watchHistoryStatusEl.textContent = 'Start from beginning';
+        log('Resume position not applied (too close to start)', 'info');
+        return;
+    }
+    const savedDur = Number(resume.durationSec);
+
+    const clampSeekSeconds = () => {
+        const mediaDur = video.duration;
+        if (!Number.isFinite(mediaDur) || mediaDur <= 0) {
+            return null;
+        }
+        const endMargin = 0.75;
+        let maxSeek = mediaDur - endMargin;
+        if (Number.isFinite(savedDur) && savedDur > 0) {
+            maxSeek = Math.min(maxSeek, savedDur - endMargin);
+        }
+        if (!Number.isFinite(maxSeek) || maxSeek <= 1) {
+            return null;
+        }
+        const target = Math.min(pos, maxSeek);
+        if (target <= 0.5) {
+            return null;
+        }
+        return target;
+    };
+
+    const trySeek = () => {
+        const t = clampSeekSeconds();
+        if (t == null) {
+            return false;
+        }
+        try {
+            video.currentTime = t;
+            resumePositionEl.textContent = `${t.toFixed(1)}s`;
+            watchHistoryStatusEl.textContent = 'Resumed';
+            log(`Seeking to saved position ${t.toFixed(1)}s`, 'success');
+            return true;
+        } catch (e) {
+            log(`Resume seek failed: ${e.message}`, 'warning');
+            return false;
+        }
+    };
+
+    if (trySeek()) {
+        return;
+    }
+
+    watchHistoryStatusEl.textContent = 'Waiting for media…';
+
+    const onMediaReady = () => {
+        if (trySeek()) {
+            cleanup();
+        }
+    };
+
+    let timeoutId = null;
+    const cleanup = () => {
+        video.removeEventListener('loadedmetadata', onMediaReady);
+        video.removeEventListener('durationchange', onMediaReady);
+        video.removeEventListener('canplay', onMediaReady);
+        video.removeEventListener('canplaythrough', onMediaReady);
+        if (hlsInstance && typeof hlsInstance.off === 'function') {
+            hlsInstance.off(Hls.Events.LEVEL_LOADED, onMediaReady);
+            hlsInstance.off(Hls.Events.FRAG_PARSED, onMediaReady);
+        }
+        if (timeoutId != null) {
+            clearTimeout(timeoutId);
+            timeoutId = null;
+        }
+        resumeSeekCleanup = null;
+    };
+
+    resumeSeekCleanup = cleanup;
+
+    video.addEventListener('loadedmetadata', onMediaReady);
+    video.addEventListener('durationchange', onMediaReady);
+    video.addEventListener('canplay', onMediaReady);
+    video.addEventListener('canplaythrough', onMediaReady);
+    if (hlsInstance && typeof hlsInstance.on === 'function') {
+        hlsInstance.on(Hls.Events.LEVEL_LOADED, onMediaReady);
+        hlsInstance.on(Hls.Events.FRAG_PARSED, onMediaReady);
+    }
+
+    timeoutId = setTimeout(() => {
+        cleanup();
+        if (resumePositionEl.textContent === '—') {
+            watchHistoryStatusEl.textContent = 'Resume timeout';
+            log('Could not apply resume: media duration not ready in time', 'warning');
+        }
+    }, 20000);
+
+    queueMicrotask(() => onMediaReady());
+}
+
+async function postPlaybackTrackBody(gatewayBase, jwt, body, fetchOpts = {}) {
+    const base = normalizeGatewayBase(gatewayBase);
+    const url = `${base}/api/watch-history/v1/playback`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${jwt}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body),
+        ...fetchOpts
+    });
+    if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status} ${text}`);
+    }
+    return res.json();
+}
+
+function sendPlaybackOverWs(body) {
+    const step = () =>
+        new Promise((resolve, reject) => {
+            if (!playbackWs || playbackWs.readyState !== WebSocket.OPEN) {
+                reject(new Error('WebSocket not open'));
+                return;
+            }
+            const onMessage = (ev) => {
+                playbackWs.removeEventListener('message', onMessage);
+                try {
+                    const data = JSON.parse(ev.data);
+                    if (data.status === 'error') {
+                        reject(new Error(data.message || 'Server error'));
+                    } else {
+                        resolve(data);
+                    }
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            playbackWs.addEventListener('message', onMessage);
+            playbackWs.send(JSON.stringify(body));
+        });
+    const pending = wsSendChain.then(step);
+    wsSendChain = pending.catch(() => {});
+    return pending;
+}
+
+async function dispatchPlaybackTrack(gatewayBase, jwt, body, fetchOpts) {
+    if (playbackWs && playbackWs.readyState === WebSocket.OPEN) {
+        try {
+            return await sendPlaybackOverWs(body);
+        } catch (e) {
+            log(`WS track fallback to HTTP: ${e.message}`, 'warning');
+        }
+    }
+    return postPlaybackTrackBody(gatewayBase, jwt, body, fetchOpts || {});
+}
+
+function openPlaybackWsAsync(gatewayBase, jwt) {
+    return new Promise((resolve, reject) => {
+        const httpBase = normalizeGatewayBase(gatewayBase);
+        const baseForUrl = httpBase.endsWith('/') ? httpBase : `${httpBase}/`;
+        const wsUrl = new URL('/api/watch-history/v1/ws', baseForUrl);
+        wsUrl.protocol = wsUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+        wsUrl.searchParams.set('token', jwt);
+        const ws = new WebSocket(wsUrl.href);
+        const to = setTimeout(() => {
+            try {
+                ws.close();
+            } catch (e) {
+                /* ignore */
+            }
+            reject(new Error('WebSocket open timeout'));
+        }, 8000);
+        ws.onopen = () => {
+            clearTimeout(to);
+            resolve(ws);
+        };
+        ws.onerror = () => {
+            clearTimeout(to);
+            reject(new Error('WebSocket error'));
+        };
+    });
+}
+
+async function startWatchHistoryTracking(video, gatewayBase, jwt, movieId) {
+    clearWatchHistoryTracking(video);
+    watchHistoryStatusEl.textContent = 'Tracking…';
+    if (!isValidUuid(movieId)) {
+        watchHistoryStatusEl.textContent = 'Invalid UUID';
+        return;
+    }
+
+    const useWebSocket = document.getElementById('useWebSocket')?.checked ?? false;
+    const useLocal = document.getElementById('localStorageBackup')?.checked ?? true;
+    const flushIntervalSec = Math.max(
+        5,
+        parseInt(document.getElementById('flushIntervalSec')?.value || '30', 10) || 30
+    );
+    const flushMs = flushIntervalSec * 1000;
+
+    resetWsSendChain();
+    if (useWebSocket) {
+        try {
+            playbackWs = await openPlaybackWsAsync(gatewayBase, jwt);
+            log('Watch-history WebSocket connected (Level 1)', 'success');
+        } catch (e) {
+            playbackWs = null;
+            log(`WebSocket unavailable, using HTTP (Level 2): ${e.message}`, 'warning');
+        }
+    }
+
+    const buildBody = (completed, reason) => ({
+        movieId,
+        positionSec: video.currentTime,
+        durationSec: video.duration > 0 ? video.duration : null,
+        eventType: completed ? 'ended' : 'heartbeat',
+        completed: !!completed,
+        metadata: {
+            source: 'test-streaming',
+            reason: reason || 'flush',
+            transport: playbackWs && playbackWs.readyState === WebSocket.OPEN ? 'ws' : 'http'
+        }
+    });
+
+    const flushWithReason = async (reason, completed, fetchOpts) => {
+        if (
+            !completed &&
+            reason === 'interval' &&
+            (video.paused || !Number.isFinite(video.duration) || video.duration <= 0)
+        ) {
+            return;
+        }
+        if (reason === 'pagehide') {
+            const b = buildBody(false, reason);
+            postPlaybackTrackBody(gatewayBase, jwt, b, { keepalive: true }).catch(() => {});
+            return;
+        }
+        try {
+            const r = await dispatchPlaybackTrack(
+                gatewayBase,
+                jwt,
+                buildBody(completed, reason),
+                fetchOpts
+            );
+            watchHistoryStatusEl.textContent =
+                playbackWs && playbackWs.readyState === WebSocket.OPEN ? 'Synced (WS)' : 'Synced (HTTP)';
+            if (r && typeof r.nextTrackAtEpochSec === 'number') {
+                log(
+                    `Server flush hint: nextTrackAtEpochSec=${r.nextTrackAtEpochSec} (Level 2 batching)`,
+                    'info'
+                );
+            }
+            if (!completed) {
+                writeLocalResume(movieId, video, false, useLocal);
+            }
+        } catch (e) {
+            watchHistoryStatusEl.textContent = 'Sync error';
+            log(`Watch-history track error: ${e.message}`, 'error');
+        }
+    };
+
+    let tuLast = 0;
+    trackingTimeUpdateFn = () => {
+        const now = Date.now();
+        if (now - tuLast < 900) {
+            return;
+        }
+        tuLast = now;
+        if (!Number.isFinite(video.duration) || video.duration <= 0) {
+            return;
+        }
+        writeLocalResume(movieId, video, false, useLocal);
+    };
+    video.addEventListener('timeupdate', trackingTimeUpdateFn);
+
+    trackingPauseFn = () => flushWithReason('pause', false, {});
+    video.addEventListener('pause', trackingPauseFn);
+
+    trackingSeekedFn = () => flushWithReason('seeked', false, {});
+    video.addEventListener('seeked', trackingSeekedFn);
+
+    trackingVisibilityFn = () => {
+        if (document.visibilityState === 'hidden') {
+            flushWithReason('hidden', false, { keepalive: true });
+        }
+    };
+    document.addEventListener('visibilitychange', trackingVisibilityFn);
+
+    trackingPageHideFn = () => flushWithReason('pagehide', false, {});
+    window.addEventListener('pagehide', trackingPageHideFn);
+
+    watchHistoryFlushTimerId = setInterval(() => flushWithReason('interval', false, {}), flushMs);
+    log(
+        `Watch-history Level 2: flush every ${flushIntervalSec}s, pause/seek/hidden immediate; tab close uses fetch(keepalive) (Bearer cannot use sendBeacon)`,
+        'info'
+    );
+
+    watchHistoryEndedHandler = async () => {
+        try {
+            await flushWithReason('ended', true, { keepalive: true });
+            writeLocalResume(movieId, video, true, useLocal);
+            watchHistoryStatusEl.textContent = 'Completed';
+            log('Watch-history: marked completed', 'success');
+        } catch (e) {
+            log(`Watch-history completion error: ${e.message}`, 'error');
+        }
+    };
+    video.addEventListener('ended', watchHistoryEndedHandler);
+}
+
 // Function to populate the quality selector dropdown
 function populateQualitySelector() {
     if (!qualitySelector || !hls) return;
@@ -138,6 +634,8 @@ async function loadVideo() {
     const video = document.getElementById('video');
     const movieId = document.getElementById('movieId').value.trim();
     const jwt = document.getElementById('jwt').value.trim();
+    const apiGateway = document.getElementById('apiGateway').value.trim();
+    const watchHistoryOn = document.getElementById('watchHistoryEnabled').checked;
 
     if (!movieId) {
         log("Please enter a Movie ID", 'error');
@@ -150,6 +648,10 @@ async function loadVideo() {
         updateStatus("Enter JWT token", 'error');
         return;
     }
+
+    clearWatchHistoryTracking(video);
+    watchHistoryStatusEl.textContent = '—';
+    resumePositionEl.textContent = '—';
 
     // Cleanup previous HLS instance
     if (hls) {
@@ -227,7 +729,7 @@ async function loadVideo() {
         hls.loadSource(streamUrl);
         hls.attachMedia(video);
 
-        hls.on(Hls.Events.MANIFEST_PARSED, function() {
+        hls.on(Hls.Events.MANIFEST_PARSED, async function() {
             updateStatus('Manifest parsed, starting playback...', 'success');
             log('Manifest parsed successfully', 'success');
             log(`Found ${hls.levels.length} quality levels`, 'info');
@@ -239,6 +741,21 @@ async function loadVideo() {
             hls.levels.forEach((level, index) => {
                 log(`Quality [${index}]: ${level.width}x${level.height} @ ${(level.bitrate/1000000).toFixed(1)}Mbps`, 'info');
             });
+
+            if (watchHistoryOn && jwt) {
+                try {
+                    const resumePayload = await fetchResumePayload(apiGateway, jwt, movieId);
+                    const useLocal = document.getElementById('localStorageBackup')?.checked ?? true;
+                    const merged = mergeServerAndLocalResume(resumePayload, movieId, useLocal);
+                    applySmartResume(video, hls, merged);
+                    await startWatchHistoryTracking(video, apiGateway, jwt, movieId);
+                } catch (e) {
+                    log(`Watch-history setup error: ${e.message}`, 'error');
+                    watchHistoryStatusEl.textContent = 'Setup error';
+                }
+            } else {
+                watchHistoryStatusEl.textContent = watchHistoryOn ? 'Need JWT' : 'Off';
+            }
 
             video.play().catch(e => {
                 log(`Auto-play blocked: ${e.message}`, 'warning');
@@ -284,6 +801,7 @@ async function loadVideo() {
                         break;
                     default:
                         log('Cannot recover, destroying HLS instance', 'error');
+                        clearWatchHistoryTracking(document.getElementById('video'));
                         hls.destroy();
                         break;
                 }
@@ -297,8 +815,16 @@ async function loadVideo() {
         updateStatus('Using native HLS (Safari)', 'info');
         log('Using native HLS (Safari). Note: Key authentication may not work', 'warning');
         video.src = streamUrl;
-        video.addEventListener('loadedmetadata', function() {
+        video.addEventListener('loadedmetadata', async function onMeta() {
             log('Native HLS loaded', 'success');
+            if (watchHistoryOn && jwt) {
+                const resumePayload = await fetchResumePayload(apiGateway, jwt, movieId);
+                const useLocal = document.getElementById('localStorageBackup')?.checked ?? true;
+                const merged = mergeServerAndLocalResume(resumePayload, movieId, useLocal);
+                applySmartResume(video, null, merged);
+                await startWatchHistoryTracking(video, apiGateway, jwt, movieId);
+            }
+            video.removeEventListener('loadedmetadata', onMeta);
             video.play();
         });
     } else {
@@ -345,6 +871,16 @@ document.addEventListener('keydown', function(e) {
 });
 
 // Initialize
+(function applyMovieIdFromQuery() {
+    try {
+        const mid = new URLSearchParams(window.location.search).get('movieId');
+        if (mid) {
+            document.getElementById('movieId').value = mid.trim();
+        }
+    } catch (e) {
+        /* ignore */
+    }
+})();
 loadJwt();
 updateStatus('Ready to play', 'info');
 

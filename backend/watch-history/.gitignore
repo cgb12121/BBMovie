@@ -31,3 +31,6 @@ build/
 
 ### VS Code ###
 .vscode/
+.idea/
+jwk-dev.json
+.env

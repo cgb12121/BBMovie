@@ -7,7 +7,6 @@ import com.bbmovie.dto.request.UpdateCollectionRequest;
 import com.bbmovie.dto.request.UpsertItemRequest;
 import com.bbmovie.security.CollectionSecurity;
 import com.bbmovie.service.WatchlistService;
-import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
