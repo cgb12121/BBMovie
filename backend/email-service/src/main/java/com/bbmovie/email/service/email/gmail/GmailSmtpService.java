@@ -126,4 +126,25 @@ public class GmailSmtpService implements EmailService {
             throw new CustomEmailException("Failed to send Reset password email!");
         }
     }
+
+    @Override
+    public void sendNewsEmail(String to, String title, String content) {
+        try {
+            Context context = new Context();
+            context.setVariable("title", title);
+            context.setVariable("content", content);
+            String htmlContent = templateEngine.process("news", context);
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, CHAR_ENCODING_UTF_8);
+            helper.setFrom(fromEmail);
+            helper.setTo(to);
+            helper.setSubject("News");
+            helper.setText(htmlContent, true);
+            mailSender.send(message);
+            log.info("News email sent to {}", to);
+        } catch (MessagingException e) {
+            log.error("Failed to send news email to {}: {}", to, e.getMessage());
+            throw new CustomEmailException("Failed to send news email!");
+        }
+    }
 } 

@@ -120,4 +120,28 @@ public class MailerSenderApiService implements EmailService {
             log.error("Fatal error when sending Reset password email to {}: {}", receiver, e.getMessage());
         }
     }
+
+    @Override
+    public void sendNewsEmail(String to, String title, String content) {
+        try {
+            Context context = new Context();
+            context.setVariable("title", title);
+            context.setVariable("content", content);
+            String htmlContent = templateEngine.process("news", context);
+
+            Email email = new Email();
+            email.setFrom(DOMAIN_NAME, fromEmail);
+            email.AddRecipient(new Recipient(to, to));
+            email.setSubject(title);
+            email.setHtml(htmlContent);
+
+            MailerSend mailerSend = new MailerSend();
+            mailerSend.setToken(mailSenderToken);
+
+            MailerSendResponse response = mailerSend.emails().send(email);
+            log.info("News email sent: {}", response);
+        } catch (Exception e) {
+            log.error("Failed to send news email to {}: {}", to, e.getMessage());
+        }
+    }
 }

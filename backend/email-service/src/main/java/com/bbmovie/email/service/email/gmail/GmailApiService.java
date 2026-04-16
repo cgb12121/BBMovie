@@ -135,4 +135,19 @@ public class GmailApiService implements EmailService {
         service.users().messages().send("me", message).execute();
     }
 
+    @Override
+    public void sendNewsEmail(String to, String title, String content) {
+        try {
+            Context context = new Context();
+            context.setVariable("title", title);
+            context.setVariable("content", content);
+            String htmlContent = templateEngine.process("news", context);
+            MimeMessage email = createEmail(to, fromEmail, "News", htmlContent);
+            Message message = createMessageWithEmail(email);
+            sendMessageWithGmailApi(message);
+        } catch (MessagingException | IOException | GeneralSecurityException e) {
+            log.error("Failed to send news email to {}: {}", to, e.getMessage());
+        }
+    }
+
 }

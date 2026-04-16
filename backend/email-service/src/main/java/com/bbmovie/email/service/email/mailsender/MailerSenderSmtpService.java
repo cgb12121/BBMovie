@@ -69,6 +69,16 @@ public class MailerSenderSmtpService implements EmailService {
         sendEmail(receiver, "Reset Your Password", htmlContent);
     }
 
+    @Override
+    public void sendNewsEmail(String to, String title, String content) {
+        Context context = new Context();
+        context.setVariable("title", title);
+        context.setVariable("content", content);
+        String htmlContent = templateEngine.process("news", context);
+
+        sendEmail(to, title, htmlContent);
+    }
+
     private void sendEmail(String to, String subject, String htmlContent) {
         try {
             MimeMessage mimeMessage = javaMailSender.createMimeMessage();
