@@ -83,15 +83,34 @@ public class NatsConfig {
         public void start() {
             if (running.compareAndSet(false, true)) {
                 Thread.ofVirtual().start(() -> {
-                    log.info("Starting NATS connection attempt in background...");
-                    try {
-                        Connection nc = Nats.connect(options);
-                        connectionRef.set(nc);
-                        log.info("Successfully connected to NATS in background.");
-                    } catch (IOException | InterruptedException e) {
-                        log.error("Failed to establish initial NATS connection in background. Will rely on auto-reconnect.", e);
-                    } finally {
-                        connectionLatch.countDown(); // Signal that the connection attempt is complete
+                    log.info("Starting NATS connection attempts in background...");
+                    while (running.get()) {
+                        try {
+                            Connection existing = connectionRef.get();
+                            if (existing != null && existing.getStatus() != Connection.Status.CLOSED) {
+                                return;
+                            }
+
+                            Connection nc = Nats.connect(options);
+                            connectionRef.set(nc);
+                            connectionLatch.countDown();
+                            log.info("Successfully connected to NATS in background.");
+                            return;
+                        } catch (IOException | InterruptedException e) {
+                            if (e instanceof InterruptedException) {
+                                Thread.currentThread().interrupt();
+                                log.warn("NATS connection thread interrupted while waiting to reconnect.");
+                                return;
+                            }
+                            log.warn("Failed to establish initial NATS connection. Retrying in 2 seconds...");
+                            try {
+                                Thread.sleep(2000);
+                            } catch (InterruptedException interruptedException) {
+                                Thread.currentThread().interrupt();
+                                log.warn("NATS retry sleep interrupted.");
+                                return;
+                            }
+                        }
                     }
                 });
             }

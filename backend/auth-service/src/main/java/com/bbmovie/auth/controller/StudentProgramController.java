@@ -2,15 +2,12 @@ package com.bbmovie.auth.controller;
 
 import com.bbmovie.auth.dto.ApiResponse;
 import com.bbmovie.auth.dto.StudentApplicationObject;
-import com.bbmovie.auth.dto.response.CountryUniversityResponse;
-import com.bbmovie.auth.dto.response.UniversityLookupResponse;
 import com.bbmovie.auth.dto.request.StudentVerificationRequest;
 import com.bbmovie.auth.dto.response.StudentVerificationResponse;
 import com.bbmovie.auth.service.student.StudentVerificationService;
-import com.bbmovie.auth.service.student.UniversityRegistryService;
 import jakarta.validation.Valid;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,20 +20,11 @@ import java.util.List;
 import java.util.UUID;
 
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/student-program")
 public class StudentProgramController {
 
 	private final StudentVerificationService studentVerificationService;
-    private final UniversityRegistryService universityRegistryService;
-
-    @Autowired
-    public StudentProgramController(
-            StudentVerificationService studentVerificationService,
-            UniversityRegistryService universityRegistryService
-    ) {
-        this.studentVerificationService = studentVerificationService;
-        this.universityRegistryService = universityRegistryService;
-    }
 
     @PreAuthorize("isAuthenticated()")
 	@PostMapping(value = "/apply", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -50,26 +38,6 @@ public class StudentProgramController {
         StudentVerificationResponse resp = studentVerificationService.apply(authorization, email, request, document);
 		return ResponseEntity.ok(ApiResponse.success(resp));
 	}
-
-    @GetMapping("/supported")
-    public ResponseEntity<ApiResponse<UniversityLookupResponse>> isUniversitySupported(@RequestParam("query") String query) {
-        UniversityLookupResponse result = universityRegistryService.findByDomain(query);
-        return ResponseEntity.ok(ApiResponse.success(result));
-    }
-
-    @GetMapping("/supported/countries")
-    public ResponseEntity<ApiResponse<CountryUniversityResponse>> getUniversitiesByCountry(
-            @RequestParam(value = "country", required = false) String country,
-            @RequestParam(value = "code", required = false) String code,
-            @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "20") int size
-    ) {
-        if(null == country && code == null)
-            return ResponseEntity.badRequest().body(ApiResponse.error("Invalid country or code"));
-        CountryUniversityResponse response = universityRegistryService
-                .getAllSupportedUniByCountryAndCode(country, code, page, size);
-        return ResponseEntity.ok(ApiResponse.success(response));
-    }
 
     @GetMapping("/applications/{applicationId}")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN','ROLE_SUPER_ADMIN') " +
@@ -113,5 +81,15 @@ public class StudentProgramController {
             @RequestParam("approve") boolean approve
     ) {
         return ResponseEntity.ok(ApiResponse.success(studentVerificationService.manuallyValidate(userId, approve)));
+    }
+
+    @PostMapping("/internal/applications/{applicationId}/finalize")
+    public ResponseEntity<ApiResponse<Void>> finalizeVerification(
+            @PathVariable UUID applicationId,
+            @RequestParam("status") String status,
+            @RequestParam(value = "message", required = false) String message
+    ) {
+        studentVerificationService.finalizeVerification(applicationId, status, message);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

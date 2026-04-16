@@ -317,6 +317,7 @@ public class SessionServiceImpl implements SessionService {
                 .firstName(user.getFirstName())
                 .lastName(user.getLastName())
                 .profilePictureUrl(user.getProfilePictureUrl())
+                .referralCode(user.getReferralCode())
                 .build();
     }
 

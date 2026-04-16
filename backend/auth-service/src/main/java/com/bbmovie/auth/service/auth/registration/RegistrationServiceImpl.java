@@ -10,6 +10,7 @@ import com.bbmovie.auth.security.SecurityConfig;
 import com.bbmovie.auth.service.auth.verify.magiclink.EmailVerifyTokenService;
 import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.nats.EmailEventProducer;
+import com.bbmovie.auth.service.nats.UserEventProducer;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -31,15 +32,18 @@ public class RegistrationServiceImpl implements RegistrationService {
     private final EmailVerifyTokenService emailVerifyTokenService;
     private final EmailEventProducer emailEventProducer;
     private final OtpService otpService;
+    private final UserEventProducer userEventProducer;
 
     @Autowired
     public RegistrationServiceImpl(
             UserRepository userRepository, EmailVerifyTokenService emailVerifyTokenService,
-            EmailEventProducer emailEventProducer, OtpService otpService) {
+            EmailEventProducer emailEventProducer, OtpService otpService,
+            UserEventProducer userEventProducer) {
         this.userRepository = userRepository;
         this.emailVerifyTokenService = emailVerifyTokenService;
         this.emailEventProducer = emailEventProducer;
         this.otpService = otpService;
+        this.userEventProducer = userEventProducer;
     }
 
     /**
@@ -64,10 +68,20 @@ public class RegistrationServiceImpl implements RegistrationService {
         }
 
         User user = createUserFromRegisterRequest(request);
+        // Generate unique referral code
+        String code;
+        do {
+            code = com.bbmovie.auth.utils.ReferralCodeUtil.generateCode();
+        } while (userRepository.existsByReferralCode(code));
+        user.setReferralCode(code);
+
         User savedUser = userRepository.save(user);
 
         String verificationToken = emailVerifyTokenService.generateVerificationToken(savedUser);
         emailEventProducer.sendMagicLinkOnRegistration(savedUser.getEmail(), verificationToken);
+
+        // Publish registration event with referral info
+        userEventProducer.publishUserRegistered(savedUser, request.getReferralCode());
     }
 
     /**

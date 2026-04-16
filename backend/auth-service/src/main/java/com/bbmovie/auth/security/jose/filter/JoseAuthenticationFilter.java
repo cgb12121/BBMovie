@@ -24,9 +24,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static com.bbmovie.common.entity.JoseConstraint.JosePayload.EMAIL;
 import static com.bbmovie.common.entity.JoseConstraint.JosePayload.ABAC.IS_ACCOUNTING_ENABLED;
 import static com.bbmovie.common.entity.JoseConstraint.JosePayload.SID;
-import static com.bbmovie.common.entity.JoseConstraint.JosePayload.SUB;
 
 @Log4j2
 @Component
@@ -56,7 +56,7 @@ public class JoseAuthenticationFilter extends OncePerRequestFilter {
 
             Map<String, Object> claims = joseProvider.getClaimsFromToken(token);
             String sid = (String) claims.get(SID);
-            String username = (String) claims.get(SUB);
+            String username = (String) claims.get(EMAIL);
             boolean isAccountEnabled = (Boolean) claims.get(IS_ACCOUNTING_ENABLED);
 
             if (joseProvider.isTokenInABACBlacklist(sid)) {

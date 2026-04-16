@@ -11,7 +11,9 @@ import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.UserRepository;
 import com.bbmovie.auth.service.auth.registration.RegistrationServiceImpl;
 import com.bbmovie.auth.service.auth.verify.magiclink.EmailVerifyTokenService;
+import com.bbmovie.auth.service.auth.verify.otp.OtpService;
 import com.bbmovie.auth.service.nats.EmailEventProducer;
+import com.bbmovie.auth.service.nats.UserEventProducer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,13 +41,19 @@ class RegistrationServiceImplTest {
     @Mock
     private EmailEventProducer emailEventProducer;
 
+    @Mock
+    private OtpService otpService;
+
+    @Mock
+    private UserEventProducer userEventProducer;
+
     private RegistrationServiceImpl registrationService;
 
     private RegisterRequest validRegisterRequest;
 
     @BeforeEach
     void setUp() {
-        registrationService = new RegistrationServiceImpl(userRepository, emailVerifyTokenService, emailEventProducer, null);
+        registrationService = new RegistrationServiceImpl(userRepository, emailVerifyTokenService, emailEventProducer, otpService, userEventProducer);
         validRegisterRequest = RegisterRequest.builder()
                 .email("test@example.com")
                 .username("testuser")
@@ -108,10 +116,12 @@ class RegistrationServiceImplTest {
                 .isAccountNonExpired(true)
                 .isAccountNonLocked(true)
                 .isCredentialsNonExpired(true)
+                .referralCode("REF123")
                 .build();
         savedUser.setId(UUID.randomUUID()); // Set ID separately since BaseEntity doesn't have builder method
 
         when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        when(userRepository.existsByReferralCode(anyString())).thenReturn(false);
         when(userRepository.save(any(User.class))).thenReturn(savedUser);
         when(emailVerifyTokenService.generateVerificationToken(any(User.class))).thenReturn("verification-token");
 
@@ -122,6 +132,7 @@ class RegistrationServiceImplTest {
         verify(userRepository, times(1)).save(any(User.class));
         verify(emailVerifyTokenService, times(1)).generateVerificationToken(any(User.class));
         verify(emailEventProducer, times(1)).sendMagicLinkOnRegistration(eq("test@example.com"), eq("verification-token"));
+        verify(userEventProducer, times(1)).publishUserRegistered(eq(savedUser), isNull());
 
         ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
         verify(userRepository).save(userCaptor.capture());
@@ -131,6 +142,39 @@ class RegistrationServiceImplTest {
         assertEquals("testuser", capturedUser.getDisplayedUsername());
         assertEquals(Role.USER, capturedUser.getRole());
         assertFalse(capturedUser.isEnabled());
+        assertNotNull(capturedUser.getReferralCode());
+    }
+
+    @Test
+    void register_WithReferralCode_ShouldPublishEventWithReferralCode() {
+        // Given
+        String referralCode = "FRIEND123";
+        RegisterRequest requestWithReferral = RegisterRequest.builder()
+                .email("test@example.com")
+                .username("testuser")
+                .password("password123")
+                .confirmPassword("password123")
+                .firstName("John")
+                .lastName("Doe")
+                .referralCode(referralCode)
+                .build();
+
+        User savedUser = User.builder()
+                .email("test@example.com")
+                .referralCode("MYREF123")
+                .build();
+        savedUser.setId(UUID.randomUUID());
+
+        when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
+        when(userRepository.existsByReferralCode(anyString())).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(emailVerifyTokenService.generateVerificationToken(any(User.class))).thenReturn("token");
+
+        // When
+        registrationService.register(requestWithReferral);
+
+        // Then
+        verify(userEventProducer).publishUserRegistered(savedUser, referralCode);
     }
 
     @Test

@@ -235,6 +235,7 @@ class SessionServiceImplTest {
                 .firstName("John")
                 .lastName("Doe")
                 .role(Role.USER)
+                .referralCode("REF123")
                 .build();
         user.setId(UUID.randomUUID()); // Set ID separately since BaseEntity doesn't have builder method
 
@@ -249,6 +250,7 @@ class SessionServiceImplTest {
         assertEquals("test@example.com", result.getEmail());
         assertEquals("John", result.getFirstName());
         assertEquals("Doe", result.getLastName());
+        assertEquals("REF123", result.getReferralCode());
         verify(userRepository).findByEmail("test@example.com");
     }
 }

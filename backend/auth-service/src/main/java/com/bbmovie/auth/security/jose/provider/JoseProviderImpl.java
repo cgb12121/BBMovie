@@ -88,9 +88,9 @@ public class JoseProviderImpl implements JoseProvider {
     private String generateToken(Authentication authentication, int expirationInMs, String sid, User loggedInUser) {
         try {
             RSAKey currentActiveKey = keyCache.getActiveRsaKey();
-            String username = getUsernameFromAuthentication(authentication);
-            if (!username.equals(loggedInUser.getUsername())) {
-                log.error("Username does not match? {} & {}", username, loggedInUser.getUsername());
+            String principalEmail = getPrincipalEmailFromAuthentication(authentication);
+            if (!principalEmail.equalsIgnoreCase(loggedInUser.getEmail())) {
+                log.warn("Principal email does not match user email: {} & {}", principalEmail, loggedInUser.getEmail());
             }
             String role = getRoleFromAuthentication(authentication);
             Date now = new Date();
@@ -140,9 +140,9 @@ public class JoseProviderImpl implements JoseProvider {
     ) {
         try {
             RSAKey currentActiveKey = keyCache.getActiveRsaKey();
-            String username = getUsernameFromAuthentication(authentication);
-            if (!username.equals(loggedInUser.getUsername())) {
-                log.error("Username does not match when generate token? {} & {}", username, loggedInUser.getUsername());
+            String principalEmail = getPrincipalEmailFromAuthentication(authentication);
+            if (!principalEmail.equalsIgnoreCase(loggedInUser.getEmail())) {
+                log.warn("Principal email does not match user email when generating token: {} & {}", principalEmail, loggedInUser.getEmail());
             }
             String role = getRoleFromAuthentication(authentication);
             Date now = new Date();
@@ -187,7 +187,7 @@ public class JoseProviderImpl implements JoseProvider {
         }
     }
 
-    private String getUsernameFromAuthentication(Authentication authentication) {
+    private String getPrincipalEmailFromAuthentication(Authentication authentication) {
         Object principal = authentication.getPrincipal();
 
         if (principal instanceof UserDetails userDetails) {
@@ -198,6 +198,10 @@ public class JoseProviderImpl implements JoseProvider {
             Map<String, Object> attributes = oauth2User.getAttributes();
 
             OAuth2UserInfoStrategy strategy = getStrategyForProvider(provider);
+            String email = strategy.getEmail(attributes);
+            if (email != null && !email.isBlank()) {
+                return email;
+            }
             return strategy.getUsername(attributes);
         }
         throw new UnsupportedPrincipalType(

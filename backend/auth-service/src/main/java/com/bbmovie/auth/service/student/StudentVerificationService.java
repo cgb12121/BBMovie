@@ -9,21 +9,18 @@ import com.bbmovie.auth.exception.StudentApplicationException;
 import com.bbmovie.auth.exception.UserNotFoundException;
 import com.bbmovie.auth.repository.StudentProfileRepository;
 import com.bbmovie.auth.repository.UserRepository;
-import com.bbmovie.auth.security.jose.provider.JoseProvider;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bbmovie.auth.enums.VerificationOutcome;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.StringUtils;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.PENDING;
 import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.REJECTED;
@@ -31,30 +28,15 @@ import static com.bbmovie.auth.entity.enumerate.StudentVerificationStatus.VERIFI
 
 @Slf4j
 @Service
+@RequiredArgsConstructor
 public class StudentVerificationService {
 
 	private final UserRepository userRepository;
 	private final StudentProfileRepository studentProfileRepository;
-	private final UniversityRegistryService universityRegistryService;
-	private final OcrExtractionService ocrExtractionService;
-	private final ObjectMapper objectMapper;
-    private final JoseProvider joseProvider;
+    private final RestTemplate restTemplate;
 
-	@Autowired
-	public StudentVerificationService(
-			UserRepository userRepository,
-			StudentProfileRepository studentProfileRepository,
-			UniversityRegistryService universityRegistryService,
-			OcrExtractionService ocrExtractionService,
-            JoseProvider joseProvider
-	) {
-		this.userRepository = userRepository;
-		this.studentProfileRepository = studentProfileRepository;
-		this.universityRegistryService = universityRegistryService;
-		this.ocrExtractionService = ocrExtractionService;
-		this.joseProvider = joseProvider;
-		this.objectMapper = new ObjectMapper();
-	}
+    @Value("${student.verification.camunda-engine-url:}")
+    private String camundaEngineUrl;
 
 	//TODO: will manually notify user about application (reject or approved, pending)
 	@Transactional
@@ -62,11 +44,43 @@ public class StudentVerificationService {
 		User user = userRepository.findByEmail(email)
 				.orElseThrow(() -> new UserNotFoundException("User not found"));
 
-		// TODO: Re-enable student verification document upload using media-upload-service / MinIO.
-        // For now, this feature is explicitly disabled to allow decommissioning of the legacy file-service.
-        throw new StudentApplicationException(
-                "Student verification with document upload is temporarily unavailable while we migrate storage. Please try again later."
-        );
+        validateDocument(document);
+
+        StudentProfile profile = studentProfileRepository.findByUserId(user.getId())
+                .orElse(StudentProfile.builder()
+                        .user(user)
+                        .build());
+
+        profile.setApplyStudentStatusDate(LocalDateTime.now());
+        profile.setStudentVerificationStatus(PENDING);
+        // In a real scenario, we would upload to MinIO and store the URL
+        profile.setStudentDocumentUrl("pending-upload");
+        studentProfileRepository.save(profile);
+
+        // Trigger Camunda Workflow
+        try {
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("applicationId", profile.getId().toString());
+            variables.put("userId", user.getId().toString());
+            variables.put("fullName", request.getFullName());
+            variables.put("universityName", request.getUniversityName());
+            variables.put("universityDomain", request.getUniversityDomain());
+            variables.put("universityEmail", request.getUniversityEmail());
+            variables.put("graduationYear", request.getGraduationYear());
+            variables.put("documentName", document.getOriginalFilename());
+            variables.put("documentContent", Base64.getEncoder().encodeToString(document.getBytes()));
+
+            restTemplate.postForObject(camundaEngineUrl, variables, Map.class);
+            log.info("Triggered student verification workflow for application {}", profile.getId());
+        } catch (Exception e) {
+            log.error("Failed to trigger verification workflow", e);
+            // We still return PENDING as it's saved in DB and can be picked up later
+        }
+
+        return StudentVerificationResponse.builder()
+                .status(PENDING)
+                .message("Your student verification application has been submitted and is being processed.")
+                .build();
 	}
 
 	public List<StudentApplicationObject> findAllApplication() {
@@ -138,12 +152,39 @@ public class StudentVerificationService {
 		}
 	}
 
-	private boolean textContains(String requestValue, String matched) {
-		if (!StringUtils.hasText(requestValue) || !StringUtils.hasText(matched)) return false;
-		String req = requestValue.toLowerCase();
-		String m = matched.toLowerCase();
-		return req.contains(m) || m.contains(req);
-	}
+    @Transactional
+    public void finalizeVerification(UUID applicationId, String status, String message) {
+        StudentProfile profile = studentProfileRepository.findById(applicationId)
+                .orElseThrow(() -> new StudentApplicationException("Unable to find application"));
+
+        VerificationOutcome outcome;
+        try {
+            outcome = VerificationOutcome.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid verification outcome received: {}", status);
+            return;
+        }
+
+        switch (outcome) {
+            case VERIFIED:
+            case AUTO_APPROVE:
+                profile.setStudentVerificationStatus(VERIFIED);
+                profile.setStudent(true);
+                profile.setStudentStatusExpireAt(LocalDateTime.now().plusYears(1));
+                break;
+            case REJECTED:
+            case AUTO_REJECT:
+                profile.setStudentVerificationStatus(REJECTED);
+                profile.setStudent(false);
+                break;
+            case NEEDS_REVIEW:
+                profile.setStudentVerificationStatus(PENDING);
+                break;
+        }
+
+        studentProfileRepository.save(profile);
+        log.info("Finalized verification for application {}: outcome={}, message={}", applicationId, outcome, message);
+    }
 
 	private void validateDocument(MultipartFile document) {
 		String contentType = document.getContentType();

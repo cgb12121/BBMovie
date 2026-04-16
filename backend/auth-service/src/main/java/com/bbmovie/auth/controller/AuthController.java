@@ -8,6 +8,7 @@ import com.bbmovie.auth.dto.response.AccessTokenResponse;
 import com.bbmovie.auth.dto.response.AuthResponse;
 import com.bbmovie.auth.dto.response.LoginResponse;
 import com.bbmovie.auth.dto.response.UserAgentResponse;
+import com.bbmovie.auth.security.jose.provider.JoseProvider;
 import com.bbmovie.auth.service.auth.RefreshTokenService;
 import com.bbmovie.auth.service.auth.password.PasswordService;
 import com.bbmovie.auth.service.auth.registration.RegistrationService;
@@ -22,9 +23,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/auth")
@@ -36,6 +40,7 @@ public class AuthController implements AuthControllerOpenApi {
     private final PasswordService passwordService;
     private final UserService userService;
     private final RefreshTokenService refreshTokenService;
+    private final JoseProvider joseProvider;
 
     @GetMapping("/test")
     public ResponseEntity<String> test() {
@@ -89,7 +94,6 @@ public class AuthController implements AuthControllerOpenApi {
             sessionService.logoutFromCurrentDevice(accessToken);
             sessionService.revokeAuthCookies(response);
             SecurityContextHolder.clearContext();
-            authentication.setAuthenticated(false);
             return ResponseEntity.ok(ApiResponse.success("Logout successful"));
         }
         return ResponseEntity.badRequest().body(ApiResponse.error("Invalid authorization header"));
@@ -147,7 +151,38 @@ public class AuthController implements AuthControllerOpenApi {
     public ResponseEntity<ApiResponse<LoginResponse>> getCurrentUserFromOAuth2(
             @AuthenticationPrincipal UserDetails userDetails,
             HttpServletRequest hsr) {
-        LoginResponse loginResponse = sessionService.getLoginResponseFromOAuth2Login(userDetails, hsr);
+        UserDetails resolvedUser = userDetails;
+        String accessToken = null;
+        String authorization = hsr.getHeader("Authorization");
+
+        if (resolvedUser == null && authorization != null && authorization.startsWith("Bearer ")) {
+            accessToken = authorization.substring(7);
+            if (joseProvider.validateToken(accessToken)) {
+                String email = joseProvider.getUsernameFromToken(accessToken);
+                resolvedUser = new User(email, "", List.of());
+            }
+        }
+
+        if (resolvedUser == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    ApiResponse.error("OAuth2 session not found. Please sign in again.")
+            );
+        }
+
+        LoginResponse loginResponse = sessionService.getLoginResponseFromOAuth2Login(resolvedUser, hsr);
+        if (accessToken != null && loginResponse.getAuthResponse() != null) {
+            AuthResponse authResponse = loginResponse.getAuthResponse();
+            loginResponse = LoginResponse.fromUserAndAuthAndUserAgentResponse(
+                    loginResponse.getUserResponse(),
+                    AuthResponse.builder()
+                            .accessToken(accessToken)
+                            .email(authResponse.getEmail())
+                            .role(authResponse.getRole())
+                            .build(),
+                    loginResponse.getUserAgentResponse()
+            );
+        }
+
         return ResponseEntity.ok(ApiResponse.success(loginResponse));
     }
 

@@ -10,7 +10,7 @@ app:
   otp-expiration-minutes: 1
 
   frontend:
-    url: http://localhost:3000
+    url: http://localhost:5173
 
 management:
   endpoints:

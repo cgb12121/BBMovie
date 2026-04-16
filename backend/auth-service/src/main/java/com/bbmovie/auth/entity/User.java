@@ -106,6 +106,9 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "is_soft_deleted")
     private boolean isSoftDeleted = false;
 
+    @Column(name = "referral_code", unique = true)
+    private String referralCode;
+
     @Override
     public String getUsername() {
         return this.email;

@@ -43,6 +43,9 @@ public class RegisterRequest {
     @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
     private String lastName;
 
+    @Schema(description = "Referral code (optional)", example = "REF123")
+    private String referralCode;
+
     //TODO: update thes on the frontend side
 //    @Schema(description = "User's age", example = "25", minimum = "1", maximum = "150")
 //    @NotNull(message = "Age is required")
