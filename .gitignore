@@ -13,3 +13,7 @@ e2e-tests
 gha-creds-*.json
 private/
 # test/
+.cursor/
+.qwen/
+.vs/
+.idea
