@@ -57,14 +57,16 @@ pub async fn handle_batch_process(
     )
 }
 
-async fn process_single_request(req: ProcessRequest, cache_service: CacheService, nats_service: &NatsService) -> anyhow::Result<BatchResultItem> {
-    tracing::info!("Processing file from URL: {} (Type based on {})", req.file_url, req.filename);
+async fn process_single_request(
+    req: ProcessRequest, 
+    cache_service: CacheService, 
+    nats_service: &NatsService
+) -> anyhow::Result<BatchResultItem> {
+    tracing::info!("Processing file: {} (upload_id: {:?})", req.filename, req.upload_id);
 
     // First, check if we have the result in the cache
     if let Some(cached_result) = cache_service.get_compressed(&req.filename).await? {
         tracing::info!("Cache HIT for filename: {}", req.filename);
-        // Even for cache hits, we should publish status update if uploadId is provided
-        // This ensures the file status is updated even if processing was cached
         if let Some(ref upload_id) = req.upload_id {
             nats_service.publish_media_status_update(upload_id, "VALIDATED").await;
         }
@@ -75,10 +77,32 @@ async fn process_single_request(req: ProcessRequest, cache_service: CacheService
         });
     }
 
-    let (temp_path, _) = utils::download_file(&req.file_url, &req.filename).await.map_err(|e| {
-        tracing::error!("Download failed for {}: {}", req.filename, e);
-        anyhow::anyhow!("Download failed: {}", e)
-    })?;
+    let temp_path = if let Some(base64_str) = req.base64_content {
+        tracing::debug!("Using provided base64 content for {}", req.filename);
+        let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, base64_str)
+            .map_err(|e| anyhow::anyhow!("Base64 decode failed: {}", e))?;
+        
+        let extension = std::path::Path::new(&req.filename)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .map(|ext| format!(".{}", ext))
+            .unwrap_or_default();
+
+        let temp_name = format!("b64_{}_{}", uuid::Uuid::new_v4(), extension);
+        let path = std::env::temp_dir().join(&temp_name);
+        tokio::fs::write(&path, bytes).await?;
+        path
+    } else if let Some(url) = req.file_url {
+        tracing::debug!("Downloading file from URL: {}", url);
+        let (path, _) = utils::download_file(&url, &req.filename).await.map_err(|e| {
+            tracing::error!("Download failed for {}: {}", req.filename, e);
+            anyhow::anyhow!("Download failed: {}", e)
+        })?;
+        path
+    } else {
+        return Err(anyhow::anyhow!("Neither file_url nor base64_content provided"));
+    };
+
     // RAII GUARD auto delete temp file as it is dropped outside the scope
     let _guard = utils::TempFileGuard::new(temp_path.clone());
 
