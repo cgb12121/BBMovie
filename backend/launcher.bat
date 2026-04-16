@@ -5,7 +5,7 @@ title BBMovie Master Launcher V5 (Delegated)
 :: ==========================================
 :: 1. CONFIGURATION
 :: ==========================================
-:: Định nghĩa service (Format: Tên_Folder|Loại_Tech)
+:: ĝịnh nghĩa service (Format: Tên_Folder|Loại_Tech)
 set "services[1]=eureka-sever|SPRING"
 set "services[2]=gateway|SPRING"
 set "services[3]=auth-service|SPRING"
@@ -21,6 +21,18 @@ set "services[12]=media-upload-service|SPRING"
 set "services[13]=transcode-worker|SPRING"
 set "services[14]=rust-transcode-worker|RUST"
 set "services[15]=media-service|SPRING"
+set "services[16]=watch-history|SPRING"
+set "services[17]=homepage-recommendations|SPRING"
+set "services[18]=comment-service|SPRING"
+set "services[19]=notification-service|SPRING"
+set "services[20]=rating-service|SPRING"
+set "services[21]=referral-service|SPRING"
+set "services[22]=revenue-dashboard|SPRING"
+set "services[23]=promotion-service|SPRING"
+set "services[24]=movie-analytics-service|SPRING"
+set "services[25]=personalization-recommendation|SPRING"
+set "services[26]=camunda-engine|SPRING"
+set "services[27]=camunda-engine\drools-engine|SPRING"
 
 :: Màu sắc
 set GREEN=[92m
@@ -59,14 +71,14 @@ echo.
 echo   %YELLOW%--- Select Specific Services ---%RESET%
 echo.
 
-:: --- (Đoạn vẽ bảng giữ nguyên như cũ) ---
+:: --- (ĝoạn vẽ bảng giữ nguyên như cũ) ---
 :: Table header
 echo   +----+--------------------------------+-----------+
 echo   ^| ID ^| Service Name                   ^| Stack     ^|
 echo   +----+--------------------------------+-----------+
 
 set "count=0"
-for /L %%i in (1,1,20) do (
+for /L %%i in (1,1,40) do (
     call set "check_svc=%%services[%%i]%%"
     if not "!check_svc!"=="" (
         for /f "tokens=1,2 delims=|" %%a in ("!check_svc!") do (
@@ -157,7 +169,7 @@ if not exist "%folder%\run.bat" (
 
 echo %YELLOW%Delegating to %folder%\run.bat...%RESET%
 
-:: 🔥 CORE CHANGE: Gọi run.bat của từng service
+:: 🔥 CORE CHANGE: Gời run.bat của từng service
 :: cmd /k "..." : Mở cửa sổ mới và giữ nó lại
 :: cd /d "%folder%" : Nhảy vào thư mục con
 :: call run.bat : Chạy script con
