@@ -196,7 +196,7 @@ const Settings: React.FC = () => {
             <Button
               variant="outline"
               className="w-full border-gray-700 text-white hover:bg-gray-800"
-              onClick={() => navigate('/device-management')}
+              onClick={() => navigate('/devices')}
             >
               Manage Devices
             </Button>

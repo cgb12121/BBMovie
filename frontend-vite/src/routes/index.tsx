@@ -21,6 +21,14 @@ import PasswordReset from '../pages/PasswordReset';
 import Movies from '../pages/Movies';
 import NotFound from '../pages/NotFound';
 import Subscriptions from '../pages/Subscriptions';
+import Settings from '../pages/Settings';
+import StudentVerificationApply from '../pages/StudentVerificationApply';
+import StudentApplicationsAdmin from '../pages/StudentApplicationsAdmin';
+import InternalStudentFinalize from '../pages/InternalStudentFinalize';
+import JwkAdmin from '../pages/JwkAdmin';
+import StudentApplicationLookup from '../pages/StudentApplicationLookup';
+import PersonalizationRecommendations from '../pages/PersonalizationRecommendations';
+import WatchHistoryResume from '../pages/WatchHistoryResume';
 
 const AppRoutes: React.FC = () => {
   return (
@@ -88,6 +96,11 @@ export const routes: AppRoute[] = [
       name: 'Email Verification'
   },
   {
+      path: '/password-reset',
+      element: <PasswordReset />,
+      name: 'Password Reset'
+  },
+  {
       path: '/movies',
       element: <Movies />,
       name: 'Movies'
@@ -124,9 +137,84 @@ export const routes: AppRoute[] = [
   },
   {
       path: '/profile',
-      element: <Profile/>,
+      element: <PrivateRoute><Profile/></PrivateRoute>,
       name: 'Profile'
   },
+  {
+      path: '/watchlist',
+      element: <PrivateRoute><Watchlist/></PrivateRoute>,
+      name: 'Watchlist'
+  },
+  {
+      path: '/subscriptions',
+      element: <PrivateRoute><Subscriptions/></PrivateRoute>,
+      name: 'Subscriptions'
+  },
+  {
+      path: '/devices',
+      element: <PrivateRoute><DeviceManagement/></PrivateRoute>,
+      name: 'Devices'
+  },
+  {
+      path: '/settings',
+      element: <PrivateRoute><Settings/></PrivateRoute>,
+      name: 'Settings'
+  },
+  {
+      path: '/student/apply',
+      element: <PrivateRoute><StudentVerificationApply/></PrivateRoute>,
+      name: 'Student Verification Apply'
+  },
+  {
+      path: '/student/application',
+      element: <PrivateRoute><StudentApplicationLookup/></PrivateRoute>,
+      name: 'Student Application Lookup'
+  },
+  {
+      path: '/personalization',
+      element: <PrivateRoute><PersonalizationRecommendations/></PrivateRoute>,
+      name: 'Personalization Recommendations'
+  },
+  {
+      path: '/watch-history',
+      element: <PrivateRoute><WatchHistoryResume/></PrivateRoute>,
+      name: 'Watch History Resume'
+  },
+  {
+      path: '/admin/student-applications',
+      element: <PrivateRoute requiredRoles={['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']}><StudentApplicationsAdmin/></PrivateRoute>,
+      name: 'Student Applications Admin'
+  },
+  {
+      path: '/admin/jwks',
+      element: <PrivateRoute requiredRoles={['ROLE_ADMIN']}><JwkAdmin/></PrivateRoute>,
+      name: 'JWK Admin'
+  },
+  {
+      path: '/internal/student-finalize',
+      element: <PrivateRoute requiredRoles={['ROLE_ADMIN', 'ROLE_SUPER_ADMIN']}><InternalStudentFinalize/></PrivateRoute>,
+      name: 'Internal Student Finalize'
+  },
+  {
+      path: '/upload',
+      element: <PrivateRoute><FileUpload /></PrivateRoute>,
+      name: 'File Upload'
+  },
+  {
+      path: '/files',
+      element: <PrivateRoute><FileManagement /></PrivateRoute>,
+      name: 'File Management'
+  },
+  {
+      path: '/dev/secure-stream',
+      element: <PrivateRoute><DevSecureStream/></PrivateRoute>,
+      name: 'Dev Secure Stream'
+  },
+  {
+      path: '*',
+      element: <NotFound />,
+      name: 'Not Found Catch All'
+  }
 ]; 
 
 export default AppRoutes; 

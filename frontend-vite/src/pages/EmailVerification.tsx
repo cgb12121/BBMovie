@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { message } from 'antd';
-import { Mail, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import api from '../services/api';
+import authService from '../services/authService';
 
 const EmailVerification: React.FC = () => {
     const [searchParams] = useSearchParams();
@@ -47,7 +48,7 @@ const EmailVerification: React.FC = () => {
                 return;
             }
 
-            await api.post(`/api/auth/resend-verification?email=${email}`);
+            await authService.sendVerification({ email });
             message.success('Verification email has been resent. Please check your email.');
         } catch (error: any) {
             if (error.response) {
@@ -59,8 +60,6 @@ const EmailVerification: React.FC = () => {
             setIsResending(false);
         }
     };
-
-    const email = searchParams.get('email') || 'your email';
 
     // Loading State
     if (verificationStatus === 'loading') {

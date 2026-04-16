@@ -4,7 +4,21 @@ import type {
     LoginResponse,
     AccessTokenResponse,
     LoginCredentials,
-    UserAgentResponse
+    UserAgentResponse,
+    RegisterRequest,
+    ResetPasswordRequest,
+    ForgotPasswordRequest,
+    SendVerificationEmailRequest,
+    ChangePasswordRequest,
+    LoggedInDeviceResponse,
+    MfaSetupResponse,
+    MfaVerifyResponse,
+    MfaVerifyRequest,
+    StudentVerificationRequest,
+    StudentVerificationResponse,
+    StudentApplicationObject,
+    VerificationOutcome,
+    JwkKeySet
 } from '../types/auth';
 import {
     decodeAccessTokenPayload,
@@ -14,12 +28,6 @@ import {
 import { store } from '../redux/store';
 import { logout as logoutAction } from '../redux/authSlice';
 import mfaService from './mfaService';
-
-interface DeviceRevokeEntry {
-    deviceName: string;
-    ip: string;
-}
-
 
 class AuthService {
     [x: string]: any;
@@ -124,7 +132,7 @@ class AuthService {
         return headers;
     }
 
-    private setTokens(accessToken: string) {
+    public setTokens(accessToken: string) {
         this.accessToken = accessToken;
         // for backward compatibility with components checking this key
         localStorage.setItem('accessToken', accessToken);
@@ -142,7 +150,7 @@ class AuthService {
         this.scheduleTokenCleanup(accessToken);
     }
 
-    private setDeviceInfo(deviceInfo: UserAgentResponse) {
+    public setDeviceInfo(deviceInfo: UserAgentResponse) {
         this.currentDeviceInfo = deviceInfo;
         localStorage.setItem('deviceInfo', JSON.stringify(deviceInfo));
     }
@@ -195,6 +203,44 @@ class AuthService {
         return response.data;
     }
 
+    async register(payload: RegisterRequest): Promise<ApiResponse<unknown>> {
+        const response = await api.post<ApiResponse<unknown>>('/api/auth/register', payload);
+        return response.data;
+    }
+
+    async sendVerification(payload: SendVerificationEmailRequest): Promise<ApiResponse<void>> {
+        const response = await api.post<ApiResponse<void>>('/api/auth/send-verification', payload, {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async forgotPassword(payload: ForgotPasswordRequest): Promise<ApiResponse<void>> {
+        const response = await api.post<ApiResponse<void>>('/api/auth/forgot-password', payload);
+        return response.data;
+    }
+
+    async resetPassword(token: string, payload: ResetPasswordRequest): Promise<ApiResponse<void>> {
+        const response = await api.post<ApiResponse<void>>('/api/auth/reset-password', payload, {
+            params: { token }
+        });
+        return response.data;
+    }
+
+    async changePassword(payload: ChangePasswordRequest): Promise<ApiResponse<void>> {
+        const response = await api.post<ApiResponse<void>>('/api/auth/change-password', payload, {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async getOAuth2LoginResponse(): Promise<ApiResponse<LoginResponse>> {
+        // OAuth2 callback should rely on fresh server-side context/cookies.
+        // Sending an old Authorization header can break callback when keys rotate.
+        const response = await api.get<ApiResponse<LoginResponse>>('/api/auth/oauth2-callback');
+        return response.data;
+    }
+
     getCurrentDeviceInfo(): UserAgentResponse | null {
         return this.currentDeviceInfo;
     }
@@ -219,7 +265,7 @@ class AuthService {
 
     async logoutDevice(deviceName: string, ipAddress: string): Promise<void> {
         await api.post(
-            '/api/device/sessions/revoke',
+            '/api/device/v1/sessions/revoke',
             {
                 devices: [
                     {
@@ -245,7 +291,7 @@ class AuthService {
         }
 
         this.refreshAccessTokenPromise = api.post<ApiResponse<AccessTokenResponse>>(
-            '/api/auth/refresh-token',
+            '/api/auth/access-token',
             {},
             {
                 headers: { ...this.getHeaders(), Authorization: `Bearer ${token}` }
@@ -273,7 +319,7 @@ class AuthService {
         }
 
         this.refreshAccessTokenAbacPromise = api.get<string>(
-            '/api/auth/abac/access-token',
+            '/api/auth/abac/new-access-token',
             {
                 headers: { ...this.getHeaders(), Authorization: `Bearer ${token}` },
                 // ensure axios does not attempt to parse JSON; response is plain string
@@ -329,9 +375,9 @@ class AuthService {
         }
     }
 
-    async getAllLoggedInDevices(): Promise<ApiResponse<{ deviceName: string; ipAddress: string; current: boolean; }[]>> {
+    async getAllLoggedInDevices(): Promise<ApiResponse<LoggedInDeviceResponse[]>> {
         try {
-            const response = await api.get('/api/device/sessions', {
+            const response = await api.get<ApiResponse<LoggedInDeviceResponse[]>>('/api/device/v1/sessions/all', {
                 headers: this.getHeaders()
             });
             return response.data;
@@ -343,7 +389,7 @@ class AuthService {
 
     async revokeDevices(deviceRevokeEntries: { deviceName: string; ip: string; }[]): Promise<ApiResponse<Record<string, string>>> {
         const response = await api.post<ApiResponse<Record<string, string>>>(
-            '/api/device/sessions/revoke',
+            '/api/device/v1/sessions/revoke',
             {
                 devices: deviceRevokeEntries
             },
@@ -365,6 +411,103 @@ class AuthService {
             throw error;
         }
     };
+
+    async setupMfa(): Promise<MfaSetupResponse> {
+        const response = await api.post<MfaSetupResponse>('/api/mfa/setup', {}, {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async verifyMfa(payload: MfaVerifyRequest): Promise<MfaVerifyResponse> {
+        const response = await api.post<MfaVerifyResponse>('/api/mfa/verify', payload, {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async applyStudentVerification(payload: StudentVerificationRequest, document: File): Promise<ApiResponse<StudentVerificationResponse>> {
+        const formData = new FormData();
+        formData.append('payload', new Blob([JSON.stringify(payload)], { type: 'application/json' }));
+        formData.append('document', document);
+        const response = await api.post<ApiResponse<StudentVerificationResponse>>('/api/student-program/apply', formData, {
+            headers: {
+                ...this.getHeaders(),
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+        return response.data;
+    }
+
+    async getStudentApplication(applicationId: string): Promise<ApiResponse<StudentApplicationObject>> {
+        const response = await api.get<ApiResponse<StudentApplicationObject>>(`/api/student-program/applications/${applicationId}`, {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async getAllStudentApplications(): Promise<ApiResponse<StudentApplicationObject[]>> {
+        const response = await api.get<ApiResponse<StudentApplicationObject[]>>('/api/student-program/applications', {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async getPendingStudentApplications(): Promise<ApiResponse<StudentApplicationObject[]>> {
+        const response = await api.get<ApiResponse<StudentApplicationObject[]>>('/api/student-program/applications/pending', {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async getRejectedStudentApplications(): Promise<ApiResponse<StudentApplicationObject[]>> {
+        const response = await api.get<ApiResponse<StudentApplicationObject[]>>('/api/student-program/applications/rejected', {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async getStudentAccounts(): Promise<ApiResponse<StudentApplicationObject[]>> {
+        const response = await api.get<ApiResponse<StudentApplicationObject[]>>('/api/student-program/students', {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async decideStudentApplication(userId: string, approve: boolean): Promise<ApiResponse<StudentVerificationResponse>> {
+        const response = await api.post<ApiResponse<StudentVerificationResponse>>(`/api/student-program/applications/${userId}/decision`, null, {
+            params: { approve },
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async finalizeStudentApplication(applicationId: string, status: VerificationOutcome, message?: string): Promise<ApiResponse<void>> {
+        const response = await api.post<ApiResponse<void>>(`/api/student-program/internal/applications/${applicationId}/finalize`, null, {
+            params: { status, message },
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async getPublicJwks(): Promise<JwkKeySet> {
+        const response = await api.get<JwkKeySet>('/.well-known/jwks.json');
+        return response.data;
+    }
+
+    async getAdminJwksAll(): Promise<ApiResponse<JwkKeySet>> {
+        const response = await api.get<ApiResponse<JwkKeySet>>('/api/admin/jwks/all', {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
+
+    async getAdminJwksActive(): Promise<ApiResponse<JwkKeySet>> {
+        const response = await api.get<ApiResponse<JwkKeySet>>('/api/admin/jwks/active', {
+            headers: this.getHeaders()
+        });
+        return response.data;
+    }
 
     private scheduleTokenCleanup(accessToken: string): void {
         if (this.tokenExpiryTimer) {

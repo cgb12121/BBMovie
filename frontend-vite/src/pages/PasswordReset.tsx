@@ -1,29 +1,59 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { message } from 'antd';
-import { Mail, ArrowLeft, Lock, Loader2 } from 'lucide-react';
+import { Mail, ArrowLeft, Lock, Loader2, CheckCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import api from '../services/api';
+import authService from '../services/authService';
 
 const PasswordReset: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const resetToken = searchParams.get('token');
   const [email, setEmail] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [passwordResetDone, setPasswordResetDone] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      await api.post('/api/auth/forgot-password', { email });
+      await authService.forgotPassword({ email });
       setSent(true);
       message.success('Password reset link sent to your email.');
     } catch (error: any) {
       message.error(error.response?.data?.message || 'Failed to send reset link. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetToken) {
+      message.error('Missing reset token');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      message.error('Passwords do not match');
+      return;
+    }
+    setLoading(true);
+    try {
+      await authService.resetPassword(resetToken, {
+        newPassword,
+        confirmNewPassword: confirmPassword
+      });
+      setPasswordResetDone(true);
+      message.success('Password has been reset successfully');
+    } catch (error: any) {
+      message.error(error.response?.data?.message || 'Failed to reset password. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -39,7 +69,79 @@ const PasswordReset: React.FC = () => {
 
         {/* Reset Form */}
         <Card className="bg-gray-900 border-gray-800">
-          {!sent ? (
+          {resetToken ? (
+            <>
+              <CardHeader className="space-y-4">
+                <div className="mx-auto bg-red-900/20 border border-red-800 rounded-full p-4 w-fit">
+                  {passwordResetDone ? (
+                    <CheckCircle className="h-12 w-12 text-green-500" />
+                  ) : (
+                    <Lock className="h-12 w-12 text-red-500" />
+                  )}
+                </div>
+                <CardTitle className="text-white text-2xl text-center">
+                  {passwordResetDone ? 'Password Reset Complete' : 'Set New Password'}
+                </CardTitle>
+                <CardDescription className="text-center">
+                  {passwordResetDone
+                    ? 'Your password was updated. You can now sign in with your new password.'
+                    : 'Enter your new password to complete account recovery.'}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!passwordResetDone ? (
+                  <form onSubmit={handleResetPassword} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="newPassword" className="text-white">New Password</Label>
+                      <Input
+                        id="newPassword"
+                        type="password"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="confirmPassword" className="text-white">Confirm Password</Label>
+                      <Input
+                        id="confirmPassword"
+                        type="password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-500"
+                        required
+                        minLength={8}
+                      />
+                    </div>
+                    <Button 
+                      type="submit" 
+                      className="w-full bg-red-600 hover:bg-red-700 text-white" 
+                      size="lg"
+                      disabled={loading}
+                    >
+                      {loading ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        'Update Password'
+                      )}
+                    </Button>
+                  </form>
+                ) : (
+                  <Button
+                    className="w-full bg-red-600 hover:bg-red-700 text-white"
+                    onClick={() => navigate('/login')}
+                  >
+                    Back to Login
+                  </Button>
+                )}
+              </CardContent>
+            </>
+          ) : !sent ? (
             <>
               <CardHeader className="space-y-4">
                 <div className="mx-auto bg-red-900/20 border border-red-800 rounded-full p-4 w-fit">
@@ -51,7 +153,7 @@ const PasswordReset: React.FC = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleForgotPassword} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="email" className="text-white">Email Address</Label>
                     <div className="relative">

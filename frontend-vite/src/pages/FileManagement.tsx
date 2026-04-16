@@ -83,7 +83,7 @@ interface FileRecord {
 
 const FileManagement: React.FC = () => {
   const [tabValue, setTabValue] = useState(0);
-  const [uploadMetadata, setUploadMetadata] = useState<UploadMetadata>({
+  const [uploadMetadata] = useState<UploadMetadata>({
     entityType: 'MOVIE',
     storage: 'LOCAL',
     quality: ''
@@ -181,7 +181,7 @@ const FileManagement: React.FC = () => {
     setFilteredFiles(filtered);
   };
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
   };
 

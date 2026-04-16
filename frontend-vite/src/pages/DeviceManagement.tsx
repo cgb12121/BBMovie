@@ -15,16 +15,11 @@ interface LoggedInDeviceResponse {
   current: boolean;
 }
 
-interface DeviceRevokeEntry {
-  deviceName: string;
-  ip: string;
-}
-
 const DeviceManagement: React.FC = () => {
   const navigate = useNavigate();
   const [devices, setDevices] = useState<LoggedInDeviceResponse[]>([]);
   const [loading, setLoading] = useState(false);
-  const { userAgent, loading: userAgentLoading } = useUserAgent();
+  const { loading: userAgentLoading } = useUserAgent();
 
   useEffect(() => {
     fetchDevices();

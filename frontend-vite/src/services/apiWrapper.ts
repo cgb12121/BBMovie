@@ -22,12 +22,6 @@ const isMockMode = () => {
   return useMockEnv === 'true' || (isDev && localStorage.getItem('useMockData') === 'true');
 };
 
-// Type guard to check if response is mock
-const isMockResponse = <T>(response: ApiResponse<T> | MockApiResponse<T>): response is MockApiResponse<T> => {
-  return (response as MockApiResponse<T>).data !== undefined && 
-         (response as MockApiResponse<T>).success !== undefined;
-};
-
 // Transform mock response to regular API response format
 const transformMockResponse = <T>(mockResponse: MockApiResponse<T>): ApiResponse<T> => {
   return {

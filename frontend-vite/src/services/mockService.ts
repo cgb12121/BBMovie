@@ -232,6 +232,7 @@ class MockService {
 
   async getMoviesByCategory(categoryId: number | string): Promise<MockApiResponse<MockMovie[]>> {
     await this.delay(500);
+    void categoryId;
     
     // In a real implementation, we'd filter movies by category
     // For mock data, let's return a random selection of movies

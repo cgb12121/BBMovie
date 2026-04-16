@@ -87,7 +87,7 @@ const FileUploadManager: React.FC<FileUploadManagerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showSettingsDialog, setShowSettingsDialog] = useState(false);
-  const [uploadConfig, setUploadConfig] = useState<UploadConfig>({
+  const [uploadConfig] = useState<UploadConfig>({
     maxFileSize: 100 * 1024 * 1024, // 100MB
     allowedFileTypes: Object.values(FILE_TYPE_CATEGORIES).flatMap(cat => cat.mimeTypes),
     maxConcurrentUploads: 3,

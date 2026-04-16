@@ -13,9 +13,7 @@ const Navbar: React.FC = () => {
   const [searchLoading, setSearchLoading] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
 
-  const user = useSelector((state: RootState) => state.auth.user);
   const isAuthenticated = !!useSelector((state: RootState) => state.auth.auth?.accessToken);
-  const role = useSelector((state: RootState) => state.auth.auth?.role);
 
   const handleSearch = (query: string, limit: number = 10) => {
     if (!query.trim()) return;
@@ -90,6 +88,26 @@ const Navbar: React.FC = () => {
                     }
                   >
                     Plans
+                  </NavLink>
+                  <NavLink
+                    to="/personalization"
+                    className={({ isActive }) =>
+                      `text-sm transition-colors hover:text-gray-300 ${
+                        isActive ? 'text-white font-semibold' : 'text-gray-400'
+                      }`
+                    }
+                  >
+                    For You
+                  </NavLink>
+                  <NavLink
+                    to="/watch-history"
+                    className={({ isActive }) =>
+                      `text-sm transition-colors hover:text-gray-300 ${
+                        isActive ? 'text-white font-semibold' : 'text-gray-400'
+                      }`
+                    }
+                  >
+                    Resume
                   </NavLink>
                 </>
               )}

@@ -15,7 +15,6 @@ import { Label } from '../components/ui/label'
 import { Separator } from '../components/ui/separator'
 import { Checkbox } from '../components/ui/checkbox'
 import { Modal } from "antd"
-import api from "../services/api"
 import { useDispatch } from "react-redux"
 import { setCredentials } from "../redux/authSlice"
 import authService from "../services/authService"
@@ -68,7 +67,7 @@ const Login: React.FC = () => {
     let isSubscribed = true;
     const fetchUserData = async () => {
       try {
-        const { data } = await api.get("/api/auth/oauth2-callback");
+        const data = await authService.getOAuth2LoginResponse();
         if (!isSubscribed) return;
         onLoginSuccess(data.data);
       } catch (err: any) {
@@ -147,6 +146,11 @@ const Login: React.FC = () => {
   const handleSocialLogin = (provider: string) => {
     try {
       setSocialLoading(provider)
+      // Clear potentially stale tokens before OAuth redirect.
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("auth");
+      localStorage.removeItem("user");
+      localStorage.removeItem("userAgent");
       window.location.href = `${OAUTH_BASE_URL}/${provider.toLowerCase()}`
     } catch (err) {
       console.error("Failed to fetch user data:", err);

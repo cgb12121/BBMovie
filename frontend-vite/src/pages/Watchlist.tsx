@@ -1,6 +1,5 @@
 // frontend/src/pages/Watchlist.tsx
-import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
 import { Plus, Edit, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
@@ -41,13 +40,6 @@ const Watchlist: React.FC = () => {
     const [isItemModalVisible, setItemModalVisible] = useState(false);
     const [editingCollection, setEditingCollection] = useState<WatchlistCollection | null>(null);
     const [editingItem, setEditingItem] = useState<WatchlistItem | null>(null);
-
-    const statusColorMap: Record<string, string> = useMemo(() => ({
-        WATCHING: 'blue',
-        COMPLETED: 'green',
-        PLAN_TO_WATCH: 'gold',
-        DROPPED: 'red'
-    }), []);
 
     const fetchCollections = async (page = 0, size = 20) => {
         try {
@@ -203,9 +195,6 @@ const Watchlist: React.FC = () => {
             }
         });
     };
-
-
-    const navigate = useNavigate();
 
     return (
         <div className="min-h-screen bg-black pt-20 pb-12 px-4 md:px-12">

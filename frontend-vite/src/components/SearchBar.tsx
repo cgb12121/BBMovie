@@ -91,7 +91,7 @@ const SearchBar: React.FC<SearchBarProps> = ({ onSelect, onSearch, placeholder, 
                     debouncedSearch(value);
                     onSearch(value);
                 }}
-                onSelect={(value, option) => onSelect?.(option.movie)}
+                onSelect={(_value, option) => onSelect?.(option.movie)}
                 style={{ width: '100%' }}
             >
                 <Input

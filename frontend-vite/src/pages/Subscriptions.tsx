@@ -27,7 +27,6 @@ const Subscriptions: React.FC = () => {
     const [provider, setProvider] = useState<string>(PAYMENT_PROVIDERS[0]);
     const [voucherCode, setVoucherCode] = useState('');
     const [quote, setQuote] = useState<{ amount: number; cycle: string } | null>(null);
-    const [quoteLoading, setQuoteLoading] = useState(false);
     const [creatingPayment, setCreatingPayment] = useState(false);
 
     const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
@@ -78,7 +77,6 @@ const Subscriptions: React.FC = () => {
 
     const updateQuote = async (planId: string, cycle: BillingCycleValue) => {
         try {
-            setQuoteLoading(true);
             const plan = plans.find(p => p.id === planId);
             const response = await paymentService.quotePrice(plan?.name ?? '', cycle === 'MONTHLY' ? 'monthly' : 'annual');
             setQuote(response);
@@ -86,7 +84,6 @@ const Subscriptions: React.FC = () => {
             console.error(error);
             message.error('Failed to fetch price quote');
         } finally {
-            setQuoteLoading(false);
         }
     };
 

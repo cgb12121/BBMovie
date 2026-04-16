@@ -5,6 +5,7 @@ import { Button } from '../components/ui/button';
 import { MovieRow } from '../components/MovieRow';
 import { ImageWithFallback } from '../components/ImageWithFallback';
 import { apiCall } from '../services/apiWrapper';
+import { homepageRecommendationService } from '../services/homepageRecommendationService';
 
 interface Movie {
   id: number;
@@ -17,6 +18,7 @@ interface Movie {
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const [movies, setMovies] = useState<Movie[]>([]);
+  const [recommendedTrending, setRecommendedTrending] = useState<Movie[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -30,15 +32,20 @@ const Home: React.FC = () => {
       setError(null);
       const response = await apiCall.getMovies();
       if (response.success) {
-        setMovies(response.data ?? []);
+        const fetchedMovies = response.data ?? [];
+        setMovies(fetchedMovies);
+        const trendingFromHomepage = await homepageRecommendationService.getTrendingMovies(10);
+        setRecommendedTrending(trendingFromHomepage);
       } else {
         setError(response.message || 'Unable to load movies. Please try again later.');
         setMovies([]);
+        setRecommendedTrending([]);
       }
     } catch (err) {
       console.error('Error fetching movies:', err);
       setError('Unable to load movies. Please try again later.');
       setMovies([]);
+      setRecommendedTrending([]);
     } finally {
       setLoading(false);
     }
@@ -49,7 +56,9 @@ const Home: React.FC = () => {
   };
 
   const featuredMovie = movies.length > 0 ? movies[0] : null;
-  const trendingMovies = movies.slice(0, 8);
+  const trendingMovies = recommendedTrending.length > 0
+    ? recommendedTrending.slice(0, 8)
+    : movies.slice(0, 8);
   const topRatedMovies = [...movies].sort((a, b) => b.rating - a.rating).slice(0, 8);
   const newReleases = movies.slice(8, 16);
 
@@ -126,7 +135,7 @@ const Home: React.FC = () => {
       <div className="relative -mt-32 z-10 space-y-12 pb-20">
         {trendingMovies.length > 0 && (
           <MovieRow
-            title="Trending Now"
+            title={recommendedTrending.length > 0 ? "Trending For You" : "Trending Now"}
             movies={trendingMovies}
             onMovieClick={handleMovieClick}
           />

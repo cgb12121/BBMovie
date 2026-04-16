@@ -5,7 +5,7 @@ interface UserResponse {
   email: string
   firstName: string
   lastName: string
-  profilePictureUrl: string | undefined;
+  profilePictureUrl: string | null | undefined;
 }
 
 interface AuthResponse {

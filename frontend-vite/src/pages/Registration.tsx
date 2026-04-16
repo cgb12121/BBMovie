@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input'
 import { Label } from '../components/ui/label'
 import { Separator } from '../components/ui/separator'
 import { Checkbox } from '../components/ui/checkbox'
-import api from "../services/api"
+import authService from "../services/authService"
 
 interface RegistrationData {
   email: string
@@ -49,7 +49,7 @@ const Registration: React.FC = () => {
     try {
       setLoading(true)
 
-      await api.post("/api/auth/register", {
+      await authService.register({
         email: formData.email,
         username: formData.username,
         password: formData.password,

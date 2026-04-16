@@ -1,42 +1,6 @@
 import axios from 'axios';
 import { getAccessToken } from '../utils/AccessTokenUtil';
 
-// Determine current profile/environment.
-// In Vite, env vars must be prefixed with VITE_ and accessed via import.meta.env.
-// We treat anything that is NOT explicit production as "dev-like"
-// and allow loading jwt-dev.txt in those profiles.
-const appProfile =
-    import.meta.env.VITE_PROFILE ||
-    import.meta.env.MODE ||
-    'unknown';
-
-const isDevLikeProfile =
-    appProfile.toLowerCase() !== 'prod' &&
-    appProfile.toLowerCase() !== 'production';
-
-// Cached dev JWT (loaded from /jwt-dev.txt in the frontend root for dev/test/default/unknown profiles)
-let devJwtToken: string | null = null;
-let devJwtLoaded = false;
-
-async function loadDevJwtToken(): Promise<string | null> {
-    if (!isDevLikeProfile) {
-        return null;
-    }
-
-    if (devJwtLoaded) {
-        return devJwtToken;
-    }
-
-    // For dev-like profiles, read a static JWT from env instead of jwt-dev.txt.
-    // Define VITE_DEV_JWT in your .env (or .env.development) for local testing.
-    const raw = import.meta.env.VITE_DEV_JWT ?? '';
-    const token = raw.trim();
-
-    devJwtToken = token || null;
-    devJwtLoaded = true;
-    return devJwtToken;
-}
-
 const api = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
     withCredentials: true,
@@ -46,6 +10,9 @@ const api = axios.create({
 });
 
 const serviceBaseUrls: Record<string, string | undefined> = {
+    '/api/homepage': import.meta.env.VITE_HOMEPAGE_RECOMMENDATIONS_SERVICE_URL,
+    '/api/personalization': import.meta.env.VITE_PERSONALIZATION_SERVICE_URL,
+    '/api/watch-history': import.meta.env.VITE_WATCH_HISTORY_SERVICE_URL,
     '/api/payment': import.meta.env.VITE_PAYMENT_SERVICE_URL,
     '/api/subscription': import.meta.env.VITE_PAYMENT_SERVICE_URL,
     '/api/subscriptions': import.meta.env.VITE_PAYMENT_SERVICE_URL,
@@ -100,17 +67,7 @@ api.interceptors.request.use(
         config.headers = config.headers ?? {};
 
         if (!config.headers.Authorization) {
-            // 1. Try normal access token (used in real app flows)
-            let token = getAccessToken();
-
-            // 2. For dev-like profiles (dev/test/default/unknown),
-            //    fall back to jwt-dev.txt from the frontend root.
-            if (!token && isDevLikeProfile) {
-                const devToken = await loadDevJwtToken();
-                if (devToken) {
-                    token = devToken;
-                }
-            }
+            const token = getAccessToken();
 
             if (token) {
                 // Allow token to already include "Bearer " prefix or be raw JWT

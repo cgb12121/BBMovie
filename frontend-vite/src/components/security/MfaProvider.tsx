@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Modal, Input, Form, Typography, message } from 'antd';
 import mfaService from '../../services/mfaService';
-import api from '../../services/api';
+import authService from '../../services/authService';
 
 const { Text } = Typography;
 
@@ -25,7 +25,7 @@ const MfaProvider: React.FC<Props> = ({ children }) => {
 
   const setupMfa = async () => {
     setLoading(true);
-    await api.post('/api/mfa/setup').then(() => {
+    await authService.setupMfa().then(() => {
       message.info('A verification code was sent to your email');
     }).catch(() => {
       // if already enabled or setup returned error, still allow user to enter code
@@ -36,7 +36,7 @@ const MfaProvider: React.FC<Props> = ({ children }) => {
     try {
       const { code } = await form.validateFields();
       setLoading(true);
-      await api.post('/api/mfa/verify', { code });
+      await authService.verifyMfa({ code });
       message.success('MFA verified');
       setOpen(false);
       form.resetFields();

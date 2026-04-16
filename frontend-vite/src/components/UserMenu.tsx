@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '../redux/store';
 import { logout } from '../redux/authSlice';
-import api from '../services/api';
+import authService from '../services/authService';
 import { DEFAULT_PROFILE_PICTURE } from '../assets/DefaultProfilePicture';
 
 const { Text } = Typography;
@@ -18,13 +18,14 @@ const UserMenu: React.FC = () => {
 
   const handleLogout = async () => {
     try {
-      await api.post('/api/auth/logout');
-      dispatch(logout());
+      await authService.logout();
       message.success('Logged out successfully');
-      navigate('/login');
     } catch (err) {
       console.error('Logout error:', err);
-      message.error('Failed to log out. Please try again.');
+      // Client-side logout should still happen even if server logout fails.
+      dispatch(logout());
+      message.warning('Logged out locally. Server logout failed.');
+      navigate('/login');
     }
   };
 

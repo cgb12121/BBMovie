@@ -36,7 +36,7 @@ interface FilePreviewProps {
   maxHeight?: number;
 }
 
-const PreviewCard = styled(Card)(({ theme }) => ({
+const PreviewCard = styled(Card)(() => ({
   position: 'relative',
   overflow: 'hidden',
   transition: 'transform 0.2s ease-in-out',

@@ -10,10 +10,11 @@ import GlobalStyles from "./styles/GlobalStyles";
 import Navbar from "./components/Navbar";
 import { routes } from "./routes";
 import ChatWidget from "./components/ai/ChatWidget";
+import MfaProvider from "./components/security/MfaProvider";
 
 const MainLayout = () => {
      const location = useLocation();
-     const hideNavbarPaths = ["/login", "/register", "/verify-email"];
+     const hideNavbarPaths = ["/login", "/register", "/verify-email", "/password-reset"];
      const shouldHideNavbar = hideNavbarPaths.includes(location.pathname);
 
      return (
@@ -41,7 +42,9 @@ const App = () => {
           >
                <Router>
                     <GlobalStyles />
-                    <MainLayout />
+                    <MfaProvider>
+                         <MainLayout />
+                    </MfaProvider>
                </Router>
           </ConfigProvider>
      );
