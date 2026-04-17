@@ -1,8 +1,8 @@
 package com.bbmovie.mediastreamingservice.controller;
 
+import com.bbmovie.mediastreamingservice.controller.openapi.StreamControllerOpenApi;
 import com.bbmovie.mediastreamingservice.service.StreamingService;
 import com.bbmovie.mediastreamingservice.utils.JwtUtils;
-import jakarta.validation.constraints.Pattern;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -25,14 +25,11 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/stream")
-public class StreamController {
+public class StreamController implements StreamControllerOpenApi {
 
     private final StreamingService streamingService;
 
     public static final String HLS_MIME_TYPE = "application/vnd.apple.mpegurl";
-    public static final String RESOLUTION_PATTERN = "^(?:144|240|360|480|720|1080|1440|2160|4080)p$";
-    public static final String KEY_FILE_PATTERN = "^key_\\d+\\.key$";
-
     // Master Playlist
     @GetMapping("/{movieId}/master.m3u8")
     public ResponseEntity<@NonNull Resource> getMasterPlaylist(
@@ -47,7 +44,7 @@ public class StreamController {
     @GetMapping("/{movieId}/{resolution}/playlist.m3u8")
     public ResponseEntity<@NonNull Resource> getResolutionPlaylist(
             @PathVariable UUID movieId,  // No need to regex, uuid safe
-            @PathVariable @Pattern(regexp = RESOLUTION_PATTERN) String resolution,
+            @PathVariable String resolution,
             @AuthenticationPrincipal Jwt jwt) {
         String userTier = JwtUtils.getUserTier(jwt);
         return serveFile(streamingService.getHlsFile(movieId, resolution, userTier), HLS_MIME_TYPE);
@@ -57,8 +54,8 @@ public class StreamController {
     @GetMapping("/keys/{movieId}/{resolution}/{keyFile}")
     public ResponseEntity<@NonNull Resource> getKey(
             @PathVariable UUID movieId, // No need to regex, uuid safe
-            @PathVariable @Pattern(regexp = RESOLUTION_PATTERN) String resolution,
-            @PathVariable @Pattern(regexp = KEY_FILE_PATTERN) String keyFile,
+            @PathVariable String resolution,
+            @PathVariable String keyFile,
             @AuthenticationPrincipal Jwt jwt) {
         String userTier = JwtUtils.getUserTier(jwt);
         return serveFile(streamingService.getSecureKey(movieId, resolution, keyFile, userTier), MediaType.APPLICATION_OCTET_STREAM_VALUE);
