@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.controller;
 
+import com.bbmovie.ai_assistant_service.controller.openapi.SessionControllerOpenApi;
 import com.bbmovie.ai_assistant_service.dto.request.CreateSessionDto;
 import com.bbmovie.ai_assistant_service.dto.request.DeleteArchivedSessionsDto;
 import com.bbmovie.ai_assistant_service.dto.request.SetSessionArchivedDto;
@@ -23,7 +24,7 @@ import static com.bbmovie.common.entity.JoseConstraint.JosePayload.SUB;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/sessions")
-public class SessionController {
+public class SessionController implements SessionControllerOpenApi {
 
     private final SessionService sessionService;
 

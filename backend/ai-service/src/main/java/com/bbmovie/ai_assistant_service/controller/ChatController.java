@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.controller;
 
+import com.bbmovie.ai_assistant_service.controller.openapi.ChatControllerOpenApi;
 import com.bbmovie.ai_assistant_service.dto.request.ChatRequestDto;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.service.ChatService;
@@ -26,7 +27,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/chat")
-public class ChatController {
+public class ChatController implements ChatControllerOpenApi {
 
     private static final RgbLogger log = RgbLoggerFactory.getLogger(ChatController.class);
 

@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.controller;
 
+import com.bbmovie.ai_assistant_service.controller.openapi.MessageControllerOpenApi;
 import com.bbmovie.ai_assistant_service.dto.response.ChatMessageResponse;
 import com.bbmovie.ai_assistant_service.service.MessageService;
 import com.bbmovie.common.dtos.ApiResponse;
@@ -17,7 +18,7 @@ import static com.bbmovie.common.entity.JoseConstraint.JosePayload.SUB;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/messages")
-public class MessageController {
+public class MessageController implements MessageControllerOpenApi {
 
     private final MessageService messageService;
 

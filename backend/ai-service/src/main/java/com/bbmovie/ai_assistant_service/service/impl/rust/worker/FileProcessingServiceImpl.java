@@ -49,9 +49,9 @@ public class FileProcessingServiceImpl implements FileProcessingService {
                     String tempUploadId = att.getUploadId();
                     if (tempUploadId == null || tempUploadId.isEmpty()) {
                         // Fallback to legacy fileId for backward compatibility
-                        if (att.getFileId() != null) {
+                        if (att.getUploadId() != null) {
                             log.warn("Using deprecated fileId field. Please migrate to uploadId.");
-                            uploadId = String.valueOf(att.getFileId());
+                            uploadId = String.valueOf(att.getUploadId());
                         } else {
                             return Mono.error(new IllegalArgumentException("FileAttachment must have either uploadId or fileUrl"));
                         }
@@ -81,8 +81,8 @@ public class FileProcessingServiceImpl implements FileProcessingService {
                 .map(att -> {
                     // Get uploadId for status updates
                     String uploadId = att.getUploadId();
-                    if ((uploadId == null || uploadId.isEmpty()) && att.getFileId() != null) {
-                        uploadId = String.valueOf(att.getFileId());
+                    if ((uploadId == null || uploadId.isEmpty()) && att.getUploadId() != null) {
+                        uploadId = att.getUploadId();
                     }
                     return new RustProcessRequest(att.getFileUrl(), att.getFilename(), uploadId);
                 })

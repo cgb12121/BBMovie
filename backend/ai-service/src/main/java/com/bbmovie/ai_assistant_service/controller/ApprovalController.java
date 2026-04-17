@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.controller;
 
+import com.bbmovie.ai_assistant_service.controller.openapi.ApprovalControllerOpenApi;
 import com.bbmovie.ai_assistant_service.dto.request.ApprovalDecisionDto;
 import com.bbmovie.ai_assistant_service.dto.response.ChatStreamChunk;
 import com.bbmovie.ai_assistant_service.service.ApprovalService;
@@ -16,7 +17,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/chat")
 @RequiredArgsConstructor
-public class ApprovalController {
+public class ApprovalController implements ApprovalControllerOpenApi {
 
     private final ApprovalService approvalService;
 

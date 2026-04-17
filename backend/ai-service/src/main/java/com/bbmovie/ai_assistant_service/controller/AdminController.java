@@ -1,5 +1,6 @@
 package com.bbmovie.ai_assistant_service.controller;
 
+import com.bbmovie.ai_assistant_service.controller.openapi.AdminControllerOpenApi;
 import com.bbmovie.ai_assistant_service.dto.response.TokenUsageResponse;
 import com.bbmovie.ai_assistant_service.entity.AiInteractionAudit;
 import com.bbmovie.ai_assistant_service.entity.model.InteractionType;
@@ -20,7 +21,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/admin")
-public class AdminController {
+public class AdminController implements AdminControllerOpenApi {
 
     private final AdminService adminService;
 
