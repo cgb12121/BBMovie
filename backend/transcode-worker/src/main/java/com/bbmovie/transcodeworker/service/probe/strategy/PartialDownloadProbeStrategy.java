@@ -3,8 +3,8 @@ package com.bbmovie.transcodeworker.service.probe.strategy;
 import com.bbmovie.transcodeworker.service.ffmpeg.FFmpegVideoMetadata;
 import com.bbmovie.transcodeworker.service.ffmpeg.MetadataService;
 import com.bbmovie.transcodeworker.service.ffmpeg.VideoTranscoderService;
+import com.bbmovie.transcodeworker.service.ladder.LadderGenerationService;
 import com.bbmovie.transcodeworker.service.pipeline.dto.ProbeResult;
-import com.bbmovie.transcodeworker.service.scheduler.ResolutionCostCalculator;
 import com.bbmovie.transcodeworker.service.storage.MinioDownloadService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,7 +13,6 @@ import org.springframework.stereotype.Component;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -32,8 +31,7 @@ public class PartialDownloadProbeStrategy implements ProbeStrategy {
 
     private final MinioDownloadService downloadService;
     private final MetadataService metadataService;
-    private final VideoTranscoderService videoTranscoderService;
-    private final ResolutionCostCalculator costCalculator;
+    private final LadderGenerationService ladderGenerationService;
 
     /**
      * Size of partial download in MB.
@@ -77,19 +75,12 @@ public class PartialDownloadProbeStrategy implements ProbeStrategy {
 
             // Determine target resolutions
             List<VideoTranscoderService.VideoResolution> resolutions =
-                    videoTranscoderService.determineTargetResolutions(metadata);
+                    ladderGenerationService.generateEncodingLadder(metadata);
+            List<String> resolutionSuffixes = ladderGenerationService.toSuffixes(resolutions);
 
             // Calculate costs
-            int peakCost = 0;
-            int totalCost = 0;
-            List<String> resolutionSuffixes = new ArrayList<>();
-
-            for (var res : resolutions) {
-                int cost = costCalculator.calculateCost(res.filename());
-                peakCost = Math.max(peakCost, cost);
-                totalCost += cost;
-                resolutionSuffixes.add(res.filename());
-            }
+            int peakCost = ladderGenerationService.calculatePeakCost(resolutionSuffixes);
+            int totalCost = ladderGenerationService.calculateTotalCost(resolutionSuffixes);
 
             log.info("Probed {}/{} (partial): {}x{}, resolutions={}, peakCost={}, totalCost={}",
                     bucket, key,

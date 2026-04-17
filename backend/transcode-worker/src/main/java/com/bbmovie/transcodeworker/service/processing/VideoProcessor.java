@@ -1,17 +1,29 @@
 package com.bbmovie.transcodeworker.service.processing;
 
 import com.bbmovie.transcodeworker.enums.UploadPurpose;
+import com.bbmovie.transcodeworker.port.ComplexityAnalysisPort;
+import com.bbmovie.transcodeworker.port.EncodeValidationPort;
+import com.bbmovie.transcodeworker.port.VideoQualityPort;
+import com.bbmovie.transcodeworker.service.analysis.AnalysisEventPublisher;
+import com.bbmovie.transcodeworker.service.analysis.AnalysisPersistenceService;
+import com.bbmovie.transcodeworker.service.complexity.dto.ComplexityProfile;
 import com.bbmovie.transcodeworker.service.ffmpeg.FFmpegVideoMetadata;
 import com.bbmovie.transcodeworker.service.ffmpeg.VideoTranscoderService;
+import com.bbmovie.transcodeworker.service.ladder.LadderGenerationService;
 import com.bbmovie.transcodeworker.service.pipeline.dto.ExecuteTask;
 import com.bbmovie.transcodeworker.service.pipeline.dto.ProbeResult;
+import com.bbmovie.transcodeworker.service.quality.dto.QualityReport;
 import com.bbmovie.transcodeworker.service.storage.MinioUploadService;
+import com.bbmovie.transcodeworker.service.validation.encode.dto.EncodingExpectations;
+import com.bbmovie.transcodeworker.service.validation.encode.dto.ValidationReport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Set;
 
@@ -30,9 +42,18 @@ public class VideoProcessor implements MediaProcessor {
     @Value("${app.minio.secure-bucket}")
     private String secureBucket;
 
+    @Value("${app.analysis.vvs.fail-on-error:false}")
+    private boolean failOnVvs;
+
     private final ValidationService validationService;
     private final VideoTranscoderService videoTranscoderService;
+    private final LadderGenerationService ladderGenerationService;
     private final MinioUploadService uploadService;
+    private final ComplexityAnalysisPort complexityAnalysisPort;
+    private final EncodeValidationPort encodeValidationPort;
+    private final VideoQualityPort videoQualityPort;
+    private final AnalysisPersistenceService analysisPersistenceService;
+    private final AnalysisEventPublisher analysisEventPublisher;
 
     /** Purposes that this processor handles */
     private static final Set<UploadPurpose> SUPPORTED_PURPOSES = Set.of(
@@ -63,9 +84,15 @@ public class VideoProcessor implements MediaProcessor {
                     probe.codec()
             );
 
-            // 3. Determine resolutions
+            // 3. CAS + determine resolutions
+            ComplexityProfile complexityProfile = complexityAnalysisPort.analyze(taskId, metadata);
+            analysisPersistenceService.saveComplexityProfile(complexityProfile);
             List<VideoTranscoderService.VideoResolution> resolutions =
-                    videoTranscoderService.determineTargetResolutions(metadata);
+                    ladderGenerationService.resolveEncodingLadder(
+                            probe.targetResolutions(),
+                            metadata,
+                            complexityProfile.recipeHints()
+                    );
 
             // 4. Transcode to HLS
             Path hlsOutputDir = outputDir.resolve("hls");
@@ -77,7 +104,10 @@ public class VideoProcessor implements MediaProcessor {
                     metadata
             );
 
-            // 5. Upload results to MinIO
+            // 5. VVS + VQS on generated renditions
+            runPostEncodeAnalysis(task, inputFile, hlsOutputDir, resolutions);
+
+            // 6. Upload results to MinIO
             uploadHlsOutput(task, hlsOutputDir);
 
             log.info("Video processing completed: {} (video duration: {}s)", taskId, probe.duration());
@@ -86,6 +116,65 @@ public class VideoProcessor implements MediaProcessor {
         } catch (Exception e) {
             log.error("Video processing failed: {}", taskId, e);
             return ProcessingResult.failure(e.getMessage());
+        }
+    }
+
+    private void runPostEncodeAnalysis(
+            ExecuteTask task,
+            Path sourceFile,
+            Path hlsOutputDir,
+            List<VideoTranscoderService.VideoResolution> resolutions) {
+        for (VideoTranscoderService.VideoResolution resolution : resolutions) {
+            try {
+                Path playlist = hlsOutputDir.resolve(resolution.filename()).resolve("playlist.m3u8");
+                if (!Files.exists(playlist)) {
+                    continue;
+                }
+
+                EncodingExpectations expectations = new EncodingExpectations(
+                        "h264",
+                        resolution.width(),
+                        resolution.height(),
+                        null,
+                        null,
+                        "aac"
+                );
+
+                ValidationReport validationReport = encodeValidationPort.validate(
+                        task.uploadId(),
+                        playlist,
+                        resolution.filename(),
+                        expectations
+                );
+                analysisPersistenceService.saveValidationReport(task.uploadId(), resolution.filename(), validationReport);
+                HashMap<String, Object> vvsPayload = new HashMap<>();
+                vvsPayload.put("rendition", resolution.filename());
+                vvsPayload.put("status", validationReport.status().name());
+                analysisEventPublisher.publish(task.uploadId(), "VVS_COMPLETED", vvsPayload);
+
+                if (failOnVvs && validationReport.status() == ValidationReport.ValidationStatus.FAIL) {
+                    throw new RuntimeException("VVS failed for " + resolution.filename() + ": " + validationReport.violations());
+                }
+
+                QualityReport qualityReport = videoQualityPort.score(
+                        task.uploadId(),
+                        sourceFile,
+                        playlist,
+                        resolution.filename()
+                );
+                analysisPersistenceService.saveQualityReport(task.uploadId(), qualityReport);
+                HashMap<String, Object> vqsPayload = new HashMap<>();
+                vqsPayload.put("rendition", resolution.filename());
+                vqsPayload.put("metric", qualityReport.metric());
+                vqsPayload.put("score", qualityReport.score());
+                vqsPayload.put("computed", qualityReport.computed());
+                analysisEventPublisher.publish(task.uploadId(), "VQS_COMPLETED", vqsPayload);
+            } catch (Exception e) {
+                log.warn("Post-encode analysis failed for rendition {}: {}", resolution.filename(), e.getMessage());
+                if (failOnVvs) {
+                    throw e;
+                }
+            }
         }
     }
 

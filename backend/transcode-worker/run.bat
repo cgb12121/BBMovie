@@ -20,6 +20,6 @@ if exist .env (
 
 :: 2. Chạy Maven với cờ tối ưu cho máy yếu
 echo.
-echo [2/2] Building and Running Transcode-Worker...
-mvn spring-boot:run -DskipTests -Dspring-boot.run.jvmArguments="-Xmx512m -Dspring.output.ansi.enabled=ALWAYS"
+echo [2/2] Cleaning, Building and Running Transcode-Worker...
+mvn clean spring-boot:run -DskipTests -Dspring-boot.run.jvmArguments="-Xmx512m -Dspring.output.ansi.enabled=ALWAYS"
 endlocal
