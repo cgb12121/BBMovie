@@ -1,5 +1,6 @@
 package com.bbmovie.auth.controller;
 
+import com.bbmovie.auth.controller.openapi.SessionControllerOpenApi;
 import com.bbmovie.auth.dto.ApiResponse;
 import com.bbmovie.auth.dto.request.DeviceRevokeEntry;
 import com.bbmovie.auth.dto.request.RevokeDeviceRequest;
@@ -16,7 +17,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/device")
-public class SessionController {
+public class SessionController implements SessionControllerOpenApi {
 
     private final SessionService sessionService;
 

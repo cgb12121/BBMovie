@@ -1,5 +1,6 @@
 package com.bbmovie.auth.controller;
 
+import com.bbmovie.auth.controller.openapi.JwkControllerOpenApi;
 import com.bbmovie.auth.dto.ApiResponse;
 import com.bbmovie.auth.security.jose.PublicKeyService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 @RestController
 @RequestMapping()
-public class JwkController {
+public class JwkController implements JwkControllerOpenApi {
 
     private final PublicKeyService publicKeyService;
 

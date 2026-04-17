@@ -1,5 +1,6 @@
 package com.bbmovie.auth.controller;
 
+import com.bbmovie.auth.controller.openapi.MfaControllerOpenApi;
 import com.bbmovie.auth.dto.response.MfaSetupResult;
 import com.bbmovie.auth.dto.response.MfaVerifyResponse;
 import com.bbmovie.auth.dto.request.MfaVerifyRequest;
@@ -11,7 +12,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/mfa")
-public class MfaController {
+public class MfaController implements MfaControllerOpenApi {
 
     private final MfaService mfaService;
 

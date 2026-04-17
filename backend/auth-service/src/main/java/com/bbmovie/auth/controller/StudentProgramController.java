@@ -1,5 +1,6 @@
 package com.bbmovie.auth.controller;
 
+import com.bbmovie.auth.controller.openapi.StudentProgramControllerOpenApi;
 import com.bbmovie.auth.dto.ApiResponse;
 import com.bbmovie.auth.dto.StudentApplicationObject;
 import com.bbmovie.auth.dto.request.StudentVerificationRequest;
@@ -22,7 +23,7 @@ import java.util.UUID;
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/student-program")
-public class StudentProgramController {
+public class StudentProgramController implements StudentProgramControllerOpenApi {
 
 	private final StudentVerificationService studentVerificationService;
 
