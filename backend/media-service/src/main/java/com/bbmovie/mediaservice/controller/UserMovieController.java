@@ -1,5 +1,6 @@
 package com.bbmovie.mediaservice.controller;
 
+import com.bbmovie.mediaservice.controller.openapi.UserMovieControllerOpenApi;
 import com.bbmovie.mediaservice.dto.MovieRequest;
 import com.bbmovie.mediaservice.dto.MovieResponse;
 import com.bbmovie.mediaservice.service.MovieService;
@@ -13,7 +14,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/movies")
 @RequiredArgsConstructor
-public class UserMovieController {
+public class UserMovieController implements UserMovieControllerOpenApi {
 
     private final MovieService movieService;
 
