@@ -1,5 +1,6 @@
 package com.bbmovie.search.controller;
 
+import com.bbmovie.search.controller.openapi.SearchControllerOpenApi;
 import com.bbmovie.search.dto.ApiResponse;
 import com.bbmovie.search.dto.PageResponse;
 import com.bbmovie.search.dto.SearchCriteria;
@@ -12,7 +13,7 @@ import reactor.core.publisher.Mono;
 
 @RestController
 @RequestMapping("/search")
-public class SearchController {
+public class SearchController implements SearchControllerOpenApi {
 
     private final SearchService searchService;
 
