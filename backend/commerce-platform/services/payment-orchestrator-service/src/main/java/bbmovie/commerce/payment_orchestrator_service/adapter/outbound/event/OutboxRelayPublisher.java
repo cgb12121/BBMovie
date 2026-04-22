@@ -15,6 +15,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -22,6 +23,7 @@ import java.util.List;
 public class OutboxRelayPublisher {
 
     private static final int RELAY_BATCH_SIZE = 100;
+    private static final long KAFKA_SEND_TIMEOUT_SECONDS = 10;
 
     private final OutboxEventRepository outboxEventRepository;
     private final TransactionTemplate transactionTemplate;
@@ -59,11 +61,15 @@ public class OutboxRelayPublisher {
 
                 OutboxEventEntity event = claimed.get(0);
                 try {
-                    kafkaTemplate.send(topic, event.getPaymentId(), event.getPayloadJson());
+                    kafkaTemplate.send(topic, event.getPaymentId(), event.getPayloadJson())
+                            .get(KAFKA_SEND_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     event.setStatus(OutboxStatus.SENT);
                     event.setPublishedAt(Instant.now());
                     event.setLastError(null);
                 } catch (Exception ex) {
+                    if (ex instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                    }
                     event.setAttempts(event.getAttempts() + 1);
                     event.setLastError(truncate(ex.getMessage(), 1900));
                     event.setNextAttemptAt(Instant.now().plusSeconds(backoffSeconds(event.getAttempts())));
