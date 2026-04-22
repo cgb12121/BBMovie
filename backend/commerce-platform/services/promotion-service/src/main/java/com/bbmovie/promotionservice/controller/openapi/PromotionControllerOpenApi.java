@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
-@SuppressWarnings("unused")
 @Tag(name = "Promotions", description = "Promotion evaluation APIs")
 public interface PromotionControllerOpenApi {
     @Operation(summary = "Apply coupon")
