@@ -5,9 +5,9 @@ title BBMovie Master Launcher V5 (Delegated)
 :: ==========================================
 :: 1. CONFIGURATION
 :: ==========================================
-:: ??nh ngh?a service (Format: TÍn_Folder|Lo?i_Tech)
-set "services[1]=eureka-sever|SPRING"
-set "services[2]=gateway|SPRING"
+:: ??nh ngh?a service (Format: Tùn_Folder|Lo?i_Tech)
+set "services[1]=shared-platform\services\eureka-sever|SPRING"
+set "services[2]=shared-platform\services\gateway|SPRING"
 set "services[3]=auth-platform\services\auth-service|SPRING"
 set "services[4]=file-service|SPRING"
 set "services[5]=ai-platform\services\ai-service|SPRING"
@@ -15,7 +15,7 @@ set "services[6]=ai-platform\services\rust-ai-context-refinery|RUST"
 set "services[7]=watchlist-quarkus|QUARKUS"
 set "services[8]=commerce-platform\services\payment-orchestrator-service|SPRING"
 set "services[9]=search-service|SPRING"
-set "services[10]=email-service|SPRING"
+set "services[10]=shared-platform\services\email-service|SPRING"
 set "services[11]=media-streaming-service|SPRING"
 set "services[12]=media-upload-service|SPRING"
 set "services[13]=transcode-worker|SPRING"
@@ -24,21 +24,21 @@ set "services[15]=media-service|SPRING"
 set "services[16]=watch-history|SPRING"
 set "services[17]=homepage-recommendations|SPRING"
 set "services[18]=comment-service|SPRING"
-set "services[19]=notification-service|SPRING"
+set "services[19]=shared-platform\services\notification-service|SPRING"
 set "services[20]=rating-service|SPRING"
 set "services[21]=referral-service|SPRING"
 set "services[22]=commerce-platform\services\revenue-dashboard|SPRING"
 set "services[23]=commerce-platform\services\promotion-service|SPRING"
 set "services[24]=movie-analytics-service|SPRING"
 set "services[25]=personalization-recommendation|SPRING"
-set "services[26]=camunda-engine|SPRING"
-set "services[27]=camunda-engine\drools-engine|SPRING"
+set "services[26]=shared-platform\services\camunda-engine|SPRING"
+set "services[27]=shared-platform\services\camunda-engine\drools-engine|SPRING"
 set "services[28]=commerce-platform\services\payment-gateway|SPRING"
 set "services[29]=commerce-platform\services\billing-ledger-service|SPRING"
 set "services[30]=commerce-platform\services\subscription-service|SPRING"
 set "services[31]=commerce-platform\services\entitlement-service|SPRING"
 
-:: M‡u s?c
+:: Mùu s?c
 set GREEN=[92m
 set RED=[91m
 set YELLOW=[93m
@@ -49,8 +49,8 @@ set RESET=[0m
 :: ==========================================
 :: 2. LOAD GLOBAL ENV (Optional)
 :: ==========================================
-:: B·c v?n cÛ th? load .env ? ?‚y ?? share chung DB_URL, JWT_SECRET...
-:: C·c file run.bat con s? k? th?a ???c bi?n n‡y (n?u ch?y c˘ng session)
+:: Bùc v?n cù th? load .env ? ?ùy ?? share chung DB_URL, JWT_SECRET...
+:: Cùc file run.bat con s? k? th?a ???c bi?n nùy (n?u ch?y cùng session)
 echo %YELLOW%[SYSTEM] Loading global .env variables...%RESET%
 if exist .env (
     for /f "usebackq tokens=*" %%A in (".env") do (
@@ -75,7 +75,7 @@ echo.
 echo   %YELLOW%--- Select Specific Services ---%RESET%
 echo.
 
-:: --- (?o?n v? b?ng gi? nguyÍn nh? c?) ---
+:: --- (?o?n v? b?ng gi? nguyùn nh? c?) ---
 :: Table header
 echo   +----+--------------------------------+-----------+
 echo   ^| ID ^| Service Name                   ^| Stack     ^|
@@ -147,7 +147,7 @@ exit /b
 
 :START_ALL
 :: Ch?y Eureka tr??c
-call :LAUNCHER "eureka-sever"
+call :LAUNCHER "shared-platform\services\eureka-sever"
 timeout /t 10 /nobreak >nul
 for /L %%i in (2,1,%count%) do (
     call set "svc_data=%%services[%%i]%%"
@@ -165,7 +165,7 @@ goto MAIN_MENU
 :LAUNCHER
 set "folder=%~1"
 
-:: Check xem file run.bat cÛ t?n t?i khÙng
+:: Check xem file run.bat cù t?n t?i khùng
 if not exist "%folder%\run.bat" (
     echo %RED%Error: %folder%\run.bat not found! Skipping...%RESET%
     exit /b
@@ -174,8 +174,8 @@ if not exist "%folder%\run.bat" (
 echo %YELLOW%Delegating to %folder%\run.bat...%RESET%
 
 :: ?? CORE CHANGE: G?i run.bat c?a t?ng service
-:: cmd /k "..." : M? c?a s? m?i v‡ gi? nÛ l?i
-:: cd /d "%folder%" : Nh?y v‡o th? m?c con
+:: cmd /k "..." : M? c?a s? m?i vù gi? nù l?i
+:: cd /d "%folder%" : Nh?y vùo th? m?c con
 :: call run.bat : Ch?y script con
 start "BBMovie - %folder%" cmd /k "title %folder% && cd /d "%folder%" && call run.bat"
 
