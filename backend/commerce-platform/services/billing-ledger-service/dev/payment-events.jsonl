@@ -1,0 +1,4 @@
+{"eventType":"PaymentInitiatedV1","paymentId":"019db000-aaaa-7bbb-8ccc-111111111111","payload":{"provider":"PAYPAL","status":"PENDING","occurredAt":"2026-04-20T21:35:00Z"}}
+{"eventType":"PaymentSucceededV1","paymentId":"019db000-aaaa-7bbb-8ccc-111111111111","payload":{"provider":"PAYPAL","providerPaymentId":"4DG36956T88170845","status":"SUCCEEDED","occurredAt":"2026-04-20T21:35:30Z"}}
+{"eventType":"PaymentInitiatedV1","paymentId":"019db000-aaaa-7bbb-8ccc-222222222222","payload":{"provider":"STRIPE","status":"PENDING","occurredAt":"2026-04-20T21:36:00Z"}}
+{"eventType":"PaymentFailedV1","paymentId":"019db000-aaaa-7bbb-8ccc-222222222222","payload":{"provider":"STRIPE","reason":"card_declined","status":"FAILED","occurredAt":"2026-04-20T21:36:20Z"}}

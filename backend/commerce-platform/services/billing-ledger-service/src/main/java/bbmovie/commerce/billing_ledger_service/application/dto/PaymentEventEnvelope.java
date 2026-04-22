@@ -1,0 +1,10 @@
+package bbmovie.commerce.billing_ledger_service.application.dto;
+
+import java.util.Map;
+
+public record PaymentEventEnvelope(
+        String eventType,
+        String paymentId,
+        Map<String, Object> payload
+) {
+}
