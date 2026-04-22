@@ -10,6 +10,7 @@ import bbmovie.commerce.entitlement_service.infrastructure.persistence.repo.Enti
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,6 +26,8 @@ public class EntitlementProjectionService {
     private final EntitlementRecordRepository recordRepository;
     private final ObjectMapper objectMapper;
     private final EntitlementDecisionService decisionService;
+    @Value("${entitlement.duration.default-days:30}")
+    private long defaultEntitlementDays;
 
     @Transactional
     public void ingest(String eventId, PaymentEventEnvelope envelope) {
@@ -74,7 +77,7 @@ public class EntitlementProjectionService {
         String campaignId = extractFromPayloadOrMetadata(payload, "subscriptionCampaignId", "campaignId", "campaign_id");
         String subscriptionId = extractFromPayloadOrMetadata(payload, "subscriptionId", "subscription_id");
 
-        Instant endAt = occurredAt.plusSeconds(30L * 24 * 3600);
+        Instant endAt = occurredAt.plusSeconds(defaultEntitlementDays * 24 * 3600);
 
         EntitlementRecordEntity entity = new EntitlementRecordEntity();
         entity.setUserId(userId);
