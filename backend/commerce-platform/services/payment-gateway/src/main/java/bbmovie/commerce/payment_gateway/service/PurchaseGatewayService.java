@@ -47,9 +47,9 @@ public class PurchaseGatewayService {
 
     public PurchaseStartResponse startPurchase(String idempotencyKey, PurchaseStartRequest request) {
         PromotionResult promotion = promotionClient.tryApplyCoupon(
-                new PromotionApplyRequest(request.couponCode(), request.userId(), request.amount().doubleValue())
+                new PromotionApplyRequest(request.couponCode(), request.userId(), request.amount())
         );
-        BigDecimal discount = BigDecimal.valueOf(promotion.discountValue()).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal discount = promotion.discountValue().setScale(2, RoundingMode.HALF_UP);
         BigDecimal finalAmount = request.amount().subtract(discount).max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
 
         Map<String, String> metadata = new HashMap<>();

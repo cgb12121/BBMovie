@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.util.Map;
 
 @Component
@@ -17,7 +18,7 @@ public class PromotionClient {
 
     public PromotionResult tryApplyCoupon(PromotionApplyRequest request) {
         if (request.code() == null || request.code().isBlank()) {
-            return new PromotionResult(false, null, 0D, "No coupon applied");
+            return new PromotionResult(false, null, BigDecimal.ZERO, "No coupon applied");
         }
         RestClient client = restClientBuilder.baseUrl(properties.getPromotion().getBaseUrl()).build();
         try {
@@ -27,22 +28,22 @@ public class PromotionClient {
                     .retrieve()
                     .body(Map.class);
             if (response == null) {
-                return new PromotionResult(false, null, 0D, "Promotion response empty");
+                return new PromotionResult(false, null, BigDecimal.ZERO, "Promotion response empty");
             }
             Object success = response.get("success");
             if (!(success instanceof Boolean ok) || !ok) {
-                return new PromotionResult(false, null, 0D, "Coupon rejected");
+                return new PromotionResult(false, null, BigDecimal.ZERO, "Coupon rejected");
             }
             Object dataObject = response.get("data");
             if (!(dataObject instanceof Map<?, ?> data)) {
-                return new PromotionResult(false, null, 0D, "Promotion data missing");
+                return new PromotionResult(false, null, BigDecimal.ZERO, "Promotion data missing");
             }
             String promotionId = asString(data.get("promotionId"));
-            double discountValue = asDouble(data.get("discountValue"));
+            BigDecimal discountValue = asBigDecimal(data.get("discountValue"));
             String message = asString(response.get("message"));
             return new PromotionResult(true, promotionId, discountValue, message);
         } catch (Exception ex) {
-            return new PromotionResult(false, null, 0D, "Promotion service unavailable");
+            return new PromotionResult(false, null, BigDecimal.ZERO, "Promotion service unavailable");
         }
     }
 
@@ -50,13 +51,14 @@ public class PromotionClient {
         return value == null ? null : value.toString();
     }
 
-    private static double asDouble(Object value) {
-        if (value instanceof Number number) {
-            return number.doubleValue();
-        }
+    private static BigDecimal asBigDecimal(Object value) {
         if (value == null) {
-            return 0D;
+            return BigDecimal.ZERO;
         }
-        return Double.parseDouble(value.toString());
+        try {
+            return new BigDecimal(value.toString());
+        } catch (NumberFormatException ignored) {
+            return BigDecimal.ZERO;
+        }
     }
 }

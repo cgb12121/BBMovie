@@ -1,9 +1,11 @@
 package bbmovie.commerce.payment_gateway.client.dto;
 
+import java.math.BigDecimal;
+
 public record PromotionResult(
         boolean applied,
         String promotionId,
-        double discountValue,
+        BigDecimal discountValue,
         String message
 ) {
 }
