@@ -57,7 +57,11 @@ public class CommerceEventPublisherAdapter implements EventPublisherPort {
             outboxEventRepository.save(row);
             log.info("Outbox event queued: eventType={}, paymentId={}, outboxId={}", eventType, paymentId, row.getId());
         } catch (Exception e) {
-            log.warn("Failed to enqueue outbox event {}", eventType, e);
+            log.error("Failed to enqueue outbox event: eventType={}, paymentId={}", eventType, paymentId, e);
+            throw new IllegalStateException(
+                    "Cannot persist outbox event for eventType=%s, paymentId=%s".formatted(eventType, paymentId),
+                    e
+            );
         }
     }
 }
