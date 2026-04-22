@@ -5,6 +5,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
 import lombok.Getter;
@@ -16,7 +17,12 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "outbox_events")
+@Table(
+        name = "outbox_events",
+        indexes = {
+                @Index(name = "idx_outbox_status_next_attempt_created", columnList = "status,next_attempt_at,created_at")
+        }
+)
 public class OutboxEventEntity {
 
     @Id
