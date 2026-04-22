@@ -4,11 +4,18 @@ import bbmovie.commerce.entitlement_service.adapter.inbound.rest.dto.Entitlement
 import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessException;
+import org.springframework.data.redis.core.Cursor;
+import org.springframework.data.redis.core.RedisCallback;
+import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Repository;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
+import java.nio.charset.StandardCharsets;
 
 @Slf4j
 @Repository
@@ -42,11 +49,22 @@ public class EntitlementDecisionCacheRepository {
 
     public void evictPrefix(String prefix) {
         try {
-            var keys = redisTemplate.keys(prefix + "*");
-            if (keys != null && !keys.isEmpty()) {
-                redisTemplate.delete(keys);
+            String pattern = prefix + "*";
+            List<String> keysToDelete = redisTemplate.execute((RedisCallback<List<String>>) connection -> {
+                ScanOptions options = ScanOptions.scanOptions().match(pattern).count(200).build();
+                List<String> found = new ArrayList<>();
+                try (Cursor<byte[]> cursor = connection.scan(options)) {
+                    while (cursor.hasNext()) {
+                        found.add(new String(cursor.next(), StandardCharsets.UTF_8));
+                    }
+                }
+                return found;
+            });
+
+            if (keysToDelete != null && !keysToDelete.isEmpty()) {
+                redisTemplate.delete(keysToDelete);
             }
-        } catch (Exception ex) {
+        } catch (DataAccessException ex) {
             log.debug("Failed evict entitlement cache prefix={}", prefix, ex);
         }
     }
