@@ -1,5 +1,6 @@
 package bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity;
 
+import com.github.f4b6a3.uuid.UuidCreator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -12,7 +13,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.Instant;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -27,7 +27,7 @@ public class OutboxEventEntity {
 
     @Id
     @Column(name = "id", nullable = false, updatable = false, length = 36)
-    private String id = UUID.randomUUID().toString();
+    private String id = UuidCreator.getTimeOrderedEpoch().toString();
 
     @Column(name = "event_type", nullable = false, length = 128)
     private String eventType;
