@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.InputStream;
 import java.security.MessageDigest;
+import java.util.HexFormat;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -66,10 +67,6 @@ public class PromotionRuleLoader {
     private String sha256(byte[] data) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         byte[] hash = digest.digest(data);
-        StringBuilder out = new StringBuilder();
-        for (byte b : hash) {
-            out.append(String.format("%02x", b));
-        }
-        return out.toString();
+        return HexFormat.of().formatHex(hash);
     }
 }
