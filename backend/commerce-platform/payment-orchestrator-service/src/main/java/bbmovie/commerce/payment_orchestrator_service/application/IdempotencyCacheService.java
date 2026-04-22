@@ -2,7 +2,7 @@ package bbmovie.commerce.payment_orchestrator_service.application;
 
 import bbmovie.commerce.payment_orchestrator_service.application.config.IdempotencyOperation;
 import bbmovie.commerce.payment_orchestrator_service.infrastructure.json.JsonSerdeUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;

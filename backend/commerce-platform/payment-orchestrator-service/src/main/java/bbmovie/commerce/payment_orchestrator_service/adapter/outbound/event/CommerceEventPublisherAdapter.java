@@ -1,7 +1,7 @@
 package bbmovie.commerce.payment_orchestrator_service.adapter.outbound.event;
 
 import bbmovie.commerce.payment_orchestrator_service.application.port.outbound.event.EventPublisherPort;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;

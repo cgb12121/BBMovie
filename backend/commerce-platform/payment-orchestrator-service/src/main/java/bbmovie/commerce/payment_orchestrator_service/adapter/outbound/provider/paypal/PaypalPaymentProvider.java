@@ -14,9 +14,9 @@ import bbmovie.commerce.payment_orchestrator_service.application.port.result.Pay
 import bbmovie.commerce.payment_orchestrator_service.domain.enums.PaymentStatus;
 import bbmovie.commerce.payment_orchestrator_service.domain.model.OrchestratorPaymentId;
 import bbmovie.commerce.payment_orchestrator_service.domain.model.ProviderPaymentId;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import com.paypal.core.PayPalEnvironment;
 import com.paypal.core.PayPalHttpClient;
 import com.paypal.http.HttpRequest;

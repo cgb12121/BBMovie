@@ -8,7 +8,7 @@ import bbmovie.commerce.payment_orchestrator_service.infrastructure.crypto.Sha25
 import bbmovie.commerce.payment_orchestrator_service.infrastructure.json.JsonSerdeUtils;
 import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.IdempotencyRecordEntity;
 import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.jpa.IdempotencyRecordRepository;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;

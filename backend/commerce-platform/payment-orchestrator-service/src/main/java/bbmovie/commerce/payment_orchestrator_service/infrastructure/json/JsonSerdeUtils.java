@@ -1,6 +1,6 @@
 package bbmovie.commerce.payment_orchestrator_service.infrastructure.json;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 
 public final class JsonSerdeUtils {
 
