@@ -4,13 +4,14 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Getter
 @Setter
 public class PromotionRule {
     private String ruleId;
     private String name;
-    private String promotionId;
+    private UUID promotionId;
     private String planId;
     private Double minCartValue;
     private String userRole;

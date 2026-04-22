@@ -11,7 +11,6 @@ import com.bbmovie.promotionservice.rules.PromotionRuleLoader;
 import com.bbmovie.promotionservice.repository.CouponRepository;
 import com.bbmovie.promotionservice.repository.PromotionRepository;
 import com.bbmovie.promotionservice.repository.UserPromotionUsageRepository;
-import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +21,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PromotionService {
@@ -162,30 +160,18 @@ public class PromotionService {
         }
 
         if (rule.isOneTimePerUser() && context.getUserId() != null && rule.getPromotionId() != null) {
-            try {
-                UUID promoId = UUID.fromString(rule.getPromotionId());
-                if (userPromotionUsageRepository.existsByUserIdAndPromotionId(context.getUserId(), promoId)) {
-                    return false;
-                }
-            } catch (IllegalArgumentException ex) {
-                log.warn("Invalid promotion id in rule {}: {}", rule.getRuleId(), rule.getPromotionId());
+            if (userPromotionUsageRepository.existsByUserIdAndPromotionId(context.getUserId(), rule.getPromotionId())) {
                 return false;
             }
         }
         return true;
     }
 
-    private Optional<Promotion> findActivePromotion(String promotionId) {
-        if (promotionId == null || promotionId.isBlank()) {
+    private Optional<Promotion> findActivePromotion(UUID promotionId) {
+        if (promotionId == null) {
             return Optional.empty();
         }
-        try {
-            UUID id = UUID.fromString(promotionId);
-            return promotionRepository.findById(id)
-                    .filter(p -> p.getStatus() == PromotionStatus.ACTIVE);
-        } catch (IllegalArgumentException ex) {
-            log.warn("Invalid promotion UUID in rules: {}", promotionId);
-            return Optional.empty();
-        }
+        return promotionRepository.findById(promotionId)
+                .filter(p -> p.getStatus() == PromotionStatus.ACTIVE);
     }
 }
