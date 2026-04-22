@@ -4,12 +4,14 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
@@ -22,7 +24,8 @@ public class PaymentEventKafkaConsumer {
     private final JdbcTemplate clickHouseJdbcTemplate;
 
     @KafkaListener(topics = "${revenue.analytics.messaging.kafka.topic:commerce.payment.events.v1}")
-    public void handle(String message) {
+    public void handle(ConsumerRecord<String, String> record) {
+        String message = record.value();
         try {
             JsonNode root = objectMapper.readTree(message);
             JsonNode payload = root.path("payload");
@@ -37,7 +40,7 @@ public class PaymentEventKafkaConsumer {
                     payload.path("currency").asText("USD"),
                     payload.path("provider").asText(null),
                     payload.path("billingCycle").asText("UNKNOWN"),
-                    LocalDateTime.now(ZoneOffset.UTC)
+                    LocalDateTime.ofInstant(Instant.ofEpochMilli(record.timestamp()), ZoneOffset.UTC)
             );
             persist(event);
         } catch (Exception ex) {
