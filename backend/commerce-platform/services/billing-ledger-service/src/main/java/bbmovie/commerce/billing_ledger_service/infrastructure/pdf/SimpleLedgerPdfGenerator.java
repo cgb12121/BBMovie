@@ -1,15 +1,24 @@
 package bbmovie.commerce.billing_ledger_service.infrastructure.pdf;
 
 import bbmovie.commerce.billing_ledger_service.adapter.inbound.rest.dto.LedgerEntryResponse;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.springframework.stereotype.Component;
 
-import java.nio.charset.StandardCharsets;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
 @Component
 public class SimpleLedgerPdfGenerator {
+    private static final float MARGIN = 40f;
+    private static final float FONT_SIZE = 9f;
+    private static final float LEADING = 13f;
 
     public byte[] generate(String paymentId, List<LedgerEntryResponse> entries) {
         List<String> lines = new ArrayList<>();
@@ -32,65 +41,51 @@ public class SimpleLedgerPdfGenerator {
                     )
             );
         }
-        return buildMinimalPdf(lines);
+        return buildPdf(lines);
     }
 
-    private byte[] buildMinimalPdf(List<String> lines) {
-        StringBuilder text = new StringBuilder();
-        text.append("BT\n/F1 10 Tf\n50 780 Td\n");
-        for (int i = 0; i < lines.size(); i++) {
-            String escaped = escapePdfText(lines.get(i));
-            if (i == 0) {
-                text.append("(").append(escaped).append(") Tj\n");
-            } else {
-                text.append("0 -14 Td (").append(escaped).append(") Tj\n");
+    private byte[] buildPdf(List<String> lines) {
+        try (PDDocument document = new PDDocument();
+             ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            PDPage page = new PDPage(PDRectangle.LETTER);
+            document.addPage(page);
+
+            PDPageContentStream contentStream = new PDPageContentStream(document, page);
+            contentStream.setFont(PDType1Font.HELVETICA, FONT_SIZE);
+            contentStream.beginText();
+            contentStream.newLineAtOffset(MARGIN, page.getMediaBox().getHeight() - MARGIN);
+
+            float cursorY = page.getMediaBox().getHeight() - MARGIN;
+            for (String line : lines) {
+                if (cursorY <= MARGIN) {
+                    contentStream.endText();
+                    contentStream.close();
+
+                    page = new PDPage(PDRectangle.LETTER);
+                    document.addPage(page);
+                    contentStream = new PDPageContentStream(document, page);
+                    contentStream.setFont(PDType1Font.HELVETICA, FONT_SIZE);
+                    contentStream.beginText();
+                    contentStream.newLineAtOffset(MARGIN, page.getMediaBox().getHeight() - MARGIN);
+                    cursorY = page.getMediaBox().getHeight() - MARGIN;
+                }
+                contentStream.showText(sanitizeLine(line));
+                contentStream.newLineAtOffset(0, -LEADING);
+                cursorY -= LEADING;
             }
+
+            contentStream.endText();
+            contentStream.close();
+            document.save(outputStream);
+            return outputStream.toByteArray();
+        } catch (IOException ex) {
+            throw new IllegalStateException("Failed to generate ledger PDF", ex);
         }
-        text.append("ET\n");
-
-        String stream = text.toString();
-        String obj1 = "1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n";
-        String obj2 = "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n";
-        String obj3 = "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
-                + "/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>\nendobj\n";
-        String obj4 = "4 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n";
-        String obj5 = "5 0 obj\n<< /Length " + stream.getBytes(StandardCharsets.US_ASCII).length + " >>\nstream\n"
-                + stream + "endstream\nendobj\n";
-
-        String body = obj1 + obj2 + obj3 + obj4 + obj5;
-        List<Integer> offsets = new ArrayList<>();
-        String header = "%PDF-1.4\n";
-        int cursor = header.getBytes(StandardCharsets.US_ASCII).length;
-        offsets.add(cursor);
-        cursor += obj1.getBytes(StandardCharsets.US_ASCII).length;
-        offsets.add(cursor);
-        cursor += obj2.getBytes(StandardCharsets.US_ASCII).length;
-        offsets.add(cursor);
-        cursor += obj3.getBytes(StandardCharsets.US_ASCII).length;
-        offsets.add(cursor);
-        cursor += obj4.getBytes(StandardCharsets.US_ASCII).length;
-        offsets.add(cursor);
-        cursor += obj5.getBytes(StandardCharsets.US_ASCII).length;
-        int xrefPos = cursor;
-
-        StringBuilder xref = new StringBuilder();
-        xref.append("xref\n0 6\n");
-        xref.append("0000000000 65535 f \n");
-        for (int offset : offsets) {
-            xref.append(String.format("%010d 00000 n %n", offset));
-        }
-        xref.append("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n")
-                .append(xrefPos)
-                .append("\n%%EOF\n");
-
-        return (header + body + xref).getBytes(StandardCharsets.US_ASCII);
     }
 
-    private String escapePdfText(String text) {
-        return text
-                .replace("\\", "\\\\")
-                .replace("(", "\\(")
-                .replace(")", "\\)");
+    private String sanitizeLine(String text) {
+        String safe = text == null ? "" : text;
+        return safe.replace('\t', ' ');
     }
 
     private String nullSafe(String value) {

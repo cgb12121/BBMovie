@@ -11,7 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -156,10 +156,29 @@ public class PaymentLedgerIngestionService {
             return null;
         }
         try {
-            return new BigDecimal(amountRaw);
+            String normalized = normalizeAmount(amountRaw);
+            if (normalized == null || normalized.isBlank()) {
+                return null;
+            }
+            return new BigDecimal(normalized);
         } catch (Exception ex) {
             log.warn("Invalid amount in payment payload: {}", amountRaw);
             return null;
         }
+    }
+
+    private String normalizeAmount(String rawAmount) {
+        String value = rawAmount.trim()
+                .replace(",", "")
+                .replace("_", "")
+                .replace(" ", "");
+        if (value.startsWith("(") && value.endsWith(")")) {
+            value = "-" + value.substring(1, value.length() - 1);
+        }
+        value = value.replaceAll("[^0-9+\\-Ee.]", "");
+        if (value.equals("-") || value.equals("+")) {
+            return null;
+        }
+        return value;
     }
 }

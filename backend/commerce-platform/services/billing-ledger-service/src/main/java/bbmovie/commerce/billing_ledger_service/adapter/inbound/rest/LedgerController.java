@@ -11,6 +11,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.servlet.mvc.method.annotation.StreamingResponseBody;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -93,12 +94,12 @@ public class LedgerController {
 
     @GetMapping("/export/csv")
     @PreAuthorize("hasAnyRole('ADMIN','FINANCE')")
-    public ResponseEntity<byte[]> exportCsv(
+    public ResponseEntity<StreamingResponseBody> exportCsv(
             @RequestParam(name = "month") String month
     ) {
         YearMonth yearMonth = parseYearMonth(month);
         List<LedgerEntryResponse> entries = ledgerQueryService.getEntriesForMonth(yearMonth);
-        String csv = buildCsv(entries);
+        StreamingResponseBody body = outputStream -> writeCsv(entries, outputStream);
         return ResponseEntity.ok()
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
@@ -107,8 +108,8 @@ public class LedgerController {
                                 .build()
                                 .toString()
                 )
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .body(csv.getBytes(StandardCharsets.UTF_8));
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(body);
     }
 
     private Instant parseInstantOrNull(String value, String fieldName) {
@@ -130,28 +131,28 @@ public class LedgerController {
         }
     }
 
-    private String buildCsv(List<LedgerEntryResponse> entries) {
-        StringBuilder out = new StringBuilder();
-        out.append("id,paymentId,eventId,entryType,provider,status,amount,currency,externalReferenceId,userId,userEmail,purpose,subscriptionId,subscriptionCampaignId,occurredAt\n");
+    private void writeCsv(List<LedgerEntryResponse> entries, java.io.OutputStream outputStream) throws java.io.IOException {
+        outputStream.write("id,paymentId,eventId,entryType,provider,status,amount,currency,externalReferenceId,userId,userEmail,purpose,subscriptionId,subscriptionCampaignId,occurredAt\n".getBytes(StandardCharsets.UTF_8));
         for (LedgerEntryResponse entry : entries) {
-            out.append(csv(entry.id()))
-                    .append(',').append(csv(entry.paymentId()))
-                    .append(',').append(csv(entry.eventId()))
-                    .append(',').append(csv(entry.entryType()))
-                    .append(',').append(csv(entry.provider()))
-                    .append(',').append(csv(entry.status()))
-                    .append(',').append(csv(entry.amount()))
-                    .append(',').append(csv(entry.currency()))
-                    .append(',').append(csv(entry.externalReferenceId()))
-                    .append(',').append(csv(entry.userId()))
-                    .append(',').append(csv(entry.userEmail()))
-                    .append(',').append(csv(entry.purpose()))
-                    .append(',').append(csv(entry.subscriptionId()))
-                    .append(',').append(csv(entry.subscriptionCampaignId()))
-                    .append(',').append(csv(entry.occurredAt()))
-                    .append('\n');
+            String line = csv(entry.id())
+                    + "," + csv(entry.paymentId())
+                    + "," + csv(entry.eventId())
+                    + "," + csv(entry.entryType())
+                    + "," + csv(entry.provider())
+                    + "," + csv(entry.status())
+                    + "," + csv(entry.amount())
+                    + "," + csv(entry.currency())
+                    + "," + csv(entry.externalReferenceId())
+                    + "," + csv(entry.userId())
+                    + "," + csv(entry.userEmail())
+                    + "," + csv(entry.purpose())
+                    + "," + csv(entry.subscriptionId())
+                    + "," + csv(entry.subscriptionCampaignId())
+                    + "," + csv(entry.occurredAt())
+                    + "\n";
+            outputStream.write(line.getBytes(StandardCharsets.UTF_8));
         }
-        return out.toString();
+        outputStream.flush();
     }
 
     private String csv(Object value) {
