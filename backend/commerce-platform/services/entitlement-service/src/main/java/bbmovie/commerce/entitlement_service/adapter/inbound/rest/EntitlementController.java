@@ -12,6 +12,7 @@ import bbmovie.commerce.entitlement_service.application.service.EntitlementRepla
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestHeader;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.security.core.Authentication;
 
 @RestController
@@ -82,7 +84,7 @@ public class EntitlementController {
 
     private void validateInternalApiKey(String apiKey) {
         if (apiKey == null || !apiKey.equals(internalApiKey)) {
-            throw new IllegalArgumentException("Missing or invalid internal API key");
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Missing or invalid internal API key");
         }
     }
 }
