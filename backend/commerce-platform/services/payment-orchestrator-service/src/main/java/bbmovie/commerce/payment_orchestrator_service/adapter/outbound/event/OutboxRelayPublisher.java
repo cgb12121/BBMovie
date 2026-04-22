@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Instant;
 import java.util.List;
@@ -24,6 +24,7 @@ public class OutboxRelayPublisher {
     private static final int RELAY_BATCH_SIZE = 100;
 
     private final OutboxEventRepository outboxEventRepository;
+    private final TransactionTemplate transactionTemplate;
     @Qualifier("outboxKafkaTemplate")
     private final ObjectProvider<KafkaTemplate<String, String>> kafkaTemplateProvider;
 
@@ -37,7 +38,6 @@ public class OutboxRelayPublisher {
     private String topic;
 
     @Scheduled(fixedDelayString = "${app.outbox.relay.fixed-delay-ms:2000}")
-    @Transactional
     public void relayBatch() {
         if (!relayEnabled || !kafkaEnabled) {
             return;
@@ -47,23 +47,37 @@ public class OutboxRelayPublisher {
             log.warn("Outbox relay skipped: KafkaTemplate unavailable");
             return;
         }
-        // Claim rows with FOR UPDATE SKIP LOCKED so multiple instances can relay safely without duplicates.
-        List<OutboxEventEntity> batch = outboxEventRepository
-                .claimPendingBatch(OutboxStatus.PENDING.name(), Instant.now(), RELAY_BATCH_SIZE);
-        for (OutboxEventEntity event : batch) {
-            try {
-                kafkaTemplate.send(topic, event.getPaymentId(), event.getPayloadJson());
-                event.setStatus(OutboxStatus.SENT);
-                event.setPublishedAt(Instant.now());
-                event.setLastError(null);
-            } catch (Exception ex) {
-                event.setAttempts(event.getAttempts() + 1);
-                event.setLastError(truncate(ex.getMessage(), 1900));
-                event.setNextAttemptAt(Instant.now().plusSeconds(backoffSeconds(event.getAttempts())));
-                log.warn("Outbox publish failed: id={}, attempts={}", event.getId(), event.getAttempts(), ex);
+
+        for (int i = 0; i < RELAY_BATCH_SIZE; i++) {
+            Boolean processed = transactionTemplate.execute(status -> {
+                // Claim a single row with FOR UPDATE SKIP LOCKED to avoid cross-instance duplicates.
+                List<OutboxEventEntity> claimed = outboxEventRepository
+                        .claimPendingBatch(OutboxStatus.PENDING.name(), Instant.now(), 1);
+                if (claimed.isEmpty()) {
+                    return false;
+                }
+
+                OutboxEventEntity event = claimed.get(0);
+                try {
+                    kafkaTemplate.send(topic, event.getPaymentId(), event.getPayloadJson());
+                    event.setStatus(OutboxStatus.SENT);
+                    event.setPublishedAt(Instant.now());
+                    event.setLastError(null);
+                } catch (Exception ex) {
+                    event.setAttempts(event.getAttempts() + 1);
+                    event.setLastError(truncate(ex.getMessage(), 1900));
+                    event.setNextAttemptAt(Instant.now().plusSeconds(backoffSeconds(event.getAttempts())));
+                    log.warn("Outbox publish failed: id={}, attempts={}", event.getId(), event.getAttempts(), ex);
+                }
+
+                outboxEventRepository.save(event);
+                return true;
+            });
+
+            if (!Boolean.TRUE.equals(processed)) {
+                break;
             }
         }
-        outboxEventRepository.saveAll(batch);
     }
 
     private long backoffSeconds(int attempts) {
