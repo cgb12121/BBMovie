@@ -30,7 +30,8 @@ public class EntitlementDecisionService {
     private final EntitlementOverrideAuditRepository overrideAuditRepository;
 
     public EntitlementDecisionResponse check(EntitlementCheckRequest request) {
-        String cacheKey = "entitlement:decision:" + request.userId() + ":" + request.resourceId() + ":" + request.action();
+        String cacheKey = "entitlement:decision:" + request.userId() + ":" + request.resourceId() + ":" + request.action()
+                + ":" + (request.contentPackage() != null ? request.contentPackage() : "");
         var cached = cacheRepository.get(cacheKey);
         if (cached.isPresent()) {
             return cached.get();
@@ -113,8 +114,7 @@ public class EntitlementDecisionService {
 
     public void grantOverride(EntitlementOverrideRequest request, String actor) {
         Instant now = Instant.now();
-        EntitlementRecordEntity entity = recordRepository.findFirstByUserIdAndStatusAndEndsAtAfterOrderByEndsAtDesc(
-                request.userId(), EntitlementStatus.ACTIVE, now).orElseGet(EntitlementRecordEntity::new);
+        EntitlementRecordEntity entity = new EntitlementRecordEntity();
         entity.setUserId(request.userId());
         entity.setStatus(EntitlementStatus.ACTIVE);
         entity.setPlanId(request.planId() == null ? "manual_override" : request.planId());
