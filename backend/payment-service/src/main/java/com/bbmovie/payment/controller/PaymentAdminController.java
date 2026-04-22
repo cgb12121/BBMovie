@@ -1,5 +1,6 @@
 package com.bbmovie.payment.controller;
 
+import com.bbmovie.payment.controller.openapi.PaymentAdminControllerOpenApi;
 import com.bbmovie.payment.config.payment.PaymentProviderRegistry;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 @RestController
 @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
 @RequestMapping("/admin/payments/providers")
-public class PaymentAdminController {
+public class PaymentAdminController implements PaymentAdminControllerOpenApi {
 
     private final PaymentProviderRegistry registry;
 

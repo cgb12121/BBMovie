@@ -1,0 +1,74 @@
+## Auth Test Plan
+
+### Needed services/infra (local)
+- `eureka-server` running (`8761`) so gateway can resolve `auth`.
+- `gateway` running (`8765`) with CORS allowing `http://localhost:5173` (or your test origin).
+- `auth-service` running (`8080`) and registered as `AUTH` in Eureka.
+- `mysql` (or your configured DB) running and reachable by auth.
+- `redis` running (token/session blacklist + caching paths).
+- `nats` optional for event publishing paths (logout/email/etc.); auth should still work if unavailable, but you’ll see warnings.
+- OAuth provider creds configured (`GOOGLE_CLIENT_ID/SECRET`, etc.) for social login tests.
+- Email provider configured (gmail/mailer) for forgot/verify email flows.
+
+### Smoke checks first
+- `GET /api/auth/test` via gateway returns 200.
+- Eureka dashboard shows `AUTH` and `GATEWAY` as `UP`.
+- Login works once with known user and returns token + user object.
+
+### Functional test matrix
+- **Registration**
+  - valid payload -> success message
+  - duplicate email/username -> proper error
+  - invalid payload (missing confirm/password mismatch) -> validation errors
+- **Email verification**
+  - send verification -> success
+  - verify with valid token -> success
+  - verify with expired/invalid token -> proper error
+- **Password flows**
+  - forgot-password with existing email -> success
+  - reset-password with valid token + `newPassword` + `confirmNewPassword` -> success
+  - reset-password with wrong field name (`confirmPassword`) -> validation error (expected)
+  - reset with expired/used token -> proper error
+- **Login/logout/session**
+  - login success -> access token returned
+  - bad credentials -> expected error body
+  - logout -> token/session revoked and local token cleared
+  - access-token refresh endpoint works with bearer header
+  - device sessions list/revoke works with auth token
+- **OAuth2**
+  - provider redirect completes, callback succeeds
+  - no stale injected token sent to callback
+  - user can fetch `/api/auth/oauth2-callback` after OAuth success
+- **MFA**
+  - setup returns secret/QR
+  - verify valid code -> success
+  - invalid code -> expected error
+- **Student program endpoints**
+  - apply (multipart payload + doc) works for authenticated user
+  - admin-only endpoints reject non-admin token
+  - decision/finalize flows return expected status
+
+### Security/behavior checks
+- CORS preflight succeeds from frontend origin.
+- Unauthorized endpoints return 401 without leaking internal errors.
+- Role-protected routes enforce `ROLE_ADMIN/ROLE_SUPER_ADMIN`.
+- JWT claims consistency:
+  - `sub` is user ID
+  - email is in email claim and used for username resolution.
+- Blacklist behavior:
+  - revoked/logout token cannot access protected endpoints.
+
+### Observability checks
+- Gateway logs show route + response codes, no repeated `No servers available for service: auth`.
+- Auth logs no NPE in logout/oauth callback.
+- Key rotation mismatch (`No matching key found for kid`) only appears for truly old/stale tokens.
+
+### Quick execution order (recommended)
+1. Bring up infra: DB, Redis, Eureka, Gateway, Auth.
+2. Run smoke checks.
+3. Run registration/login/logout/password tests.
+4. Run OAuth2 and MFA.
+5. Run student-program and admin authorization tests.
+6. Run negative/security checks.
+
+If you want, I can convert this into a checklist markdown file at `test/auth/TEST_PLAN.md` so your team can tick items during testing.

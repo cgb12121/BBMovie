@@ -1,0 +1,50 @@
+package com.bbmovie.droolsengine.rules
+
+import com.bbmovie.droolsengine.dto.PromotionEvaluationContext
+
+// =============================================================
+// Rule: Student Seasonal Discount (10% off)
+// =============================================================
+rule "Student Seasonal Discount"
+when
+    $ctx : PromotionEvaluationContext(
+        droolsRuleId == "STUDENT_SEASONAL_10",
+        userRole == "STUDENT",
+        eligible == false
+    )
+then
+    $ctx.setEligible(true);
+    $ctx.setAppliedDiscountValue(10.0); // 10%
+    $ctx.setReason("Automatic student discount applied.");
+end
+
+// =============================================================
+// Rule: Welcome Fixed Discount ($5 off for new users or certain region)
+// =============================================================
+rule "Welcome Fixed Discount"
+when
+    $ctx : PromotionEvaluationContext(
+        droolsRuleId == "WELCOME_FIXED_5",
+        userRegion == "VN",
+        eligible == false
+    )
+then
+    $ctx.setEligible(true);
+    $ctx.setAppliedDiscountValue(5.0); // $5
+    $ctx.setReason("Welcome discount for VN region applied.");
+end
+
+// =============================================================
+// Rule: Free Trial Extension
+// =============================================================
+rule "Free Trial Extension"
+when
+    $ctx : PromotionEvaluationContext(
+        droolsRuleId == "TRIAL_EXT_14",
+        eligible == false
+    )
+then
+    $ctx.setEligible(true);
+    $ctx.setAppliedTrialDays(14);
+    $ctx.setReason("14-day free trial extension applied.");
+end

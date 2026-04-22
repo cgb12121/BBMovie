@@ -1,5 +1,6 @@
 package com.bbmovie.payment.controller;
 
+import com.bbmovie.payment.controller.openapi.SaleCampaignControllerOpenApi;
 import com.bbmovie.payment.dto.ApiResponse;
 import com.bbmovie.payment.dto.response.DiscountCampaignResponse;
 import com.bbmovie.payment.service.DiscountCampaignService;
@@ -14,7 +15,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/sale/campaign")
-public class SaleCampaignController {
+public class SaleCampaignController implements SaleCampaignControllerOpenApi {
 
     private final DiscountCampaignService campaignService;
 

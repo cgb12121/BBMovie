@@ -1,0 +1,163 @@
+// =============================================================
+// Student Verification - Drools Rules
+// =============================================================
+// Evaluates extracted OCR text against student application data
+// to produce an autoVerifyScore (0-100).
+//
+// Facts:
+//   - StudentVerificationContext (mutable, holds score + reasons)
+//   - UniversityMatch (from registry lookup)
+//
+// Outcomes:
+//   - score >= autoApproveThreshold  → AUTO_APPROVE
+//   - score >= autoRejectThreshold   → NEEDS_REVIEW
+//   - score < autoRejectThreshold    → AUTO_REJECT
+// =============================================================
+
+package com.bbmovie.droolsengine.rules
+
+import com.bbmovie.droolsengine.dto.StudentVerificationContext
+import com.bbmovie.droolsengine.dto.UniversityMatch
+
+// =============================================================
+// Rule 1: University name matches registry
+// =============================================================
+rule "University name matches registry"
+    salience 100
+when
+    $ctx : StudentVerificationContext(
+        universityMatch != null && universityMatch.isMatched() == true
+    )
+then
+    int points = 30;
+    if ($ctx.getUniversityMatch().getConfidence() >= 0.9) {
+        points = 40;
+    }
+    $ctx.addScore(points, "University matched registry with confidence " + $ctx.getUniversityMatch().getConfidence());
+end
+
+// =============================================================
+// Rule 2: Student ID found in OCR text
+// =============================================================
+rule "Student ID detected in document"
+    salience 90
+when
+    $ctx : StudentVerificationContext(
+        extractedStudentId != null && extractedStudentId.length() > 3
+    )
+then
+    $ctx.addScore(15, "Student ID detected in document: " + $ctx.getExtractedStudentId());
+end
+
+// =============================================================
+// Rule 3: Graduation year is valid and future
+// =============================================================
+rule "Valid graduation year"
+    salience 80
+when
+    $ctx : StudentVerificationContext(
+        graduationYear != null && graduationYear >= 2024 && graduationYear <= 2035
+    )
+then
+    $ctx.addScore(10, "Valid graduation year: " + $ctx.getGraduationYear());
+end
+
+// =============================================================
+// Rule 4: University email domain matches registry
+// =============================================================
+rule "University email domain matches"
+    salience 85
+when
+    $ctx : StudentVerificationContext(
+        universityEmail != null && universityEmail.length() > 0,
+        universityMatch != null && universityMatch.isMatched() == true
+    )
+    $match : UniversityMatch(
+        domain != null && domain.length() > 0,
+        this == $ctx.universityMatch
+    )
+    eval($ctx.getUniversityEmail().toLowerCase().endsWith($match.getDomain().toLowerCase()))
+then
+    $ctx.addScore(20, "University email domain verified: " + $ctx.getUniversityEmail());
+end
+
+// =============================================================
+// Rule 5: Full name appears in document
+// =============================================================
+rule "Full name appears in document"
+    salience 70
+when
+    $ctx : StudentVerificationContext(
+        extractedText != null && extractedText.length() > 0,
+        fullName != null && fullName.length() > 2
+    )
+    eval($ctx.getExtractedText().toLowerCase().contains($ctx.getFullName().toLowerCase()))
+then
+    $ctx.addScore(10, "Full name '" + $ctx.getFullName() + "' found in document text");
+end
+
+// =============================================================
+// Rule 6: Document is a PDF (more reliable than image OCR)
+// =============================================================
+rule "Document type is PDF"
+    salience 50
+when
+    $ctx : StudentVerificationContext(
+        documentType == "pdf"
+    )
+then
+    $ctx.addScore(5, "PDF document detected (higher reliability)");
+end
+
+// =============================================================
+// Rule 7: Document type is image (lower confidence)
+// =============================================================
+rule "Document type is image"
+    salience 50
+when
+    $ctx : StudentVerificationContext(
+        documentType == "image"
+    )
+then
+    $ctx.addScore(0, "Image document (OCR-based, lower reliability)");
+end
+
+// =============================================================
+// Rule 8: No university match — penalty
+// =============================================================
+rule "No university match — apply penalty"
+    salience 200
+when
+    $ctx : StudentVerificationContext(
+        universityMatch == null || universityMatch.isMatched() == false
+    )
+then
+    $ctx.addScore(-10, "No matching university found in registry");
+end
+
+// =============================================================
+// Rule 9: Email provided but no domain match
+// =============================================================
+rule "Email provided but domain not verified"
+    salience 150
+when
+    $ctx : StudentVerificationContext(
+        universityEmail != null && universityEmail.length() > 0,
+        universityMatch == null
+    )
+then
+    $ctx.addScore(-5, "University email provided but no domain match found");
+end
+
+// =============================================================
+// Rule 10: Graduation year in the past
+// =============================================================
+rule "Graduation year is in the past"
+    salience 180
+when
+    $ctx : StudentVerificationContext(
+        graduationYear != null && graduationYear < 2024
+    )
+then
+    $ctx.addScore(-15, "Graduation year " + $ctx.getGraduationYear() + " is in the past — may have already graduated");
+end

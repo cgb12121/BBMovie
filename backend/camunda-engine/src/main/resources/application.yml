@@ -1,0 +1,37 @@
+spring:
+  application:
+    name: camunda-engine
+  datasource:
+    url: ${DATABASE_URL:jdbc:mysql://localhost:3306/bbmovie_camunda}
+    username: ${DATABASE_USERNAME:root}
+    password: ${DATABASE_PASSWORD:root}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+
+camunda.bpm:
+  admin-user:
+    id: admin
+    password: admin
+  filter:
+    create: All tasks
+
+server:
+  port: 8082
+
+drools:
+  service:
+    url: ${DROOLS_SERVICE_URL:http://localhost:8081/api/rules/verify-student}
+
+rust:
+  ai:
+    service:
+      url: ${RUST_AI_URL:http://localhost:8686/api/process-batch}
+
+auth:
+  service:
+    url: ${AUTH_SERVICE_URL:http://localhost:8080/api/student-program/internal/applications}

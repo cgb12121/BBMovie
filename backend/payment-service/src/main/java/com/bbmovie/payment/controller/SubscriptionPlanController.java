@@ -1,5 +1,6 @@
 package com.bbmovie.payment.controller;
 
+import com.bbmovie.payment.controller.openapi.SubscriptionPlanControllerOpenApi;
 import com.bbmovie.payment.dto.SubscriptionPlanView;
 import com.bbmovie.payment.entity.enums.BillingCycle;
 import com.bbmovie.payment.service.SubscriptionPlanService;
@@ -12,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/subscription")
-public class SubscriptionPlanController {
+public class SubscriptionPlanController implements SubscriptionPlanControllerOpenApi {
 
     private final SubscriptionPlanService subscriptionPlanService;
 

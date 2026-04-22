@@ -3,6 +3,7 @@ package com.bbmovie.payment.service.payment.provider.stripe;
 import com.bbmovie.payment.config.payment.StripeProperties;
 import com.bbmovie.payment.dto.PaymentCreatedEvent;
 import com.bbmovie.payment.dto.PricingBreakdown;
+import com.bbmovie.payment.dto.event.SubscriptionSuccessEvent;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.entity.SubscriptionPlan;
 import com.bbmovie.payment.exception.PaymentCacheException;
@@ -161,8 +162,14 @@ public class StripeAdapter implements PaymentProviderAdapter {
             paymentTransactionRepository.save(transaction);
             String message = paymentI18nService.messageFor(PaymentProvider.STRIPE, stripeStatus.getStatus());
 
-            //TODO: finish
-            paymentEventProducer.publishSubscriptionSuccessEvent(null);
+            if (success) {
+                SubscriptionSuccessEvent event = SubscriptionSuccessEvent.builder()
+                        .userId(transaction.getUserId())
+                        .transactionId(transaction.getId().toString())
+                        .amount(transaction.getBaseAmount().toString())
+                        .build();
+                paymentEventProducer.publishSubscriptionSuccessEvent(event);
+            }
 
             return new PaymentVerificationResponse(
                     stripeStatus == StripeTransactionStatus.SUCCEEDED,

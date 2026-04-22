@@ -1,5 +1,6 @@
 package com.bbmovie.payment.controller;
 
+import com.bbmovie.payment.controller.openapi.PaymentControllerOpenApi;
 import com.bbmovie.payment.dto.*;
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.bbmovie.payment.dto.request.RefundRequest;
@@ -25,7 +26,7 @@ import static com.bbmovie.payment.utils.PaymentProviderPayloadUtil.*;
 @Log4j2
 @RestController
 @RequestMapping("/api/payment")
-public class PaymentController {
+public class PaymentController implements PaymentControllerOpenApi {
 
     private final PaymentService paymentService;
     private final I18nService i18nService;

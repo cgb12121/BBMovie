@@ -3,6 +3,7 @@ package com.bbmovie.payment.service.payment.provider.vnpay;
 import com.bbmovie.payment.config.payment.VnpayProperties;
 import com.bbmovie.payment.dto.PaymentCreatedEvent;
 import com.bbmovie.payment.dto.PricingBreakdown;
+import com.bbmovie.payment.dto.event.SubscriptionSuccessEvent;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -176,8 +177,17 @@ public class VnpayAdapter implements PaymentProviderAdapter {
         });
 
         JsonNode providerData = stringToJsonNode(toJsonString(paymentData));
-        //TODO: finish
-        paymentEventProducer.publishSubscriptionSuccessEvent(null);
+
+        if (isValid) {
+            paymentTransactionRepository.findByProviderTransactionId(vnpTxnRef).ifPresent(transaction -> {
+                SubscriptionSuccessEvent event = SubscriptionSuccessEvent.builder()
+                        .userId(transaction.getUserId())
+                        .transactionId(transaction.getId().toString())
+                        .amount(transaction.getBaseAmount().toString())
+                        .build();
+                paymentEventProducer.publishSubscriptionSuccessEvent(event);
+            });
+        }
 
         return PaymentVerificationResponse.builder()
                 .isValid(isValid)

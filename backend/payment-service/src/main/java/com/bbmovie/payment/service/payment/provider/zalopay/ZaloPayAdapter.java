@@ -2,6 +2,7 @@ package com.bbmovie.payment.service.payment.provider.zalopay;
 
 import com.bbmovie.payment.config.payment.ZaloPayProperties;
 import com.bbmovie.payment.dto.PaymentCreatedEvent;
+import com.bbmovie.payment.dto.event.SubscriptionSuccessEvent;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -295,8 +296,16 @@ public class ZaloPayAdapter implements PaymentProviderAdapter {
                 updateTransaction(appTransId, returnCode, success);
             }
 
-            //TODO: finish
-            paymentEventProducer.publishSubscriptionSuccessEvent(null);
+            if (success && appTransId != null) {
+                paymentTransactionRepository.findByProviderTransactionId(appTransId).ifPresent(transaction -> {
+                    SubscriptionSuccessEvent event = SubscriptionSuccessEvent.builder()
+                            .userId(transaction.getUserId())
+                            .transactionId(transaction.getId().toString())
+                            .amount(transaction.getBaseAmount().toString())
+                            .build();
+                    paymentEventProducer.publishSubscriptionSuccessEvent(event);
+                });
+            }
 
             return PaymentVerificationResponse.builder()
                     .isValid(success)

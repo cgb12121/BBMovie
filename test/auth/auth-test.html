@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BBMovie Auth Service Test</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #111;
+      --panel: #1b1b1b;
+      --panel-2: #232323;
+      --text: #eee;
+      --muted: #aaa;
+      --accent: #e50914;
+      --ok: #1f9d55;
+      --warn: #d97706;
+      --err: #dc2626;
+      --border: #333;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Segoe UI, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .wrap {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 16px;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 16px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+    }
+    h1, h2, h3 { margin: 0 0 10px; }
+    h1 { font-size: 20px; }
+    h2 { font-size: 16px; margin-top: 14px; }
+    h3 { font-size: 14px; margin-top: 12px; color: #fff; }
+    .muted { color: var(--muted); font-size: 12px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .endpoint {
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .method {
+      display: inline-block;
+      min-width: 42px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-align: center;
+      margin-right: 6px;
+    }
+    .GET { background: #0f766e; }
+    .POST { background: #1d4ed8; }
+    input, textarea, select {
+      width: 100%;
+      margin-top: 6px;
+      margin-bottom: 8px;
+      background: #111;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 8px;
+      font-size: 12px;
+    }
+    textarea { min-height: 90px; resize: vertical; }
+    button {
+      border: none;
+      background: var(--accent);
+      color: white;
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 12px;
+      margin-right: 6px;
+      margin-top: 4px;
+    }
+    button.secondary { background: #444; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .status {
+      margin-top: 8px;
+      font-size: 12px;
+      padding: 6px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: #161616;
+    }
+    #log {
+      height: 75vh;
+      overflow: auto;
+      background: #0b0b0b;
+      border: 1px solid #222;
+      border-radius: 8px;
+      padding: 10px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+      line-height: 1.35;
+    }
+    .line-ok { color: #86efac; }
+    .line-err { color: #fca5a5; }
+    .line-info { color: #93c5fd; }
+    code { color: #fcd34d; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="panel">
+      <h1>Auth Service API Tester</h1>
+      <p class="muted">Standalone page for testing auth-service endpoints without frontend app.</p>
+
+      <h2>Global Config</h2>
+      <label>Gateway Base URL</label>
+      <input id="baseUrl" value="http://localhost:8765" />
+      <label>Bearer Token (without or with "Bearer ")</label>
+      <textarea id="bearerToken" placeholder="Paste JWT here"></textarea>
+      <div class="row">
+        <button onclick="normalizeToken()">Normalize Token</button>
+        <button class="secondary" onclick="clearToken()">Clear Token</button>
+      </div>
+
+      <h2>Quick Actions</h2>
+      <div class="row">
+        <button onclick="callSimple('GET','/api/auth/test')">Auth Test</button>
+        <button onclick="callSimple('GET','/api/auth/user-agent', true)">User Agent</button>
+        <button onclick="callSimple('GET','/api/device/test')">Device Test</button>
+      </div>
+      <div class="status" id="status">Ready</div>
+    </section>
+
+    <section class="panel">
+      <h2>Controllers & Endpoints</h2>
+      <div class="grid">
+        <div class="endpoint">
+          <h3>AuthController</h3>
+          <p class="muted"><span class="method POST">POST</span><code>/api/auth/register</code></p>
+          <textarea id="registerBody">{"email":"test@example.com","username":"testuser","password":"12345678","confirmPassword":"12345678","firstName":"Test","lastName":"User"}</textarea>
+          <button onclick="callJson('POST','/api/auth/register','registerBody')">Send</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/auth/login</code></p>
+          <textarea id="loginBody">{"email":"test@example.com","password":"12345678"}</textarea>
+          <button onclick="loginAndCapture()">Login & Save Token</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/auth/logout</code></p>
+          <button onclick="callSimple('POST','/api/auth/logout', true)">Logout</button>
+
+          <p class="muted"><span class="method GET">GET</span><code>/api/auth/verify-email?token=...</code></p>
+          <input id="verifyToken" placeholder="verification token" />
+          <button onclick="callSimple('GET','/api/auth/verify-email?token=' + enc('verifyToken'))">Verify Email</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/auth/send-verification</code></p>
+          <textarea id="sendVerificationBody">{"email":"test@example.com"}</textarea>
+          <button onclick="callJson('POST','/api/auth/send-verification','sendVerificationBody')">Send</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/auth/forgot-password</code></p>
+          <textarea id="forgotBody">{"email":"test@example.com"}</textarea>
+          <button onclick="callJson('POST','/api/auth/forgot-password','forgotBody')">Send</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/auth/reset-password?token=...</code></p>
+          <input id="resetToken" placeholder="reset token" />
+          <textarea id="resetBody">{"newPassword":"123456789","confirmNewPassword":"123456789"}</textarea>
+          <button onclick="callJson('POST','/api/auth/reset-password?token=' + enc('resetToken'),'resetBody')">Send</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/auth/change-password</code> (auth)</p>
+          <textarea id="changeBody">{"currentPassword":"12345678","newPassword":"123456789","confirmPassword":"123456789"}</textarea>
+          <button onclick="callJson('POST','/api/auth/change-password','changeBody', true)">Send</button>
+        </div>
+
+        <div class="endpoint">
+          <h3>Token/OAuth Endpoints</h3>
+          <p class="muted"><span class="method POST">POST</span><code>/api/auth/access-token</code> (auth)</p>
+          <button onclick="callSimple('POST','/api/auth/access-token', true)">Refresh Access Token</button>
+
+          <p class="muted"><span class="method GET">GET</span><code>/api/auth/abac/new-access-token</code> (auth)</p>
+          <button onclick="callSimple('GET','/api/auth/abac/new-access-token', true)">ABAC New Token</button>
+
+          <p class="muted"><span class="method GET">GET</span><code>/api/auth/oauth2-callback</code></p>
+          <button onclick="callSimple('GET','/api/auth/oauth2-callback', true)">OAuth2 Callback</button>
+
+          <p class="muted"><span class="method GET">GET</span><code>/api/auth/csrf</code></p>
+          <button onclick="callSimple('GET','/api/auth/csrf')">CSRF</button>
+        </div>
+
+        <div class="endpoint">
+          <h3>MfaController</h3>
+          <p class="muted"><span class="method POST">POST</span><code>/api/mfa/setup</code> (auth)</p>
+          <button onclick="callSimple('POST','/api/mfa/setup', true)">Setup MFA</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/mfa/verify</code> (auth)</p>
+          <textarea id="mfaBody">{"code":"123456"}</textarea>
+          <button onclick="callJson('POST','/api/mfa/verify','mfaBody', true)">Verify MFA</button>
+        </div>
+
+        <div class="endpoint">
+          <h3>SessionController</h3>
+          <p class="muted"><span class="method GET">GET</span><code>/api/device/v1/sessions/all</code> (auth)</p>
+          <button onclick="callSimple('GET','/api/device/v1/sessions/all', true)">Get Sessions</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/device/v1/sessions/revoke</code> (auth)</p>
+          <textarea id="revokeBody">{"devices":[{"deviceName":"example-device","ip":"127.0.0.1"}]}</textarea>
+          <button onclick="callJson('POST','/api/device/v1/sessions/revoke','revokeBody', true)">Revoke</button>
+        </div>
+
+        <div class="endpoint">
+          <h3>StudentProgramController</h3>
+          <p class="muted"><span class="method POST">POST</span><code>/api/student-program/apply</code> multipart (auth)</p>
+          <textarea id="studentPayload">{"studentId":"S123","fullName":"Test User","universityName":"Test University","universityDomain":"test.edu","universityCountry":"VN","graduationYear":2028,"universityEmail":"student@test.edu"}</textarea>
+          <input type="file" id="studentDocument" />
+          <button onclick="callStudentApply()">Apply</button>
+
+          <p class="muted"><span class="method GET">GET</span><code>/api/student-program/applications/{applicationId}</code></p>
+          <input id="applicationId" placeholder="application UUID" />
+          <button onclick="callSimple('GET','/api/student-program/applications/' + enc('applicationId'), true)">Get One</button>
+
+          <p class="muted"><span class="method GET">GET</span><code>/api/student-program/applications</code></p>
+          <button onclick="callSimple('GET','/api/student-program/applications', true)">Get All</button>
+
+          <p class="muted"><span class="method GET">GET</span><code>/api/student-program/applications/pending</code></p>
+          <button onclick="callSimple('GET','/api/student-program/applications/pending', true)">Pending</button>
+
+          <p class="muted"><span class="method GET">GET</span><code>/api/student-program/applications/rejected</code></p>
+          <button onclick="callSimple('GET','/api/student-program/applications/rejected', true)">Rejected</button>
+
+          <p class="muted"><span class="method GET">GET</span><code>/api/student-program/students</code></p>
+          <button onclick="callSimple('GET','/api/student-program/students', true)">Students</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/student-program/applications/{userId}/decision?approve=...</code></p>
+          <input id="decisionUserId" placeholder="user UUID" />
+          <select id="decisionApprove"><option value="true">true</option><option value="false">false</option></select>
+          <button onclick="callSimple('POST','/api/student-program/applications/' + enc('decisionUserId') + '/decision?approve=' + val('decisionApprove'), true)">Decision</button>
+
+          <p class="muted"><span class="method POST">POST</span><code>/api/student-program/internal/applications/{applicationId}/finalize?status=...&message=...</code></p>
+          <input id="finalizeApplicationId" placeholder="application UUID" />
+          <input id="finalizeStatus" placeholder="status (e.g. VERIFIED)" />
+          <input id="finalizeMessage" placeholder="message (optional)" />
+          <button onclick="callSimple('POST','/api/student-program/internal/applications/' + enc('finalizeApplicationId') + '/finalize?status=' + enc('finalizeStatus') + '&message=' + enc('finalizeMessage'))">Finalize</button>
+        </div>
+      </div>
+
+      <h2 style="margin-top:16px;">Response Log</h2>
+      <div class="row">
+        <button class="secondary" onclick="clearLog()">Clear Log</button>
+      </div>
+      <div id="log"></div>
+    </section>
+  </div>
+
+  <script>
+    const el = (id) => document.getElementById(id);
+    const val = (id) => (el(id)?.value || "").trim();
+    const enc = (id) => encodeURIComponent(val(id));
+    const logEl = el("log");
+    const statusEl = el("status");
+
+    function now() {
+      return new Date().toLocaleTimeString();
+    }
+
+    function appendLog(line, cls = "line-info") {
+      const div = document.createElement("div");
+      div.className = cls;
+      div.textContent = `[${now()}] ${line}`;
+      logEl.appendChild(div);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    function clearLog() {
+      logEl.innerHTML = "";
+    }
+
+    function normalizeToken() {
+      const t = val("bearerToken").replace(/^Bearer\s+/i, "");
+      el("bearerToken").value = t;
+      appendLog("Token normalized.", "line-info");
+    }
+
+    function clearToken() {
+      el("bearerToken").value = "";
+      appendLog("Token cleared.", "line-info");
+    }
+
+    function getAuthHeader() {
+      const token = val("bearerToken").replace(/^Bearer\s+/i, "");
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    }
+
+    async function apiCall(method, path, opts = {}) {
+      const baseUrl = val("baseUrl").replace(/\/$/, "");
+      const url = `${baseUrl}${path}`;
+      const headers = { ...(opts.auth ? getAuthHeader() : {}), ...(opts.headers || {}) };
+
+      setStatus(`${method} ${path}`);
+      appendLog(`-> ${method} ${url}`, "line-info");
+
+      try {
+        const response = await fetch(url, {
+          method,
+          headers,
+          body: opts.body,
+          credentials: "include"
+        });
+
+        const text = await response.text();
+        let parsed;
+        try { parsed = text ? JSON.parse(text) : null; } catch { parsed = text; }
+
+        appendLog(`<-${response.status} ${response.statusText} ${path}`, response.ok ? "line-ok" : "line-err");
+        appendLog(typeof parsed === "string" ? parsed : JSON.stringify(parsed, null, 2), response.ok ? "line-ok" : "line-err");
+        setStatus(`${response.status} ${response.statusText}`);
+
+        return { response, data: parsed };
+      } catch (error) {
+        appendLog(`Request failed: ${error.message}`, "line-err");
+        setStatus(`Error: ${error.message}`);
+        throw error;
+      }
+    }
+
+    async function callSimple(method, path, auth = false) {
+      return apiCall(method, path, { auth });
+    }
+
+    async function callJson(method, path, bodyId, auth = false) {
+      const raw = el(bodyId).value;
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch (error) {
+        appendLog(`Invalid JSON in ${bodyId}: ${error.message}`, "line-err");
+        return;
+      }
+      return apiCall(method, path, {
+        auth,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed)
+      });
+    }
+
+    async function loginAndCapture() {
+      const res = await callJson("POST", "/api/auth/login", "loginBody");
+      const token = res?.data?.data?.authResponse?.accessToken;
+      if (token) {
+        el("bearerToken").value = token;
+        appendLog("Saved access token from login response.", "line-ok");
+      } else {
+        appendLog("No access token found in login response.", "line-err");
+      }
+    }
+
+    async function callStudentApply() {
+      const file = el("studentDocument").files[0];
+      if (!file) {
+        appendLog("Select document file for /apply.", "line-err");
+        return;
+      }
+
+      let payload;
+      try {
+        payload = JSON.parse(el("studentPayload").value);
+      } catch (error) {
+        appendLog(`Invalid student payload JSON: ${error.message}`, "line-err");
+        return;
+      }
+
+      const form = new FormData();
+      form.append("payload", new Blob([JSON.stringify(payload)], { type: "application/json" }));
+      form.append("document", file);
+
+      return apiCall("POST", "/api/student-program/apply", {
+        auth: true,
+        body: form
+      });
+    }
+  </script>
+</body>
+</html>

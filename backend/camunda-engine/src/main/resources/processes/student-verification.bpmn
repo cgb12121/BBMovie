@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/1.0/modeler" id="Definitions_0v6x9z8" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.16.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.20.0">
+  <bpmn:process id="studentVerificationProcess" name="Student Verification Process" isExecutable="true" camunda:historyTimeToLive="P30D">
+    <bpmn:startEvent id="StartEvent_1" name="Application Received">
+      <bpmn:outgoing>Flow_1u3j8y9</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:sequenceFlow id="Flow_1u3j8y9" sourceRef="StartEvent_1" targetRef="Activity_AutoVerify" />
+    <bpmn:serviceTask id="Activity_AutoVerify" name="Automatic Verification (OCR + Drools)" camunda:delegateExpression="${studentVerificationDelegate}">
+      <bpmn:incoming>Flow_1u3j8y9</bpmn:incoming>
+      <bpmn:outgoing>Flow_0w6v1e5</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:exclusiveGateway id="Gateway_Outcome" name="Verification Outcome?" default="Flow_NeedsReview">
+      <bpmn:incoming>Flow_0w6v1e5</bpmn:incoming>
+      <bpmn:outgoing>Flow_AutoApprove</bpmn:outgoing>
+      <bpmn:outgoing>Flow_AutoReject</bpmn:outgoing>
+      <bpmn:outgoing>Flow_NeedsReview</bpmn:outgoing>
+    </bpmn:exclusiveGateway>
+    <bpmn:sequenceFlow id="Flow_0w6v1e5" sourceRef="Activity_AutoVerify" targetRef="Gateway_Outcome" />
+    <bpmn:sequenceFlow id="Flow_AutoApprove" name="Auto Approve" sourceRef="Gateway_Outcome" targetRef="Activity_NotifyAuth">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${verificationOutcome == 'AUTO_APPROVE'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:sequenceFlow id="Flow_AutoReject" name="Auto Reject" sourceRef="Gateway_Outcome" targetRef="Activity_NotifyAuth">
+      <bpmn:conditionExpression xsi:type="bpmn:tFormalExpression">${verificationOutcome == 'AUTO_REJECT'}</bpmn:conditionExpression>
+    </bpmn:sequenceFlow>
+    <bpmn:userTask id="Activity_ManualReview" name="Manual Admin Review" camunda:candidateGroups="admin">
+      <bpmn:extensionElements>
+        <camunda:formData>
+          <camunda:formField id="fullName" label="Full Name" type="string">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="universityName" label="University" type="string">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="verificationScore" label="Drools Score" type="long">
+            <camunda:validation>
+              <camunda:constraint name="readonly" />
+            </camunda:validation>
+          </camunda:formField>
+          <camunda:formField id="manualDecision" label="Decision" type="enum">
+            <camunda:value id="VERIFIED" name="Approve" />
+            <camunda:value id="REJECTED" name="Reject" />
+          </camunda:formField>
+        </camunda:formData>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_NeedsReview</bpmn:incoming>
+      <bpmn:outgoing>Flow_1v2x0p9</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:sequenceFlow id="Flow_NeedsReview" name="Needs Review" sourceRef="Gateway_Outcome" targetRef="Activity_ManualReview" />
+    <bpmn:serviceTask id="Activity_NotifyAuth" name="Notify Auth Service" camunda:delegateExpression="${notifyAuthServiceDelegate}">
+      <bpmn:incoming>Flow_AutoApprove</bpmn:incoming>
+      <bpmn:incoming>Flow_AutoReject</bpmn:incoming>
+      <bpmn:incoming>Flow_19e6x5p</bpmn:incoming>
+      <bpmn:outgoing>Flow_1x3m7z9</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="Event_End" name="Process Complete">
+      <bpmn:incoming>Flow_1x3m7z9</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:sequenceFlow id="Flow_1x3m7z9" sourceRef="Activity_NotifyAuth" targetRef="Event_End" />
+    <bpmn:sequenceFlow id="Flow_1v2x0p9" sourceRef="Activity_ManualReview" targetRef="Activity_SetManualOutcome" />
+    <bpmn:scriptTask id="Activity_SetManualOutcome" name="Set Manual Outcome" scriptFormat="javascript">
+      <bpmn:incoming>Flow_1v2x0p9</bpmn:incoming>
+      <bpmn:outgoing>Flow_19e6x5p</bpmn:outgoing>
+      <bpmn:script>execution.setVariable('verificationOutcome', execution.getVariable('manualDecision'));</bpmn:script>
+    </bpmn:scriptTask>
+    <bpmn:sequenceFlow id="Flow_19e6x5p" sourceRef="Activity_SetManualOutcome" targetRef="Activity_NotifyAuth" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="studentVerificationProcess">
+      <bpmndi:BPMNShape id="_BPMNShape_StartEvent_2" bpmnElement="StartEvent_1">
+        <dc:Bounds x="179" y="159" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="170" y="202" width="54" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1y8u0r4_di" bpmnElement="Activity_AutoVerify">
+        <dc:Bounds x="270" y="137" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_0w8p3q7_di" bpmnElement="Gateway_Outcome" isMarkerVisible="true">
+        <dc:Bounds x="425" y="152" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="423" y="122" width="54" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0k9p8z4_di" bpmnElement="Activity_ManualReview">
+        <dc:Bounds x="530" y="250" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0m8z7z8_di" bpmnElement="Activity_NotifyAuth">
+        <dc:Bounds x="750" y="137" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0f6z9z8_di" bpmnElement="Event_End">
+        <dc:Bounds x="912" y="159" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="886" y="202" width="89" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1w6x9z8_di" bpmnElement="Activity_SetManualOutcome">
+        <dc:Bounds x="670" y="250" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_1u3j8y9_di" bpmnElement="Flow_1u3j8y9">
+        <di:waypoint x="215" y="177" />
+        <di:waypoint x="270" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0w6v1e5_di" bpmnElement="Flow_0w6v1e5">
+        <di:waypoint x="370" y="177" />
+        <di:waypoint x="425" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1w6x9z8_di" bpmnElement="Flow_AutoApprove">
+        <di:waypoint x="475" y="177" />
+        <di:waypoint x="750" y="177" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="580" y="159" width="66" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0k9p8z4_di" bpmnElement="Flow_AutoReject">
+        <di:waypoint x="450" y="202" />
+        <di:waypoint x="450" y="380" />
+        <di:waypoint x="800" y="380" />
+        <di:waypoint x="800" y="217" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="597" y="362" width="57" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_NeedsReview_di" bpmnElement="Flow_NeedsReview">
+        <di:waypoint x="450" y="202" />
+        <di:waypoint x="450" y="290" />
+        <di:waypoint x="530" y="290" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="444" y="293" width="71" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1x3m7z9_di" bpmnElement="Flow_1x3m7z9">
+        <di:waypoint x="850" y="177" />
+        <di:waypoint x="912" y="177" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_1v2x0p9_di" bpmnElement="Flow_1v2x0p9">
+        <di:waypoint x="630" y="290" />
+        <di:waypoint x="670" y="290" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_19e6x5p_di" bpmnElement="Flow_19e6x5p">
+        <di:waypoint x="770" y="290" />
+        <di:waypoint x="800" y="290" />
+        <di:waypoint x="800" y="217" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>

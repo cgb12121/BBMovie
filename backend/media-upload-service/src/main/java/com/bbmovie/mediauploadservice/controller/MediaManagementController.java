@@ -1,5 +1,6 @@
 package com.bbmovie.mediauploadservice.controller;
 
+import com.bbmovie.mediauploadservice.controller.openapi.MediaManagementControllerOpenApi;
 import com.bbmovie.mediauploadservice.dto.MediaFileFilterRequest;
 import com.bbmovie.mediauploadservice.dto.MediaFileResponse;
 import com.bbmovie.mediauploadservice.entity.MediaFile;
@@ -21,7 +22,7 @@ import static com.bbmovie.common.entity.JoseConstraint.JosePayload.SUB;
 @RestController
 @RequestMapping("/management/files")
 @RequiredArgsConstructor
-public class MediaManagementController {
+public class MediaManagementController implements MediaManagementControllerOpenApi {
 
     private final MediaManagementService mediaManagementService;
     private final MediaFileMapper mediaFileMapper;

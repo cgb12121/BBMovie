@@ -1,5 +1,6 @@
 package com.bbmovie.payment.controller;
 
+import com.bbmovie.payment.controller.openapi.VoucherControllerOpenApi;
 import com.bbmovie.payment.dto.ApiResponse;
 import com.bbmovie.payment.dto.response.VoucherResponse;
 import com.bbmovie.payment.service.VoucherService;
@@ -9,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/voucher")
-public class VoucherController {
+public class VoucherController implements VoucherControllerOpenApi {
 
     private final VoucherService voucherService;
 

@@ -3,6 +3,7 @@ package com.bbmovie.payment.service.payment.provider.paypal;
 import com.bbmovie.payment.config.payment.PayPalProperties;
 import com.bbmovie.payment.dto.PaymentCreatedEvent;
 import com.bbmovie.payment.dto.PricingBreakdown;
+import com.bbmovie.payment.dto.event.SubscriptionSuccessEvent;
 import com.bbmovie.payment.dto.request.PaymentRequest;
 import com.bbmovie.payment.dto.request.CallbackRequestContext;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
@@ -192,6 +193,15 @@ public class PayPalAdapter implements PaymentProviderAdapter {
                 paymentTransactionRepository.save(transaction);
             }
 
+            if (success) {
+                SubscriptionSuccessEvent event = SubscriptionSuccessEvent.builder()
+                        .userId(transaction.getUserId())
+                        .transactionId(transaction.getId().toString())
+                        .amount(transaction.getBaseAmount().toString())
+                        .build();
+                paymentEventProducer.publishSubscriptionSuccessEvent(event);
+            }
+
             return PaymentVerificationResponse.builder()
                     .isValid(success)
                     .transactionId(payment.getId())
@@ -217,9 +227,28 @@ public class PayPalAdapter implements PaymentProviderAdapter {
             if (isValid) {
                 event = Event.get(apiContext, ctx.getRawBody());
                 log.info("Got webhook event {}", event.toJSON());
+
+                if (event != null && "PAYMENT.SALE.COMPLETED".equals(event.getEventType())) {
+                    Object resource = event.getResource();
+                    String paymentId = null;
+                    if (resource instanceof Sale sale) {
+                        paymentId = sale.getParentPayment();
+                    } else if (resource instanceof Map<?, ?> map) {
+                        paymentId = (String) map.get("parent_payment");
+                    }
+
+                    if (paymentId != null) {
+                        paymentTransactionRepository.findByProviderTransactionId(paymentId).ifPresent(transaction -> {
+                            SubscriptionSuccessEvent successEvent = SubscriptionSuccessEvent.builder()
+                                    .userId(transaction.getUserId())
+                                    .transactionId(transaction.getId().toString())
+                                    .amount(transaction.getBaseAmount().toString())
+                                    .build();
+                            paymentEventProducer.publishSubscriptionSuccessEvent(successEvent);
+                        });
+                    }
+                }
             }
-            //TODO: finish
-            paymentEventProducer.publishSubscriptionSuccessEvent(null);
             return new PaymentVerificationResponse(
                     isValid,
                     event != null ? event.getId() : null,

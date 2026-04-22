@@ -1,5 +1,6 @@
 package com.bbmovie.payment.controller;
 
+import com.bbmovie.payment.controller.openapi.DiscountCampaignAdminControllerOpenApi;
 import com.bbmovie.payment.dto.ApiResponse;
 import com.bbmovie.payment.dto.request.DiscountCampaignCreateRequest;
 import com.bbmovie.payment.dto.request.DiscountCampaignUpdateRequest;
@@ -16,7 +17,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/admin/campaigns")
 @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-public class DiscountCampaignAdminController {
+public class DiscountCampaignAdminController implements DiscountCampaignAdminControllerOpenApi {
 
     private final DiscountCampaignService campaignService;
 

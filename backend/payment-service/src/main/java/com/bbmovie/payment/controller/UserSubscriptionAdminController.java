@@ -1,5 +1,6 @@
 package com.bbmovie.payment.controller;
 
+import com.bbmovie.payment.controller.openapi.UserSubscriptionAdminControllerOpenApi;
 import com.bbmovie.payment.dto.ApiResponse;
 import com.bbmovie.payment.dto.request.AdminUpsertSubscriptionRequest;
 import com.bbmovie.payment.dto.response.SubscriptionAnalyticsResponse;
@@ -13,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/admin/subscriptions")
 @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-public class UserSubscriptionAdminController {
+public class UserSubscriptionAdminController implements UserSubscriptionAdminControllerOpenApi {
 
     private final UserSubscriptionService userSubscriptionService;
 

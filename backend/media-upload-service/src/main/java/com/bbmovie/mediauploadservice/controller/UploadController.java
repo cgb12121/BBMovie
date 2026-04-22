@@ -1,5 +1,6 @@
 package com.bbmovie.mediauploadservice.controller;
 
+import com.bbmovie.mediauploadservice.controller.openapi.UploadControllerOpenApi;
 import com.bbmovie.mediauploadservice.dto.*;
 import com.bbmovie.mediauploadservice.service.ChunkedUploadService;
 import com.bbmovie.mediauploadservice.service.ClientUploadService;
@@ -17,7 +18,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/upload")
 @RequiredArgsConstructor
-public class UploadController {
+public class UploadController implements UploadControllerOpenApi {
 
     private final ClientUploadService clientUploadService;
     private final ChunkedUploadService chunkedUploadService;

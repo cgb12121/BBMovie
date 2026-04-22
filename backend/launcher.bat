@@ -5,15 +5,15 @@ title BBMovie Master Launcher V5 (Delegated)
 :: ==========================================
 :: 1. CONFIGURATION
 :: ==========================================
-:: ĝịnh nghĩa service (Format: Tên_Folder|Loại_Tech)
+:: ??nh ngh?a service (Format: T�n_Folder|Lo?i_Tech)
 set "services[1]=eureka-sever|SPRING"
 set "services[2]=gateway|SPRING"
 set "services[3]=auth-service|SPRING"
 set "services[4]=file-service|SPRING"
-set "services[5]=ai-service|SPRING"
-set "services[6]=rust-ai-context-refinery|RUST"
+set "services[5]=ai-platform\services\ai-service|SPRING"
+set "services[6]=ai-platform\services\rust-ai-context-refinery|RUST"
 set "services[7]=watchlist-quarkus|QUARKUS"
-set "services[8]=payment-service|SPRING"
+set "services[8]=commerce-platform\services\payment-orchestrator-service|SPRING"
 set "services[9]=search-service|SPRING"
 set "services[10]=email-service|SPRING"
 set "services[11]=media-streaming-service|SPRING"
@@ -27,14 +27,18 @@ set "services[18]=comment-service|SPRING"
 set "services[19]=notification-service|SPRING"
 set "services[20]=rating-service|SPRING"
 set "services[21]=referral-service|SPRING"
-set "services[22]=revenue-dashboard|SPRING"
-set "services[23]=promotion-service|SPRING"
+set "services[22]=commerce-platform\services\revenue-dashboard|SPRING"
+set "services[23]=commerce-platform\services\promotion-service|SPRING"
 set "services[24]=movie-analytics-service|SPRING"
 set "services[25]=personalization-recommendation|SPRING"
 set "services[26]=camunda-engine|SPRING"
 set "services[27]=camunda-engine\drools-engine|SPRING"
+set "services[28]=commerce-platform\services\payment-gateway|SPRING"
+set "services[29]=commerce-platform\services\billing-ledger-service|SPRING"
+set "services[30]=commerce-platform\services\subscription-service|SPRING"
+set "services[31]=commerce-platform\services\entitlement-service|SPRING"
 
-:: Màu sắc
+:: M�u s?c
 set GREEN=[92m
 set RED=[91m
 set YELLOW=[93m
@@ -45,8 +49,8 @@ set RESET=[0m
 :: ==========================================
 :: 2. LOAD GLOBAL ENV (Optional)
 :: ==========================================
-:: Bác vẫn có thể load .env ở đây để share chung DB_URL, JWT_SECRET...
-:: Các file run.bat con sẽ kế thừa được biến này (nếu chạy cùng session)
+:: B�c v?n c� th? load .env ? ?�y ?? share chung DB_URL, JWT_SECRET...
+:: C�c file run.bat con s? k? th?a ???c bi?n n�y (n?u ch?y c�ng session)
 echo %YELLOW%[SYSTEM] Loading global .env variables...%RESET%
 if exist .env (
     for /f "usebackq tokens=*" %%A in (".env") do (
@@ -71,7 +75,7 @@ echo.
 echo   %YELLOW%--- Select Specific Services ---%RESET%
 echo.
 
-:: --- (ĝoạn vẽ bảng giữ nguyên như cũ) ---
+:: --- (?o?n v? b?ng gi? nguy�n nh? c?) ---
 :: Table header
 echo   +----+--------------------------------+-----------+
 echo   ^| ID ^| Service Name                   ^| Stack     ^|
@@ -142,7 +146,7 @@ for /f "tokens=1,2 delims=|" %%a in ("!svc_data!") do (
 exit /b
 
 :START_ALL
-:: Chạy Eureka trước
+:: Ch?y Eureka tr??c
 call :LAUNCHER "eureka-sever"
 timeout /t 10 /nobreak >nul
 for /L %%i in (2,1,%count%) do (
@@ -161,7 +165,7 @@ goto MAIN_MENU
 :LAUNCHER
 set "folder=%~1"
 
-:: Check xem file run.bat có tồn tại không
+:: Check xem file run.bat c� t?n t?i kh�ng
 if not exist "%folder%\run.bat" (
     echo %RED%Error: %folder%\run.bat not found! Skipping...%RESET%
     exit /b
@@ -169,10 +173,10 @@ if not exist "%folder%\run.bat" (
 
 echo %YELLOW%Delegating to %folder%\run.bat...%RESET%
 
-:: 🔥 CORE CHANGE: Gời run.bat của từng service
-:: cmd /k "..." : Mở cửa sổ mới và giữ nó lại
-:: cd /d "%folder%" : Nhảy vào thư mục con
-:: call run.bat : Chạy script con
+:: ?? CORE CHANGE: G?i run.bat c?a t?ng service
+:: cmd /k "..." : M? c?a s? m?i v� gi? n� l?i
+:: cd /d "%folder%" : Nh?y v�o th? m?c con
+:: call run.bat : Ch?y script con
 start "BBMovie - %folder%" cmd /k "title %folder% && cd /d "%folder%" && call run.bat"
 
 exit /b

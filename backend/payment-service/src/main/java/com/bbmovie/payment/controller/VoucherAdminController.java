@@ -1,5 +1,6 @@
 package com.bbmovie.payment.controller;
 
+import com.bbmovie.payment.controller.openapi.VoucherAdminControllerOpenApi;
 import com.bbmovie.payment.dto.ApiResponse;
 import com.bbmovie.payment.dto.request.VoucherCreateRequest;
 import com.bbmovie.payment.dto.request.VoucherUpdateRequest;
@@ -16,7 +17,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/admin/vouchers")
 @PreAuthorize("hasAnyRole('ADMIN','SUPER_ADMIN')")
-public class VoucherAdminController {
+public class VoucherAdminController implements VoucherAdminControllerOpenApi {
 
     private final VoucherService voucherService;
 

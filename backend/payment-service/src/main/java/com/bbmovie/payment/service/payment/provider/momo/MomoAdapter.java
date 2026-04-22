@@ -3,6 +3,7 @@ package com.bbmovie.payment.service.payment.provider.momo;
 import com.bbmovie.payment.config.payment.MomoProperties;
 import com.bbmovie.payment.dto.PaymentCreatedEvent;
 import com.bbmovie.payment.dto.PricingBreakdown;
+import com.bbmovie.payment.dto.event.SubscriptionSuccessEvent;
 import com.bbmovie.payment.dto.request.SubscriptionPaymentRequest;
 import com.bbmovie.payment.dto.response.PaymentCreationResponse;
 import com.bbmovie.payment.dto.response.PaymentVerificationResponse;
@@ -241,8 +242,14 @@ public class MomoAdapter implements PaymentProviderAdapter {
         String message = paymentI18nService.messageFor(PaymentProvider.MOMO,
                 success ? "SUCCESS" : String.valueOf(resultCode));
 
-        //TODO: finish
-        paymentEventProducer.publishSubscriptionSuccessEvent(null);
+        if (success) {
+            SubscriptionSuccessEvent event = SubscriptionSuccessEvent.builder()
+                    .userId(transaction.getUserId())
+                    .transactionId(transaction.getId().toString())
+                    .amount(transaction.getBaseAmount().toString())
+                    .build();
+            paymentEventProducer.publishSubscriptionSuccessEvent(event);
+        }
 
         return new PaymentVerificationResponse(
                 success,

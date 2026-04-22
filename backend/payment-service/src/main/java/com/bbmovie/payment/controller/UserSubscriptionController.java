@@ -1,5 +1,6 @@
 package com.bbmovie.payment.controller;
 
+import com.bbmovie.payment.controller.openapi.UserSubscriptionControllerOpenApi;
 import com.bbmovie.payment.dto.ApiResponse;
 import com.bbmovie.payment.dto.request.CancelSubscriptionRequest;
 import com.bbmovie.payment.dto.request.ToggleAutoRenewRequest;
@@ -15,7 +16,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/subscription")
-public class UserSubscriptionController {
+public class UserSubscriptionController implements UserSubscriptionControllerOpenApi {
 
     private final UserSubscriptionService userSubscriptionService;
 
