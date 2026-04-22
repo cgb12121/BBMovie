@@ -1,0 +1,14 @@
+{
+  "rules": [
+    {
+      "ruleId": "auto-premium-welcome",
+      "name": "Premium welcome discount",
+      "promotionId": "00000000-0000-0000-0000-000000000001",
+      "planId": "premium_monthly",
+      "minCartValue": 9.99,
+      "currency": "USD",
+      "oneTimePerUser": true,
+      "discountValue": 1.00
+    }
+  ]
+}
