@@ -8,7 +8,7 @@ title BBMovie Master Launcher V5 (Delegated)
 :: ??nh ngh?a service (Format: Tên_Folder|Lo?i_Tech)
 set "services[1]=eureka-sever|SPRING"
 set "services[2]=gateway|SPRING"
-set "services[3]=auth-service|SPRING"
+set "services[3]=auth-platform\services\auth-service|SPRING"
 set "services[4]=file-service|SPRING"
 set "services[5]=ai-platform\services\ai-service|SPRING"
 set "services[6]=ai-platform\services\rust-ai-context-refinery|RUST"
