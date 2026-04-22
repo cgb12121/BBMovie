@@ -6,6 +6,7 @@ import bbmovie.commerce.payment_gateway.config.GatewayProperties;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
 import java.util.Map;
@@ -42,7 +43,7 @@ public class PromotionClient {
             BigDecimal discountValue = asBigDecimal(data.get("discountValue"));
             String message = asString(response.get("message"));
             return new PromotionResult(true, promotionId, discountValue, message);
-        } catch (Exception ex) {
+        } catch (RestClientException ex) {
             return new PromotionResult(false, null, BigDecimal.ZERO, "Promotion service unavailable");
         }
     }
