@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 @Service
@@ -77,10 +76,7 @@ public class EntitlementProjectionService {
 
         Instant endAt = occurredAt.plusSeconds(30L * 24 * 3600);
 
-        Optional<EntitlementRecordEntity> existing = recordRepository
-                .findFirstByUserIdAndStatusAndEndsAtAfterOrderByEndsAtDesc(userId, EntitlementStatus.ACTIVE, occurredAt);
-
-        EntitlementRecordEntity entity = existing.orElseGet(EntitlementRecordEntity::new);
+        EntitlementRecordEntity entity = new EntitlementRecordEntity();
         entity.setUserId(userId);
         entity.setSubscriptionId(subscriptionId);
         entity.setPlanId(planId);
