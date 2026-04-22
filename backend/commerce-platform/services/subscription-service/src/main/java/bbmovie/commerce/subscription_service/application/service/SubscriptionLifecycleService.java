@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.Map;
-import java.util.Optional;
 
 @Slf4j
 @Service
@@ -94,14 +93,17 @@ public class SubscriptionLifecycleService {
         }
 
         Instant now = Instant.now();
-        Optional<UserSubscriptionEntity> existing = userSubscriptionRepository
-                .findFirstByUserIdAndStatusAndEndsAtAfterOrderByEndsAtDesc(userId, SubscriptionStatus.ACTIVE, now);
+        Instant baseStart = userSubscriptionRepository
+                .findFirstByUserIdAndPlanIdAndStatusAndEndsAtAfterOrderByEndsAtDesc(
+                        userId,
+                        plan.getPlanId(),
+                        SubscriptionStatus.ACTIVE,
+                        now
+                )
+                .map(existing -> max(now, existing.getEndsAt()))
+                .orElse(now);
 
-        UserSubscriptionEntity entity = existing
-                .filter(e -> e.getPlanId().equals(plan.getPlanId()))
-                .orElseGet(UserSubscriptionEntity::new);
-
-        Instant baseStart = (entity.getSubscriptionId() == null) ? now : max(now, entity.getEndsAt());
+        UserSubscriptionEntity entity = new UserSubscriptionEntity();
         entity.setUserId(userId);
         entity.setPlanId(plan.getPlanId());
         entity.setCampaignId(campaign == null ? null : campaign.getCampaignId());

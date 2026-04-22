@@ -19,5 +19,12 @@ public interface UserSubscriptionRepository extends JpaRepository<UserSubscripti
             Instant now
     );
 
+    Optional<UserSubscriptionEntity> findFirstByUserIdAndPlanIdAndStatusAndEndsAtAfterOrderByEndsAtDesc(
+            String userId,
+            String planId,
+            SubscriptionStatus status,
+            Instant now
+    );
+
     Optional<UserSubscriptionEntity> findFirstBySourcePaymentIdOrderByCreatedAtDesc(String sourcePaymentId);
 }
