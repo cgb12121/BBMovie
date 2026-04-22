@@ -6,7 +6,9 @@ import bbmovie.commerce.subscription_service.domain.SubscriptionStatus;
 import bbmovie.commerce.subscription_service.infrastructure.persistence.entity.UserSubscriptionEntity;
 import bbmovie.commerce.subscription_service.infrastructure.persistence.repo.UserSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.List;
@@ -28,7 +30,10 @@ public class SubscriptionQueryService {
     public SubscriptionResponse getBySubscriptionId(String subscriptionId) {
         return userSubscriptionRepository.findById(subscriptionId)
                 .map(this::toResponse)
-                .orElseThrow(() -> new IllegalArgumentException("Subscription not found: " + subscriptionId));
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Subscription not found: " + subscriptionId
+                ));
     }
 
     public SubscriptionResponse getActiveByUserId(String userId) {
