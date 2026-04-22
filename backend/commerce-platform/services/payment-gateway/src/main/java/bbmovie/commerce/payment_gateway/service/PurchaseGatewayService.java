@@ -17,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.Duration;
 import java.util.HashMap;
@@ -79,7 +80,7 @@ public class PurchaseGatewayService {
                 )
         );
 
-        String gatewayRequestId = UUID.randomUUID().toString();
+        String gatewayRequestId = buildGatewayRequestId(idempotencyKey);
         PurchaseStatusResponse status = new PurchaseStatusResponse(
                 gatewayRequestId,
                 checkout.orchestratorPaymentId(),
@@ -125,5 +126,12 @@ public class PurchaseGatewayService {
 
     private String statusKey(String gatewayRequestId) {
         return STATUS_KEY_PREFIX + gatewayRequestId;
+    }
+
+    private String buildGatewayRequestId(String idempotencyKey) {
+        if (idempotencyKey == null || idempotencyKey.isBlank()) {
+            return UUID.randomUUID().toString();
+        }
+        return UUID.nameUUIDFromBytes(idempotencyKey.strip().getBytes(StandardCharsets.UTF_8)).toString();
     }
 }
