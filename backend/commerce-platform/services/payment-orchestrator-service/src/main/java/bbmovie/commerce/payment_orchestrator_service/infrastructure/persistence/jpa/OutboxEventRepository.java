@@ -1,6 +1,7 @@
 package bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.jpa;
 
 import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxEventEntity;
+import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -12,7 +13,7 @@ import java.util.Optional;
 
 @Repository
 public interface OutboxEventRepository extends JpaRepository<OutboxEventEntity, String> {
-    List<OutboxEventEntity> findTop100ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(String status, Instant now);
+    List<OutboxEventEntity> findTop100ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(OutboxStatus status, Instant now);
     @Query(value = """
             SELECT *
             FROM outbox_events
@@ -25,6 +26,6 @@ public interface OutboxEventRepository extends JpaRepository<OutboxEventEntity, 
     List<OutboxEventEntity> claimPendingBatch(@Param("status") String status,
                                               @Param("now") Instant now,
                                               @Param("limitRows") int limitRows);
-    long countByStatus(String status);
-    Optional<OutboxEventEntity> findFirstByStatusOrderByCreatedAtAsc(String status);
+    long countByStatus(OutboxStatus status);
+    Optional<OutboxEventEntity> findFirstByStatusOrderByCreatedAtAsc(OutboxStatus status);
 }

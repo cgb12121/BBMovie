@@ -2,6 +2,7 @@ package bbmovie.commerce.payment_orchestrator_service.adapter.outbound.event;
 
 import bbmovie.commerce.payment_orchestrator_service.application.port.outbound.event.EventPublisherPort;
 import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxEventEntity;
+import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxStatus;
 import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.jpa.OutboxEventRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +50,7 @@ public class CommerceEventPublisherAdapter implements EventPublisherPort {
             row.setEventType(eventType);
             row.setPaymentId(paymentId);
             row.setPayloadJson(json);
-            row.setStatus("PENDING");
+            row.setStatus(OutboxStatus.PENDING);
             row.setAttempts(0);
             row.setCreatedAt(Instant.now());
             row.setNextAttemptAt(Instant.now());

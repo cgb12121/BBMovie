@@ -1,6 +1,7 @@
 package bbmovie.commerce.payment_orchestrator_service.adapter.outbound.event;
 
 import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxEventEntity;
+import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxStatus;
 import bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.jpa.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,11 +49,11 @@ public class OutboxRelayPublisher {
         }
         // Claim rows with FOR UPDATE SKIP LOCKED so multiple instances can relay safely without duplicates.
         List<OutboxEventEntity> batch = outboxEventRepository
-                .claimPendingBatch("PENDING", Instant.now(), RELAY_BATCH_SIZE);
+                .claimPendingBatch(OutboxStatus.PENDING.name(), Instant.now(), RELAY_BATCH_SIZE);
         for (OutboxEventEntity event : batch) {
             try {
                 kafkaTemplate.send(topic, event.getPaymentId(), event.getPayloadJson());
-                event.setStatus("SENT");
+                event.setStatus(OutboxStatus.SENT);
                 event.setPublishedAt(Instant.now());
                 event.setLastError(null);
             } catch (Exception ex) {

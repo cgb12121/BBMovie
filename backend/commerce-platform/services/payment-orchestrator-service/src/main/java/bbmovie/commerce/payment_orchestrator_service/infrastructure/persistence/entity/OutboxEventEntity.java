@@ -2,6 +2,8 @@ package bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Lob;
 import jakarta.persistence.Table;
@@ -31,8 +33,9 @@ public class OutboxEventEntity {
     @Column(name = "payload_json", nullable = false, columnDefinition = "LONGTEXT")
     private String payloadJson;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 16)
-    private String status;
+    private OutboxStatus status;
 
     @Column(name = "attempts", nullable = false)
     private int attempts;
