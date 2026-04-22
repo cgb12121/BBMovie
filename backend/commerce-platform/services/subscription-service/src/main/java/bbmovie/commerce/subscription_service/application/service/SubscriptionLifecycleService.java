@@ -47,7 +47,7 @@ public class SubscriptionLifecycleService {
 
         switch (envelope.eventType()) {
             case PaymentEventTypes.PAYMENT_SUCCEEDED_V1 -> handlePaymentSucceeded(envelope);
-            case PaymentEventTypes.PAYMENT_REFUNDED_V1 -> handlePaymentCancelledOrRefunded(envelope);
+            case PaymentEventTypes.PAYMENT_REFUNDED_V1 -> handlePaymentCancelledOrRefunded(envelope, true);
             case PaymentEventTypes.PAYMENT_STATUS_UPDATED_V1 -> handlePaymentStatusUpdated(envelope);
             default -> log.debug("Ignoring unsupported payment event type for subscriptions: {}", envelope.eventType());
         }
@@ -63,7 +63,7 @@ public class SubscriptionLifecycleService {
     private void handlePaymentSucceeded(PaymentEventEnvelope envelope) {
         Map<String, Object> payload = safePayload(envelope.payload());
         String userId = extractFromPayloadOrMetadata(payload, "userId", "user_id");
-        String planId = extractFromPayloadOrMetadata(payload, "planId", "plan_id", "subscriptionId", "subscription_id");
+        String planId = extractFromPayloadOrMetadata(payload, "planId", "plan_id");
         String campaignId = extractFromPayloadOrMetadata(payload, "subscriptionCampaignId", "campaignId", "campaign_id");
 
         if (userId == null || planId == null) {
@@ -127,22 +127,27 @@ public class SubscriptionLifecycleService {
     private void handlePaymentStatusUpdated(PaymentEventEnvelope envelope) {
         Map<String, Object> payload = safePayload(envelope.payload());
         String status = toStringOrNull(payload.get("status"));
-        if ("CANCELLED".equalsIgnoreCase(status) || "EXPIRED".equalsIgnoreCase(status)) {
-            handlePaymentCancelledOrRefunded(envelope);
+        if ("CANCELLED".equalsIgnoreCase(status)) {
+            handlePaymentCancelledOrRefunded(envelope, false);
+        } else if ("EXPIRED".equalsIgnoreCase(status)) {
+            handlePaymentCancelledOrRefunded(envelope, true);
         }
     }
 
-    private void handlePaymentCancelledOrRefunded(PaymentEventEnvelope envelope) {
+    private void handlePaymentCancelledOrRefunded(PaymentEventEnvelope envelope, boolean terminateImmediately) {
         userSubscriptionRepository.findFirstBySourcePaymentIdOrderByCreatedAtDesc(envelope.paymentId())
                 .ifPresent(entity -> {
-                    entity.setStatus(SubscriptionStatus.CANCELLED);
                     entity.setAutoRenew(false);
-                    entity.setEndsAt(Instant.now());
+                    if (terminateImmediately) {
+                        entity.setStatus(SubscriptionStatus.CANCELLED);
+                        entity.setEndsAt(Instant.now());
+                    }
                     userSubscriptionRepository.save(entity);
                     log.info(
-                            "Subscription cancelled from payment event: subscriptionId={}, paymentId={}",
+                            "Subscription updated from payment event: subscriptionId={}, paymentId={}, terminateImmediately={}",
                             entity.getSubscriptionId(),
-                            envelope.paymentId()
+                            envelope.paymentId(),
+                            terminateImmediately
                     );
                 });
     }
