@@ -14,6 +14,7 @@ import bbmovie.commerce.subscription_service.infrastructure.persistence.repo.Use
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -193,17 +194,23 @@ public class SubscriptionLifecycleService {
     }
 
     private PlanEntity createFallbackPlan(String planId) {
-        PlanEntity fallback = new PlanEntity();
-        fallback.setPlanId(planId);
-        fallback.setName("External-" + planId);
-        fallback.setDurationDays(fallbackPlanDurationDays);
-        fallback.setActive(true);
-        PlanEntity saved = planRepository.save(fallback);
-        log.warn(
-                "Created fallback plan for unknown planId={}, durationDays={}",
-                planId,
-                fallbackPlanDurationDays
-        );
-        return saved;
+        try {
+            PlanEntity fallback = new PlanEntity();
+            fallback.setPlanId(planId);
+            fallback.setName("External-" + planId);
+            fallback.setDurationDays(fallbackPlanDurationDays);
+            fallback.setActive(true);
+            PlanEntity saved = planRepository.save(fallback);
+            log.warn(
+                    "Created fallback plan for unknown planId={}, durationDays={}",
+                    planId,
+                    fallbackPlanDurationDays
+            );
+            return saved;
+        } catch (DataIntegrityViolationException ex) {
+            // Another concurrent event likely created the same fallback plan first.
+            return planRepository.findByPlanId(planId)
+                    .orElseThrow(() -> ex);
+        }
     }
 }

@@ -67,7 +67,7 @@ public class KafkaConsumerConfig {
 
         DeadLetterPublishingRecoverer recoverer = new DeadLetterPublishingRecoverer(
                 kafkaTemplate,
-                (record, ex) -> new TopicPartition(record.topic() + ".dlq", record.partition())
+                (record, ex) -> new TopicPartition(record.topic() + ".dlq", -1)
         );
         DefaultErrorHandler errorHandler = new DefaultErrorHandler(recoverer, new FixedBackOff(1000L, 2L));
         factory.setCommonErrorHandler(errorHandler);
