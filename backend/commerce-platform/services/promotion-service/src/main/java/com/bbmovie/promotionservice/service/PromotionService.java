@@ -67,13 +67,6 @@ public class PromotionService {
                 .build();
         }
 
-        if (coupon.getUsageLimit() != null && coupon.getCurrentUsage() >= coupon.getUsageLimit()) {
-            return PromotionEvaluationContext.builder()
-                .eligible(false)
-                .reason("Coupon usage limit reached")
-                .build();
-        }
-
         if (request.getCartValue() != null && coupon.getMinPurchaseAmount() != null && request.getCartValue() < coupon.getMinPurchaseAmount()) {
             return PromotionEvaluationContext.builder()
                 .eligible(false)
@@ -89,8 +82,10 @@ public class PromotionService {
         }
 
         // Apply
-        coupon.setCurrentUsage(coupon.getCurrentUsage() + 1);
-        couponRepository.save(coupon);
+        int updatedRows = couponRepository.incrementUsage(coupon.getId());
+        if (updatedRows == 0) {
+            throw new IllegalStateException("Coupon usage limit reached or coupon not found");
+        }
 
         userPromotionUsageRepository.save(UserPromotionUsage.builder()
                 .userId(request.getUserId())
