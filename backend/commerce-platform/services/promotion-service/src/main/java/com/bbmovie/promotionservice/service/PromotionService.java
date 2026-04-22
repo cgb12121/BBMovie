@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,9 +30,11 @@ public class PromotionService {
     private final CouponRepository couponRepository;
     private final UserPromotionUsageRepository userPromotionUsageRepository;
     private final PromotionRuleLoader ruleLoader;
+    private final Clock clock;
 
     @Transactional
     public PromotionEvaluationContext applyCoupon(CouponApplyRequest request) {
+        LocalDateTime now = LocalDateTime.now(clock);
         Optional<Coupon> couponOpt = couponRepository.findByCode(request.getCode());
         if (couponOpt.isEmpty()) {
             return PromotionEvaluationContext.builder()
@@ -51,14 +54,14 @@ public class PromotionService {
                 .build();
         }
 
-        if (promotion.getStartDate().isAfter(LocalDateTime.now())) {
+        if (promotion.getStartDate().isAfter(now)) {
             return PromotionEvaluationContext.builder()
                 .eligible(false)
                 .reason("Coupon is not yet valid")
                 .build();
         }
 
-        if (promotion.getEndDate().isBefore(LocalDateTime.now())) {
+        if (promotion.getEndDate().isBefore(now)) {
             return PromotionEvaluationContext.builder()
                 .eligible(false)
                 .reason("Coupon has expired")
@@ -101,9 +104,10 @@ public class PromotionService {
     }
 
     public List<PromotionEvaluationContext> evaluateAutomaticPromotions(PromotionEvaluationContext context) {
+        LocalDateTime now = LocalDateTime.now(clock);
         List<PromotionEvaluationContext> results = new ArrayList<>();
         for (PromotionRule rule : ruleLoader.currentRules()) {
-            if (!matchesRule(rule, context)) {
+            if (!matchesRule(rule, context, now)) {
                 continue;
             }
             Optional<Promotion> promoOpt = findActivePromotion(rule.getPromotionId());
@@ -130,16 +134,14 @@ public class PromotionService {
         return results;
     }
 
-    private boolean matchesRule(PromotionRule rule, PromotionEvaluationContext context) {
-        if (context.getCurrentDateTime() == null) {
-            context.setCurrentDateTime(java.time.LocalDateTime.now());
-        }
+    private boolean matchesRule(PromotionRule rule, PromotionEvaluationContext context, LocalDateTime now) {
+        LocalDateTime evaluationTime = context.getCurrentDateTime() != null ? context.getCurrentDateTime() : now;
 
-        if (rule.getStartDate() != null && context.getCurrentDateTime().isBefore(rule.getStartDate())) {
+        if (rule.getStartDate() != null && evaluationTime.isBefore(rule.getStartDate())) {
             return false;
         }
 
-        if (rule.getEndDate() != null && context.getCurrentDateTime().isAfter(rule.getEndDate())) {
+        if (rule.getEndDate() != null && evaluationTime.isAfter(rule.getEndDate())) {
             return false;
         }
 
