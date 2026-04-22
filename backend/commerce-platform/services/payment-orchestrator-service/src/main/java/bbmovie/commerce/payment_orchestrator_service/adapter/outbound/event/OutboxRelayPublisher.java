@@ -20,6 +20,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OutboxRelayPublisher {
 
+    private static final int RELAY_BATCH_SIZE = 100;
+
     private final OutboxEventRepository outboxEventRepository;
     @Qualifier("outboxKafkaTemplate")
     private final ObjectProvider<KafkaTemplate<String, String>> kafkaTemplateProvider;
@@ -44,8 +46,9 @@ public class OutboxRelayPublisher {
             log.warn("Outbox relay skipped: KafkaTemplate unavailable");
             return;
         }
+        // Claim rows with FOR UPDATE SKIP LOCKED so multiple instances can relay safely without duplicates.
         List<OutboxEventEntity> batch = outboxEventRepository
-                .findTop100ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc("PENDING", Instant.now());
+                .claimPendingBatch("PENDING", Instant.now(), RELAY_BATCH_SIZE);
         for (OutboxEventEntity event : batch) {
             try {
                 kafkaTemplate.send(topic, event.getPaymentId(), event.getPayloadJson());
