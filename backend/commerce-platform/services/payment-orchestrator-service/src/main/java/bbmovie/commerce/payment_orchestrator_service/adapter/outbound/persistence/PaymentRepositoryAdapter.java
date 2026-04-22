@@ -21,6 +21,9 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class PaymentRepositoryAdapter implements PaymentRepositoryPort {
 
+    private static final TypeReference<Map<String, String>> PAYMENT_METADATA_TYPE = new TypeReference<>() {
+    };
+
     private final PaymentJpaRepository paymentJpaRepository;
     private final ObjectMapper objectMapper;
 
@@ -80,8 +83,7 @@ public class PaymentRepositoryAdapter implements PaymentRepositoryPort {
             return Map.of();
         }
         try {
-            return objectMapper.readValue(metadataJson, new TypeReference<Map<String, String>>() {
-            });
+            return objectMapper.readValue(metadataJson, PAYMENT_METADATA_TYPE);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to deserialize payment metadata", e);
         }
