@@ -1,4 +1,4 @@
-package com.bbmovie.transcodeworker.persistence.entity;
+package com.bbmovie.transcodeworker.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -8,8 +8,8 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 
 @Entity
-@Table(name = "tb_quality_report")
-public class QualityReportEntity {
+@Table(name = "tb_validation_report")
+public class ValidationReportEntity {
 
     @Id
     @Column(length = 36)
@@ -24,20 +24,14 @@ public class QualityReportEntity {
     @Column(name = "analysis_version", nullable = false)
     private int analysisVersion;
 
-    @Column(name = "metric", nullable = false, length = 32)
-    private String metric;
+    @Column(name = "status", nullable = false, length = 16)
+    private String status;
 
-    @Column(name = "score", nullable = false)
-    private double score;
+    @Column(name = "violations_json", length = 16384)
+    private String violationsJson;
 
-    @Column(name = "psnr_db")
-    private Double psnrDb;
-
-    @Column(name = "ssim_score")
-    private Double ssimScore;
-
-    @Column(name = "artifact_uri", length = 1024)
-    private String artifactUri;
+    @Column(name = "ffprobe_artifact_uri", length = 1024)
+    private String ffprobeArtifactUri;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -74,44 +68,28 @@ public class QualityReportEntity {
         this.analysisVersion = analysisVersion;
     }
 
-    public String getMetric() {
-        return metric;
+    public String getStatus() {
+        return status;
     }
 
-    public void setMetric(String metric) {
-        this.metric = metric;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
-    public double getScore() {
-        return score;
+    public String getViolationsJson() {
+        return violationsJson;
     }
 
-    public void setScore(double score) {
-        this.score = score;
+    public void setViolationsJson(String violationsJson) {
+        this.violationsJson = violationsJson;
     }
 
-    public Double getPsnrDb() {
-        return psnrDb;
+    public String getFfprobeArtifactUri() {
+        return ffprobeArtifactUri;
     }
 
-    public void setPsnrDb(Double psnrDb) {
-        this.psnrDb = psnrDb;
-    }
-
-    public Double getSsimScore() {
-        return ssimScore;
-    }
-
-    public void setSsimScore(Double ssimScore) {
-        this.ssimScore = ssimScore;
-    }
-
-    public String getArtifactUri() {
-        return artifactUri;
-    }
-
-    public void setArtifactUri(String artifactUri) {
-        this.artifactUri = artifactUri;
+    public void setFfprobeArtifactUri(String ffprobeArtifactUri) {
+        this.ffprobeArtifactUri = ffprobeArtifactUri;
     }
 
     public Instant getCreatedAt() {

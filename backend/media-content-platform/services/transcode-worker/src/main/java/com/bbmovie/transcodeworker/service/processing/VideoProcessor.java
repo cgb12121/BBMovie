@@ -1,19 +1,19 @@
 package com.bbmovie.transcodeworker.service.processing;
 
 import com.bbmovie.transcodeworker.enums.UploadPurpose;
-import com.bbmovie.transcodeworker.port.ComplexityAnalysisPort;
-import com.bbmovie.transcodeworker.port.EncodeValidationPort;
-import com.bbmovie.transcodeworker.port.VideoQualityPort;
 import com.bbmovie.transcodeworker.service.analysis.AnalysisEventPublisher;
 import com.bbmovie.transcodeworker.service.analysis.AnalysisPersistenceService;
+import com.bbmovie.transcodeworker.service.complexity.ComplexityAnalysisService;
 import com.bbmovie.transcodeworker.service.complexity.dto.ComplexityProfile;
 import com.bbmovie.transcodeworker.service.ffmpeg.FFmpegVideoMetadata;
 import com.bbmovie.transcodeworker.service.ffmpeg.VideoTranscoderService;
 import com.bbmovie.transcodeworker.service.ladder.LadderGenerationService;
 import com.bbmovie.transcodeworker.service.pipeline.dto.ExecuteTask;
 import com.bbmovie.transcodeworker.service.pipeline.dto.ProbeResult;
+import com.bbmovie.transcodeworker.service.quality.VideoQualityService;
 import com.bbmovie.transcodeworker.service.quality.dto.QualityReport;
 import com.bbmovie.transcodeworker.service.storage.MinioUploadService;
+import com.bbmovie.transcodeworker.service.validation.encode.EncodeValidationService;
 import com.bbmovie.transcodeworker.service.validation.encode.dto.EncodingExpectations;
 import com.bbmovie.transcodeworker.service.validation.encode.dto.ValidationReport;
 import lombok.RequiredArgsConstructor;
@@ -53,9 +53,9 @@ public class VideoProcessor implements MediaProcessor {
     private final VideoTranscoderService videoTranscoderService;
     private final LadderGenerationService ladderGenerationService;
     private final MinioUploadService uploadService;
-    private final ComplexityAnalysisPort complexityAnalysisPort;
-    private final EncodeValidationPort encodeValidationPort;
-    private final VideoQualityPort videoQualityPort;
+    private final ComplexityAnalysisService complexityAnalysisService;
+    private final EncodeValidationService encodeValidationService;
+    private final VideoQualityService videoQualityService;
     private final AnalysisPersistenceService analysisPersistenceService;
     private final AnalysisEventPublisher analysisEventPublisher;
 
@@ -89,7 +89,7 @@ public class VideoProcessor implements MediaProcessor {
             );
 
             // 3. CAS + determine resolutions
-            ComplexityProfile complexityProfile = complexityAnalysisPort.analyze(taskId, metadata);
+            ComplexityProfile complexityProfile = complexityAnalysisService.analyze(taskId, metadata);
             analysisPersistenceService.saveComplexityProfile(complexityProfile);
             List<VideoTranscoderService.VideoResolution> resolutions =
                     ladderGenerationService.resolveEncodingLadder(
@@ -157,7 +157,7 @@ public class VideoProcessor implements MediaProcessor {
                         "aac"
                 );
 
-                ValidationReport validationReport = encodeValidationPort.validate(
+                ValidationReport validationReport = encodeValidationService.validate(
                         task.uploadId(),
                         playlist,
                         resolution.filename(),
@@ -173,7 +173,7 @@ public class VideoProcessor implements MediaProcessor {
                     throw new RuntimeException("VVS failed for " + resolution.filename() + ": " + validationReport.violations());
                 }
 
-                QualityReport qualityReport = videoQualityPort.score(
+                QualityReport qualityReport = videoQualityService.score(
                         task.uploadId(),
                         sourceFile,
                         playlist,

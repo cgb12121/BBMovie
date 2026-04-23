@@ -1,11 +1,11 @@
 package com.bbmovie.transcodeworker.service.analysis;
 
-import com.bbmovie.transcodeworker.persistence.entity.ComplexityProfileEntity;
-import com.bbmovie.transcodeworker.persistence.entity.QualityReportEntity;
-import com.bbmovie.transcodeworker.persistence.entity.ValidationReportEntity;
-import com.bbmovie.transcodeworker.persistence.repository.ComplexityProfileRepository;
-import com.bbmovie.transcodeworker.persistence.repository.QualityReportRepository;
-import com.bbmovie.transcodeworker.persistence.repository.ValidationReportRepository;
+import com.bbmovie.transcodeworker.entity.ComplexityProfileEntity;
+import com.bbmovie.transcodeworker.entity.QualityReportEntity;
+import com.bbmovie.transcodeworker.entity.ValidationReportEntity;
+import com.bbmovie.transcodeworker.repository.ComplexityProfileRepository;
+import com.bbmovie.transcodeworker.repository.QualityReportRepository;
+import com.bbmovie.transcodeworker.repository.ValidationReportRepository;
 import com.bbmovie.transcodeworker.service.complexity.dto.ComplexityProfile;
 import com.bbmovie.transcodeworker.service.quality.dto.QualityReport;
 import com.bbmovie.transcodeworker.service.validation.encode.dto.ValidationReport;
