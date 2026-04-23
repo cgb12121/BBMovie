@@ -1,5 +1,7 @@
 # Legacy Business Flows: auth-service
 
+> Deprecated reference. Target split flow lives in `backend/auth-platform/docs/refactor/`.
+
 This document describes the critical business processes implemented within the monolithic `auth-service`.
 
 ## 1. User Registration & Email Verification

@@ -1,5 +1,7 @@
 # Legacy Folder Structure: auth-service
 
+> Deprecated reference. Keep only for migration mapping and rollback context.
+
 The `auth-service` is a monolithic Spring Boot application organized by functional packages. Below is a detailed breakdown of the package structure and the responsibilities of each directory.
 
 ## Package: `com.bbmovie.auth`

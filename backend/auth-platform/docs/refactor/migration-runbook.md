@@ -40,6 +40,9 @@ Rollback checkpoint: disable target writes and continue monolith-only writes.
   3. student reads -> `student-service`
   4. token/session reads -> `sso-service`
 - Use feature flags per endpoint or traffic segment.
+  - `cutover.identity.enabled`
+  - `cutover.mfa.enabled`
+  - `cutover.sso.enabled`
 
 Rollback checkpoint: flip read flags back to monolith.
 
@@ -81,4 +84,7 @@ Rollback checkpoint: temporary fallback to centralized introspection/legacy auth
 - [ ] JWKS refresh errors below threshold
 - [ ] session revoke propagation within agreed SLA
 - [ ] data parity checks pass for migrated tables
+
+## Related
+- `cutover-gates.md`
 

@@ -1,5 +1,7 @@
 # Legacy Architecture: auth-service
 
+> Deprecated reference. Use `backend/auth-platform/docs/refactor/` for all new implementation decisions.
+
 The current `auth-service` is a monolithic security and identity provider built with **Spring Boot 3.x** and **Java 21**. It serves as the centralized authority for authentication and user authorization across the BBMovie platform.
 
 ## Technology Stack

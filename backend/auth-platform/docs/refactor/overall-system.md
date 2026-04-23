@@ -66,3 +66,5 @@ Keep transport-agnostic DTOs in `com.bbmovie:common`, while auth enforcement and
 ## 5. Related Design Docs
 - `internal-api-contracts.md`
 - `migration-runbook.md`
+- `legacy-endpoint-migration-map.md`
+- `cutover-gates.md`

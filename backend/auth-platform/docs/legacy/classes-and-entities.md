@@ -1,5 +1,7 @@
 # Legacy Classes and Entities: auth-service
 
+> Deprecated reference. New model ownership should follow split-service docs in `backend/auth-platform/docs/refactor/`.
+
 This document outlines the core data models and their relationships within the `auth-service` database schema.
 
 ## Core Entities
