@@ -47,13 +47,15 @@ class OutboxRelayPublisherTest {
         event.setId("outbox-1");
         event.setPaymentId("pay-1");
         event.setPayloadJson("{\"eventType\":\"PaymentSucceededV1\"}");
-        event.setStatus("PENDING");
+        event.setStatus(bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxStatus.PENDING);
         event.setCreatedAt(Instant.now());
         event.setNextAttemptAt(Instant.now());
 
         when(kafkaTemplateProvider.getIfAvailable()).thenReturn(kafkaTemplate);
-        when(outboxEventRepository.findTop100ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(eq("PENDING"), any()))
-                .thenReturn(List.of(event));
+        when(outboxEventRepository.findTop100ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+            eq(bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxStatus.PENDING)
+            , any())
+        ).thenReturn(List.of(event));
 
         outboxRelayPublisher.relayBatch();
 
@@ -72,13 +74,16 @@ class OutboxRelayPublisherTest {
         event.setId("outbox-2");
         event.setPaymentId("pay-2");
         event.setPayloadJson("{\"eventType\":\"PaymentFailedV1\"}");
-        event.setStatus("PENDING");
+        event.setStatus(bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxStatus.PENDING);
         event.setAttempts(0);
         event.setCreatedAt(Instant.now());
         event.setNextAttemptAt(Instant.now());
 
         when(kafkaTemplateProvider.getIfAvailable()).thenReturn(kafkaTemplate);
-        when(outboxEventRepository.findTop100ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(eq("PENDING"), any()))
+        when(outboxEventRepository.findTop100ByStatusAndNextAttemptAtLessThanEqualOrderByCreatedAtAsc(
+            eq(bbmovie.commerce.payment_orchestrator_service.infrastructure.persistence.entity.OutboxStatus.PENDING)
+            , any())
+        )
                 .thenReturn(List.of(event));
         doThrow(new RuntimeException("broker unavailable"))
                 .when(kafkaTemplate).send(any(String.class), any(String.class), any(String.class));
