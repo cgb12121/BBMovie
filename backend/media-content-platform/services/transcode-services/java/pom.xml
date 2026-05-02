@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>bbmovie.transcode</groupId>
+	<artifactId>transcode-services-java</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+	<name>transcode-services-java</name>
+	<description>Aggregator for BBMovie transcode Java services (contracts, orchestrator, VES, …)</description>
+
+	<modules>
+		<module>transcode-contracts</module>
+		<module>temporal-orchestrator</module>
+		<module>ves</module>
+		<module>cas</module>
+		<module>lgs</module>
+		<module>vis</module>
+		<module>vvs</module>
+		<module>vqs</module>
+	</modules>
+</project>
