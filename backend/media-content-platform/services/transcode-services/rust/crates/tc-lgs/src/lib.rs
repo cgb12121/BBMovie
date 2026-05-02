@@ -25,7 +25,7 @@ pub fn ladder_for_metadata(meta: &VideoMetadata) -> Vec<LadderRung> {
     ladder_for_source(&summary)
 }
 
-/// Returns rungs at or below source height (inclusive of closest match), cheapest-first for same tier ordering by descending resolution in list order.
+/// Returns rungs at or below source height (inclusive of closest match), in descending resolution order.
 pub fn ladder_for_source(summary: &SourceVideoSummary) -> Vec<LadderRung> {
     PRESET
         .iter()
@@ -38,7 +38,6 @@ pub fn ladder_for_source(summary: &SourceVideoSummary) -> Vec<LadderRung> {
         })
         .collect()
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
