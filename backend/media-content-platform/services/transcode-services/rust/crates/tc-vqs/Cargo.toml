@@ -1,0 +1,13 @@
+[package]
+name = "tc-vqs"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+transcode-contracts = { path = "../transcode-contracts" }
+tc-ffprobe = { path = "../tc-ffprobe" }
+serde_json.workspace = true
+
+[[bin]]
+name = "vqs"
+path = "src/main.rs"

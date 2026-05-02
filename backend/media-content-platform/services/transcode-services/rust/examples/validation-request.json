@@ -1,0 +1,7 @@
+{
+  "uploadId": "demo",
+  "playlistPath": "bbmovie-hls/movies/demo/1080p/playlist.m3u8",
+  "renditionLabel": "1080p",
+  "expectedWidth": 1920,
+  "expectedHeight": 1080
+}

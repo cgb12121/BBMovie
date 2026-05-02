@@ -159,14 +159,14 @@ Path conventions used by worker:
 
 ## Service Dependencies
 
-## `media-upload-service`
+### `media-upload-service`
 - Spring Boot (Web, Security, Data JPA)
 - MinIO Java SDK
 - NATS Java client
 - MySQL + Liquibase
 - OAuth2/JWT integration
 
-## `transcode-worker`
+### `transcode-worker`
 - Spring Boot
 - NATS Java client (JetStream)
 - MinIO Java SDK
@@ -174,11 +174,10 @@ Path conventions used by worker:
 - Apache Tika
 - ClamAV (configurable on/off)
 
-## `media-service`
+### `media-service`
 - Spring Boot (Web, Security, Data JPA)
 - NATS Java client
 - MySQL
-
 ---
 
 ## Infrastructure Requirements

@@ -1,0 +1,10 @@
+[package]
+name = "tc-ffprobe"
+version.workspace = true
+edition.workspace = true
+description = "FFprobe subprocess + JSON parse — parity with Java bramp FFmpegProbeResult → MetadataDTO / LgsSourceVideoMetadata"
+
+[dependencies]
+transcode-contracts = { path = "../transcode-contracts" }
+serde.workspace = true
+serde_json.workspace = true

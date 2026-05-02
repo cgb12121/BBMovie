@@ -1,0 +1,12 @@
+[package]
+name = "tc-ves"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+transcode-contracts = { path = "../transcode-contracts" }
+serde_json.workspace = true
+
+[[bin]]
+name = "ves"
+path = "src/main.rs"
