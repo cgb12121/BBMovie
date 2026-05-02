@@ -1,0 +1,14 @@
+[package]
+name = "tc-vis"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+transcode-contracts = { path = "../transcode-contracts" }
+tc-ffprobe = { path = "../tc-ffprobe" }
+tc-lgs = { path = "../tc-lgs" }
+serde_json.workspace = true
+
+[[bin]]
+name = "vis"
+path = "src/main.rs"
