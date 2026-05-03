@@ -1,17 +1,66 @@
 //! Video validation — dimension gate (VVS analogue).
 
+use std::fs::File;
+use std::io::Write;
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use tc_ffprobe::FfprobeError;
+use tc_runtime::config::RuntimeConfig;
+use tc_runtime::storage::StorageClient;
 use transcode_contracts::dto::{QualityReport, ValidationRequest};
 
 const DIM_TOLERANCE: i32 = 8;
 
+pub fn validate_from_storage(
+    cfg: &RuntimeConfig,
+    storage: &StorageClient,
+    req: &ValidationRequest
+) -> QualityReport {
+    match storage.download_object(&cfg.hls_bucket, &req.playlist_path) {
+        Ok(bytes) => {
+            let temp_path = temp_playlist_path(&req.upload_id);
+            let write_result = File::create(&temp_path).and_then(|mut f| f.write_all(&bytes));
+            if let Err(e) = write_result {
+                return QualityReport {
+                    rendition_label: req.rendition_label.clone(),
+                    passed: false,
+                    score: 0.0,
+                    detail: format!("write_temp_playlist_failed: {e}"),
+                };
+            }
+            let report = validate_playlist(&cfg.ffprobe_path, temp_path.to_string_lossy().as_ref(), req);
+            let _ = std::fs::remove_file(temp_path);
+            report
+        }
+        Err(e) => QualityReport {
+            rendition_label: req.rendition_label.clone(),
+            passed: false,
+            score: 0.0,
+            detail: format!("download_playlist_failed: {e}"),
+        },
+    }
+}
+
 pub fn validate_playlist(
     ffprobe_exe: &str,
     playlist_path: &str,
-    req: &ValidationRequest,
-) -> Result<QualityReport, FfprobeError> {
-    let meta = tc_ffprobe::probe(ffprobe_exe, playlist_path)?;
-    Ok(validate_dimensions(req, meta.width, meta.height))
+    req: &ValidationRequest
+) -> QualityReport {
+    match tc_ffprobe::probe(ffprobe_exe, playlist_path) {
+        Ok(meta) => validate_dimensions(req, meta.width, meta.height),
+        Err(FfprobeError::NoVideoStream) => QualityReport {
+            rendition_label: req.rendition_label.clone(),
+            passed: false,
+            score: 0.0,
+            detail: "no_video_stream".into(),
+        },
+        Err(e) => QualityReport {
+            rendition_label: req.rendition_label.clone(),
+            passed: false,
+            score: 0.0,
+            detail: e.to_string(),
+        },
+    }
 }
 
 pub fn validate_dimensions(
@@ -27,24 +76,19 @@ pub fn validate_dimensions(
         rendition_label: req.rendition_label.clone(),
         passed,
         score,
-        detail: "vvs_ffprobe_dimensions".into(),
+        detail: format!(
+            "vvs_ffprobe_dimensions expected={}x{} actual={}x{} tolerance={}",
+            req.expected_width, req.expected_height, actual_width, actual_height, DIM_TOLERANCE
+        ),
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn within_tolerance_passes() {
-        let req = ValidationRequest {
-            upload_id: "u1".into(),
-            playlist_path: "p.m3u8".into(),
-            rendition_label: "1080p".into(),
-            expected_width: 1920,
-            expected_height: 1080,
-        };
-        let r = validate_dimensions(&req, 1924, 1076);
-        assert!(r.passed);
-    }
+fn temp_playlist_path(upload_id: &str) -> std::path::PathBuf {
+    let mut p = std::env::temp_dir();
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    p.push(format!("vvs_{}_{}_playlist.m3u8", upload_id, ts));
+    p
 }

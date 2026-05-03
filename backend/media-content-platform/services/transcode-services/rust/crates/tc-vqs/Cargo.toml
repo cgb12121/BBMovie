@@ -3,10 +3,29 @@ name = "tc-vqs"
 version.workspace = true
 edition.workspace = true
 
+[features]
+default = []
+temporal-runtime = [
+    "dep:tokio",
+    "dep:temporalio-client",
+    "dep:temporalio-common",
+    "dep:temporalio-macros",
+    "dep:temporalio-sdk",
+    "dep:temporalio-sdk-core",
+]
+
 [dependencies]
 transcode-contracts = { path = "../transcode-contracts" }
 tc-ffprobe = { path = "../tc-ffprobe" }
+tc-runtime = { path = "../tc-runtime" }
 serde_json.workspace = true
+futures.workspace = true
+tokio = { workspace = true, optional = true }
+temporalio-client = { workspace = true, optional = true }
+temporalio-common = { workspace = true, optional = true }
+temporalio-macros = { workspace = true, optional = true }
+temporalio-sdk = { workspace = true, optional = true }
+temporalio-sdk-core = { workspace = true, optional = true }
 
 [[bin]]
 name = "vqs"
