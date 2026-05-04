@@ -8,4 +8,4 @@ anyhow.workspace = true
 thiserror.workspace = true
 tokio.workspace = true
 reqwest.workspace = true
-s3 = { package = "rust-s3", version = "0.35.1", default-features = false, features = ["with-tokio", "tokio-rustls-tls"] }
+s3 = { workspace = true, default-features = false, features = ["with-tokio", "tokio-rustls-tls"] }

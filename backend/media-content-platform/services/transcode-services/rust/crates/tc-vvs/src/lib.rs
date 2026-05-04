@@ -1,6 +1,7 @@
 //! Video validation — dimension gate (VVS analogue).
 
 use std::fs::File;
+use std::hash::{Hash, Hasher};
 use std::io::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -89,6 +90,31 @@ fn temp_playlist_path(upload_id: &str) -> std::path::PathBuf {
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    p.push(format!("vvs_{}_{}_playlist.m3u8", upload_id, ts));
+    let safe_upload_id = sanitize_upload_id(upload_id);
+    p.push(format!("vvs_{}_{}_playlist.m3u8", safe_upload_id, ts));
     p
+}
+
+fn sanitize_upload_id(upload_id: &str) -> String {
+    let mut out = String::with_capacity(upload_id.len().min(48));
+    for ch in upload_id.chars() {
+        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+            out.push(ch);
+        } else if ch.is_ascii_whitespace() {
+            out.push('_');
+        }
+    }
+    if out.len() > 48 {
+        out.truncate(48);
+    }
+    if out.is_empty() {
+        return fallback_upload_id_token(upload_id);
+    }
+    out
+}
+
+fn fallback_upload_id_token(upload_id: &str) -> String {
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    upload_id.hash(&mut hasher);
+    format!("upload_{:08x}", (hasher.finish() & 0xffff_ffff) as u32)
 }

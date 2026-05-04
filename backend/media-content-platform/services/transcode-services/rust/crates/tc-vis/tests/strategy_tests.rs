@@ -4,7 +4,7 @@ use tc_vis::{default_fast_probe, ProbeRequest};
 
 #[test]
 fn fast_probe_reports_no_strategy_for_non_video_extension() {
-    let service = default_fast_probe("ffprobe", 1);
+    let service = default_fast_probe("ffprobe", 1).expect("service init");
     let req = ProbeRequest {
         bucket: "b".into(),
         key: "notes.txt".into(),
@@ -20,7 +20,11 @@ fn fast_probe_reports_no_strategy_for_non_video_extension() {
 fn partial_probe_path_can_run_with_local_media() {
     let path = std::env::var("BBMOVIE_FFPROBE_MEDIA").expect("BBMOVIE_FFPROBE_MEDIA");
     let ext = if path.to_ascii_lowercase().ends_with(".mov") { "movie.mov" } else { "movie.mp4" };
-    let service = default_fast_probe(std::env::var("FFPROBE_PATH").unwrap_or_else(|_| "ffprobe".into()), 2);
+    let service = default_fast_probe(
+        std::env::var("FFPROBE_PATH").unwrap_or_else(|_| "ffprobe".into()),
+        2,
+    )
+    .expect("service init");
     let req = ProbeRequest {
         bucket: "b".into(),
         key: ext.into(),

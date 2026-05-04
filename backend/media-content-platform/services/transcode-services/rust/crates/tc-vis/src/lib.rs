@@ -10,6 +10,7 @@ use std::io::{Read, Write};
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use anyhow::Result;
 use tc_runtime::config::RuntimeConfig;
 use tc_runtime::storage::StorageClient;
 use transcode_contracts::dto::VideoMetadata;
@@ -127,11 +128,7 @@ impl ProbeStrategy for PartialFileProbe {
         let buf = match &request.source {
             Some(s) if s.starts_with("http://") || s.starts_with("https://") => self
                 .storage
-                .download_via_url(s)
-                .map(|mut b| {
-                    b.truncate(limit.min(b.len()));
-                    b
-                })
+                .download_via_url(s, limit)
                 .map_err(|e| ProbeError::Io(format!("http partial fetch failed: {e}")))?,
             Some(s) if Path::new(s).is_file() => {
                 let mut input = File::open(s)
@@ -203,11 +200,11 @@ impl FastProbeService {
     }
 }
 
-pub fn default_fast_probe(ffprobe_path: impl Into<String>, partial_size_mb: usize) -> FastProbeService {
+pub fn default_fast_probe(ffprobe_path: impl Into<String>, partial_size_mb: usize) -> Result<FastProbeService> {
     let cfg = RuntimeConfig::from_env();
-    let storage = StorageClient::new(cfg).expect("storage init");
+    let storage = StorageClient::new(cfg)?;
     let ffprobe_path = ffprobe_path.into();
-    FastProbeService::new(vec![
+    Ok(FastProbeService::new(vec![
         Box::new(PresignedUrlProbe {
             ffprobe_path: ffprobe_path.clone(),
             storage: storage.clone(),
@@ -217,7 +214,7 @@ pub fn default_fast_probe(ffprobe_path: impl Into<String>, partial_size_mb: usiz
             partial_size_mb: partial_size_mb.max(1),
             storage,
         }),
-    ])
+    ]))
 }
 
 fn is_video_by_extension(key: &str) -> bool {

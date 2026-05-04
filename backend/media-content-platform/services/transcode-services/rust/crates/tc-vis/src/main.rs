@@ -71,7 +71,7 @@ async fn run_main() -> Result<(), Box<dyn Error>> {
         .ok()
         .and_then(|v| v.parse::<usize>().ok())
         .unwrap_or(10);
-    let probe = default_fast_probe(cfg.ffprobe_path.clone(), partial_mb);
+    let probe = default_fast_probe(cfg.ffprobe_path.clone(), partial_mb)?;
     let outcome = probe
         .probe(&ProbeRequest {
             bucket,
@@ -98,9 +98,9 @@ async fn run_main() -> Result<(), Box<dyn Error>> {
 
 fn infer_key(input: &str) -> String {
     if let Some((_, tail)) = input.rsplit_once('/') {
-        tail.to_lowercase()
+        tail.to_string()
     } else {
-        input.to_lowercase()
+        input.to_string()
     }
 }
 
@@ -117,7 +117,7 @@ async fn run_worker_mode(cfg: RuntimeConfig) -> Result<(), Box<dyn Error>> {
     let connection = Connection::connect(connection_options).await?;
     let client = Client::new(connection, client_options)?;
 
-    let probe = default_fast_probe(cfg.ffprobe_path.clone(), 10);
+    let probe = default_fast_probe(cfg.ffprobe_path.clone(), 10)?;
     let activities = VisActivities {
         probe: Arc::new(probe),
         source_bucket: cfg.source_bucket.clone(),
