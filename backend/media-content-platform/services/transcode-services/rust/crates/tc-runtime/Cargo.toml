@@ -1,0 +1,11 @@
+[package]
+name = "tc-runtime"
+version.workspace = true
+edition.workspace = true
+
+[dependencies] 
+anyhow.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+reqwest.workspace = true
+s3 = { workspace = true, default-features = false, features = ["with-tokio", "tokio-rustls-tls"] }
