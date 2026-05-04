@@ -6,3 +6,4 @@
 .env.nats
 .env.minio-mc
 minio-init.sh
+target/
