@@ -1,7 +1,4 @@
 package bbmovie.transcode.vis.probe;
-
-import bbmovie.transcode.lgs.analysis.LgsLadderGenerationService;
-import bbmovie.transcode.lgs.analysis.LgsSourceVideoMetadata;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -19,13 +16,13 @@ public class VisPartialDownloadProbeStrategy implements VisProbeStrategy {
 
     private final VisMinioPartialDownloadService downloadService;
     private final VisMetadataService metadataService;
-    private final LgsLadderGenerationService ladderGenerationService;
+    private final VisLadderGenerationService ladderGenerationService;
     private final int partialSizeMb;
 
     public VisPartialDownloadProbeStrategy(
             VisMinioPartialDownloadService downloadService,
             VisMetadataService metadataService,
-            LgsLadderGenerationService ladderGenerationService,
+            VisLadderGenerationService ladderGenerationService,
             @Value("${app.vis.probe.partial-size-mb:10}") int partialSizeMb) {
         this.downloadService = downloadService;
         this.metadataService = metadataService;
@@ -57,8 +54,8 @@ public class VisPartialDownloadProbeStrategy implements VisProbeStrategy {
             byte[] partialData = downloadService.downloadPartial(bucket, key, partialBytes);
             tempFile = Files.createTempFile("vis_probe_", ".partial");
             Files.write(tempFile, partialData);
-            LgsSourceVideoMetadata metadata = metadataService.getMetadata(tempFile);
-            List<LgsLadderGenerationService.LadderRung> resolutions = ladderGenerationService.generateEncodingLadder(metadata);
+            VisSourceVideoMetadata metadata = metadataService.getMetadata(tempFile);
+            List<VisLadderGenerationService.LadderRung> resolutions = ladderGenerationService.generateEncodingLadder(metadata);
             List<String> suffixes = ladderGenerationService.toSuffixes(resolutions);
             int peakCost = ladderGenerationService.calculatePeakCost(suffixes);
             int totalCost = ladderGenerationService.calculateTotalCost(suffixes);

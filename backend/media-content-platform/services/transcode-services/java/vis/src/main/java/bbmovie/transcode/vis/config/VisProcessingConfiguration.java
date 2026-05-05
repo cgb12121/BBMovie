@@ -1,5 +1,7 @@
 package bbmovie.transcode.vis.config;
 
+import bbmovie.transcode.vis.probe.VisLadderGenerationService;
+import bbmovie.transcode.vis.probe.VisResolutionCostCalculator;
 import io.minio.MinioClient;
 import net.bramp.ffmpeg.FFprobe;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,5 +29,15 @@ public class VisProcessingConfiguration {
     @Bean
     public FFprobe visFfprobe(VisMediaProcessingProperties properties) throws IOException {
         return new FFprobe(properties.getFfprobePath());
+    }
+
+    @Bean
+    public VisResolutionCostCalculator visResolutionCostCalculator() {
+        return new VisResolutionCostCalculator();
+    }
+
+    @Bean
+    public VisLadderGenerationService visLadderGenerationService(VisResolutionCostCalculator visResolutionCostCalculator) {
+        return new VisLadderGenerationService(visResolutionCostCalculator);
     }
 }

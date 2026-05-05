@@ -2,10 +2,14 @@ package bbmovie.transcode.cas.config;
 
 import bbmovie.transcode.cas.analysis.CasLadderGenerationService;
 import bbmovie.transcode.cas.analysis.ComplexityAnalysisService;
+import bbmovie.transcode.cas.analysis.ComplexityAnalysisV2Service;
 import bbmovie.transcode.cas.analysis.ComplexityProfile;
+import bbmovie.transcode.cas.analysis.DecisionHintsPolicyEngine;
 import bbmovie.transcode.cas.analysis.HeuristicComplexityAnalysisService;
 import bbmovie.transcode.cas.analysis.ResolutionCostCalculator;
+import bbmovie.transcode.cas.analysis.VectorComplexityAnalysisService;
 import bbmovie.transcode.cas.processing.CasMinioProbeManifestService;
+import bbmovie.transcode.cas.processing.CasProfileCompatibilityAdapter;
 import bbmovie.transcode.cas.processing.CasProcessingService;
 import io.minio.MinioClient;
 import net.bramp.ffmpeg.FFprobe;
@@ -58,18 +62,33 @@ public class CasProcessingConfiguration {
     }
 
     @Bean
+    public ComplexityAnalysisV2Service casComplexityAnalysisV2Service(
+            DecisionHintsPolicyEngine decisionHintsPolicyEngine,
+            CasMediaProcessingProperties casMediaProcessingProperties) {
+        return new VectorComplexityAnalysisService(
+                decisionHintsPolicyEngine,
+                casMediaProcessingProperties.getProfileV2AnalysisVersion(),
+                casMediaProcessingProperties.getProfileV2PolicyVersion()
+        );
+    }
+
+    @Bean
     public CasProcessingService casProcessingService(
             MinioClient casMinioClient,
             FFprobe casFfprobe,
             CasMediaProcessingProperties casMediaProcessingProperties,
             ComplexityAnalysisService casComplexityAnalysisService,
-            CasLadderGenerationService casLadderGenerationService) {
+            ComplexityAnalysisV2Service casComplexityAnalysisV2Service,
+            CasLadderGenerationService casLadderGenerationService,
+            CasProfileCompatibilityAdapter casProfileCompatibilityAdapter) {
         return new CasMinioProbeManifestService(
                 casMinioClient,
                 casFfprobe,
                 casMediaProcessingProperties,
                 casComplexityAnalysisService,
-                casLadderGenerationService
+                casComplexityAnalysisV2Service,
+                casLadderGenerationService,
+                casProfileCompatibilityAdapter
         );
     }
 }

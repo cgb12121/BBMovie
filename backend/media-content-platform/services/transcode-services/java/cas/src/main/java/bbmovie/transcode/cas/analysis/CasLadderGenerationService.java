@@ -1,5 +1,6 @@
 package bbmovie.transcode.cas.analysis;
 
+import bbmovie.transcode.contracts.dto.DecisionHintsV2;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -56,6 +57,31 @@ public class CasLadderGenerationService {
                 metadata.height(),
                 ladder.stream().map(LadderRung::filename).toList());
         return ladder;
+    }
+
+    public List<LadderRung> generateAdaptiveEncodingLadder(
+            SourceVideoMetadata metadata,
+            RecipeHints recipeHints,
+            DecisionHintsV2 decisionHints) {
+        List<LadderRung> ladder = generateEncodingLadder(metadata, recipeHints);
+        if (decisionHints == null) {
+            return ladder;
+        }
+        List<LadderRung> filtered = ladder.stream()
+                .filter(r -> decisionHints.skipRungs() == null || !decisionHints.skipRungs().contains(r.filename()))
+                .toList();
+        if (filtered.isEmpty()) {
+            filtered = ladder;
+        }
+        int maxRungs = Math.max(1, decisionHints.maxRungs());
+        if (filtered.size() > maxRungs) {
+            filtered = filtered.subList(0, maxRungs);
+        }
+        log.info("Adaptive ladder with policyVersion={} riskClass={} -> {}",
+                decisionHints.policyVersion(),
+                decisionHints.complexityRiskClass(),
+                filtered.stream().map(LadderRung::filename).toList());
+        return filtered;
     }
 
     public List<LadderRung> applyRecipeHints(List<LadderRung> ladder, RecipeHints hints) {

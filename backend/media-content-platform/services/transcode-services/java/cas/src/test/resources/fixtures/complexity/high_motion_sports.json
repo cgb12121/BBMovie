@@ -1,0 +1,20 @@
+{
+  "uploadId": "sports-001",
+  "bucket": "source",
+  "key": "sports.mp4",
+  "width": 1920,
+  "height": 1080,
+  "durationSeconds": 4200.0,
+  "codec": "h264",
+  "container": "mp4",
+  "frameRate": 59.94,
+  "fpsMode": "cfr",
+  "audioChannels": 2,
+  "bitDepth": 8,
+  "chromaSubsampling": "yuv420p",
+  "probeMode": "deep",
+  "confidence": 0.96,
+  "analysisVersion": "v2.0",
+  "fingerprint": "fixture",
+  "gateReasons": []
+}

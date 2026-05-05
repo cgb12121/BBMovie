@@ -1,7 +1,4 @@
 package bbmovie.transcode.vis.probe;
-
-import bbmovie.transcode.lgs.analysis.LgsLadderGenerationService;
-import bbmovie.transcode.lgs.analysis.LgsSourceVideoMetadata;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -18,7 +15,7 @@ public class VisPresignedUrlProbeStrategy implements VisProbeStrategy {
 
     private final VisPresignedUrlService presignedUrlService;
     private final VisMetadataService metadataService;
-    private final LgsLadderGenerationService ladderGenerationService;
+    private final VisLadderGenerationService ladderGenerationService;
 
     @Override
     public String getName() {
@@ -44,8 +41,8 @@ public class VisPresignedUrlProbeStrategy implements VisProbeStrategy {
     public VisProbeOutcome probe(String bucket, String key) {
         try {
             String url = presignedUrlService.generateProbeUrl(bucket, key);
-            LgsSourceVideoMetadata metadata = metadataService.getMetadataFromUrl(url);
-            List<LgsLadderGenerationService.LadderRung> resolutions = ladderGenerationService.generateEncodingLadder(metadata);
+            VisSourceVideoMetadata metadata = metadataService.getMetadataFromUrl(url);
+            List<VisLadderGenerationService.LadderRung> resolutions = ladderGenerationService.generateEncodingLadder(metadata);
             List<String> suffixes = ladderGenerationService.toSuffixes(resolutions);
             int peakCost = ladderGenerationService.calculatePeakCost(suffixes);
             int totalCost = ladderGenerationService.calculateTotalCost(suffixes);

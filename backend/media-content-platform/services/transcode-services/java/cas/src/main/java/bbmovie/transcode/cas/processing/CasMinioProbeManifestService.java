@@ -2,13 +2,17 @@ package bbmovie.transcode.cas.processing;
 
 import bbmovie.transcode.cas.analysis.CasLadderGenerationService;
 import bbmovie.transcode.cas.analysis.ComplexityAnalysisService;
+import bbmovie.transcode.cas.analysis.ComplexityAnalysisV2Service;
 import bbmovie.transcode.cas.analysis.ComplexityProfile;
 import bbmovie.transcode.cas.analysis.SourceVideoMetadata;
 import bbmovie.transcode.cas.config.CasMediaProcessingProperties;
+import bbmovie.transcode.contracts.dto.ComplexityProfileV2;
+import bbmovie.transcode.contracts.dto.DecisionHintsV2;
 import bbmovie.transcode.contracts.dto.FinalManifestDTO;
 import bbmovie.transcode.contracts.dto.ManifestUpdateDTO;
 import bbmovie.transcode.contracts.dto.MetadataDTO;
 import bbmovie.transcode.contracts.dto.RungResultDTO;
+import bbmovie.transcode.contracts.dto.SourceProfileV2;
 import bbmovie.transcode.contracts.dto.SubInfo;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
@@ -18,6 +22,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFprobe;
 import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import net.bramp.ffmpeg.probe.FFmpegStream;
+import org.apache.commons.lang3.math.Fraction;
 import org.springframework.util.FileSystemUtils;
 
 import java.io.IOException;
@@ -27,8 +32,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
 import java.util.Comparator;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.StringJoiner;
 
@@ -39,19 +47,25 @@ public class CasMinioProbeManifestService implements CasProcessingService {
     private final FFprobe ffprobe;
     private final CasMediaProcessingProperties properties;
     private final ComplexityAnalysisService complexityAnalysisService;
+    private final ComplexityAnalysisV2Service complexityAnalysisV2Service;
     private final CasLadderGenerationService ladderGenerationService;
+    private final CasProfileCompatibilityAdapter compatibilityAdapter;
 
     public CasMinioProbeManifestService(
             MinioClient minioClient,
             FFprobe ffprobe,
             CasMediaProcessingProperties properties,
             ComplexityAnalysisService complexityAnalysisService,
-            CasLadderGenerationService ladderGenerationService) {
+            ComplexityAnalysisV2Service complexityAnalysisV2Service,
+            CasLadderGenerationService ladderGenerationService,
+            CasProfileCompatibilityAdapter compatibilityAdapter) {
         this.minioClient = minioClient;
         this.ffprobe = ffprobe;
         this.properties = properties;
         this.complexityAnalysisService = complexityAnalysisService;
+        this.complexityAnalysisV2Service = complexityAnalysisV2Service;
         this.ladderGenerationService = ladderGenerationService;
+        this.compatibilityAdapter = compatibilityAdapter;
     }
 
     @Override
@@ -70,20 +84,25 @@ public class CasMinioProbeManifestService implements CasProcessingService {
                     : (probe.getFormat() != null && probe.getFormat().duration > 0 ? probe.getFormat().duration : 0.0);
 
             SourceVideoMetadata sourceMeta = new SourceVideoMetadata(video.width, video.height, duration, video.codec_name);
-            ComplexityProfile profile = complexityAnalysisService.analyze(uploadId, sourceMeta);
-            log.info("[cas] legacy CAS uploadId={} contentClass={} score={} recipeSkip={}",
-                    uploadId, profile.contentClass(), profile.complexityScore(), profile.recipeHints().skipSuffixes());
+            SourceProfileV2 sourceProfileV2 = buildSourceProfile(uploadId, bucket, key, probe, video, duration);
+            ComplexityProfileV2 profileV2 = analyzeProfileV2(sourceProfileV2, sourceMeta);
+            ComplexityProfile profile = compatibilityAdapter.toLegacyComplexityProfile(profileV2);
+            DecisionHintsV2 hints = profileV2.decisionHints();
+            log.info("[cas] profile-v2 uploadId={} riskClass={} score={} policyVersion={} topFactors={}",
+                    uploadId, profileV2.riskClass(), profileV2.complexityScore(), profileV2.policyVersion(), profileV2.topFactors());
 
-            var ladder = ladderGenerationService.generateEncodingLadder(sourceMeta, profile.recipeHints());
+            var ladder = ladderGenerationService.generateAdaptiveEncodingLadder(sourceMeta, profile.recipeHints(), hints);
             List<String> suffixes = ladderGenerationService.toSuffixes(ladder);
             int peakCost = ladderGenerationService.calculatePeakCost(suffixes);
             int totalCost = ladderGenerationService.calculateTotalCost(suffixes);
-            log.info("[cas] legacy ladder uploadId={} rungs={} peakCost={} totalCost={}",
-                    uploadId, suffixes, peakCost, totalCost);
+            log.info("[cas] adaptive ladder uploadId={} rungs={} peakCost={} totalCost={} fallbackReason={}",
+                    uploadId, suffixes, peakCost, totalCost, profileV2.fallbackReason());
+            log.debug("[cas] adaptive policy uploadId={} hints={}", uploadId, hints);
 
             heartbeatCasDetails(profile, suffixes);
+            heartbeatV2Details(profileV2);
 
-            return new MetadataDTO(video.width, video.height, duration, video.codec_name);
+            return compatibilityAdapter.toMetadataDto(sourceProfileV2);
         } catch (Exception e) {
             throw new RuntimeException("analyzeSource failed for " + bucket + "/" + key, e);
         } finally {
@@ -222,6 +241,124 @@ public class CasMinioProbeManifestService implements CasProcessingService {
             Activity.getExecutionContext().heartbeat(sj.toString());
         } catch (Exception ignored) {
         }
+    }
+
+    private void heartbeatV2Details(ComplexityProfileV2 profileV2) {
+        try {
+            String payload = "riskClass=" + profileV2.riskClass()
+                    + ",confidence=" + profileV2.confidence()
+                    + ",policyVersion=" + profileV2.policyVersion();
+            Activity.getExecutionContext().heartbeat(payload);
+        } catch (Exception ignored) {
+        }
+    }
+
+    private ComplexityProfileV2 analyzeProfileV2(SourceProfileV2 sourceProfileV2, SourceVideoMetadata sourceMeta) {
+        if (!properties.isProfileV2Enabled()) {
+            return conservativeFallback(sourceProfileV2, "profile_v2_disabled", sourceMeta);
+        }
+        try {
+            return complexityAnalysisV2Service.analyze(sourceProfileV2);
+        } catch (Exception e) {
+            log.warn("[cas] profile-v2 failed uploadId={} reason={}", sourceProfileV2.uploadId(), e.getMessage());
+            return conservativeFallback(sourceProfileV2, "analysis_failure", sourceMeta);
+        }
+    }
+
+    private ComplexityProfileV2 conservativeFallback(SourceProfileV2 sourceProfileV2, String reason, SourceVideoMetadata sourceMeta) {
+        ComplexityProfile legacy = complexityAnalysisService.analyze(sourceProfileV2.uploadId(), sourceMeta);
+        return new ComplexityProfileV2(
+                sourceProfileV2.uploadId(),
+                legacy.complexityScore(),
+                legacy.contentClass().toUpperCase(),
+                legacy.featureScores(),
+                new DecisionHintsV2(
+                        "veryfast",
+                        legacy.contentClass().toUpperCase(),
+                        5,
+                        900,
+                        6500,
+                        true,
+                        legacy.recipeHints().skipSuffixes().stream().toList(),
+                        legacy.featureScores(),
+                        List.of("fallback=" + reason),
+                        properties.getProfileV2AnalysisVersion(),
+                        properties.getProfileV2PolicyVersion()
+                ),
+                List.of("legacy-fallback"),
+                properties.getProfileV2AnalysisVersion(),
+                properties.getProfileV2PolicyVersion(),
+                sourceProfileV2.confidence(),
+                reason,
+                legacy.analyzedAt()
+        );
+    }
+
+    private SourceProfileV2 buildSourceProfile(
+            String uploadId,
+            String bucket,
+            String key,
+            FFmpegProbeResult probe,
+            FFmpegStream video,
+            double duration) {
+        FFmpegStream audio = probe.getStreams().stream()
+                .filter(s -> s.codec_type == FFmpegStream.CodecType.AUDIO)
+                .findFirst()
+                .orElse(null);
+        return new SourceProfileV2(
+                uploadId,
+                bucket,
+                key,
+                video.width,
+                video.height,
+                duration,
+                video.codec_name,
+                probe.getFormat() != null ? probe.getFormat().format_name : "unknown",
+                parseFps(video.r_frame_rate),
+                fpsMode(video.avg_frame_rate, video.r_frame_rate),
+                audio != null ? Math.max(0, audio.channels) : 0,
+                Math.max(0, video.bits_per_raw_sample),
+                video.pix_fmt != null ? video.pix_fmt : "unknown",
+                "cas-local",
+                0.9,
+                properties.getProfileV2AnalysisVersion(),
+                fingerprint(uploadId, bucket, key, video.width, video.height, video.codec_name),
+                List.of()
+        );
+    }
+
+    private static double parseFps(Fraction ratio) {
+        if (ratio == null) {
+            return 0.0;
+        }
+        try {
+            return ratio.doubleValue();
+        } catch (Exception ignored) {
+            return 0.0;
+        }
+    }
+
+    private static String fpsMode(Fraction avg, Fraction raw) {
+        double avgValue = parseFps(avg);
+        double rawValue = parseFps(raw);
+        if (avgValue <= 0 || rawValue <= 0) {
+            return "unknown";
+        }
+        return Math.abs(avgValue - rawValue) < 0.05 ? "cfr" : "vfr";
+    }
+
+    private static String fingerprint(String uploadId, String bucket, String key, int width, int height, String codec) {
+        try {
+            String raw = uploadId + "|" + bucket + "|" + key + "|" + width + "|" + height + "|" + codec;
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(digest, 0, 12);
+        } catch (Exception ignored) {
+            return Integer.toHexString(rawHash(uploadId, bucket, key));
+        }
+    }
+
+    private static int rawHash(String uploadId, String bucket, String key) {
+        return (uploadId + "|" + bucket + "|" + key).hashCode();
     }
 
     private void deleteDir(Path workDir) {

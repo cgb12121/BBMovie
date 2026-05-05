@@ -42,6 +42,23 @@ The following were **moved in spirit** from `media-content-platform/services/tra
 
 `analyzeSource` still returns the Temporal contract `MetadataDTO` only; ladder **hints** from CAS are not yet fed back into `VideoProcessingWorkflowImpl` (that workflow still plans rungs locally). Logs + heartbeats carry the legacy ladder for ops until the workflow consumes `RecipeHints`.
 
+## CAS v2 (Netflix-style staged upgrade)
+
+- CAS now computes `ComplexityProfileV2` and `DecisionHintsV2` through vectorized analysis (`VectorComplexityAnalysisService`) while preserving legacy compatibility output.
+- New dimensions include: `spatialScore`, `motionScore`, `noiseScore`, and `sceneChangeDensity`.
+- Adaptive ladder generation now consumes decision hints (`maxRungs`, `skipRungs`) via `generateAdaptiveEncodingLadder`.
+- Structured fallback behavior:
+  - If `cas.profile-v2.enabled=false`, CAS falls back to legacy complexity profile.
+  - If v2 analysis fails, CAS returns conservative hints and logs fallback reasons.
+- New flags:
+  - `cas.profile-v2.enabled` (default `true`)
+  - `cas.profile-v2.analysis-version` (default `v2.0`)
+  - `cas.profile-v2.policy-version` (default `policy-v1`)
+- Rollout sequence:
+  1. Enable in staging and compare adaptive ladder output against legacy.
+  2. Observe fallback reason rates in logs/heartbeats.
+  3. Promote to production with policy version pinning.
+
 ## Build
 
 From `media-content-platform/services/transcode-services/java/`:
