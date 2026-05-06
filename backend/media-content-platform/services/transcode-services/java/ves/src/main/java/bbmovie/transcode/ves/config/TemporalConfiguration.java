@@ -12,18 +12,18 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
-@EnableConfigurationProperties(VesTemporalProperties.class)
+@EnableConfigurationProperties(TemporalProperties.class)
 @ConditionalOnProperty(name = "temporal.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
-public class VesTemporalConfiguration {
+public class TemporalConfiguration {
 
-    private final VesTemporalProperties vesTemporalProperties;
+    private final TemporalProperties temporalProperties;
 
     @Bean(destroyMethod = "shutdown")
     public WorkflowServiceStubs workflowServiceStubs() {
         return WorkflowServiceStubs.newServiceStubs(
                 WorkflowServiceStubsOptions.newBuilder()
-                        .setTarget(vesTemporalProperties.getTarget())
+                        .setTarget(temporalProperties.getTarget())
                         .build()
         );
     }
@@ -33,7 +33,7 @@ public class VesTemporalConfiguration {
         return WorkflowClient.newInstance(
                 workflowServiceStubs,
                 WorkflowClientOptions.newBuilder()
-                        .setNamespace(vesTemporalProperties.getNamespace())
+                        .setNamespace(temporalProperties.getNamespace())
                         .build()
         );
     }

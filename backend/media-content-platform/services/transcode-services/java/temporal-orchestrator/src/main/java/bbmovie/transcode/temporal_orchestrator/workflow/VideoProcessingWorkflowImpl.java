@@ -2,6 +2,7 @@ package bbmovie.transcode.temporal_orchestrator.workflow;
 
 import bbmovie.transcode.contracts.activity.MediaActivities;
 import bbmovie.transcode.contracts.dto.EncodeRequest;
+import bbmovie.transcode.contracts.dto.DecisionHintsV2;
 import bbmovie.transcode.contracts.dto.FinalManifestDTO;
 import bbmovie.transcode.contracts.dto.MetadataDTO;
 import bbmovie.transcode.contracts.dto.QualityReportDTO;
@@ -48,8 +49,10 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
 
         MetadataDTO metadata = analysis.analyzeSource(input.uploadId(), input.bucket(), input.key());
 
-        List<PlannedRung> plan = planRungs(metadata.height());
+        List<PlannedRung> plan = planRungs(metadata.height(), metadata.decisionHints());
         List<Promise<RungResultDTO>> encodePromises = new ArrayList<>();
+        List<Promise<QualityReportDTO>> qualityPromises = new ArrayList<>();
+        DecisionHintsV2 hints = metadata.decisionHints();
         for (PlannedRung rung : plan) {
             EncodeRequest req = new EncodeRequest(
                     input.uploadId(),
@@ -59,35 +62,42 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
                     "00",
                     "00",
                     input.bucket(),
-                    input.key()
+                    input.key(),
+                    hints != null ? hints.recommendedPreset() : null,
+                    hints != null ? hints.minBitrateKbps() : null,
+                    hints != null ? hints.maxBitrateKbps() : null,
+                    hints != null && hints.conservativeMode()
             );
-            encodePromises.add(Async.function(encoding::encodeResolution, req));
+            Promise<RungResultDTO> encodePromise = Async.function(encoding::encodeResolution, req);
+            encodePromises.add(encodePromise);
+            // Pipeline fan-out: quality of a rung starts as soon as that rung encode finishes.
+            if (rung.height() >= 720) {
+                Promise<QualityReportDTO> qualityPromise = encodePromise.thenCompose(result -> {
+                    if (!result.success()) {
+                        return Async.function(() -> new QualityReportDTO(result.resolution(), false, 0, "encode_failed"));
+                    }
+                    ValidationRequest vreq = new ValidationRequest(
+                            input.uploadId(),
+                            result.playlistPath(),
+                            result.resolution(),
+                            rung.width(),
+                            rung.height()
+                    );
+                    return Async.function(quality::validateAndScore, vreq);
+                });
+                qualityPromises.add(qualityPromise);
+            }
         }
 
         Promise.allOf(encodePromises.toArray(new Promise[0])).get();
+        List<RungResultDTO> rungResults = encodePromises.stream().map(Promise::get).toList();
 
-        List<RungResultDTO> rungResults = new ArrayList<>();
-        for (Promise<RungResultDTO> p : encodePromises) {
-            rungResults.add(p.get());
-        }
-
-        for (RungResultDTO rung : rungResults) {
-            if (!rung.success()) {
-                continue;
-            }
-            int h = parseHeightFromLabel(rung.resolution());
-            if (h >= 720) {
-                int w = widthFromLabel(rung.resolution());
-                ValidationRequest vreq = new ValidationRequest(
-                        input.uploadId(),
-                        rung.playlistPath(),
-                        rung.resolution(),
-                        w,
-                        h
-                );
-                QualityReportDTO report = quality.validateAndScore(vreq);
+        if (!qualityPromises.isEmpty()) {
+            Promise.allOf(qualityPromises.toArray(new Promise[0])).get();
+            for (Promise<QualityReportDTO> p : qualityPromises) {
+                QualityReportDTO report = p.get();
                 if (!report.passed()) {
-                    throw new RuntimeException("Quality validation failed for " + rung.resolution());
+                    throw new RuntimeException("Quality validation failed for " + report.renditionLabel());
                 }
             }
         }
@@ -97,7 +107,7 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
                 .info("Transcode finished uploadId={} master={}", input.uploadId(), manifest.masterPlaylistPath());
     }
 
-    private static List<PlannedRung> planRungs(int sourceHeight) {
+    private static List<PlannedRung> planRungs(int sourceHeight, DecisionHintsV2 decisionHints) {
         List<PlannedRung> rungs = new ArrayList<>();
         if (sourceHeight >= 1080) {
             rungs.add(new PlannedRung("1080p", 1920, 1080));
@@ -111,38 +121,19 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
         if (rungs.isEmpty()) {
             rungs.add(new PlannedRung("480p", 854, Math.min(480, sourceHeight)));
         }
-        return rungs;
-    }
-
-    private static int widthFromLabel(String label) {
-        if (label == null) {
-            return 0;
+        if (decisionHints == null) {
+            return rungs;
         }
-        return switch (label) {
-            case "1080p" -> 1920;
-            case "720p" -> 1280;
-            case "480p" -> 854;
-            default -> 0;
-        };
-    }
-
-    private static int parseHeightFromLabel(String label) {
-        if (label == null) {
-            return 0;
+        List<PlannedRung> filtered = rungs.stream()
+                .filter(r -> decisionHints.skipRungs() == null || !decisionHints.skipRungs().contains(r.label()))
+                .toList();
+        if (filtered.isEmpty()) {
+            filtered = rungs;
         }
-        return switch (label) {
-            case "1080p" -> 1080;
-            case "720p" -> 720;
-            case "480p" -> 480;
-            default -> {
-                try {
-                    if (label.endsWith("p")) {
-                        yield Integer.parseInt(label.substring(0, label.length() - 1));
-                    }
-                } catch (NumberFormatException ignored) {
-                }
-                yield 0;
-            }
-        };
+        int maxRungs = Math.max(1, decisionHints.maxRungs());
+        if (filtered.size() > maxRungs) {
+            filtered = filtered.subList(0, maxRungs);
+        }
+        return filtered;
     }
 }

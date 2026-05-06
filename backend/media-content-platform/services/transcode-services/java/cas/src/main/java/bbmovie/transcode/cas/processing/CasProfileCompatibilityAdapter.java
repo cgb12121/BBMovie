@@ -22,6 +22,18 @@ public class CasProfileCompatibilityAdapter {
         );
     }
 
+    public MetadataDTO toMetadataDto(SourceProfileV2 sourceProfile, ComplexityProfileV2 complexityProfileV2) {
+        return new MetadataDTO(
+                sourceProfile.width(),
+                sourceProfile.height(),
+                sourceProfile.durationSeconds(),
+                sourceProfile.codec(),
+                sourceProfile,
+                complexityProfileV2,
+                complexityProfileV2 != null ? complexityProfileV2.decisionHints() : null
+        );
+    }
+
     public ComplexityProfile toLegacyComplexityProfile(ComplexityProfileV2 complexityProfileV2) {
         return new ComplexityProfile(
                 complexityProfileV2.uploadId(),

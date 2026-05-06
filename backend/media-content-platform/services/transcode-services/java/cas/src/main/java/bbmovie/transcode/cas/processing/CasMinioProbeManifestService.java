@@ -36,7 +36,6 @@ import java.security.MessageDigest;
 import java.util.Comparator;
 import java.util.HexFormat;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.StringJoiner;
 
@@ -102,7 +101,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
             heartbeatCasDetails(profile, suffixes);
             heartbeatV2Details(profileV2);
 
-            return compatibilityAdapter.toMetadataDto(sourceProfileV2);
+            return compatibilityAdapter.toMetadataDto(sourceProfileV2, profileV2);
         } catch (Exception e) {
             throw new RuntimeException("analyzeSource failed for " + bucket + "/" + key, e);
         } finally {

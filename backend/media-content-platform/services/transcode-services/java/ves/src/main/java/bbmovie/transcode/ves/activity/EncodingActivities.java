@@ -10,7 +10,9 @@ import bbmovie.transcode.contracts.dto.RungResultDTO;
 import bbmovie.transcode.contracts.dto.SubInfo;
 import bbmovie.transcode.contracts.dto.SubtitleJsonDTO;
 import bbmovie.transcode.contracts.dto.ValidationRequest;
+import bbmovie.transcode.ves.processing.EncodingProcessingService;
 import io.temporal.activity.Activity;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
@@ -18,7 +20,10 @@ import java.util.List;
 
 @Slf4j
 @Component
-public class VesMediaActivities implements MediaActivities {
+@RequiredArgsConstructor
+public class EncodingActivities implements MediaActivities {
+
+    private final EncodingProcessingService encodingProcessingService;
 
     @Override
     public MetadataDTO analyzeSource(String uploadId, String bucket, String key) {
@@ -28,8 +33,7 @@ public class VesMediaActivities implements MediaActivities {
     @Override
     public RungResultDTO encodeResolution(EncodeRequest request) {
         log.debug("[ves] encodeResolution {}", request.resolution());
-        String path = "bbmovie-hls/movies/" + request.uploadId() + "/" + request.resolution() + "/playlist.m3u8";
-        return new RungResultDTO(request.resolution(), path, true);
+        return encodingProcessingService.encodeResolution(request);
     }
 
     @Override

@@ -31,12 +31,20 @@ public class MediaProcessingConfiguration {
 
     @Bean
     public FFmpeg processingFfmpeg(MediaProcessingProperties properties) throws IOException {
-        return new FFmpeg(properties.getFfmpegPath());
+        String ffmpegPath = properties.getFfmpegPath();
+        if (ffmpegPath == null || ffmpegPath.isEmpty()) {
+            throw new IllegalArgumentException("ffmpegPath configuration is required, please set app.media-processing.ffmpeg-path");
+        }
+        return new FFmpeg(ffmpegPath);
     }
 
     @Bean
     public FFprobe processingFfprobe(MediaProcessingProperties properties) throws IOException {
-        return new FFprobe(properties.getFfprobePath());
+        String ffprobePath = properties.getFfprobePath();
+        if (ffprobePath == null || ffprobePath.isEmpty()) {
+            throw new IllegalArgumentException("ffprobePath configuration is required, please set app.media-processing.ffprobe-path");
+        }
+        return new FFprobe(ffprobePath);
     }
 
     @Bean

@@ -26,8 +26,6 @@ public class LgsLadderGenerationService {
             new ResolutionDefinition(144, 256, 144, "144p")
     );
 
-    private static final Map<String, LadderRung> RESOLUTION_LOOKUP = createResolutionLookup();
-
     public List<LadderRung> generateEncodingLadder(LgsSourceVideoMetadata metadata) {
         return generateEncodingLadder(metadata, LgsRecipeHints.none());
     }
@@ -63,14 +61,6 @@ public class LgsLadderGenerationService {
 
     public int calculateTotalCost(List<String> ladderSuffixes) {
         return ladderSuffixes.stream().mapToInt(costCalculator::calculateCost).sum();
-    }
-
-    private static Map<String, LadderRung> createResolutionLookup() {
-        Map<String, LadderRung> lookup = new LinkedHashMap<>();
-        for (ResolutionDefinition def : PRESET_LADDER) {
-            lookup.put(def.suffix(), new LadderRung(def.targetWidth(), def.targetHeight(), def.suffix()));
-        }
-        return lookup;
     }
 
     public record LadderRung(int width, int height, String filename) {
