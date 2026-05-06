@@ -24,9 +24,11 @@ import java.io.IOException;
 @Configuration
 @ConditionalOnProperty(name = "cas.processing.enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(CasMediaProcessingProperties.class)
+/** Spring wiring for CAS processing dependencies (MinIO, ffprobe, analyzers, and service facade). */
 public class CasProcessingConfiguration {
 
     @Bean
+    /** Dedicated MinIO client bean for CAS IO paths. */
     public MinioClient casMinioClient(
             @Value("${minio.url}") String url,
             @Value("${minio.access-key}") String accessKey,
@@ -38,21 +40,29 @@ public class CasProcessingConfiguration {
     }
 
     @Bean
+    /** ffprobe handle used by CAS source analysis and playlist probing helpers. */
     public FFprobe casFfprobe(CasMediaProcessingProperties properties) throws IOException {
-        return new FFprobe(properties.getFfprobePath());
+        String ffprobePath = properties.getFfprobePath();
+        if (ffprobePath == null || ffprobePath.isEmpty()) {
+            throw new IllegalArgumentException("FFprobe path is not set");
+        }
+        return new FFprobe(ffprobePath);
     }
 
     @Bean
+    /** Resolution cost table used by ladder capacity estimation. */
     public ResolutionCostCalculator casResolutionCostCalculator() {
         return new ResolutionCostCalculator();
     }
 
     @Bean
+    /** CAS ladder service with static presets + hint filtering support. */
     public CasLadderGenerationService casLadderGenerationService(ResolutionCostCalculator casResolutionCostCalculator) {
         return new CasLadderGenerationService(casResolutionCostCalculator);
     }
 
     @Bean
+    /** Legacy analyzer bean kept for fallback compatibility. */
     public ComplexityAnalysisService casComplexityAnalysisService(
             @Value("${cas.complexity.enabled:true}") boolean complexityEnabled) {
         if (complexityEnabled) {
@@ -62,6 +72,7 @@ public class CasProcessingConfiguration {
     }
 
     @Bean
+    /** Primary v2 analyzer used for policy-driven complexity scoring and hints. */
     public ComplexityAnalysisV2Service casComplexityAnalysisV2Service(
             DecisionHintsPolicyEngine decisionHintsPolicyEngine,
             CasMediaProcessingProperties casMediaProcessingProperties) {
@@ -73,6 +84,7 @@ public class CasProcessingConfiguration {
     }
 
     @Bean
+    /** CAS processing facade consumed by Temporal activities. */
     public CasProcessingService casProcessingService(
             MinioClient casMinioClient,
             FFprobe casFfprobe,

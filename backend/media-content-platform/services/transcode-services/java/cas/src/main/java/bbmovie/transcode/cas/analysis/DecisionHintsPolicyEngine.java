@@ -12,6 +12,12 @@ import java.util.List;
 import java.util.Map;
 
 @Component
+/**
+ * Maps complexity classification + source constraints into concrete encoding hints.
+ *
+ * <p>This policy is intentionally deterministic so repeated probes of the same source yield
+ * stable routing and ladder decisions.</p>
+ */
 public class DecisionHintsPolicyEngine {
 
     private final String analysisVersion;
@@ -24,6 +30,7 @@ public class DecisionHintsPolicyEngine {
         this.policyVersion = policyVersion;
     }
 
+    /** Builds policy outputs consumed by CAS adaptive ladder and downstream encode request shaping. */
     public DecisionHintsV2 buildHints(SourceProfileV2 source, ComplexityRiskClass riskClass, Map<String, Double> dimensions) {
         boolean conservativeMode = riskClass == ComplexityRiskClass.HIGH || riskClass == ComplexityRiskClass.EXTREME;
         String preset = switch (riskClass) {
@@ -47,6 +54,7 @@ public class DecisionHintsPolicyEngine {
         if (source.height() < 480) {
             skip.add("480p");
         }
+        // Long high-risk sources trim the lowest rung to cap total rendition fan-out/cost.
         if (conservativeMode && source.durationSeconds() > 90 * 60) {
             skip.add("144p");
         }

@@ -14,12 +14,14 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "temporal.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
+/** Boots CAS activity worker and binds it to the analysis task queue. */
 public class CasWorkerLifecycle {
 
     private final WorkerFactory workerFactory;
     private final CasMediaActivities casMediaActivities;
 
     @PostConstruct
+    /** Registers CAS activities and starts polling on Temporal analysis queue. */
     public void startWorker() {
         Worker worker = workerFactory.newWorker(TemporalTaskQueues.ANALYSIS);
         worker.registerActivitiesImplementations(casMediaActivities);

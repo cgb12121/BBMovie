@@ -14,6 +14,7 @@ public record ComplexityProfile(
         RecipeHints recipeHints,
         Instant analyzedAt
 ) {
+    /** Returns a neutral profile used when complexity analysis is disabled/unavailable. */
     public static ComplexityProfile basic(String uploadId) {
         return new ComplexityProfile(
                 uploadId,

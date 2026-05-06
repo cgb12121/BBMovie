@@ -53,7 +53,8 @@ public class EntitlementDecisionCacheRepository {
             List<String> keysToDelete = redisTemplate.execute((RedisCallback<List<String>>) connection -> {
                 ScanOptions options = ScanOptions.scanOptions().match(pattern).count(200).build();
                 List<String> found = new ArrayList<>();
-                try (Cursor<byte[]> cursor = connection.scan(options)) {
+                
+                try (Cursor<byte[]> cursor = connection.keyCommands().scan(options)) {
                     while (cursor.hasNext()) {
                         found.add(new String(cursor.next(), StandardCharsets.UTF_8));
                     }

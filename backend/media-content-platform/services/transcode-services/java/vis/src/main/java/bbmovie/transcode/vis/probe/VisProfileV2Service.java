@@ -15,6 +15,12 @@ import java.security.MessageDigest;
 import java.util.HexFormat;
 import java.util.List;
 
+/**
+ * Builds VIS {@link SourceProfileV2} by combining fast-probe and optional deep-probe paths.
+ *
+ * <p>Fast probe always runs first; deep probe is conditionally triggered by
+ * {@link VisProbeDecisionPolicy} when confidence gates are not met.</p>
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -28,6 +34,7 @@ public class VisProfileV2Service {
     @Value("${vis.profile-v2.analysis-version:v2.0}")
     private String analysisVersion;
 
+    /** Produces normalized source profile with decision-gated deep-probe fallback behavior. */
     public SourceProfileV2 analyze(String uploadId, String bucket, String key) {
         VisProbeOutcome fast = visFastProbeService.probe(bucket, key);
         VisProbeDecisionPolicy.ProbeDecision decision = visProbeDecisionPolicy.decide(fast, key);
@@ -47,6 +54,7 @@ public class VisProfileV2Service {
         }
     }
 
+    /** Maps fast-probe outcome into conservative/default v2 source profile fields. */
     private SourceProfileV2 fromFast(
             String uploadId,
             String bucket,
@@ -76,6 +84,7 @@ public class VisProfileV2Service {
         );
     }
 
+    /** Maps full ffprobe result into rich v2 source profile fields. */
     private SourceProfileV2 fromProbeResult(
             String uploadId,
             String bucket,
@@ -90,6 +99,7 @@ public class VisProfileV2Service {
                 .filter(s -> s.codec_type == CodecType.AUDIO)
                 .findFirst()
                 .orElse(null);
+        // Prefer container duration when available; fallback to stream duration otherwise.
         double duration = probeResult.getFormat() != null && probeResult.getFormat().duration > 0
                 ? probeResult.getFormat().duration
                 : (video.duration > 0 ? video.duration : 0.0);
@@ -115,6 +125,7 @@ public class VisProfileV2Service {
         );
     }
 
+    /** Detects CFR/VFR heuristic from avg/raw frame-rate values. */
     private static String fpsMode(Fraction avg, Fraction raw) {
         double avgValue = parseFraction(avg);
         double rawValue = parseFraction(raw);
@@ -124,6 +135,7 @@ public class VisProfileV2Service {
         return Math.abs(avgValue - rawValue) < 0.05 ? "cfr" : "vfr";
     }
 
+    /** Parses Apache Fraction safely into double fps value. */
     private static double parseFraction(Fraction value) {
         if (value == null) {
             return 0.0;
@@ -135,6 +147,7 @@ public class VisProfileV2Service {
         }
     }
 
+    /** Best-effort container guess from object key extension. */
     private static String guessContainer(String key) {
         if (key == null) {
             return "unknown";
@@ -146,6 +159,7 @@ public class VisProfileV2Service {
         return key.substring(dot + 1).toLowerCase();
     }
 
+    /** Builds short stable fingerprint for profile dedupe/correlation. */
     private static String fingerprint(String uploadId, String bucket, String key, int width, int height, String codec) {
         try {
             String raw = uploadId + "|" + bucket + "|" + key + "|" + width + "|" + height + "|" + codec;
@@ -156,6 +170,7 @@ public class VisProfileV2Service {
         }
     }
 
+    /** Clamps confidence into [0,1] interval. */
     private static double clamp(double value) {
         return Math.max(0.0, Math.min(1.0, value));
     }

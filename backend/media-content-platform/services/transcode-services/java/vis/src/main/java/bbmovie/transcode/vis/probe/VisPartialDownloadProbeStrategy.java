@@ -8,7 +8,9 @@ import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Ported from transcode-worker {@code PartialDownloadProbeStrategy}.
+ * Probe strategy that downloads only a source prefix before running ffprobe.
+ *
+ * <p>Useful when full-object probing is expensive; metadata quality may be lower than full deep probe.</p>
  */
 @Slf4j
 @Component
@@ -31,11 +33,13 @@ public class VisPartialDownloadProbeStrategy implements VisProbeStrategy {
     }
 
     @Override
+    /** Strategy display name used in logs/diagnostics. */
     public String getName() {
         return "PartialDownload";
     }
 
     @Override
+    /** Supports common quick-seek containers where header prefix is sufficient for probing. */
     public boolean supports(String bucket, String key) {
         String lowerKey = key.toLowerCase();
         return lowerKey.endsWith(".mp4") || lowerKey.endsWith(".mov");
@@ -47,6 +51,7 @@ public class VisPartialDownloadProbeStrategy implements VisProbeStrategy {
     }
 
     @Override
+    /** Probes metadata from partial bytes and derives ladder/cost outputs. */
     public VisProbeOutcome probe(String bucket, String key) {
         Path tempFile = null;
         try {

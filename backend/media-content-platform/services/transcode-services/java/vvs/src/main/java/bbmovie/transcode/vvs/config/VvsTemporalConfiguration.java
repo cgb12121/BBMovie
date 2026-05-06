@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/** Temporal client/worker-factory wiring used by VVS worker process. */
 @Configuration
 @EnableConfigurationProperties(VvsTemporalProperties.class)
 @ConditionalOnProperty(name = "temporal.enabled", havingValue = "true", matchIfMissing = true)
@@ -20,6 +21,7 @@ public class VvsTemporalConfiguration {
     private final VvsTemporalProperties vvsTemporalProperties;
 
     @Bean(destroyMethod = "shutdown")
+    /** Temporal service stubs for RPC calls to configured cluster target. */
     public WorkflowServiceStubs vvsWorkflowServiceStubs() {
         return WorkflowServiceStubs.newServiceStubs(
                 WorkflowServiceStubsOptions.newBuilder()
@@ -29,6 +31,7 @@ public class VvsTemporalConfiguration {
     }
 
     @Bean
+    /** Namespace-scoped workflow client for VVS worker components. */
     public WorkflowClient vvsWorkflowClient(WorkflowServiceStubs vvsWorkflowServiceStubs) {
         return WorkflowClient.newInstance(
                 vvsWorkflowServiceStubs,
@@ -39,6 +42,7 @@ public class VvsTemporalConfiguration {
     }
 
     @Bean(destroyMethod = "shutdown")
+    /** Worker factory used to register and run VVS activities. */
     public WorkerFactory vvsWorkerFactory(WorkflowClient vvsWorkflowClient) {
         return WorkerFactory.newInstance(vvsWorkflowClient);
     }

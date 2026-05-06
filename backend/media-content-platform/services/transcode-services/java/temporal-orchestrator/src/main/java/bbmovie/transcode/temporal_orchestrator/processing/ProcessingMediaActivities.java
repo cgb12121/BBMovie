@@ -38,6 +38,12 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+/**
+ * Production MediaActivities implementation used by Temporal workflow task queues.
+ *
+ * <p>Provides source probing, encode fan-out units, quality validation, and master manifest
+ * generation backed by MinIO + FFmpeg/FFprobe.</p>
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class ProcessingMediaActivities implements MediaActivities {
@@ -47,6 +53,7 @@ public class ProcessingMediaActivities implements MediaActivities {
     private final FFprobe ffprobe;
     private final MediaProcessingProperties properties;
 
+    /** Downloads source and returns basic probe metadata used for ladder planning. */
     @Override
     public MetadataDTO analyzeSource(String uploadId, String bucket, String key) {
         Path workDir = null;
@@ -75,6 +82,7 @@ public class ProcessingMediaActivities implements MediaActivities {
         }
     }
 
+    /** Encodes one rendition into HLS and uploads generated playlist/segments to MinIO. */
     @Override
     public RungResultDTO encodeResolution(EncodeRequest request) {
         Path workDir = null;
@@ -112,6 +120,7 @@ public class ProcessingMediaActivities implements MediaActivities {
 
             FFmpegJob job = executor.createJob(builder, progress -> {
                 try {
+                    // Report encode progress to Temporal so long jobs keep activity heartbeat alive.
                     Activity.getExecutionContext().heartbeat(progress.out_time_ns);
                 } catch (Exception ignored) {
                 }
@@ -136,6 +145,7 @@ public class ProcessingMediaActivities implements MediaActivities {
         }
     }
 
+    /** Validates rendition dimensions and returns a simple quality score signal. */
     @Override
     public QualityReportDTO validateAndScore(ValidationRequest request) {
         Path workDir = null;
@@ -170,6 +180,7 @@ public class ProcessingMediaActivities implements MediaActivities {
         }
     }
 
+    /** Builds and uploads master playlist from successful rung outputs. */
     @Override
     public FinalManifestDTO generateMasterManifest(List<RungResultDTO> rungs) {
         Path workDir = null;
@@ -232,6 +243,7 @@ public class ProcessingMediaActivities implements MediaActivities {
         return new ManifestUpdateDTO(key, true);
     }
 
+    /** Downloads one object from MinIO to local temp path. */
     private void download(String bucket, String key, Path targetPath) throws Exception {
         try (var response = minioClient.getObject(
                 GetObjectArgs.builder().bucket(bucket).object(key).build())) {
@@ -239,6 +251,7 @@ public class ProcessingMediaActivities implements MediaActivities {
         }
     }
 
+    /** Recursively uploads a directory tree into MinIO under a key prefix. */
     private void uploadTree(String bucket, Path root, String keyPrefix) throws Exception {
         String normalizedPrefix = keyPrefix.endsWith("/") ? keyPrefix : keyPrefix + "/";
         try (Stream<Path> walk = Files.walk(root)) {
@@ -259,6 +272,7 @@ public class ProcessingMediaActivities implements MediaActivities {
         }
     }
 
+    /** Guesses content-type for HLS artifacts so clients receive proper media headers. */
     private static String guessContentType(Path file) {
         String n = file.getFileName().toString().toLowerCase();
         if (n.endsWith(".m3u8")) {
@@ -270,6 +284,7 @@ public class ProcessingMediaActivities implements MediaActivities {
         return "application/octet-stream";
     }
 
+    /** Returns first video stream from ffprobe output if present. */
     private static Optional<FFmpegStream> firstVideoStream(FFmpegProbeResult probe) {
         if (probe.getStreams() == null) {
             return Optional.empty();
@@ -279,6 +294,7 @@ public class ProcessingMediaActivities implements MediaActivities {
                 .findFirst();
     }
 
+    /** Parses ladder label (e.g., 720p) into height pixels. */
     private static int heightFromLabel(String label) {
         if (label == null) {
             return 0;
@@ -300,6 +316,7 @@ public class ProcessingMediaActivities implements MediaActivities {
         };
     }
 
+    /** Maps ladder label to width; falls back to parsed-height 16:9 derivation. */
     private static int widthFromLabel(String label) {
         return switch (label != null ? label : "") {
             case "1080p" -> 1920;
@@ -320,11 +337,13 @@ public class ProcessingMediaActivities implements MediaActivities {
         return Math.max(256, (int) Math.round(heightPx * 16.0 / 9.0));
     }
 
+    /** Rough bitrate heuristic per rung used for master manifest BANDWIDTH attribute. */
     private static int bandwidthEstimate(String label) {
         int h = heightFromLabel(label);
         return Math.max(500_000, h * 1500);
     }
 
+    /** Extracts upload id from canonical HLS object key format. */
     private static String extractUploadIdFromKey(String playlistObjectKey) {
         String[] parts = playlistObjectKey.split("/");
         if (parts.length >= 3) {

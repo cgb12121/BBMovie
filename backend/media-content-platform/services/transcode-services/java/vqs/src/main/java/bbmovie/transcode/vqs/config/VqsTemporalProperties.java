@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "temporal")
+/** Temporal connectivity properties for VQS worker runtime. */
 public class VqsTemporalProperties {
 
     private boolean enabled = true;

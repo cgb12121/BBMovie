@@ -6,6 +6,7 @@ public enum ComplexityRiskClass {
     HIGH,
     EXTREME;
 
+    /** Maps normalized complexity score into coarse policy risk bucket. */
     public static ComplexityRiskClass fromScore(double score) {
         if (score >= 0.85) {
             return EXTREME;

@@ -88,11 +88,22 @@ public class PromotionService {
             throw new IllegalStateException("Coupon usage limit reached or coupon not found");
         }
 
-        userPromotionUsageRepository.save(UserPromotionUsage.builder()
+        UserPromotionUsage userPromotionUsage = UserPromotionUsage.builder()
                 .userId(request.getUserId())
                 .promotion(promotion)
                 .couponCode(coupon.getCode())
-                .build());
+                .build();
+        if (userPromotionUsage.getUserId() == null) {
+            throw new IllegalStateException("User ID is required");
+        }
+        if (userPromotionUsage.getPromotion() == null) {
+            throw new IllegalStateException("Promotion is required");
+        }
+        if (userPromotionUsage.getCouponCode() == null) {
+            throw new IllegalStateException("Coupon code is required");
+        }
+        
+        userPromotionUsageRepository.save(userPromotionUsage);
 
         return PromotionEvaluationContext.builder()
                 .userId(request.getUserId())

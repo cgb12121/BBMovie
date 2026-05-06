@@ -54,6 +54,7 @@ class UniversityRegistryServiceTest {
     }
 
     @Test
+    @SuppressWarnings("null")
     void initSkipsLoadingWhenRepositoryAlreadyHasData() {
         UniversityRepository repository = mock(UniversityRepository.class);
         EntityManager entityManager = mock(EntityManager.class);
@@ -94,11 +95,11 @@ class UniversityRegistryServiceTest {
         source.setState_province("HN");
 
         University converted = ReflectionTestUtils.invokeMethod(service, "convert", source);
-        assertEquals("Demo Uni", converted.getName());
-        assertEquals("demo.edu,example.edu", converted.getDomains());
-        assertEquals("https://demo.edu", converted.getWebPages());
-        assertEquals("VN", converted.getCountry());
-        assertEquals("VN", converted.getAlphaTwoCode());
-        assertEquals("HN", converted.getStateProvince());
+        assertEquals("Demo Uni", converted != null ? converted.getName() : null);
+        assertEquals("demo.edu,example.edu", converted != null ? converted.getDomains() : null);
+        assertEquals("https://demo.edu", converted != null ? converted.getWebPages() : null);
+        assertEquals("VN", converted != null ? converted.getCountry() : null);
+        assertEquals("VN", converted != null ? converted.getAlphaTwoCode() : null);
+        assertEquals("HN", converted != null ? converted.getStateProvince() : null);
     }
 }

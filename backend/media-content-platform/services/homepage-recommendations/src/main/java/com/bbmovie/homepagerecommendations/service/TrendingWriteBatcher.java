@@ -50,7 +50,7 @@ public class TrendingWriteBatcher {
             flushSnapshot(one);
             return;
         }
-        buffer.merge(key, delta, Double::sum);
+        buffer.merge(key, delta, (a, b) -> a + b);
         if (buffer.size() >= batch.getMaxBufferSize()) {
             flush();
         }
@@ -90,7 +90,7 @@ public class TrendingWriteBatcher {
 
     private void requeue(Map<String, Double> snapshot) {
         synchronized (flushLock) {
-            snapshot.forEach((k, v) -> buffer.merge(k, v, Double::sum));
+            snapshot.forEach((k, v) -> buffer.merge(k, v, (a, b) -> a + b));
         }
     }
 

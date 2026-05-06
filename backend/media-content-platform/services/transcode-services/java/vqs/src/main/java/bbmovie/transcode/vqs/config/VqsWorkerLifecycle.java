@@ -11,6 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+/** Registers and starts VQS activities on Temporal quality task queue. */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -22,6 +23,7 @@ public class VqsWorkerLifecycle {
     private final VqsMediaActivities vqsMediaActivities;
 
     @PostConstruct
+    /** Binds VQS activities to QUALITY queue and starts worker polling. */
     public void startWorker() {
         Worker worker = vqsWorkerFactory.newWorker(TemporalTaskQueues.QUALITY);
         worker.registerActivitiesImplementations(vqsMediaActivities);

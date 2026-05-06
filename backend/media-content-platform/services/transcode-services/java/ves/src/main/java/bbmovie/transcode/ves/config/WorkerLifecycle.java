@@ -12,6 +12,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
+/** Registers and starts VES activities on Temporal encoding queue with tuned worker options. */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -24,6 +25,7 @@ public class WorkerLifecycle {
     private final TemporalProperties temporalProperties;
 
     @PostConstruct
+    /** Applies configured concurrency limits and starts polling encoding queue. */
     public void startWorker() {
         WorkerOptions workerOptions = WorkerOptions.newBuilder()
                 .setMaxConcurrentActivityExecutionSize(temporalProperties.getMaxConcurrentActivityExecutions())

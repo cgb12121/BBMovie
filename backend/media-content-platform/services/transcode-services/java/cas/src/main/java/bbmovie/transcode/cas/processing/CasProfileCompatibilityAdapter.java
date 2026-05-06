@@ -11,8 +11,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 
 @Component
+/**
+ * Converts between v1 and v2 CAS profile/metadata shapes.
+ *
+ * <p>Used during migration so legacy workflow paths can continue consuming v1 objects while
+ * newer orchestration paths consume v2 contracts.</p>
+ */
 public class CasProfileCompatibilityAdapter {
 
+    /** Produces a minimal metadata payload when complexity data is unavailable. */
     public MetadataDTO toMetadataDto(SourceProfileV2 sourceProfile) {
         return new MetadataDTO(
                 sourceProfile.width(),
@@ -22,6 +29,7 @@ public class CasProfileCompatibilityAdapter {
         );
     }
 
+    /** Produces metadata embedding full source + complexity v2 details. */
     public MetadataDTO toMetadataDto(SourceProfileV2 sourceProfile, ComplexityProfileV2 complexityProfileV2) {
         return new MetadataDTO(
                 sourceProfile.width(),
@@ -34,6 +42,7 @@ public class CasProfileCompatibilityAdapter {
         );
     }
 
+    /** Maps v2 fields into the legacy v1 profile contract used by existing ladder logic. */
     public ComplexityProfile toLegacyComplexityProfile(ComplexityProfileV2 complexityProfileV2) {
         String riskClass = complexityProfileV2.riskClass();
         var decisionHints = complexityProfileV2.decisionHints();
@@ -47,4 +56,5 @@ public class CasProfileCompatibilityAdapter {
                         : new HashSet<>()),
                 complexityProfileV2.analyzedAt()
         );
-    }}
+    }
+}

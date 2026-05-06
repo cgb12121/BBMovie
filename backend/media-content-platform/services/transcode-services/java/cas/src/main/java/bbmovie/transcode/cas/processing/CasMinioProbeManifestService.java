@@ -42,6 +42,17 @@ import java.util.Optional;
 import java.util.StringJoiner;
 
 @Slf4j
+/**
+ * CAS processing implementation backed by MinIO + FFprobe.
+ *
+ * <p>Responsibilities:
+ * <ul>
+ *   <li>Probe source media and produce complexity-aware metadata.</li>
+ *   <li>Build HLS master playlists from successful rung outputs.</li>
+ *   <li>Integrate subtitle tracks into existing masters using one shared HLS subtitle group.</li>
+ * </ul>
+ * </p>
+ */
 public class CasMinioProbeManifestService implements CasProcessingService {
 
     /** Single HLS subtitle group for all tracks so variants can reference SUBTITLES="subs". */
@@ -72,6 +83,10 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         this.compatibilityAdapter = compatibilityAdapter;
     }
 
+    /**
+     * Downloads source object, probes it, computes complexity v2 (+fallback when needed),
+     * and returns metadata consumed by downstream orchestration.
+     */
     @Override
     public MetadataDTO analyzeSource(String uploadId, String bucket, String key) {
         Path workDir = null;
@@ -114,6 +129,11 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         }
     }
 
+    /**
+     * Creates a master playlist from successful rungs only.
+     *
+     * <p>Rungs are sorted high-to-low so adaptive players see the highest rendition first.</p>
+     */
     @Override
     public FinalManifestDTO generateMasterManifest(List<RungResultDTO> rungs) {
         Path workDir = null;
@@ -132,6 +152,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
                 w.write("#EXTM3U\n");
                 w.write("#EXT-X-VERSION:3\n");
                 for (RungResultDTO r : ok) {
+                    // Keep BANDWIDTH/RESOLUTION explicit to improve ABR selection behavior.
                     int bw = bandwidthEstimate(r.resolution());
                     w.write("#EXT-X-STREAM-INF:BANDWIDTH=" + bw + ",RESOLUTION=" + widthFromLabel(r.resolution()) + "x"
                             + heightFromLabel(r.resolution()) + "\n");
@@ -155,6 +176,11 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         }
     }
 
+    /**
+     * Adds subtitle media tags into the uploaded master manifest.
+     *
+     * <p>All tracks use one shared GROUP-ID so every variant can reference the same subtitle group.</p>
+     */
     @Override
     public ManifestUpdateDTO integrateSubtitles(String uploadId, List<SubInfo> subs) {
         String masterKey = properties.getMoviesKeyPrefix() + "/" + uploadId + "/master.m3u8";
@@ -177,6 +203,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
             boolean firstTrack = true;
             for (SubInfo sub : subs) {
                 String uri = relativeUriFromMaster(masterKey, sub.objectKey());
+                // Avoid duplicate EXT-X-MEDIA entries when integration is retried.
                 if (content.contains("URI=\"" + uri + "\"")) {
                     log.debug("[cas] integrateSubtitles skip duplicate URI={}", uri);
                     i++;
@@ -209,6 +236,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         }
     }
 
+    /** Downloads an object and emits periodic Temporal heartbeats while streaming bytes. */
     private void download(String bucket, String key, Path targetPath) throws Exception {
         try (var response = minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
             heartbeatWhileCopy(response, targetPath);
@@ -226,6 +254,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
                 total += n;
                 sinceHeartbeat += n;
                 if (sinceHeartbeat >= 512 * 1024) {
+                    // Heartbeat by transferred bytes so long downloads do not time out activities.
                     sinceHeartbeat = 0;
                     try {
                         Activity.getExecutionContext().heartbeat(total);
@@ -236,6 +265,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         }
     }
 
+    /** Emits compact v1 complexity details for progress/debug visibility in Temporal UI. */
     private void heartbeatCasDetails(ComplexityProfile profile, List<String> suffixes) {
         try {
             StringJoiner sj = new StringJoiner(",");
@@ -247,6 +277,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         }
     }
 
+    /** Emits compact v2 profile fields for policy troubleshooting without large payloads. */
     private void heartbeatV2Details(ComplexityProfileV2 profileV2) {
         try {
             String payload = "riskClass=" + profileV2.riskClass()
@@ -257,6 +288,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         }
     }
 
+    /** Runs v2 analysis when enabled, otherwise falls back to legacy-v1 derived profile. */
     private ComplexityProfileV2 analyzeProfileV2(SourceProfileV2 sourceProfileV2, SourceVideoMetadata sourceMeta) {
         if (!properties.isProfileV2Enabled()) {
             return conservativeFallback(sourceProfileV2, "profile_v2_disabled", sourceMeta);
@@ -269,6 +301,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         }
     }
 
+    /** Bridges legacy analysis output into {@link ComplexityProfileV2} shape for compatibility. */
     private ComplexityProfileV2 conservativeFallback(SourceProfileV2 sourceProfileV2, String reason, SourceVideoMetadata sourceMeta) {
         ComplexityProfile legacy = complexityAnalysisService.analyze(sourceProfileV2.uploadId(), sourceMeta);
         return new ComplexityProfileV2(
@@ -300,6 +333,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         );
     }
 
+    /** Normalizes FFprobe output into stable source profile fields used by policy evaluation. */
     private SourceProfileV2 buildSourceProfile(
             String uploadId,
             String bucket,
@@ -357,6 +391,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         try {
             String raw = uploadId + "|" + bucket + "|" + key + "|" + width + "|" + height + "|" + codec;
             byte[] digest = MessageDigest.getInstance("SHA-256").digest(raw.getBytes(StandardCharsets.UTF_8));
+            // Short digest keeps logs compact while still being stable for dedupe/correlation.
             return HexFormat.of().formatHex(digest, 0, 12);
         } catch (Exception ignored) {
             return Integer.toHexString(rawHash(uploadId, bucket, key));

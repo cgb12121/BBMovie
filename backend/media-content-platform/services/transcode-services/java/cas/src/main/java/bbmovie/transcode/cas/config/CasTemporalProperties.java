@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "temporal")
+/** Temporal connectivity properties used by CAS worker bootstrap. */
 public class CasTemporalProperties {
 
     private boolean enabled = true;

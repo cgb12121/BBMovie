@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ResolutionCostCalculator {
 
+    /** Converts rendition label (e.g. 720p) into relative transcode cost weight. */
     public int calculateCost(String resolution) {
         if (resolution == null || resolution.isEmpty()) {
             return 1;
@@ -34,6 +35,7 @@ public class ResolutionCostCalculator {
         return cost;
     }
 
+    /** Height-based cost fallback used when rendition labels are unavailable. */
     public int calculateCostByHeight(int height) {
         if (height >= 2160) {
             return 64;

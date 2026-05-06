@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/** Temporal client/worker-factory wiring used by VQS worker process. */
 @Configuration
 @EnableConfigurationProperties(VqsTemporalProperties.class)
 @ConditionalOnProperty(name = "temporal.enabled", havingValue = "true", matchIfMissing = true)
@@ -20,6 +21,7 @@ public class VqsTemporalConfiguration {
     private final VqsTemporalProperties vqsTemporalProperties;
 
     @Bean(destroyMethod = "shutdown")
+    /** Temporal service stubs for RPC calls to configured cluster target. */
     public WorkflowServiceStubs vqsWorkflowServiceStubs() {
         return WorkflowServiceStubs.newServiceStubs(
                 WorkflowServiceStubsOptions.newBuilder()
@@ -29,6 +31,7 @@ public class VqsTemporalConfiguration {
     }
 
     @Bean
+    /** Namespace-scoped workflow client for VQS worker components. */
     public WorkflowClient vqsWorkflowClient(WorkflowServiceStubs vqsWorkflowServiceStubs) {
         return WorkflowClient.newInstance(
                 vqsWorkflowServiceStubs,
@@ -39,6 +42,7 @@ public class VqsTemporalConfiguration {
     }
 
     @Bean(destroyMethod = "shutdown")
+    /** Worker factory used to register and run VQS activities. */
     public WorkerFactory vqsWorkerFactory(WorkflowClient vqsWorkflowClient) {
         return WorkerFactory.newInstance(vqsWorkflowClient);
     }

@@ -32,6 +32,12 @@ public class VqsQualityProcessingService {
     private final FFprobe ffprobe;
     private final VqsMediaProcessingProperties properties;
 
+    /**
+     * Validates rendition dimensions and emits placeholder quality score pending libvmaf wiring.
+     *
+     * @param request validation request with rendition path and expected geometry
+     * @return quality report with pass/fail and temporary numeric score
+     */
     public QualityReportDTO validateAndScore(ValidationRequest request) {
         Path workDir = null;
         try {
@@ -42,6 +48,7 @@ public class VqsQualityProcessingService {
             FFmpegProbeResult probe = ffprobe.probe(
                     ffprobe.builder()
                             .setInput(playlist.toString())
+                            // Local HLS probe can reference nested segments/keys over mixed schemes.
                             .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls,crypto")
                             .build());
             FFmpegStream video = firstVideoStream(probe).orElse(null);
@@ -50,6 +57,7 @@ public class VqsQualityProcessingService {
             }
             boolean dimsOk = Math.abs(video.width - request.expectedWidth()) <= 8
                     && Math.abs(video.height - request.expectedHeight()) <= 8;
+            // Keep a deterministic placeholder score until libvmaf wiring is enabled.
             double score = dimsOk ? 92.0 : 35.0;
             log.debug("[vqs] VMAF not run; stub score={} for {}", score, request.renditionLabel());
             return new QualityReportDTO(request.renditionLabel(), dimsOk, score, "vqs_ffprobe_dimensions_vmaf_stub");
@@ -66,12 +74,14 @@ public class VqsQualityProcessingService {
         }
     }
 
+    /** Downloads playlist object from MinIO to local temp file for ffprobe access. */
     private void download(String bucket, String key, Path targetPath) throws Exception {
         try (var response = minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
             Files.copy(response, targetPath, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
+    /** Returns first video stream from ffprobe output when available. */
     private static Optional<FFmpegStream> firstVideoStream(FFmpegProbeResult probe) {
         if (probe.getStreams() == null) {
             return Optional.empty();

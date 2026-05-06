@@ -37,6 +37,10 @@ public class NotifyAuthServiceDelegate implements JavaDelegate {
         String url = String.format("%s/%s/finalize?status=%s&message=%s",
                 authServiceUrl, applicationId, outcome, scoreReasons);
 
+        if (url == null || url.isEmpty()) {
+            throw new IllegalArgumentException("URL is required");
+        }
+
         try {
             restTemplate.postForLocation(url, null);
         } catch (Exception e) {

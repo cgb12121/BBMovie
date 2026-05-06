@@ -23,6 +23,13 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Bridges NATS JetStream object-created notifications into Temporal workflow starts.
+ *
+ * <p>This component continuously pulls messages, parses them into transcode jobs, and starts one
+ * workflow per upload id. Ack/Nak is managed via heartbeat-aware helper so long workflow-start
+ * bursts do not exceed JetStream ack wait windows.</p>
+ */
 @Slf4j
 @Component
 @ConditionalOnBean(Connection.class)
@@ -49,6 +56,7 @@ public class TranscodeWorkflowNatsBridge {
     private Thread fetchThread;
 
     @PostConstruct
+    /** Initializes stream/consumer subscription and starts virtual-thread pull loop. */
     public void start() throws Exception {
         jetStreamBootstrap.initialize();
         jetStreamBootstrap.ensureStreamExists();
@@ -67,6 +75,7 @@ public class TranscodeWorkflowNatsBridge {
         log.info("TranscodeWorkflowNatsBridge started");
     }
 
+    /** Pulls batches from JetStream and dispatches each message into processing. */
     private void fetchLoop() {
         while (running.get()) {
             try {
@@ -96,6 +105,11 @@ public class TranscodeWorkflowNatsBridge {
         log.info("TranscodeWorkflowNatsBridge fetch loop stopped");
     }
 
+    /**
+     * Parses one NATS payload and starts Temporal workflows for each parsed record.
+     *
+     * <p>Duplicate workflow ids are treated as success (idempotent message handling).</p>
+     */
     private void processMessage(Message message) {
         List<TranscodeJobInput> jobs = minioEventParser.parseAll(message.getData());
         if (jobs.isEmpty()) {
@@ -133,6 +147,7 @@ public class TranscodeWorkflowNatsBridge {
     }
 
     @PreDestroy
+    /** Stops fetch loop, unsubscribes consumer, and shuts down heartbeat scheduler. */
     public void stop() {
         running.set(false);
         if (subscription != null) {

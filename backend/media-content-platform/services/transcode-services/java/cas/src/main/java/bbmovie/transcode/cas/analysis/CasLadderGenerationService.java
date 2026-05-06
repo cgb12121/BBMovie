@@ -18,6 +18,7 @@ public class CasLadderGenerationService {
 
     private final ResolutionCostCalculator costCalculator;
 
+    // Baseline ABR ladder, ordered from highest to lowest rendition.
     private static final List<ResolutionDefinition> PRESET_LADDER = List.of(
             new ResolutionDefinition(1080, 1920, 1080, "1080p"),
             new ResolutionDefinition(720, 1280, 720, "720p"),
@@ -29,10 +30,16 @@ public class CasLadderGenerationService {
 
     private static final Map<String, LadderRung> RESOLUTION_LOOKUP = createResolutionLookup();
 
+    /** Generates the default ladder with no explicit recipe hint overrides. */
     public List<LadderRung> generateEncodingLadder(SourceVideoMetadata metadata) {
         return generateEncodingLadder(metadata, RecipeHints.none());
     }
 
+    /**
+     * Builds a baseline ladder from source height, then applies recipe skip rules.
+     *
+     * <p>If skips remove every rung, the original ladder is kept to avoid an unencodable request.</p>
+     */
     public List<LadderRung> generateEncodingLadder(SourceVideoMetadata metadata, RecipeHints recipeHints) {
         List<LadderRung> ladder = new ArrayList<>();
 
@@ -64,6 +71,11 @@ public class CasLadderGenerationService {
         return ladder;
     }
 
+    /**
+     * Applies policy-time constraints (skip rungs and max count) over the baseline ladder.
+     *
+     * <p>Recipe hints are applied first, then decision hints trim the remaining candidates.</p>
+     */
     public List<LadderRung> generateAdaptiveEncodingLadder(
             SourceVideoMetadata metadata,
             RecipeHints recipeHints,
@@ -89,6 +101,7 @@ public class CasLadderGenerationService {
         return filtered;
     }
 
+    /** Applies legacy recipe skips to an existing ladder while preserving non-empty output. */
     public List<LadderRung> applyRecipeHints(List<LadderRung> ladder, RecipeHints hints) {
         if (hints == null || hints.skipSuffixes() == null || hints.skipSuffixes().isEmpty()) {
             return ladder;
@@ -105,10 +118,16 @@ public class CasLadderGenerationService {
         return filtered;
     }
 
+    /** Resolves explicit suffixes to ladder rungs; falls back to generated ladder when empty. */
     public List<LadderRung> resolveEncodingLadder(List<String> ladderSuffixes, SourceVideoMetadata metadata) {
         return resolveEncodingLadder(ladderSuffixes, metadata, RecipeHints.none());
     }
 
+    /**
+     * Resolves a requested ladder suffix list and re-applies recipe skips.
+     *
+     * <p>Unknown suffixes are ignored, and all-empty results fall back to generated defaults.</p>
+     */
     public List<LadderRung> resolveEncodingLadder(
             List<String> ladderSuffixes, SourceVideoMetadata metadata, RecipeHints recipeHints) {
         if (ladderSuffixes == null || ladderSuffixes.isEmpty()) {
@@ -143,10 +162,12 @@ public class CasLadderGenerationService {
         return resolved;
     }
 
+    /** Converts ladder rungs into suffix labels used by downstream encode requests. */
     public List<String> toSuffixes(List<LadderRung> ladder) {
         return ladder.stream().map(LadderRung::filename).toList();
     }
 
+    /** Returns the highest per-rung cost as queue capacity planning input. */
     public int calculatePeakCost(List<String> ladderSuffixes) {
         return ladderSuffixes.stream()
                 .mapToInt(costCalculator::calculateCost)
@@ -154,6 +175,7 @@ public class CasLadderGenerationService {
                 .orElse(1);
     }
 
+    /** Returns the sum cost across all rungs for total workload estimation. */
     public int calculateTotalCost(List<String> ladderSuffixes) {
         return ladderSuffixes.stream()
                 .mapToInt(costCalculator::calculateCost)

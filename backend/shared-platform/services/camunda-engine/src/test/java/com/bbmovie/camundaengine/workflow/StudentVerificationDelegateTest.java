@@ -27,6 +27,7 @@ import static org.mockito.Mockito.when;
 class StudentVerificationDelegateTest {
 
     @Test
+    @SuppressWarnings("null")
     void executeSetsVerificationVariablesOnSuccessfulDroolsCall() {
         UniversityRepository universityRepository = mock(UniversityRepository.class);
         EntityManager entityManager = mock(EntityManager.class);
@@ -81,6 +82,7 @@ class StudentVerificationDelegateTest {
     }
 
     @Test
+    @SuppressWarnings("null")
     void executeFallsBackToNeedsReviewWhenDroolsUnavailable() {
         UniversityRepository universityRepository = mock(UniversityRepository.class);
         EntityManager entityManager = mock(EntityManager.class);

@@ -21,12 +21,19 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Temporal workflow implementation for end-to-end transcode processing.
+ *
+ * <p>Flow: analyze -> fan-out encodes -> fan-out quality checks (selected rungs) -> publish master
+ * manifest. Failures in encode/quality paths fail the workflow to preserve output integrity.</p>
+ */
 public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
 
     private record PlannedRung(String label, int width, int height) {
     }
 
     @Override
+    /** Executes orchestration pipeline for a single uploaded object notification. */
     public void processUpload(TranscodeJobInput input) {
         if (!input.purpose().isVideo()) {
             Workflow.getLogger(VideoProcessingWorkflowImpl.class)
@@ -51,6 +58,7 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
 
         MetadataDTO metadata = analysis.analyzeSource(input.uploadId(), input.bucket(), input.key());
 
+        // Plan once from source metadata, then fan-out independent per-rung encode activities.
         List<PlannedRung> plan = planRungs(metadata.height(), metadata.decisionHints());
         List<Promise<RungResultDTO>> encodePromises = new ArrayList<>();
         List<Promise<QualityReportDTO>> qualityPromises = new ArrayList<>();
@@ -97,6 +105,7 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
 
         Promise.allOf(encodePromises.toArray(new Promise[0])).get();
         List<RungResultDTO> rungResults = encodePromises.stream().map(Promise::get).toList();
+        // Any failed rung fails workflow; master should only be produced from fully successful plan.
         for (RungResultDTO rungResult : rungResults) {
             if (!rungResult.success()) {
                 throw new RuntimeException(
@@ -119,6 +128,7 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
                 .info("Transcode finished uploadId={} master={}", input.uploadId(), manifest.masterPlaylistPath());
     }
 
+    /** Builds rung plan from source height and optional decision-hint constraints. */
     private static List<PlannedRung> planRungs(int sourceHeight, DecisionHintsV2 decisionHints) {
         List<PlannedRung> rungs = new ArrayList<>();
         if (sourceHeight >= 1080) {

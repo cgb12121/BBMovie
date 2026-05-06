@@ -5,5 +5,6 @@ package bbmovie.transcode.cas.analysis;
  */
 public interface ComplexityAnalysisService {
 
+    /** Analyze source metadata using legacy heuristic model. */
     ComplexityProfile analyze(String uploadId, SourceVideoMetadata metadata);
 }

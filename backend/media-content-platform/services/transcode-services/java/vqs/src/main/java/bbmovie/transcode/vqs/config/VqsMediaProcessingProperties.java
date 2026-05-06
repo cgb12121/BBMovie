@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "app.media-processing")
+/** Media-processing runtime properties consumed by VQS validation service. */
 public class VqsMediaProcessingProperties {
 
     private String hlsBucket = "bbmovie-hls";

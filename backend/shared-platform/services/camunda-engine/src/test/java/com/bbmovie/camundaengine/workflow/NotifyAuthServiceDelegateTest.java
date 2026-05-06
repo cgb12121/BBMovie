@@ -8,6 +8,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -17,6 +18,7 @@ import static org.mockito.Mockito.when;
 class NotifyAuthServiceDelegateTest {
 
     @Test
+    @SuppressWarnings("null")
     void executeUsesDefaultOutcomeWhenMissing() {
         NotifyAuthServiceDelegate delegate = new NotifyAuthServiceDelegate();
         RestTemplate restTemplate = mock(RestTemplate.class);
@@ -37,6 +39,7 @@ class NotifyAuthServiceDelegateTest {
     }
 
     @Test
+    @SuppressWarnings("null")
     void executeSwallowsNotificationErrors() {
         NotifyAuthServiceDelegate delegate = new NotifyAuthServiceDelegate();
         RestTemplate restTemplate = mock(RestTemplate.class);
@@ -49,7 +52,7 @@ class NotifyAuthServiceDelegateTest {
         when(execution.getVariable("verificationOutcome")).thenReturn("AUTO_APPROVE");
         when(execution.getVariable("scoreReasons")).thenReturn("");
 
-        doThrow(new RuntimeException("network issue")).when(restTemplate).postForLocation(org.mockito.ArgumentMatchers.anyString(), eq(null));
+        doThrow(new RuntimeException("network issue")).when(restTemplate).postForLocation(anyString(), eq(null));
 
         assertDoesNotThrow(() -> delegate.execute(execution));
     }

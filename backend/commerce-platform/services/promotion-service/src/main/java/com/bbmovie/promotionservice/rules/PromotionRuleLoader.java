@@ -37,6 +37,9 @@ public class PromotionRuleLoader {
     @Scheduled(fixedDelayString = "${promotion.rules.reload-ms:30000}")
     public void reloadIfChanged() {
         try {
+            if (ruleResource == null) {
+                throw new IllegalStateException("Promotion rules resource is not set");
+            }
             Resource resource = resourceLoader.getResource(ruleResource);
             if (!resource.exists()) {
                 log.warn("Promotion rules resource does not exist: {}", ruleResource);

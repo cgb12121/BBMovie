@@ -8,7 +8,9 @@ import java.util.Comparator;
 import java.util.List;
 
 /**
- * Ported from transcode-worker {@code FastProbeService}.
+ * Coordinator that executes VIS probe strategies by priority until one succeeds.
+ *
+ * <p>Strategy failures are tolerated and fallback to next candidate; only all-failed case throws.</p>
  */
 @Slf4j
 @Service
@@ -23,10 +25,12 @@ public class VisFastProbeService {
     }
 
     @PostConstruct
+    /** Logs enabled strategy order for runtime observability. */
     public void init() {
         log.info("VIS FastProbeService strategies: {}", strategies.stream().map(VisProbeStrategy::getName).toList());
     }
 
+    /** Attempts probing through supported strategies in descending priority order. */
     public VisProbeOutcome probe(String bucket, String key) {
         Exception last = null;
         for (VisProbeStrategy strategy : strategies) {

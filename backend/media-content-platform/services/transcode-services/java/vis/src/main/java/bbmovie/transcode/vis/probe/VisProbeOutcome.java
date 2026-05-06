@@ -3,7 +3,9 @@ package bbmovie.transcode.vis.probe;
 import java.util.List;
 
 /**
- * Ported from transcode-worker {@code ProbeResult} (video branch fields used by VIS).
+ * Normalized VIS probe output shared across decision and profile-building stages.
+ *
+ * <p>Ported from transcode-worker {@code ProbeResult} video branch fields.</p>
  */
 public record VisProbeOutcome(
         int width,

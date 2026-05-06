@@ -18,6 +18,12 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+/**
+ * Temporal activity adapter for VES encoding queue.
+ *
+ * <p>This worker is intentionally queue-scoped: it serves only encode requests and rejects
+ * analyzer/quality/subtitle operations to keep workflow routing explicit and safe.</p>
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -26,41 +32,54 @@ public class EncodingActivities implements MediaActivities {
     private final EncodingProcessingService encodingProcessingService;
 
     @Override
+    /** Unsupported on encoding queue; source analysis belongs to analyzer workers. */
     public MetadataDTO analyzeSource(String uploadId, String bucket, String key) {
         throw Activity.wrap(notOnEncodingQueue("analyzeSource"));
     }
 
     @Override
+    /**
+     * Encodes one rendition using stream-based VES pipeline.
+     *
+     * @param request encode payload containing source object + rendition constraints
+     * @return encode result with rendition label, output playlist path, and success flag
+     */
     public RungResultDTO encodeResolution(EncodeRequest request) {
         log.debug("[ves] encodeResolution {}", request.resolution());
         return encodingProcessingService.encodeResolution(request);
     }
 
     @Override
+    /** Unsupported on encoding queue; validation belongs to quality workers. */
     public QualityReportDTO validateAndScore(ValidationRequest request) {
         throw Activity.wrap(notOnEncodingQueue("validateAndScore"));
     }
 
     @Override
+    /** Unsupported on encoding queue; manifest generation belongs to analyzer/orchestrator path. */
     public FinalManifestDTO generateMasterManifest(List<RungResultDTO> rungs) {
         throw Activity.wrap(notOnEncodingQueue("generateMasterManifest"));
     }
 
     @Override
+    /** Unsupported on encoding queue; subtitle normalization is handled elsewhere. */
     public SubtitleJsonDTO normalizeSubtitle(String uploadId, String bucket, String key) {
         throw Activity.wrap(notOnEncodingQueue("normalizeSubtitle"));
     }
 
     @Override
+    /** Unsupported on encoding queue; subtitle translation is handled elsewhere. */
     public SubtitleJsonDTO translateSubtitle(SubtitleJsonDTO json, String targetLang) {
         throw Activity.wrap(notOnEncodingQueue("translateSubtitle"));
     }
 
     @Override
+    /** Unsupported on encoding queue; subtitle integration belongs to manifest/subtitle flow. */
     public ManifestUpdateDTO integrateSubtitles(String uploadId, List<SubInfo> subs) {
         throw Activity.wrap(notOnEncodingQueue("integrateSubtitles"));
     }
 
+    /** Shared fail-fast helper for operations outside encoding queue responsibilities. */
     private static IllegalStateException notOnEncodingQueue(String method) {
         return new IllegalStateException("VES only serves encoding-queue; unexpected call: " + method);
     }

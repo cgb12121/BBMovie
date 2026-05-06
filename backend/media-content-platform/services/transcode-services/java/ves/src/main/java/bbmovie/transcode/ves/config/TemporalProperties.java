@@ -7,6 +7,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "temporal")
+/**
+ * Temporal connectivity and worker concurrency settings for VES.
+ */
 public class TemporalProperties {
 
     private boolean enabled = true;

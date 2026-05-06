@@ -17,6 +17,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+/**
+ * Core VES encode pipeline: presign source -> run FFmpeg HLS encode -> upload artifacts.
+ *
+ * <p>Includes bounded retries for transient stream/input issues and heartbeats during encode/upload
+ * so long-running activities remain healthy in Temporal.</p>
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class EncodingProcessingService {
@@ -27,6 +33,12 @@ public class EncodingProcessingService {
     private final HlsUploadService hlsUploadService;
     private final EncodingCommandFactory encodingCommandFactory;
 
+    /**
+     * Executes rendition encode with retry envelope.
+     *
+     * @param request encode request with source location, rendition dimensions, and bitrate hints
+     * @return successful rung result or failed marker when all attempts are exhausted
+     */
     public RungResultDTO encodeResolution(EncodeRequest request) {
         int maxAttempts = Math.max(1, properties.getStreamRetryAttempts());
         long startedAt = System.nanoTime();
@@ -43,6 +55,7 @@ public class EncodingProcessingService {
         }
         for (int attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
+                // Attempt-level isolation keeps temp workspace and presigned URL lifetimes bounded.
                 RungResultDTO result = encodeOnceWithPresignedInput(request, attempt, maxAttempts);
                 if (log.isDebugEnabled()) {
                     long elapsedMs = (System.nanoTime() - startedAt) / 1_000_000;
@@ -71,12 +84,14 @@ public class EncodingProcessingService {
                     log.error("encodeResolution exhausted retries for upload={} resolution={}", request.uploadId(), request.resolution(), e);
                     return new RungResultDTO(request.resolution(), "", false);
                 }
+                // Retry only after configurable cool-down to avoid hot-looping on transient failures.
                 sleepBeforeRetry();
             }
         }
         return new RungResultDTO(request.resolution(), "", false);
     }
 
+    /** Runs a single encode attempt using a short-lived presigned source URL and temp workspace. */
     private RungResultDTO encodeOnceWithPresignedInput(EncodeRequest request, int attempt, int maxAttempts) throws Exception {
         Path workDir = null;
         try {
@@ -114,6 +129,7 @@ public class EncodingProcessingService {
             var builder = encodingCommandFactory.buildHlsStreamEncode(request, sourceUrl, playlist, segmentPattern);
             FFmpegJob job = executor.createJob(builder, progress -> {
                 try {
+                    // Heartbeat by encoded timestamp so Temporal sees steady progress on long encodes.
                     Activity.getExecutionContext().heartbeat(progress.out_time_ns);
                 } catch (ActivityCompletionException e) {
                     log.warn("Activity cancelled during heartbeat for progress={}", progress);
@@ -138,6 +154,7 @@ public class EncodingProcessingService {
         } finally {
             if (workDir != null) {
                 try {
+                    // Temp directory cleanup is best-effort and should not mask encode outcome.
                     FileSystemUtils.deleteRecursively(workDir);
                 } catch (IOException e) {
                     log.error("deleteRecursively failed for workDir={}", workDir, e);
@@ -146,6 +163,7 @@ public class EncodingProcessingService {
         }
     }
 
+    /** Sleeps between attempts according to configured backoff; preserves interrupt status. */
     private void sleepBeforeRetry() {
         long millis = Math.max(0, properties.getStreamRetryBackoffMillis());
         if (millis <= 0) {

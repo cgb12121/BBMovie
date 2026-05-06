@@ -10,11 +10,13 @@ import org.springframework.context.annotation.Configuration;
 
 import java.io.IOException;
 
+/** Spring wiring for VQS processing dependencies (MinIO + ffprobe + quality service). */
 @Configuration
 @EnableConfigurationProperties(VqsMediaProcessingProperties.class)
 public class VqsProcessingConfiguration {
 
     @Bean
+    /** MinIO client used by VQS to read rendition playlists from object storage. */
     public MinioClient vqsMinioClient(
             @Value("${minio.url}") String url,
             @Value("${minio.access-key}") String accessKey,
@@ -26,11 +28,17 @@ public class VqsProcessingConfiguration {
     }
 
     @Bean
+    /** ffprobe executable handle for rendition validation/scoring checks. */
     public FFprobe vqsFfprobe(VqsMediaProcessingProperties properties) throws IOException {
-        return new FFprobe(properties.getFfprobePath());
+        String ffprobePath = properties.getFfprobePath();
+        if (ffprobePath == null || ffprobePath.isEmpty()) {
+            throw new IllegalArgumentException("FFprobe path is not set");
+        }
+        return new FFprobe(ffprobePath);
     }
 
     @Bean
+    /** Main VQS quality-processing service bean. */
     public VqsQualityProcessingService vqsQualityProcessingService(
             MinioClient vqsMinioClient,
             FFprobe vqsFfprobe,

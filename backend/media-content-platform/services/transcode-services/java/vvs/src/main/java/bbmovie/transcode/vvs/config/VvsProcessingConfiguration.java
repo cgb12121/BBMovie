@@ -10,11 +10,13 @@ import org.springframework.context.annotation.Configuration;
 
 import java.io.IOException;
 
+/** Spring wiring for VVS processing dependencies (MinIO + ffprobe + quality service). */
 @Configuration
 @EnableConfigurationProperties(VvsMediaProcessingProperties.class)
 public class VvsProcessingConfiguration {
 
     @Bean
+    /** MinIO client used by VVS to read rendition playlists from object storage. */
     public MinioClient vvsMinioClient(
             @Value("${minio.url}") String url,
             @Value("${minio.access-key}") String accessKey,
@@ -26,11 +28,17 @@ public class VvsProcessingConfiguration {
     }
 
     @Bean
+    /** ffprobe executable handle for rendition validation. */
     public FFprobe vvsFfprobe(VvsMediaProcessingProperties properties) throws IOException {
-        return new FFprobe(properties.getFfprobePath());
+        String ffprobePath = properties.getFfprobePath();
+        if (ffprobePath == null || ffprobePath.isEmpty()) {
+            throw new IllegalArgumentException("FFprobe path is not set");
+        }
+        return new FFprobe(ffprobePath);
     }
 
     @Bean
+    /** Main VVS quality-processing service bean. */
     public VvsQualityProcessingService vvsQualityProcessingService(
             MinioClient vvsMinioClient,
             FFprobe vvsFfprobe,

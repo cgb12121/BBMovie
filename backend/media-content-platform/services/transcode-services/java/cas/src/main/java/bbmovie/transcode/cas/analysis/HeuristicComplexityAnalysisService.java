@@ -11,6 +11,7 @@ import java.util.Set;
  */
 public class HeuristicComplexityAnalysisService implements ComplexityAnalysisService {
 
+    /** Legacy heuristic analyzer retained as conservative fallback for CAS profile-v2 path. */
     @Override
     public ComplexityProfile analyze(String uploadId, SourceVideoMetadata metadata) {
         double resolutionFactor = Math.min(1.0, metadata.height() / 1080.0);
@@ -32,6 +33,7 @@ public class HeuristicComplexityAnalysisService implements ComplexityAnalysisSer
         if (metadata.height() < 480) {
             skip.add("480p");
         }
+        // Very long assets drop the smallest rung to reduce total transcode load.
         if (metadata.duration() > 7200) {
             skip.add("144p");
         }

@@ -11,7 +11,9 @@ import org.springframework.stereotype.Component;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Ported from transcode-worker {@code PresignedUrlService} (GET presign for ffprobe).
+ * Helper for generating short-lived presigned GET URLs for VIS probe flows.
+ *
+ * <p>Ported from transcode-worker {@code PresignedUrlService}.</p>
  */
 @Slf4j
 @Component
@@ -23,6 +25,7 @@ public class VisPresignedUrlService {
     @Value("${app.minio.presigned-url-expiry-minutes:60}")
     private int defaultExpiryMinutes;
 
+    /** Creates GET presigned URL for explicit expiry duration. */
     public String generateGetUrl(String bucket, String key, int expiryMinutes) {
         try {
             return minioClient.getPresignedObjectUrl(
@@ -39,6 +42,7 @@ public class VisPresignedUrlService {
         }
     }
 
+    /** Creates short-lived URL tuned for probe operations. */
     public String generateProbeUrl(String bucket, String key) {
         return generateGetUrl(bucket, key, 5);
     }

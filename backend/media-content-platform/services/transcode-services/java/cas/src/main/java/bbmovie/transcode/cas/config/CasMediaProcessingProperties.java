@@ -7,6 +7,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "app.media-processing")
+/** CAS media-processing runtime properties bound from application configuration. */
 public class CasMediaProcessingProperties {
 
     private String hlsBucket = "bbmovie-hls";

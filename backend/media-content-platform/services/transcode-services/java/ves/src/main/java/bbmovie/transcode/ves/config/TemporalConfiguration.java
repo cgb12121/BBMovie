@@ -11,6 +11,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/** Temporal client/worker-factory wiring for VES encoding workers. */
 @Configuration
 @EnableConfigurationProperties(TemporalProperties.class)
 @ConditionalOnProperty(name = "temporal.enabled", havingValue = "true", matchIfMissing = true)
@@ -20,6 +21,7 @@ public class TemporalConfiguration {
     private final TemporalProperties temporalProperties;
 
     @Bean(destroyMethod = "shutdown")
+    /** Temporal service stubs used for RPC communication with cluster target. */
     public WorkflowServiceStubs workflowServiceStubs() {
         return WorkflowServiceStubs.newServiceStubs(
                 WorkflowServiceStubsOptions.newBuilder()
@@ -29,6 +31,7 @@ public class TemporalConfiguration {
     }
 
     @Bean
+    /** Namespace-scoped Temporal workflow client for VES process. */
     public WorkflowClient workflowClient(WorkflowServiceStubs workflowServiceStubs) {
         return WorkflowClient.newInstance(
                 workflowServiceStubs,
@@ -39,6 +42,7 @@ public class TemporalConfiguration {
     }
 
     @Bean(destroyMethod = "shutdown")
+    /** Worker factory used to register encoding activities. */
     public WorkerFactory workerFactory(WorkflowClient workflowClient) {
         return WorkerFactory.newInstance(workflowClient);
     }

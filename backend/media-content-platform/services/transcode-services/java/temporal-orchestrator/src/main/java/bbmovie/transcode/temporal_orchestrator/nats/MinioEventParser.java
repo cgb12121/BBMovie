@@ -16,6 +16,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+/**
+ * Parses MinIO/S3-style notification payloads into normalized transcode workflow inputs.
+ *
+ * <p>Supports batched {@code Records[]} events and tolerates per-record malformed metadata by
+ * skipping invalid entries instead of failing the whole message.</p>
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -56,6 +62,7 @@ public class MinioEventParser {
         }
     }
 
+    /** Parses one notification record into a workflow input when metadata is complete and valid. */
     private Optional<TranscodeJobInput> parseRecord(JsonNode record) {
         String eventName = record.path("eventName").asText("");
         if (!eventName.startsWith("s3:ObjectCreated:")) {
@@ -99,6 +106,7 @@ public class MinioEventParser {
         return Optional.of(new TranscodeJobInput(uploadId, bucket, key, purpose, contentType, size));
     }
 
+    /** Returns the first present metadata value among candidate key aliases. */
     private static String extractMetadataValue(JsonNode metadata, String... keys) {
         for (String k : keys) {
             JsonNode value = metadata.path(k);

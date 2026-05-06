@@ -61,8 +61,14 @@ public class StudentVerificationDelegate implements JavaDelegate {
                 rustReq.put("requests", Collections.singletonList(item));
 
                 log.info("Calling Rust AI Service for extraction: {}", documentName);
+
+                @SuppressWarnings("null")
                 JsonNode rustResp = restTemplate.postForObject(rustAiServiceUrl, rustReq, JsonNode.class);
                 
+                if (rustResp == null) {
+                    throw new IllegalArgumentException("Rust AI Service returned null response");
+                }
+
                 if (rustResp != null && rustResp.get("success").asBoolean()) {
                     JsonNode resultItem = rustResp.get("data").get(0).get("result");
                     if (resultItem != null) {
@@ -112,6 +118,7 @@ public class StudentVerificationDelegate implements JavaDelegate {
 
         // 4. Call Drools Service
         try {
+            @SuppressWarnings("null")
             StudentVerificationContext result = restTemplate.postForObject(droolsServiceUrl, context, StudentVerificationContext.class);
             if (result != null) {
                 log.info("Drools result: score={}, outcome={}", result.getScore(), result.getOutcome());

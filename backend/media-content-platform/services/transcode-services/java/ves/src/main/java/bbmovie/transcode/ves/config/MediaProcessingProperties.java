@@ -7,6 +7,12 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "app.media-processing")
+/**
+ * Runtime tuning knobs for VES encoding and upload behavior.
+ *
+ * <p>These properties control ffmpeg executable path, stream retry behavior, and upload concurrency
+ * and should be tuned alongside worker concurrency settings.</p>
+ */
 public class MediaProcessingProperties {
 
     private String hlsBucket = "bbmovie-hls";

@@ -1,7 +1,9 @@
 package bbmovie.transcode.cas.analysis;
 
 /**
- * Video metadata used by CAS / ladder (ported from {@code com.bbmovie.transcodeworker.service.ffmpeg.FFmpegVideoMetadata}).
+ * Minimal source metadata needed by CAS complexity and ladder policies.
+ *
+ * <p>Portable shape adapted from transcode-worker FFmpeg metadata model.</p>
  */
 public record SourceVideoMetadata(int width, int height, double duration, String codec) {
 }

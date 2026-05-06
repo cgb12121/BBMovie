@@ -10,10 +10,25 @@ import net.bramp.ffmpeg.builder.FFmpegOutputBuilder;
 import java.nio.file.Path;
 
 @RequiredArgsConstructor
+/**
+ * Builds FFmpeg command graph for one VES HLS rendition encode.
+ *
+ * <p>Encapsulates policy-driven bitrate strategy handling so workflow/activity layers stay free of
+ * FFmpeg argument details.</p>
+ */
 public class EncodingCommandFactory {
 
     private final MediaProcessingProperties properties;
 
+    /**
+     * Creates FFmpeg builder configured for HLS output and optional bitrate policy hints.
+     *
+     * @param request encode request containing target dimensions and bitrate strategy hints
+     * @param sourceUrl presigned source URL consumed directly by ffmpeg input
+     * @param playlist target output playlist path in local temp workspace
+     * @param segmentPattern ffmpeg segment filename pattern path
+     * @return finalized FFmpeg builder ready for {@code FFmpegExecutor#createJob}
+     */
     public FFmpegBuilder buildHlsStreamEncode(EncodeRequest request, String sourceUrl, Path playlist, Path segmentPattern) {
         String preset = request.preferredPreset() != null && !request.preferredPreset().isBlank()
                 ? request.preferredPreset()
@@ -43,6 +58,7 @@ public class EncodingCommandFactory {
         }
         switch (mode) {
             case VBV_ABR -> {
+                // ABR mode: center target bitrate between policy min/max with VBV guardrails.
                 Integer maxK = request.maxBitrateKbps();
                 if (maxK != null && maxK > 0) {
                     Integer minK = request.minBitrateKbps();
@@ -59,6 +75,7 @@ public class EncodingCommandFactory {
                 }
             }
             case VBV_CRF_CAP -> {
+                // CRF mode: quality-targeted encoding capped by maxrate/bufsize for bandwidth control.
                 Integer maxK = request.maxBitrateKbps();
                 if (maxK != null && maxK > 0) {
                     int crf = request.encoderCrf() != null ? request.encoderCrf() : 23;
@@ -71,6 +88,7 @@ public class EncodingCommandFactory {
             }
         }
         if (request.conservativeMode()) {
+            // Conservative mode disables scenecut/open-gop to reduce segment variance/drift risk.
             output.addExtraArgs("-x264-params", "scenecut=0:open-gop=0");
         }
         

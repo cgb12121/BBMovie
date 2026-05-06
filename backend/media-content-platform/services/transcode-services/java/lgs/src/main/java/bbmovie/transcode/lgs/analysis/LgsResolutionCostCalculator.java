@@ -3,11 +3,14 @@ package bbmovie.transcode.lgs.analysis;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Ported from transcode-worker {@code ResolutionCostCalculator}.
+ * Maps resolution labels to relative transcode cost weights for LGS planning.
+ *
+ * <p>Ported from transcode-worker {@code ResolutionCostCalculator}.</p>
  */
 @Slf4j
 public class LgsResolutionCostCalculator {
 
+    /** Converts rendition label (e.g. 720p) to capacity cost weight. */
     public int calculateCost(String resolution) {
         if (resolution == null || resolution.isEmpty()) {
             return 1;

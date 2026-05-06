@@ -18,6 +18,12 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+/**
+ * Temporal activity adapter for VQS quality queue.
+ *
+ * <p>This worker only serves quality scoring operations; non-quality activity invocations are
+ * rejected to keep queue boundaries explicit.</p>
+ */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -26,22 +32,26 @@ public class VqsMediaActivities implements MediaActivities {
     private final VqsQualityProcessingService vqsQualityProcessingService;
 
     @Override
+    /** Not served on quality queue; analyze belongs to analyzer services. */
     public MetadataDTO analyzeSource(String uploadId, String bucket, String key) {
         throw Activity.wrap(notOnQualityQueue("analyzeSource"));
     }
 
     @Override
+    /** Not served on quality queue; encode belongs to encoder services. */
     public RungResultDTO encodeResolution(EncodeRequest request) {
         throw Activity.wrap(notOnQualityQueue("encodeResolution"));
     }
 
     @Override
+    /** Validates one rendition and returns VQS quality-scoring report. */
     public QualityReportDTO validateAndScore(ValidationRequest request) {
         log.debug("[vqs] validateAndScore {}", request.renditionLabel());
         return vqsQualityProcessingService.validateAndScore(request);
     }
 
     @Override
+    /** Not served on quality queue; manifest generation belongs to analyzer/orchestrator path. */
     public FinalManifestDTO generateMasterManifest(List<RungResultDTO> rungs) {
         throw Activity.wrap(notOnQualityQueue("generateMasterManifest"));
     }
@@ -61,6 +71,7 @@ public class VqsMediaActivities implements MediaActivities {
         throw Activity.wrap(notOnQualityQueue("integrateSubtitles"));
     }
 
+    /** Shared error helper for unsupported methods on this queue-scoped worker. */
     private static IllegalStateException notOnQualityQueue(String method) {
         return new IllegalStateException("VQS worker only serves quality-queue; unexpected call: " + method);
     }

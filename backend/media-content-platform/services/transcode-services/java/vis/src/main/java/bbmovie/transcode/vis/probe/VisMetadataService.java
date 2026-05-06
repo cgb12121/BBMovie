@@ -10,7 +10,9 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 /**
- * Ported from transcode-worker {@code MetadataService}.
+ * Thin ffprobe wrapper used by VIS probe strategies.
+ *
+ * <p>Provides both summarized metadata and full probe result accessors for fast/deep flows.</p>
  */
 @Slf4j
 @Component
@@ -19,24 +21,29 @@ public class VisMetadataService {
 
     private final FFprobe ffprobe;
 
+    /** Extracts minimal source metadata from local file path. */
     public VisSourceVideoMetadata getMetadata(Path videoPath) {
         return getMetadataFromSource(videoPath.toString());
     }
 
+    /** Extracts minimal source metadata from URL source (e.g., presigned MinIO URL). */
     public VisSourceVideoMetadata getMetadataFromUrl(String url) {
         log.debug("Probing video from URL (truncated): {}...", url.substring(0, Math.min(url.length(), 80)));
         return getMetadataFromSource(url);
     }
 
+    /** Returns full ffprobe result from local file path. */
     public FFmpegProbeResult probeResultFromPath(Path videoPath) {
         return probeResult(videoPath.toString());
     }
 
+    /** Returns full ffprobe result from URL source. */
     public FFmpegProbeResult probeResultFromUrl(String url) {
         log.debug("Probing full metadata from URL (truncated): {}...", url.substring(0, Math.min(url.length(), 80)));
         return probeResult(url);
     }
 
+    /** Builds compact metadata object from full ffprobe output. */
     private VisSourceVideoMetadata getMetadataFromSource(String source) {
         FFmpegProbeResult probeResult = probeResult(source);
         FFmpegStream videoStream = probeResult.getStreams()
@@ -53,6 +60,7 @@ public class VisMetadataService {
         );
     }
 
+    /** Executes ffprobe and converts checked IO errors into runtime failures. */
     private FFmpegProbeResult probeResult(String source) {
         try {
             return ffprobe.probe(source);

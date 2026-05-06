@@ -2,9 +2,11 @@ package bbmovie.transcode.vis.probe;
 
 import lombok.extern.slf4j.Slf4j;
 
+/** Maps rendition labels to relative transcode cost weights for VIS planning. */
 @Slf4j
 public class VisResolutionCostCalculator {
 
+    /** Converts resolution label (e.g. 720p) into capacity cost weight. */
     public int calculateCost(String resolution) {
         if (resolution == null || resolution.isEmpty()) {
             return 1;

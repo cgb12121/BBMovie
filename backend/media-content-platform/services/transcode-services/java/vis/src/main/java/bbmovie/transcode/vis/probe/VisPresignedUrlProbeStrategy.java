@@ -6,7 +6,9 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Ported from transcode-worker {@code PresignedUrlProbeStrategy}.
+ * Preferred VIS probe strategy using short-lived presigned URL + ffprobe.
+ *
+ * <p>Highest priority strategy because it avoids local object copy while preserving full probe fidelity.</p>
  */
 @Slf4j
 @Component
@@ -18,11 +20,13 @@ public class VisPresignedUrlProbeStrategy implements VisProbeStrategy {
     private final VisLadderGenerationService ladderGenerationService;
 
     @Override
+    /** Strategy display name used in logs/diagnostics. */
     public String getName() {
         return "PresignedUrl";
     }
 
     @Override
+    /** Supports common video container extensions expected by VIS pipeline. */
     public boolean supports(String bucket, String key) {
         String lowerKey = key.toLowerCase();
         return lowerKey.endsWith(".mp4")
@@ -38,6 +42,7 @@ public class VisPresignedUrlProbeStrategy implements VisProbeStrategy {
     }
 
     @Override
+    /** Probes via presigned URL and derives ladder/cost outputs. */
     public VisProbeOutcome probe(String bucket, String key) {
         try {
             String url = presignedUrlService.generateProbeUrl(bucket, key);

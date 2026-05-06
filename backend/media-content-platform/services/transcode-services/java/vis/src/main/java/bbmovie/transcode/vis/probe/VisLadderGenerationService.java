@@ -6,6 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * VIS ladder generator used during probe to estimate downstream encode plan and cost.
+ */
 @Slf4j
 @RequiredArgsConstructor
 public class VisLadderGenerationService {
@@ -21,6 +24,7 @@ public class VisLadderGenerationService {
             new ResolutionDefinition(144, 256, 144, "144p")
     );
 
+    /** Generates baseline ladder by source height, with original fallback for tiny sources. */
     public List<LadderRung> generateEncodingLadder(VisSourceVideoMetadata metadata) {
         List<LadderRung> ladder = new ArrayList<>();
         for (ResolutionDefinition def : PRESET_LADDER) {
@@ -35,14 +39,17 @@ public class VisLadderGenerationService {
         return ladder;
     }
 
+    /** Converts ladder entries into suffix labels used in probe outcome payloads. */
     public List<String> toSuffixes(List<LadderRung> ladder) {
         return ladder.stream().map(LadderRung::filename).toList();
     }
 
+    /** Returns peak per-rung cost estimate. */
     public int calculatePeakCost(List<String> ladderSuffixes) {
         return ladderSuffixes.stream().mapToInt(costCalculator::calculateCost).max().orElse(1);
     }
 
+    /** Returns total summed ladder cost estimate. */
     public int calculateTotalCost(List<String> ladderSuffixes) {
         return ladderSuffixes.stream().mapToInt(costCalculator::calculateCost).sum();
     }

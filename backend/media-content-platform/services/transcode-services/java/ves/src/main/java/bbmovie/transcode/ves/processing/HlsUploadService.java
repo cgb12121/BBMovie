@@ -22,6 +22,12 @@ import java.util.stream.Stream;
 
 @Slf4j
 @RequiredArgsConstructor
+/**
+ * Uploads generated HLS playlist/segment tree to object storage.
+ *
+ * <p>Uses configurable parallelism with virtual-thread executor and activity heartbeats per file
+ * upload to keep long uploads observable by Temporal.</p>
+ */
 public class HlsUploadService {
 
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
@@ -32,6 +38,13 @@ public class HlsUploadService {
     private final MinioClient minioClient;
     private final MediaProcessingProperties properties;
 
+    /**
+     * Uploads every regular file under {@code root} into {@code bucket/keyPrefix}.
+     *
+     * @param bucket target object bucket
+     * @param root local root directory containing generated HLS artifacts
+     * @param keyPrefix destination key prefix (rendition-scoped path)
+     */
     public void uploadTree(String bucket, Path root, String keyPrefix) throws Exception {
         String normalizedPrefix = keyPrefix.endsWith("/") ? keyPrefix : keyPrefix + "/";
         List<Path> files = listFiles(root);
@@ -52,12 +65,14 @@ public class HlsUploadService {
         }
     }
 
+    /** Lists files deterministically so uploads and logs are stable across runs. */
     private static List<Path> listFiles(Path root) throws Exception {
         try (Stream<Path> walk = Files.walk(root)) {
             return walk.filter(Files::isRegularFile).sorted().toList();
         }
     }
 
+    /** Uploads one file and emits heartbeat marker with object key. */
     private void uploadSingleFile(String bucket, Path root, String normalizedPrefix, Path file) throws Exception {
         String relative = root.relativize(file).toString().replace('\\', '/');
         String objectKey = normalizedPrefix + relative;
@@ -76,6 +91,7 @@ public class HlsUploadService {
         }
     }
 
+    /** Waits for all parallel upload tasks and rethrows original upload exceptions. */
     private static void awaitAllUploads(List<Future<Void>> futures) throws Exception {
         for (Future<Void> future : futures) {
             try {
@@ -91,6 +107,7 @@ public class HlsUploadService {
         }
     }
 
+    /** Infers object content type with Tika + HLS extension fallback table. */
     private static String guessContentType(Path file) {
         String fileName = file.getFileName().toString();
         String detected = TIKA.detect(fileName);

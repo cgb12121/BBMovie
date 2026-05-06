@@ -6,6 +6,11 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Rule-based gate deciding whether VIS should run deep probe after fast probe.
+ *
+ * <p>Deep probe is requested when fast-probe signals low trust (duration/width/codec/extension).</p>
+ */
 @Component
 public class VisProbeDecisionPolicy {
 
@@ -19,6 +24,7 @@ public class VisProbeDecisionPolicy {
         this.minWidthForTrust = Math.max(0, minWidthForTrust);
     }
 
+    /** Returns deep-probe requirement, confidence, and gate reasons for audit/debug. */
     public ProbeDecision decide(VisProbeOutcome fastOutcome, String key) {
         List<String> reasons = new ArrayList<>();
         if (fastOutcome.duration() < minDurationSecondsForTrust) {
@@ -38,6 +44,7 @@ public class VisProbeDecisionPolicy {
         return new ProbeDecision(deepProbeRequired, confidence, reasons);
     }
 
+    /** Lightweight extension-based sanity check for expected video container objects. */
     private static boolean looksLikeContainerKey(String key) {
         if (key == null) {
             return false;
@@ -51,6 +58,7 @@ public class VisProbeDecisionPolicy {
                 || lower.endsWith(".m4v");
     }
 
+    /** Decision result consumed by profile-v2 service for probe-path routing. */
     public record ProbeDecision(boolean deepProbeRequired, double confidence, List<String> gateReasons) {
     }
 }

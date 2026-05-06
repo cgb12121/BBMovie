@@ -32,6 +32,12 @@ public class VvsQualityProcessingService {
     private final FFprobe ffprobe;
     private final VvsMediaProcessingProperties properties;
 
+    /**
+     * Validates encoded rendition dimensions by probing produced HLS playlist.
+     *
+     * @param request validation request with rendition path and expected geometry
+     * @return quality report containing pass/fail status and lightweight score
+     */
     public QualityReportDTO validateAndScore(ValidationRequest request) {
         Path workDir = null;
         try {
@@ -42,6 +48,7 @@ public class VvsQualityProcessingService {
             FFmpegProbeResult probe = ffprobe.probe(
                     ffprobe.builder()
                             .setInput(playlist.toString())
+                            // Local HLS probe can reference nested segments/keys over mixed schemes.
                             .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls,crypto")
                             .build());
             FFmpegStream video = firstVideoStream(probe).orElse(null);
@@ -50,6 +57,7 @@ public class VvsQualityProcessingService {
             }
             boolean dimsOk = Math.abs(video.width - request.expectedWidth()) <= 8
                     && Math.abs(video.height - request.expectedHeight()) <= 8;
+            // Simple dimension-based score kept for parity with current Java validation path.
             double score = dimsOk ? 90.0 : 40.0;
             return new QualityReportDTO(request.renditionLabel(), dimsOk, score, "vvs_ffprobe_dimensions");
         } catch (Exception e) {
@@ -65,12 +73,14 @@ public class VvsQualityProcessingService {
         }
     }
 
+    /** Downloads playlist object from MinIO to local temp file for ffprobe access. */
     private void download(String bucket, String key, Path targetPath) throws Exception {
         try (var response = minioClient.getObject(GetObjectArgs.builder().bucket(bucket).object(key).build())) {
             Files.copy(response, targetPath, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
+    /** Returns first video stream from ffprobe output when available. */
     private static Optional<FFmpegStream> firstVideoStream(FFmpegProbeResult probe) {
         if (probe.getStreams() == null) {
             return Optional.empty();

@@ -2,6 +2,17 @@ package bbmovie.transcode.contracts.dto;
 
 import java.io.Serializable;
 
+/**
+ * Source metadata envelope returned by analysis activities.
+ *
+ * @param width source width in pixels
+ * @param height source height in pixels
+ * @param durationSeconds source duration in seconds
+ * @param codec source codec name
+ * @param sourceProfile optional normalized v2 source profile
+ * @param complexityProfile optional v2 complexity profile
+ * @param decisionHints optional policy hints derived from complexity profile
+ */
 public record MetadataDTO(
         int width,
         int height,
