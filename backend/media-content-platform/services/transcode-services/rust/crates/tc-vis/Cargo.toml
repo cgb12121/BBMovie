@@ -1,0 +1,35 @@
+[package]
+name = "tc-vis"
+version.workspace = true
+edition.workspace = true
+
+[features]
+default = []
+temporal-runtime = [
+    "dep:tokio",
+    "dep:temporalio-client",
+    "dep:temporalio-common",
+    "dep:temporalio-macros",
+    "dep:temporalio-sdk",
+    "dep:temporalio-sdk-core",
+]
+
+[dependencies]
+transcode-contracts = { path = "../transcode-contracts" }
+tc-ffprobe = { path = "../tc-ffprobe" }
+tc-lgs = { path = "../tc-lgs" }
+tc-runtime = { path = "../tc-runtime" }
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+futures.workspace = true
+tokio = { workspace = true, optional = true }
+temporalio-client = { workspace = true, optional = true }
+temporalio-common = { workspace = true, optional = true }
+temporalio-macros = { workspace = true, optional = true }
+temporalio-sdk = { workspace = true, optional = true }
+temporalio-sdk-core = { workspace = true, optional = true }
+
+[[bin]]
+name = "vis"
+path = "src/main.rs"

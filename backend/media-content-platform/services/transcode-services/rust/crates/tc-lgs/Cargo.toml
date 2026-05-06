@@ -1,0 +1,7 @@
+[package]
+name = "tc-lgs"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+transcode-contracts = { path = "../transcode-contracts" }

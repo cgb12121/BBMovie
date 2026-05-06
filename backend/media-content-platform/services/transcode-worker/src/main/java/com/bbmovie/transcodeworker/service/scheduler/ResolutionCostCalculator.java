@@ -67,7 +67,7 @@ public class ResolutionCostCalculator {
         // Exponential scaling: multiply by 2 for each resolution level
         int cost = switch (normalized) {
             // 4 K/8K: 64 points (very high cost)
-            case "4080p", "2160p", "4k" -> 64;
+            case "4320p", "2160p", "4k" -> 64;
             
             // 1080p: 32 points
             case "1080p" -> 32;
