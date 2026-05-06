@@ -43,10 +43,10 @@ public class CasMediaActivities implements MediaActivities {
 
     @Override
     public FinalManifestDTO generateMasterManifest(List<RungResultDTO> rungs) {
-        log.debug("[cas] generateMasterManifest rungs={}", rungs.size());
+        log.debug("[cas] generateMasterManifest rungs={}", rungs != null ? rungs.size() : 0);
         return casProcessingService.generateMasterManifest(rungs);
     }
-
+    
     @Override
     public SubtitleJsonDTO normalizeSubtitle(String uploadId, String bucket, String key) {
         throw Activity.wrap(notOnAnalysisQueue("normalizeSubtitle"));

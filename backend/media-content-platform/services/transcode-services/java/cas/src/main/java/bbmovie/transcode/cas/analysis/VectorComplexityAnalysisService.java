@@ -13,6 +13,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class VectorComplexityAnalysisService implements ComplexityAnalysisV2Service {
 
+    /**
+     * {@link ComplexityProfileV2#fallbackReason()}: empty when this service produced the profile (not conservative fallback).
+     */
+    private static final String NO_FALLBACK_REASON = "";
+
     private final DecisionHintsPolicyEngine decisionHintsPolicyEngine;
     private final String analysisVersion;
     private final String policyVersion;
@@ -48,7 +53,7 @@ public class VectorComplexityAnalysisService implements ComplexityAnalysisV2Serv
                 analysisVersion,
                 policyVersion,
                 sourceProfile.confidence(),
-                "",
+                NO_FALLBACK_REASON,
                 Instant.now()
         );
     }

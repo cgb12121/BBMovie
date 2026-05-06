@@ -8,6 +8,7 @@ import bbmovie.transcode.cas.analysis.SourceVideoMetadata;
 import bbmovie.transcode.cas.config.CasMediaProcessingProperties;
 import bbmovie.transcode.contracts.dto.ComplexityProfileV2;
 import bbmovie.transcode.contracts.dto.DecisionHintsV2;
+import bbmovie.transcode.contracts.dto.EncodeBitrateStrategy;
 import bbmovie.transcode.contracts.dto.FinalManifestDTO;
 import bbmovie.transcode.contracts.dto.ManifestUpdateDTO;
 import bbmovie.transcode.contracts.dto.MetadataDTO;
@@ -22,6 +23,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFprobe;
 import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import net.bramp.ffmpeg.probe.FFmpegStream;
+import net.bramp.ffmpeg.shared.CodecType;
 import org.apache.commons.lang3.math.Fraction;
 import org.springframework.util.FileSystemUtils;
 
@@ -41,6 +43,9 @@ import java.util.StringJoiner;
 
 @Slf4j
 public class CasMinioProbeManifestService implements CasProcessingService {
+
+    /** Single HLS subtitle group for all tracks so variants can reference SUBTITLES="subs". */
+    private static final String HLS_SUBTITLES_GROUP_ID = "subs";
 
     private final MinioClient minioClient;
     private final FFprobe ffprobe;
@@ -163,8 +168,9 @@ public class CasMinioProbeManifestService implements CasProcessingService {
             download(properties.getHlsBucket(), masterKey, localMaster);
 
             String content = Files.readString(localMaster, StandardCharsets.UTF_8);
-            StringBuilder out = new StringBuilder(content);
-            if (!content.endsWith("\n")) {
+            String withVariantRefs = appendSubtitleGroupToStreamInfLines(content, HLS_SUBTITLES_GROUP_ID);
+            StringBuilder out = new StringBuilder(withVariantRefs);
+            if (!withVariantRefs.endsWith("\n")) {
                 out.append('\n');
             }
             int i = 1;
@@ -178,8 +184,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
                 }
                 String lang = sub.language() != null ? sub.language() : "und";
                 String name = sub.language() != null ? sub.language() : ("track" + i);
-                String groupId = "subs" + i;
-                out.append("#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"").append(groupId)
+                out.append("#EXT-X-MEDIA:TYPE=SUBTITLES,GROUP-ID=\"").append(HLS_SUBTITLES_GROUP_ID)
                         .append("\",NAME=\"").append(escapeM3u8Attr(name))
                         .append("\",DEFAULT=").append(firstTrack ? "YES" : "NO")
                         .append(",AUTOSELECT=YES,FORCED=NO,LANGUAGE=\"").append(escapeM3u8Attr(lang))
@@ -282,7 +287,9 @@ public class CasMinioProbeManifestService implements CasProcessingService {
                         legacy.featureScores(),
                         List.of("fallback=" + reason),
                         properties.getProfileV2AnalysisVersion(),
-                        properties.getProfileV2PolicyVersion()
+                        properties.getProfileV2PolicyVersion(),
+                        EncodeBitrateStrategy.VBV_CRF_CAP,
+                        Integer.valueOf(22)
                 ),
                 List.of("legacy-fallback"),
                 properties.getProfileV2AnalysisVersion(),
@@ -301,7 +308,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
             FFmpegStream video,
             double duration) {
         FFmpegStream audio = probe.getStreams().stream()
-                .filter(s -> s.codec_type == FFmpegStream.CodecType.AUDIO)
+                .filter(s -> s.codec_type == CodecType.AUDIO)
                 .findFirst()
                 .orElse(null);
         return new SourceProfileV2(
@@ -377,6 +384,24 @@ public class CasMinioProbeManifestService implements CasProcessingService {
         return s.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
+    /** Adds SUBTITLES group reference on variant lines so players bind one group to all renditions. */
+    private static String appendSubtitleGroupToStreamInfLines(String content, String groupId) {
+        String[] lines = content.split("\\R", -1);
+        StringBuilder sb = new StringBuilder(content.length() + 32);
+        for (int li = 0; li < lines.length; li++) {
+            if (li > 0) {
+                sb.append('\n');
+            }
+            String line = lines[li];
+            if (line.startsWith("#EXT-X-STREAM-INF:") && !line.contains("SUBTITLES=")) {
+                sb.append(line).append(",SUBTITLES=\"").append(groupId).append("\"");
+            } else {
+                sb.append(line);
+            }
+        }
+        return sb.toString();
+    }
+
     private static String relativeUriFromMaster(String masterObjectKey, String subtitleObjectKey) {
         int lastSlash = masterObjectKey.lastIndexOf('/');
         String masterDir = lastSlash >= 0 ? masterObjectKey.substring(0, lastSlash + 1) : "";
@@ -391,7 +416,7 @@ public class CasMinioProbeManifestService implements CasProcessingService {
             return Optional.empty();
         }
         return probe.getStreams().stream()
-                .filter(s -> s.codec_type == FFmpegStream.CodecType.VIDEO)
+                .filter(s -> s.codec_type == CodecType.VIDEO)
                 .findFirst();
     }
 

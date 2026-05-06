@@ -55,7 +55,7 @@ The service validates JWT tokens for secure API access and implements tier-based
 - **Direct keys (302 to MinIO)**: `/api/stream/direct/keys/{movieId}/{resolution}/{keyFile}`
 
 ### Supported Resolutions
-- 144p, 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p (4K), 4080p (8K)
+- 144p, 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p (4K), 4320p (8K)
 
 ### Tier-Based Filtering
 - **FREE Tier**: Limited to lower resolutions (≤ 480p)
@@ -72,7 +72,7 @@ The service validates JWT tokens for secure API access and implements tier-based
 
 - **GET** `/api/stream/{movieId}/{resolution}/playlist.m3u8`
   - Retrieves resolution-specific playlist
-  - Supports resolutions: 144p, 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p, 4080p
+  - Supports resolutions: 144p, 240p, 360p, 480p, 720p, 1080p, 1440p, 2160p, 4320p
   - Requires valid JWT authentication
 
 - **GET** `/api/stream/keys/{movieId}/{resolution}/{keyFile}`

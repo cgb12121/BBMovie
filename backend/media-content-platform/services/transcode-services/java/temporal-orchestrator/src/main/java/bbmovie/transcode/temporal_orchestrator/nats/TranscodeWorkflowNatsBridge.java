@@ -21,7 +21,6 @@ import org.springframework.stereotype.Component;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 @Slf4j
@@ -98,33 +97,37 @@ public class TranscodeWorkflowNatsBridge {
     }
 
     private void processMessage(Message message) {
-        Optional<TranscodeJobInput> parsed = minioEventParser.parse(message.getData());
-        if (parsed.isEmpty()) {
+        List<TranscodeJobInput> jobs = minioEventParser.parseAll(message.getData());
+        if (jobs.isEmpty()) {
             message.ack();
             return;
         }
-        TranscodeJobInput input = parsed.get();
-        String taskId = input.bucket() + "/" + input.key();
-        NatsMessageHeartbeat.Handle heartbeat = natsMessageHeartbeat.start(message, taskId);
+        String heartbeatLabel = jobs.size() == 1 ? jobs.get(0).bucket() + "/" + jobs.get(0).key()
+                : "batch:" + jobs.size() + ":" + jobs.get(0).uploadId();
+        NatsMessageHeartbeat.Handle heartbeat = natsMessageHeartbeat.start(message, heartbeatLabel);
         try {
-            String workflowId = "transcode-" + input.uploadId();
-            VideoProcessingWorkflow stub = workflowClient.newWorkflowStub(
-                    VideoProcessingWorkflow.class,
-                    WorkflowOptions.newBuilder()
-                            .setTaskQueue(temporalProperties.getOrchestratorTaskQueue())
-                            .setWorkflowId(workflowId)
-                            .setWorkflowIdReusePolicy(WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE)
-                            .build()
-            );
-            try {
-                WorkflowClient.start(stub::processUpload, input);
-                log.info("Started workflow {} for {}", workflowId, taskId);
-            } catch (WorkflowExecutionAlreadyStarted already) {
-                log.info("Workflow already running {}, treating as success", workflowId);
+            for (TranscodeJobInput input : jobs) {
+                String taskId = input.bucket() + "/" + input.key();
+                String workflowId = "transcode-" + input.uploadId();
+                VideoProcessingWorkflow stub = workflowClient.newWorkflowStub(
+                        VideoProcessingWorkflow.class,
+                        WorkflowOptions.newBuilder()
+                                .setTaskQueue(temporalProperties.getOrchestratorTaskQueue())
+                                .setWorkflowId(workflowId)
+                                .setWorkflowIdReusePolicy(
+                                        WorkflowIdReusePolicy.WORKFLOW_ID_REUSE_POLICY_REJECT_DUPLICATE)
+                                .build()
+                );
+                try {
+                    WorkflowClient.start(stub::processUpload, input);
+                    log.info("Started workflow {} for {}", workflowId, taskId);
+                } catch (WorkflowExecutionAlreadyStarted already) {
+                    log.info("Workflow already running {}, treating as success", workflowId);
+                }
             }
             natsMessageHeartbeat.stopAndAck(heartbeat);
         } catch (Exception e) {
-            log.error("Failed to start workflow for {}: {}", taskId, e.getMessage());
+            log.error("Failed to start workflows for NATS batch (jobs={}): {}", jobs.size(), e.getMessage());
             natsMessageHeartbeat.stopAndNak(heartbeat);
         }
     }

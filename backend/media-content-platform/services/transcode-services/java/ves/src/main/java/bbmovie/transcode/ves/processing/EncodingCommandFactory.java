@@ -1,5 +1,6 @@
 package bbmovie.transcode.ves.processing;
 
+import bbmovie.transcode.contracts.dto.EncodeBitrateStrategy;
 import bbmovie.transcode.contracts.dto.EncodeRequest;
 import bbmovie.transcode.ves.config.MediaProcessingProperties;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class EncodingCommandFactory {
 
         FFmpegBuilder builder = new FFmpegBuilder()
                 .setInput(sourceUrl)
+                .done()
                 .overrideOutputFiles(true);
 
         FFmpegOutputBuilder output = builder.addOutput(playlist.toString())
@@ -35,12 +37,38 @@ public class EncodingCommandFactory {
                 .addExtraArgs("-hls_playlist_type", "vod")
                 .addExtraArgs("-threads", Integer.toString(Math.max(1, properties.getFfmpegThreads())));
 
-        if (request.minBitrateKbps() != null && request.minBitrateKbps() > 0) {
-            output.addExtraArgs("-minrate", request.minBitrateKbps() + "k");
+        EncodeBitrateStrategy mode = request.bitrateStrategy();
+        if (mode == null) {
+            mode = EncodeBitrateStrategy.DEFAULT;
         }
-        if (request.maxBitrateKbps() != null && request.maxBitrateKbps() > 0) {
-            output.addExtraArgs("-maxrate", request.maxBitrateKbps() + "k");
-            output.addExtraArgs("-bufsize", (request.maxBitrateKbps() * 2) + "k");
+        switch (mode) {
+            case VBV_ABR -> {
+                Integer maxK = request.maxBitrateKbps();
+                if (maxK != null && maxK > 0) {
+                    Integer minK = request.minBitrateKbps();
+                    int lo = minK != null && minK > 0 ? minK : Math.max(1, maxK / 4);
+                    int hi = maxK;
+                    int target = (lo + hi) / 2;
+                    target = Math.max(lo, Math.min(hi, target));
+                    output.addExtraArgs("-b:v", target + "k");
+                    if (minK != null && minK > 0) {
+                        output.addExtraArgs("-minrate", minK + "k");
+                    }
+                    output.addExtraArgs("-maxrate", maxK + "k");
+                    output.addExtraArgs("-bufsize", (maxK * 2) + "k");
+                }
+            }
+            case VBV_CRF_CAP -> {
+                Integer maxK = request.maxBitrateKbps();
+                if (maxK != null && maxK > 0) {
+                    int crf = request.encoderCrf() != null ? request.encoderCrf() : 23;
+                    output.addExtraArgs("-crf", Integer.toString(crf));
+                    output.addExtraArgs("-maxrate", maxK + "k");
+                    output.addExtraArgs("-bufsize", (maxK * 2) + "k");
+                }
+            }
+            case DEFAULT -> {
+            }
         }
         if (request.conservativeMode()) {
             output.addExtraArgs("-x264-params", "scenecut=0:open-gop=0");

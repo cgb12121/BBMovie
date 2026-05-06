@@ -50,12 +50,12 @@ pub struct QualityReport {
 
 /// Ladder-only subset (no codec). Still used where codec is not needed.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct SourceVideoSummary {
     pub width: u32,
     pub height: u32,
     pub duration_sec: Option<f64>,
 }
-
 impl From<&VideoMetadata> for SourceVideoSummary {
     fn from(m: &VideoMetadata) -> Self {
         SourceVideoSummary {

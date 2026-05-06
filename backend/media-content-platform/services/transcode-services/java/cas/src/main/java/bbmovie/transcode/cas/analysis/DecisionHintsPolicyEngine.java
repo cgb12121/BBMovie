@@ -1,6 +1,7 @@
 package bbmovie.transcode.cas.analysis;
 
 import bbmovie.transcode.contracts.dto.DecisionHintsV2;
+import bbmovie.transcode.contracts.dto.EncodeBitrateStrategy;
 import bbmovie.transcode.contracts.dto.SourceProfileV2;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -59,6 +60,9 @@ public class DecisionHintsPolicyEngine {
         reasoning.add("riskClass=" + riskClass.name());
         reasoning.add("durationSeconds=" + source.durationSeconds());
         reasoning.add("sourceResolution=" + source.width() + "x" + source.height());
+        EncodeBitrateStrategy encodeBitrateStrategy =
+                conservativeMode ? EncodeBitrateStrategy.VBV_CRF_CAP : EncodeBitrateStrategy.VBV_ABR;
+        Integer recommendedCrf = conservativeMode ? Integer.valueOf(22) : null;
         return new DecisionHintsV2(
                 preset,
                 riskClass.name(),
@@ -70,7 +74,9 @@ public class DecisionHintsPolicyEngine {
                 tuningFactors,
                 reasoning,
                 analysisVersion,
-                policyVersion
+                policyVersion,
+                encodeBitrateStrategy,
+                recommendedCrf
         );
     }
 }

@@ -13,6 +13,14 @@ use transcode_contracts::dto::{QualityReport, ValidationRequest};
 
 const DIM_TOLERANCE: i32 = 8;
 
+struct WorkdirGuard(PathBuf);
+
+impl Drop for WorkdirGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
 pub fn score_playlist(
     ffprobe_exe: &str,
     playlist_path: &str,
@@ -44,6 +52,7 @@ pub fn score_from_storage_and_vmaf(
     if let Err(e) = fs::create_dir_all(&workdir) {
         return fail(req, format!("create_workdir_failed: {e}"));
     }
+    let _guard = WorkdirGuard(workdir.clone());
 
     let target_playlist = workdir.join("target_playlist.m3u8");
     let reference_source = workdir.join("reference_source.mp4");
@@ -68,7 +77,6 @@ pub fn score_from_storage_and_vmaf(
 
     let base = score_playlist(&cfg.ffprobe_path, target_playlist.to_string_lossy().as_ref(), req);
     if !base.passed {
-        let _ = fs::remove_dir_all(&workdir);
         return base;
     }
 
@@ -76,11 +84,12 @@ pub fn score_from_storage_and_vmaf(
         "libvmaf=log_fmt=json:log_path={}",
         vmaf_json.to_string_lossy()
     );
+    // libvmaf expects distorted (encoded) first, reference second (`main`/`ref`).
     let output = Command::new(&cfg.ffmpeg_path)
         .args(["-y", "-i"])
-        .arg(&reference_source)
-        .args(["-i"])
         .arg(&target_playlist)
+        .args(["-i"])
+        .arg(&reference_source)
         .args(["-lavfi"])
         .arg(filter)
         .args(["-f", "null", "-"])
@@ -114,7 +123,6 @@ pub fn score_from_storage_and_vmaf(
         }
     };
 
-    let _ = fs::remove_dir_all(&workdir);
     QualityReport {
         rendition_label: req.rendition_label.clone(),
         passed: vmaf_score >= 80.0,

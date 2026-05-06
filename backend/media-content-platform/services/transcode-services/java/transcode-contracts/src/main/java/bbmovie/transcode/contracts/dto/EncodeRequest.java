@@ -14,7 +14,9 @@ public record EncodeRequest(
         String preferredPreset,
         Integer minBitrateKbps,
         Integer maxBitrateKbps,
-        boolean conservativeMode
+        boolean conservativeMode,
+        EncodeBitrateStrategy bitrateStrategy,
+        Integer encoderCrf
 ) implements Serializable {
 
     public EncodeRequest(
@@ -26,6 +28,6 @@ public record EncodeRequest(
             String masterIvHex,
             String sourceBucket,
             String sourceKey) {
-        this(uploadId, resolution, width, height, masterKeyHex, masterIvHex, sourceBucket, sourceKey, null, null, null, false);
+        this(uploadId, resolution, width, height, masterKeyHex, masterIvHex, sourceBucket, sourceKey, null, null, null, false, null, null);
     }
 }

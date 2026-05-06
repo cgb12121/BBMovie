@@ -24,6 +24,7 @@ import net.bramp.ffmpeg.builder.FFmpegBuilder;
 import net.bramp.ffmpeg.job.FFmpegJob;
 import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import net.bramp.ffmpeg.probe.FFmpegStream;
+import net.bramp.ffmpeg.shared.CodecType;
 import org.springframework.util.FileSystemUtils;
 
 import java.io.BufferedWriter;
@@ -92,8 +93,9 @@ public class ProcessingMediaActivities implements MediaActivities {
 
             FFmpegExecutor executor = new FFmpegExecutor(ffmpeg);
             FFmpegBuilder builder = new FFmpegBuilder()
-                    .setInput(source.toString())
                     .overrideOutputFiles(true)
+                    .setInput(source.toString())
+                    .done()
                     .addOutput(playlist.toString())
                     .setVideoCodec("libx264")
                     .setPreset("veryfast")
@@ -142,7 +144,11 @@ public class ProcessingMediaActivities implements MediaActivities {
             Path playlist = workDir.resolve("playlist.m3u8");
             download(properties.getHlsBucket(), request.playlistPath(), playlist);
 
-            FFmpegProbeResult probe = ffprobe.probe(playlist.toString());
+            FFmpegProbeResult probe = ffprobe.probe(
+                    ffprobe.builder()
+                            .setInput(playlist.toString())
+                            .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls,crypto")
+                            .build());
             FFmpegStream video = firstVideoStream(probe).orElse(null);
             if (video == null) {
                 return new QualityReportDTO(request.renditionLabel(), false, 0, "no_video_stream");
@@ -269,7 +275,7 @@ public class ProcessingMediaActivities implements MediaActivities {
             return Optional.empty();
         }
         return probe.getStreams().stream()
-                .filter(s -> s.codec_type == FFmpegStream.CodecType.VIDEO)
+                .filter(s -> s.codec_type == CodecType.VIDEO)
                 .findFirst();
     }
 
@@ -299,8 +305,19 @@ public class ProcessingMediaActivities implements MediaActivities {
             case "1080p" -> 1920;
             case "720p" -> 1280;
             case "480p" -> 854;
-            default -> 0;
+            default -> widthFromParsedHeight(heightFromLabel(label));
         };
+    }
+
+    /** 16:9 display width aligned with ladder encodes (480p keeps 854, not pure 848). */
+    private static int widthFromParsedHeight(int heightPx) {
+        if (heightPx <= 0) {
+            return 854;
+        }
+        if (heightPx == 480) {
+            return 854;
+        }
+        return Math.max(256, (int) Math.round(heightPx * 16.0 / 9.0));
     }
 
     private static int bandwidthEstimate(String label) {

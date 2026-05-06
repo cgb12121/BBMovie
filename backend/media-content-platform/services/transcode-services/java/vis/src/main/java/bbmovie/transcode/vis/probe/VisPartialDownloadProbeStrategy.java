@@ -27,7 +27,7 @@ public class VisPartialDownloadProbeStrategy implements VisProbeStrategy {
         this.downloadService = downloadService;
         this.metadataService = metadataService;
         this.ladderGenerationService = ladderGenerationService;
-        this.partialSizeMb = partialSizeMb;
+        this.partialSizeMb = Math.max(1, partialSizeMb);
     }
 
     @Override

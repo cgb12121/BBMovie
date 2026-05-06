@@ -1,6 +1,7 @@
 package bbmovie.transcode.temporal_orchestrator.workflow;
 
 import bbmovie.transcode.contracts.activity.MediaActivities;
+import bbmovie.transcode.contracts.dto.EncodeBitrateStrategy;
 import bbmovie.transcode.contracts.dto.EncodeRequest;
 import bbmovie.transcode.contracts.dto.DecisionHintsV2;
 import bbmovie.transcode.contracts.dto.FinalManifestDTO;
@@ -18,6 +19,7 @@ import io.temporal.workflow.Workflow;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
 
@@ -66,7 +68,11 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
                     hints != null ? hints.recommendedPreset() : null,
                     hints != null ? hints.minBitrateKbps() : null,
                     hints != null ? hints.maxBitrateKbps() : null,
-                    hints != null && hints.conservativeMode()
+                    hints != null && hints.conservativeMode(),
+                    hints != null
+                            ? Objects.requireNonNullElse(hints.encodeBitrateStrategy(), EncodeBitrateStrategy.VBV_ABR)
+                            : EncodeBitrateStrategy.DEFAULT,
+                    hints != null ? hints.recommendedCrf() : null
             );
             Promise<RungResultDTO> encodePromise = Async.function(encoding::encodeResolution, req);
             encodePromises.add(encodePromise);
@@ -91,6 +97,12 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
 
         Promise.allOf(encodePromises.toArray(new Promise[0])).get();
         List<RungResultDTO> rungResults = encodePromises.stream().map(Promise::get).toList();
+        for (RungResultDTO rungResult : rungResults) {
+            if (!rungResult.success()) {
+                throw new RuntimeException(
+                        "Encode failed for rendition " + rungResult.resolution());
+            }
+        }
 
         if (!qualityPromises.isEmpty()) {
             Promise.allOf(qualityPromises.toArray(new Promise[0])).get();

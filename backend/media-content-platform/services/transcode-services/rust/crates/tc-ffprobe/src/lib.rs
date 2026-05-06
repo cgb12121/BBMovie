@@ -76,12 +76,8 @@ pub fn parse_probe_json(json: &str) -> Result<VideoMetadata, FfprobeError> {
         })
         .ok_or(FfprobeError::NoVideoStream)?;
 
-    let width = value_as_i32(stream.width.as_ref()).ok_or_else(|| {
-        FfprobeError::Parse("video stream missing width".into())
-    })?;
-    let height = value_as_i32(stream.height.as_ref()).ok_or_else(|| {
-        FfprobeError::Parse("video stream missing height".into())
-    })?;
+    let width = parse_dimension_field("width", stream.width.as_ref())?;
+    let height = parse_dimension_field("height", stream.height.as_ref())?;
 
     let codec = stream
         .codec_name
@@ -128,12 +124,57 @@ struct Format {
     duration: Option<String>,
 }
 
-fn value_as_i32(v: Option<&Value>) -> Option<i32> {
-    let v = v?;
+fn parse_dimension_field(name: &'static str, v: Option<&Value>) -> Result<i32, FfprobeError> {
+    let v = v.ok_or_else(|| FfprobeError::Parse(format!("video stream missing {name}")))?;
     match v {
-        Value::Number(n) => n.as_i64().and_then(|i| i32::try_from(i).ok()),
-        Value::String(s) => s.parse().ok(),
-        _ => None,
+        Value::Number(n) => {
+            if let Some(i) = n.as_i64() {
+                return i32::try_from(i).map_err(|_| {
+                    FfprobeError::Parse(format!(
+                        "{name} value {i} is outside representable i32 range"
+                    ))
+                });
+            }
+            let f = n
+                .as_f64()
+                .ok_or_else(|| FfprobeError::Parse(format!("{name} number not representable")))?;
+            if !f.is_finite() {
+                return Err(FfprobeError::Parse(format!("{name} is not finite")));
+            }
+            let i = f as i64;
+            i32::try_from(i).map_err(|_| {
+                FfprobeError::Parse(format!(
+                    "{name} value {} is outside representable i32 range",
+                    f
+                ))
+            })
+        }
+        Value::String(s) => {
+            let trimmed = s.trim();
+            if let Ok(parsed) = trimmed.parse::<i64>() {
+                return i32::try_from(parsed).map_err(|_| {
+                    FfprobeError::Parse(format!(
+                        "{name} integer {parsed} is outside representable i32 range"
+                    ))
+                });
+            }
+            let f: f64 = trimmed
+                .parse()
+                .map_err(|_| FfprobeError::Parse(format!("{name} invalid string: {trimmed:?}")))?;
+            if !f.is_finite() {
+                return Err(FfprobeError::Parse(format!("{name} is not finite")));
+            }
+            let i = f as i64;
+            i32::try_from(i).map_err(|_| {
+                FfprobeError::Parse(format!(
+                    "{name} value {} is outside representable i32 range",
+                    f
+                ))
+            })
+        }
+        _ => Err(FfprobeError::Parse(format!(
+            "{name} has unsupported JSON type"
+        ))),
     }
 }
 

@@ -47,9 +47,14 @@ public class CasLadderGenerationService {
         }
 
         if (recipeHints != null && recipeHints.skipSuffixes() != null && !recipeHints.skipSuffixes().isEmpty()) {
-            ladder = ladder.stream()
+            List<LadderRung> filtered = ladder.stream()
                     .filter(res -> !recipeHints.skipSuffixes().contains(res.filename()))
                     .toList();
+            if (filtered.isEmpty()) {
+                log.warn("Recipe hints removed all ladder rungs; keeping original ladder");
+            } else {
+                ladder = filtered;
+            }
         }
 
         log.info("Generated ladder for source {}x{}: {}",
@@ -126,9 +131,14 @@ public class CasLadderGenerationService {
             return generateEncodingLadder(metadata, recipeHints);
         }
         if (recipeHints != null && recipeHints.skipSuffixes() != null && !recipeHints.skipSuffixes().isEmpty()) {
-            return resolved.stream()
+            List<LadderRung> filtered = resolved.stream()
                     .filter(res -> !recipeHints.skipSuffixes().contains(res.filename()))
                     .toList();
+            if (filtered.isEmpty()) {
+                log.warn("Recipe hints removed all ladder rungs; keeping original ladder");
+                return resolved;
+            }
+            return filtered;
         }
         return resolved;
     }

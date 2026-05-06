@@ -7,7 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Optional;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,9 +37,9 @@ class MinioEventParserTest {
                 }
                 """;
         MinioEventParser parser = new MinioEventParser(new ObjectMapper());
-        Optional<TranscodeJobInput> out = parser.parse(json.getBytes(StandardCharsets.UTF_8));
-        assertTrue(out.isPresent());
-        TranscodeJobInput job = out.get();
+        List<TranscodeJobInput> out = parser.parseAll(json.getBytes(StandardCharsets.UTF_8));
+        assertEquals(1, out.size());
+        TranscodeJobInput job = out.getFirst();
         assertEquals("upload-uuid-1", job.uploadId());
         assertEquals("bbmovie-raw", job.bucket());
         assertEquals("movies/abc/file.mp4", job.key());
@@ -48,11 +48,27 @@ class MinioEventParserTest {
     }
 
     @Test
+    void parsesMultipleRecordsIndependently() {
+        String json = """
+                {"Records":[
+                  {"eventName":"s3:ObjectCreated:Put","s3":{"bucket":{"name":"b1"},"object":{"key":"a.mp4","userMetadata":{"X-Amz-Meta-Purpose":"MOVIE_SOURCE","X-Amz-Meta-Upload-Id":"u1"}}}},
+                  {"eventName":"s3:ObjectCreated:Put","s3":{"bucket":{"name":"b2"},"object":{"key":"c.mp4","userMetadata":{"X-Amz-Meta-Purpose":"MOVIE_TRAILER","X-Amz-Meta-Upload-Id":"u2"}}}},
+                  {"eventName":"s3:ObjectRemoved:Delete","s3":{"bucket":{"name":"x"},"object":{"key":"gone"}}}
+                ]}
+                """;
+        MinioEventParser parser = new MinioEventParser(new ObjectMapper());
+        List<TranscodeJobInput> out = parser.parseAll(json.getBytes(StandardCharsets.UTF_8));
+        assertEquals(2, out.size());
+        assertEquals("u1", out.getFirst().uploadId());
+        assertEquals("u2", out.get(1).uploadId());
+    }
+
+    @Test
     void skipsNonCreationEvents() {
         String json = """
                 {"Records":[{"eventName":"s3:ObjectRemoved:Delete","s3":{"bucket":{"name":"b"},"object":{"key":"k"}}}]}
                 """;
         MinioEventParser parser = new MinioEventParser(new ObjectMapper());
-        assertTrue(parser.parse(json.getBytes(StandardCharsets.UTF_8)).isEmpty());
+        assertTrue(parser.parseAll(json.getBytes(StandardCharsets.UTF_8)).isEmpty());
     }
 }

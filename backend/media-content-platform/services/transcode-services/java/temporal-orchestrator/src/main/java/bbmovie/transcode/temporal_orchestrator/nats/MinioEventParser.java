@@ -10,6 +10,9 @@ import org.springframework.stereotype.Component;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -27,58 +30,73 @@ public class MinioEventParser {
 
     private final ObjectMapper objectMapper;
 
-    public Optional<TranscodeJobInput> parse(byte[] payload) {
+    /**
+     * Parses every entry in SNS/S3 {@code Records[]} so batched notifications are not dropped.
+     * Malformed or skipped records are logged and omitted; returning an empty list is expected for no usable jobs.
+     */
+    public List<TranscodeJobInput> parseAll(byte[] payload) {
         try {
             JsonNode root = objectMapper.readTree(payload);
             JsonNode records = root.path("Records");
-            if (records.isEmpty()) {
-                return Optional.empty();
+            if (records.isMissingNode() || !records.isArray() || records.isEmpty()) {
+                return List.of();
             }
-            JsonNode record = records.get(0);
-            String eventName = record.path("eventName").asText("");
-            if (!eventName.startsWith("s3:ObjectCreated:")) {
-                return Optional.empty();
+            List<TranscodeJobInput> out = new ArrayList<>(records.size());
+            for (JsonNode record : records) {
+                try {
+                    parseRecord(record).ifPresent(out::add);
+                } catch (Exception e) {
+                    log.warn("Skipping MinIO notification record: {}", e.getMessage());
+                }
             }
-            JsonNode s3Node = record.path("s3");
-            String bucket = s3Node.path("bucket").path("name").asText("");
-            String rawKey = s3Node.path("object").path("key").asText("");
-            String key = URLDecoder.decode(rawKey, StandardCharsets.UTF_8);
-
-            JsonNode userMetadata = s3Node.path("object").path("userMetadata");
-            String purposeStr = extractMetadataValue(userMetadata,
-                    "X-Amz-Meta-Purpose", "x-amz-meta-purpose", "purpose", "Purpose");
-            String uploadId = extractMetadataValue(userMetadata,
-                    "X-Amz-Meta-Upload-Id", "x-amz-meta-upload-id", "upload-id", "uploadId",
-                    "X-Amz-Meta-Video-Id", "x-amz-meta-video-id", "video-id", "videoId");
-
-            if (purposeStr == null || uploadId == null) {
-                log.warn("Missing metadata purpose={} uploadId={}", purposeStr, uploadId);
-                return Optional.empty();
-            }
-
-            UploadPurpose purpose = PURPOSE_MAP.get(purposeStr.toUpperCase());
-            if (purpose == null) {
-                log.warn("Unknown purpose {}", purposeStr);
-                return Optional.empty();
-            }
-
-            long size = -1L;
-            JsonNode sizeNode = s3Node.path("object").path("size");
-            if (sizeNode.isNumber()) {
-                size = sizeNode.asLong(-1L);
-            }
-
-            String contentType = extractMetadataValue(userMetadata,
-                    "Content-Type", "content-type", "X-Amz-Meta-Content-Type", "x-amz-meta-content-type");
-            if (contentType == null) {
-                contentType = "";
-            }
-
-            return Optional.of(new TranscodeJobInput(uploadId, bucket, key, purpose, contentType, size));
+            return Collections.unmodifiableList(out);
         } catch (Exception e) {
             log.error("Parse error: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private Optional<TranscodeJobInput> parseRecord(JsonNode record) {
+        String eventName = record.path("eventName").asText("");
+        if (!eventName.startsWith("s3:ObjectCreated:")) {
             return Optional.empty();
         }
+        JsonNode s3Node = record.path("s3");
+        String bucket = s3Node.path("bucket").path("name").asText("");
+        String rawKey = s3Node.path("object").path("key").asText("");
+        String key = URLDecoder.decode(rawKey, StandardCharsets.UTF_8);
+
+        JsonNode userMetadata = s3Node.path("object").path("userMetadata");
+        String purposeStr = extractMetadataValue(userMetadata,
+                "X-Amz-Meta-Purpose", "x-amz-meta-purpose", "purpose", "Purpose");
+        String uploadId = extractMetadataValue(userMetadata,
+                "X-Amz-Meta-Upload-Id", "x-amz-meta-upload-id", "upload-id", "uploadId",
+                "X-Amz-Meta-Video-Id", "x-amz-meta-video-id", "video-id", "videoId");
+
+        if (purposeStr == null || uploadId == null) {
+            log.warn("Missing metadata purpose={} uploadId={}", purposeStr, uploadId);
+            return Optional.empty();
+        }
+
+        UploadPurpose purpose = PURPOSE_MAP.get(purposeStr.toUpperCase());
+        if (purpose == null) {
+            log.warn("Unknown purpose {}", purposeStr);
+            return Optional.empty();
+        }
+
+        long size = -1L;
+        JsonNode sizeNode = s3Node.path("object").path("size");
+        if (sizeNode.isNumber()) {
+            size = sizeNode.asLong(-1L);
+        }
+
+        String contentType = extractMetadataValue(userMetadata,
+                "Content-Type", "content-type", "X-Amz-Meta-Content-Type", "x-amz-meta-content-type");
+        if (contentType == null) {
+            contentType = "";
+        }
+
+        return Optional.of(new TranscodeJobInput(uploadId, bucket, key, purpose, contentType, size));
     }
 
     private static String extractMetadataValue(JsonNode metadata, String... keys) {

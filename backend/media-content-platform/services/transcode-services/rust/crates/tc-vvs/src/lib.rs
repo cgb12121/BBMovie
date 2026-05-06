@@ -11,6 +11,8 @@ use tc_runtime::storage::StorageClient;
 use transcode_contracts::dto::{QualityReport, ValidationRequest};
 
 const DIM_TOLERANCE: i32 = 8;
+/// Maximum length of sanitized `upload_id` embedded in temp filenames (UUID≈36, ULID≈26; allow prefixes).
+const MAX_SANITIZED_UPLOAD_ID_LEN: usize = 128;
 
 pub fn validate_from_storage(
     cfg: &RuntimeConfig,
@@ -96,7 +98,7 @@ fn temp_playlist_path(upload_id: &str) -> std::path::PathBuf {
 }
 
 fn sanitize_upload_id(upload_id: &str) -> String {
-    let mut out = String::with_capacity(upload_id.len().min(48));
+    let mut out = String::with_capacity(upload_id.len().min(MAX_SANITIZED_UPLOAD_ID_LEN));
     for ch in upload_id.chars() {
         if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
             out.push(ch);
@@ -104,11 +106,17 @@ fn sanitize_upload_id(upload_id: &str) -> String {
             out.push('_');
         }
     }
-    if out.len() > 48 {
-        out.truncate(48);
-    }
     if out.is_empty() {
         return fallback_upload_id_token(upload_id);
+    }
+    if out.len() > MAX_SANITIZED_UPLOAD_ID_LEN {
+        // Do not blindly truncate — different ids could collide. Fold to hash while keeping a short prefix.
+        let prefix: String = out.chars().take(48).collect();
+        let token = fallback_upload_id_token(upload_id);
+        out = format!("{prefix}_{token}");
+        if out.len() > MAX_SANITIZED_UPLOAD_ID_LEN {
+            out.truncate(MAX_SANITIZED_UPLOAD_ID_LEN);
+        }
     }
     out
 }

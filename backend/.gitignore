@@ -7,3 +7,5 @@
 .env.minio-mc
 minio-init.sh
 target/
+**/target/
+.target/

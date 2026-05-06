@@ -33,7 +33,7 @@ Set **`temporal.register-stub-activity-workers=false`** on the orchestrator when
 | `app.media-processing.hls-bucket` | Bucket for encoded HLS outputs. |
 | `app.media-processing.movies-key-prefix` | Object key prefix for HLS output tree. |
 | `app.media-processing.ffmpeg-path` | FFmpeg binary path used by encoder worker. |
-| `app.media-processing.ffmpeg-threads` | FFmpeg threads per encode task (default `1` for high node-level parallelism). |
+| `app.media-processing.ffmpeg-threads` | FFmpeg threads per encode task (default `2` for high node-level parallelism). |
 | `app.media-processing.upload-parallelism` | Maximum concurrent MinIO uploads for HLS files per encode task. |
 | `app.media-processing.stream-presign-expiry-seconds` | Presigned GET URL TTL for FFmpeg input stream. |
 | `app.media-processing.stream-retry-attempts` | In-node retry attempts for transient stream input failures. |

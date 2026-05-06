@@ -35,13 +35,16 @@ public class CasProfileCompatibilityAdapter {
     }
 
     public ComplexityProfile toLegacyComplexityProfile(ComplexityProfileV2 complexityProfileV2) {
+        String riskClass = complexityProfileV2.riskClass();
+        var decisionHints = complexityProfileV2.decisionHints();
         return new ComplexityProfile(
                 complexityProfileV2.uploadId(),
-                complexityProfileV2.riskClass().toLowerCase(),
+                riskClass != null ? riskClass.toLowerCase() : "unknown",
                 complexityProfileV2.complexityScore(),
                 new HashMap<>(complexityProfileV2.dimensionScores()),
-                RecipeHints.skip(new HashSet<>(complexityProfileV2.decisionHints().skipRungs())),
+                RecipeHints.skip(decisionHints != null && decisionHints.skipRungs() != null
+                        ? new HashSet<>(decisionHints.skipRungs())
+                        : new HashSet<>()),
                 complexityProfileV2.analyzedAt()
         );
-    }
-}
+    }}

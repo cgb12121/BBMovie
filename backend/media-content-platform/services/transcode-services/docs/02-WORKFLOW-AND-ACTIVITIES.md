@@ -2,8 +2,7 @@
 
 This document defines the "contracts" (Interfaces) between the Temporal Orchestrator and the Activity Workers.
 
-### Java module
-
+## Java module
 Shared types live in **`transcode-contracts`** (`bbmovie.transcode.contracts`): `MediaActivities`, DTOs in `bbmovie.transcode.contracts.dto`, and queue name constants in `bbmovie.transcode.contracts.temporal.TemporalTaskQueues`. The orchestrator and worker services (VES, CAS, VVS, …) depend on this jar so activity names and payloads stay aligned.
 
 ## 1. VideoProcessingWorkflow

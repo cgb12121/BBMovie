@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import net.bramp.ffmpeg.probe.FFmpegStream;
+import net.bramp.ffmpeg.shared.CodecType;
 import org.apache.commons.lang3.math.Fraction;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -82,11 +83,11 @@ public class VisProfileV2Service {
             FFmpegProbeResult probeResult,
             List<String> gateReasons) {
         FFmpegStream video = probeResult.getStreams().stream()
-                .filter(s -> s.codec_type == FFmpegStream.CodecType.VIDEO)
+                .filter(s -> s.codec_type == CodecType.VIDEO)
                 .findFirst()
                 .orElseThrow(() -> new IllegalStateException("No video stream found"));
         FFmpegStream audio = probeResult.getStreams().stream()
-                .filter(s -> s.codec_type == FFmpegStream.CodecType.AUDIO)
+                .filter(s -> s.codec_type == CodecType.AUDIO)
                 .findFirst()
                 .orElse(null);
         double duration = probeResult.getFormat() != null && probeResult.getFormat().duration > 0

@@ -15,6 +15,8 @@ public record DecisionHintsV2(
         Map<String, Double> tuningFactors,
         List<String> reasoning,
         String analysisVersion,
-        String policyVersion
+        String policyVersion,
+        EncodeBitrateStrategy encodeBitrateStrategy,
+        Integer recommendedCrf
 ) implements Serializable {
 }

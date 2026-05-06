@@ -40,10 +40,15 @@ public class LgsLadderGenerationService {
         if (ladder.isEmpty()) {
             ladder.add(new LadderRung(metadata.width(), metadata.height(), "original"));
         }
+        List<LadderRung> beforeSkip = List.copyOf(ladder);
         if (recipeHints != null && recipeHints.skipSuffixes() != null && !recipeHints.skipSuffixes().isEmpty()) {
             ladder = ladder.stream()
                     .filter(res -> !recipeHints.skipSuffixes().contains(res.filename()))
                     .toList();
+        }
+        if (ladder.isEmpty()) {
+            log.warn("skipSuffixes excluded every rung (hints={}); restoring pre-filter ladder", recipeHints.skipSuffixes());
+            ladder = new ArrayList<>(beforeSkip);
         }
         log.info("LGS generated ladder for {}x{}: {}",
                 metadata.width(), metadata.height(),

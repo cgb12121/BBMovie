@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFprobe;
 import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import net.bramp.ffmpeg.probe.FFmpegStream;
+import net.bramp.ffmpeg.shared.CodecType;
 import org.springframework.util.FileSystemUtils;
 
 import java.io.IOException;
@@ -38,7 +39,11 @@ public class VqsQualityProcessingService {
             Path playlist = workDir.resolve("playlist.m3u8");
             download(properties.getHlsBucket(), request.playlistPath(), playlist);
 
-            FFmpegProbeResult probe = ffprobe.probe(playlist.toString());
+            FFmpegProbeResult probe = ffprobe.probe(
+                    ffprobe.builder()
+                            .setInput(playlist.toString())
+                            .addExtraArgs("-protocol_whitelist", "file,http,https,tcp,tls,crypto")
+                            .build());
             FFmpegStream video = firstVideoStream(probe).orElse(null);
             if (video == null) {
                 return new QualityReportDTO(request.renditionLabel(), false, 0, "no_video_stream");
@@ -72,7 +77,7 @@ public class VqsQualityProcessingService {
             return Optional.empty();
         }
         return probe.getStreams().stream()
-                .filter(s -> s.codec_type == FFmpegStream.CodecType.VIDEO)
+                .filter(s -> s.codec_type == CodecType.VIDEO)
                 .findFirst();
     }
 }

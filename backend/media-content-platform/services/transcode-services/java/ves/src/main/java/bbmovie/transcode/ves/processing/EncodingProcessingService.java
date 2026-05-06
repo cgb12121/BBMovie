@@ -4,6 +4,7 @@ import bbmovie.transcode.contracts.dto.EncodeRequest;
 import bbmovie.transcode.contracts.dto.RungResultDTO;
 import bbmovie.transcode.ves.config.MediaProcessingProperties;
 import io.temporal.activity.Activity;
+import io.temporal.client.ActivityCompletionException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.FFmpeg;
@@ -114,10 +115,14 @@ public class EncodingProcessingService {
             FFmpegJob job = executor.createJob(builder, progress -> {
                 try {
                     Activity.getExecutionContext().heartbeat(progress.out_time_ns);
+                } catch (ActivityCompletionException e) {
+                    log.warn("Activity cancelled during heartbeat for progress={}", progress);
+                    throw e;
                 } catch (Exception e) {
-                    log.error("heartbeat failed for progress={}", progress, e);
+                    log.warn("heartbeat failed for progress={}", progress, e);
                 }
-            });
+            });            
+            
             job.run();
 
             String prefix = properties.getMoviesKeyPrefix() + "/" + request.uploadId() + "/" + request.resolution() + "/";

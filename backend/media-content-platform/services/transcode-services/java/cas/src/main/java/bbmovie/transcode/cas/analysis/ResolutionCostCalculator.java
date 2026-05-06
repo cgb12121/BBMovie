@@ -16,7 +16,7 @@ public class ResolutionCostCalculator {
         String normalized = resolution.toLowerCase().trim();
 
         int cost = switch (normalized) {
-            case "4080p", "2160p", "4k" -> 64;
+            case "4320p", "2160p", "4k" -> 64;
             case "1080p" -> 32;
             case "720p" -> 16;
             case "480p" -> 8;

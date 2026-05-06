@@ -1,6 +1,7 @@
 package bbmovie.transcode.cas.analysis;
 
 import bbmovie.transcode.contracts.dto.DecisionHintsV2;
+import bbmovie.transcode.contracts.dto.EncodeBitrateStrategy;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -27,7 +28,9 @@ class CasLadderGenerationServiceAdaptiveTest {
                 Map.of("motionScore", 0.8),
                 List.of("test"),
                 "v2.0",
-                "policy-v1"
+                "policy-v1",
+                EncodeBitrateStrategy.VBV_ABR,
+                null
         );
 
         List<CasLadderGenerationService.LadderRung> ladder = service.generateAdaptiveEncodingLadder(

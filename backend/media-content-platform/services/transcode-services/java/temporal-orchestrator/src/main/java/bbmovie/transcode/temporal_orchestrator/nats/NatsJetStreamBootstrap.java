@@ -9,7 +9,6 @@ import io.nats.client.api.DeliverPolicy;
 import io.nats.client.api.StorageType;
 import io.nats.client.api.StreamConfiguration;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -21,24 +20,28 @@ import java.time.Duration;
 @Slf4j
 @Component
 @ConditionalOnBean(Connection.class)
-@RequiredArgsConstructor
 public class NatsJetStreamBootstrap {
 
     private final Connection natsConnection;
-
-    @Value("${nats.minio.subject:minio.events}")
-    private String minioSubject;
-
+    private final String minioSubject;
     @Getter
-    @Value("${nats.stream.name:BBMOVIE}")
-    private String streamName;
-
+    private final String streamName;
     @Getter
-    @Value("${nats.consumer.durable:temporal-orchestrator}")
-    private String consumerDurable;
+    private final String consumerDurable;
+    private final int ackWaitMinutes;
 
-    @Value("${nats.consumer.ack-wait-minutes:5}")
-    private int ackWaitMinutes;
+    public NatsJetStreamBootstrap(
+            Connection natsConnection,
+            @Value("${nats.minio.subject:minio.events}") String minioSubject,
+            @Value("${nats.stream.name:BBMOVIE}") String streamName,
+            @Value("${nats.consumer.durable:temporal-orchestrator}") String consumerDurable,
+            @Value("${nats.consumer.ack-wait-minutes:5}") int ackWaitMinutes) {
+        this.natsConnection = natsConnection;
+        this.minioSubject = minioSubject;
+        this.streamName = streamName;
+        this.consumerDurable = consumerDurable;
+        this.ackWaitMinutes = ackWaitMinutes;
+    }
 
     @Getter
     private JetStream jetStream;
@@ -101,12 +104,10 @@ public class NatsJetStreamBootstrap {
             log.info("Consumer '{}' {} filterSubject={} maxAckPending={}",
                     consumerDurable, consumerExists ? "updated" : "created", minioSubject, maxAckPending);
         } catch (JetStreamApiException e) {
-            if (e.getErrorCode() == 404) {
-                log.warn("Stream '{}' not found when setting up consumer", streamName);
-            } else {
-                log.error("Failed to setup consumer: {}", e.getMessage());
-                throw new RuntimeException("Failed to setup NATS consumer", e);
-            }
+            log.error("Failed to setup consumer on stream '{}' durable='{}': {}", streamName, consumerDurable, e.getMessage());
+            throw new RuntimeException(
+                    "NATS JetStream consumer setup failed (stream='" + streamName + "', durable='" + consumerDurable + "')",
+                    e);
         } catch (Exception e) {
             log.error("Failed to setup consumer: {}", e.getMessage());
             throw new RuntimeException("Failed to setup NATS consumer", e);

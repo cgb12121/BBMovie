@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
+import java.util.Objects;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -15,6 +16,10 @@ class ComplexityFixtureTest {
     void shouldAnalyzeHighMotionFixtureWithNonLowRisk() throws Exception {
         ObjectMapper mapper = new ObjectMapper();
         try (InputStream in = getClass().getResourceAsStream("/fixtures/complexity/high_motion_sports.json")) {
+            Objects.requireNonNull(
+                    in,
+                    "missing test resource classpath:/fixtures/complexity/high_motion_sports.json "
+                            + "(did you omit src/test/resources from the classpath?)");
             SourceProfileV2 source = mapper.readValue(in, SourceProfileV2.class);
             VectorComplexityAnalysisService service = new VectorComplexityAnalysisService(
                     new DecisionHintsPolicyEngine("v2.0", "policy-v1"),
