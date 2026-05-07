@@ -4,12 +4,12 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@Getter
-@Setter
-@ConfigurationProperties(prefix = "temporal")
 /**
  * Temporal connectivity and worker concurrency settings for VES.
  */
+@Getter
+@Setter
+@ConfigurationProperties(prefix = "temporal")
 public class TemporalProperties {
 
     private boolean enabled = true;

@@ -11,7 +11,7 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** Registers and starts VVS activities on Temporal quality task queue. */
+/** Registers and starts VVS activities on Temporal validation task queue. */
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -22,13 +22,13 @@ public class VvsWorkerLifecycle {
     private final WorkerFactory vvsWorkerFactory;
     private final VvsMediaActivities vvsMediaActivities;
 
+    /** Binds VVS activities to VALIDATION queue and starts worker polling. */
     @PostConstruct
-    /** Binds VVS activities to QUALITY queue and starts worker polling. */
     public void startWorker() {
-        Worker worker = vvsWorkerFactory.newWorker(TemporalTaskQueues.QUALITY);
+        Worker worker = vvsWorkerFactory.newWorker(TemporalTaskQueues.VALIDATION);
         worker.registerActivitiesImplementations(vvsMediaActivities);
         vvsWorkerFactory.start();
         log.info("VVS Video Validation Service: registered {} on {}", vvsMediaActivities.getClass().getSimpleName(),
-                TemporalTaskQueues.QUALITY);
+                TemporalTaskQueues.VALIDATION);
     }
 }

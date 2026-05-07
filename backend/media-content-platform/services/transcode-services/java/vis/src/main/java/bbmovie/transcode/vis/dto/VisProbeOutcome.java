@@ -1,4 +1,4 @@
-package bbmovie.transcode.vis.probe;
+package bbmovie.transcode.vis.dto;
 
 import java.util.List;
 

@@ -4,10 +4,10 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/** Temporal connectivity properties used by CAS worker bootstrap. */
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "temporal")
-/** Temporal connectivity properties used by CAS worker bootstrap. */
 public class CasTemporalProperties {
 
     private boolean enabled = true;

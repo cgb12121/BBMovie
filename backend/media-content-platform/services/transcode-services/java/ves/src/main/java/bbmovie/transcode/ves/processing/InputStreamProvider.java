@@ -6,13 +6,13 @@ import io.minio.MinioClient;
 import io.minio.http.Method;
 import lombok.RequiredArgsConstructor;
 
-@RequiredArgsConstructor
 /**
  * Source input helper for VES encode pipeline.
  *
  * <p>Currently exposes presigned GET URL generation so ffmpeg can stream source objects directly
  * without pre-downloading to local disk.</p>
  */
+@RequiredArgsConstructor
 public class InputStreamProvider {
 
     private final MinioClient minioClient;

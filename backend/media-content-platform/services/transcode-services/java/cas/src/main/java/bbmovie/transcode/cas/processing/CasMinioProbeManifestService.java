@@ -3,9 +3,9 @@ package bbmovie.transcode.cas.processing;
 import bbmovie.transcode.cas.analysis.CasLadderGenerationService;
 import bbmovie.transcode.cas.analysis.ComplexityAnalysisService;
 import bbmovie.transcode.cas.analysis.ComplexityAnalysisV2Service;
-import bbmovie.transcode.cas.analysis.ComplexityProfile;
-import bbmovie.transcode.cas.analysis.SourceVideoMetadata;
 import bbmovie.transcode.cas.config.CasMediaProcessingProperties;
+import bbmovie.transcode.cas.dto.ComplexityProfile;
+import bbmovie.transcode.cas.dto.SourceVideoMetadata;
 import bbmovie.transcode.contracts.dto.ComplexityProfileV2;
 import bbmovie.transcode.contracts.dto.DecisionHintsV2;
 import bbmovie.transcode.contracts.dto.EncodeBitrateStrategy;
@@ -41,7 +41,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.StringJoiner;
 
-@Slf4j
 /**
  * CAS processing implementation backed by MinIO + FFprobe.
  *
@@ -53,6 +52,7 @@ import java.util.StringJoiner;
  * </ul>
  * </p>
  */
+@Slf4j
 public class CasMinioProbeManifestService implements CasProcessingService {
 
     /** Single HLS subtitle group for all tracks so variants can reference SUBTITLES="subs". */

@@ -18,15 +18,15 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 
-@Slf4j
-@Component
-@RequiredArgsConstructor
 /**
  * Temporal activity adapter for CAS.
  *
  * <p>CAS only serves analysis and manifest assembly. Encode/validate/subtitle-transform calls are
  * intentionally rejected so the workflow does not route unsupported work to this worker queue.</p>
  */
+@Slf4j
+@Component
+@RequiredArgsConstructor
 public class CasMediaActivities implements MediaActivities {
 
     private final CasProcessingService casProcessingService;

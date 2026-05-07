@@ -18,8 +18,8 @@ import java.io.IOException;
 @EnableConfigurationProperties(MediaProcessingProperties.class)
 public class ProcessingConfiguration {
 
-    @Bean
     /** Shared MinIO client used for source-url presign and output uploads. */
+    @Bean
     public MinioClient minioClient(
             @Value("${minio.url}") String url,
             @Value("${minio.access-key}") String accessKey,
@@ -30,8 +30,8 @@ public class ProcessingConfiguration {
                 .build();
     }
 
-    @Bean
     /** ffmpeg executable handle used by encoding service. */
+    @Bean
     public FFmpeg ffmpeg(MediaProcessingProperties properties) throws IOException {
         String ffmpegPath = properties.getFfmpegPath();
         if (ffmpegPath == null || ffmpegPath.isEmpty()) {
@@ -40,28 +40,28 @@ public class ProcessingConfiguration {
         return new FFmpeg(ffmpegPath);
     }
 
-    @Bean
     /** Source-input helper providing presigned URLs for ffmpeg streaming. */
+    @Bean
     public InputStreamProvider inputStreamProvider(
             MinioClient minioClient,
             MediaProcessingProperties mediaProcessingProperties) {
         return new InputStreamProvider(minioClient, mediaProcessingProperties);
     }
 
-    @Bean
     /** HLS artifact upload helper with configurable parallelism. */
+    @Bean
     public HlsUploadService hlsUploadService(MinioClient minioClient, MediaProcessingProperties mediaProcessingProperties) {
         return new HlsUploadService(minioClient, mediaProcessingProperties);
     }
 
-    @Bean
     /** FFmpeg command builder encapsulating bitrate strategy handling. */
+    @Bean
     public EncodingCommandFactory encodingCommandFactory(MediaProcessingProperties mediaProcessingProperties) {
         return new EncodingCommandFactory(mediaProcessingProperties);
     }
 
-    @Bean
     /** Core encoding service composing presign, command build, encode run, and upload steps. */
+    @Bean
     public EncodingProcessingService encodingProcessingService(
             FFmpeg ffmpeg,
             InputStreamProvider inputStreamProvider,

@@ -20,8 +20,8 @@ public class VvsTemporalConfiguration {
 
     private final VvsTemporalProperties vvsTemporalProperties;
 
-    @Bean(destroyMethod = "shutdown")
     /** Temporal service stubs for RPC calls to configured cluster target. */
+    @Bean(destroyMethod = "shutdown")
     public WorkflowServiceStubs vvsWorkflowServiceStubs() {
         return WorkflowServiceStubs.newServiceStubs(
                 WorkflowServiceStubsOptions.newBuilder()
@@ -30,8 +30,8 @@ public class VvsTemporalConfiguration {
         );
     }
 
-    @Bean
     /** Namespace-scoped workflow client for VVS worker components. */
+    @Bean
     public WorkflowClient vvsWorkflowClient(WorkflowServiceStubs vvsWorkflowServiceStubs) {
         return WorkflowClient.newInstance(
                 vvsWorkflowServiceStubs,
@@ -41,8 +41,8 @@ public class VvsTemporalConfiguration {
         );
     }
 
-    @Bean(destroyMethod = "shutdown")
     /** Worker factory used to register and run VVS activities. */
+    @Bean(destroyMethod = "shutdown")
     public WorkerFactory vvsWorkerFactory(WorkflowClient vvsWorkflowClient) {
         return WorkerFactory.newInstance(vvsWorkflowClient);
     }

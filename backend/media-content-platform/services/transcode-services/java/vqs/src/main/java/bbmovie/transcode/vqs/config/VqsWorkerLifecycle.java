@@ -22,8 +22,8 @@ public class VqsWorkerLifecycle {
     private final WorkerFactory vqsWorkerFactory;
     private final VqsMediaActivities vqsMediaActivities;
 
-    @PostConstruct
     /** Binds VQS activities to QUALITY queue and starts worker polling. */
+    @PostConstruct
     public void startWorker() {
         Worker worker = vqsWorkerFactory.newWorker(TemporalTaskQueues.QUALITY);
         worker.registerActivitiesImplementations(vqsMediaActivities);

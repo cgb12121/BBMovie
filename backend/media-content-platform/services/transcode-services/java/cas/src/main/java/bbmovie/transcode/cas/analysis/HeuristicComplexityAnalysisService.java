@@ -6,6 +6,10 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
+import bbmovie.transcode.cas.dto.ComplexityProfile;
+import bbmovie.transcode.cas.dto.RecipeHints;
+import bbmovie.transcode.cas.dto.SourceVideoMetadata;
+
 /**
  * Ported from transcode-worker {@code HeuristicComplexityAnalysisService} (same heuristics).
  */

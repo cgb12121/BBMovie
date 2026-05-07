@@ -3,7 +3,6 @@ package bbmovie.transcode.temporal_orchestrator.nats;
 import io.nats.client.Message;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -15,7 +14,6 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
-@ConditionalOnBean(io.nats.client.Connection.class)
 public class NatsMessageHeartbeat {
 
     @Value("${nats.consumer.heartbeat-interval-seconds:30}")

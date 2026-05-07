@@ -20,8 +20,8 @@ public class VqsTemporalConfiguration {
 
     private final VqsTemporalProperties vqsTemporalProperties;
 
-    @Bean(destroyMethod = "shutdown")
     /** Temporal service stubs for RPC calls to configured cluster target. */
+    @Bean(destroyMethod = "shutdown")
     public WorkflowServiceStubs vqsWorkflowServiceStubs() {
         return WorkflowServiceStubs.newServiceStubs(
                 WorkflowServiceStubsOptions.newBuilder()
@@ -30,8 +30,8 @@ public class VqsTemporalConfiguration {
         );
     }
 
-    @Bean
     /** Namespace-scoped workflow client for VQS worker components. */
+    @Bean
     public WorkflowClient vqsWorkflowClient(WorkflowServiceStubs vqsWorkflowServiceStubs) {
         return WorkflowClient.newInstance(
                 vqsWorkflowServiceStubs,
@@ -41,8 +41,8 @@ public class VqsTemporalConfiguration {
         );
     }
 
-    @Bean(destroyMethod = "shutdown")
     /** Worker factory used to register and run VQS activities. */
+    @Bean(destroyMethod = "shutdown")
     public WorkerFactory vqsWorkerFactory(WorkflowClient vqsWorkflowClient) {
         return WorkerFactory.newInstance(vqsWorkflowClient);
     }

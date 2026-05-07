@@ -4,6 +4,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import bbmovie.transcode.vis.dto.VisProbeOutcome;
+
 import java.util.Comparator;
 import java.util.List;
 
@@ -24,8 +26,8 @@ public class VisFastProbeService {
                 .toList();
     }
 
-    @PostConstruct
     /** Logs enabled strategy order for runtime observability. */
+    @PostConstruct
     public void init() {
         log.info("VIS FastProbeService strategies: {}", strategies.stream().map(VisProbeStrategy::getName).toList());
     }

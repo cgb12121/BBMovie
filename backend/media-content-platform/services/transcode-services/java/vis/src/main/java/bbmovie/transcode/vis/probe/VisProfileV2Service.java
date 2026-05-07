@@ -1,6 +1,8 @@
 package bbmovie.transcode.vis.probe;
 
+import bbmovie.transcode.contracts.dto.VisDecisionReportDTO;
 import bbmovie.transcode.contracts.dto.SourceProfileV2;
+import bbmovie.transcode.vis.dto.VisProbeOutcome;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.bramp.ffmpeg.probe.FFmpegProbeResult;
@@ -12,6 +14,7 @@ import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 
@@ -34,23 +37,54 @@ public class VisProfileV2Service {
     @Value("${vis.profile-v2.analysis-version:v2.0}")
     private String analysisVersion;
 
+    @Value("${vis.profile-v2.estimate-policy-version:vis-inspection-v1}")
+    private String estimatePolicyVersion;
+
+    public record AnalysisResult(SourceProfileV2 sourceProfile, VisDecisionReportDTO decisionReport) {
+    }
+
     /** Produces normalized source profile with decision-gated deep-probe fallback behavior. */
     public SourceProfileV2 analyze(String uploadId, String bucket, String key) {
+        return analyzeWithDecision(uploadId, bucket, key).sourceProfile();
+    }
+
+    /** Produces normalized profile plus explainable VIS decision report for downstream contracts. */
+    public AnalysisResult analyzeWithDecision(String uploadId, String bucket, String key) {
         VisProbeOutcome fast = visFastProbeService.probe(bucket, key);
         VisProbeDecisionPolicy.ProbeDecision decision = visProbeDecisionPolicy.decide(fast, key);
+        List<String> timeline = new ArrayList<>();
+        timeline.add("probe_mode=fast");
+        timeline.add("deep_required=" + decision.deepProbeRequired());
         if (!decision.deepProbeRequired()) {
-            return fromFast(uploadId, bucket, key, fast, decision.confidence(), decision.gateReasons());
+            SourceProfileV2 fastProfile = fromFast(uploadId, bucket, key, fast, decision.confidence(), decision.gateReasons());
+            List<String> riskFlags = mergeRiskFlags(decision.riskFlags(), inferProfileRiskFlags(fastProfile, fast));
+            VisDecisionReportDTO report = buildReport("fast", decision.confidence(), riskFlags, decision.gateReasons(), fast, timeline);
+            log.info("[vis] estimate-only report uploadId={} mode={} confidence={} risks={}",
+                    uploadId, report.probeMode(), report.confidence(), report.riskFlags());
+            return new AnalysisResult(fastProfile, report);
         }
         try {
             String url = visPresignedUrlService.generateProbeUrl(bucket, key);
             FFmpegProbeResult deepResult = visMetadataService.probeResultFromUrl(url);
             SourceProfileV2 deepProfile = fromProbeResult(uploadId, bucket, key, deepResult, decision.gateReasons());
+            timeline.add("probe_mode=deep");
             log.debug("[vis] deep probe selected uploadId={} reason={}", uploadId, decision.gateReasons());
-            return deepProfile;
+            List<String> riskFlags = mergeRiskFlags(decision.riskFlags(), inferProfileRiskFlags(deepProfile, fast));
+            VisDecisionReportDTO report = buildReport("deep", deepProfile.confidence(), riskFlags, decision.gateReasons(), fast, timeline);
+            log.info("[vis] estimate-only report uploadId={} mode={} confidence={} risks={}",
+                    uploadId, report.probeMode(), report.confidence(), report.riskFlags());
+            return new AnalysisResult(deepProfile, report);
         } catch (Exception e) {
             log.warn("[vis] deep probe failed for uploadId={} {}/{}; falling back to fast profile: {}",
                     uploadId, bucket, key, e.getMessage());
-            return fromFast(uploadId, bucket, key, fast, 0.45, List.of("deep_probe_failed"));
+            List<String> fallbackReasons = List.of("deep_probe_failed");
+            SourceProfileV2 fallbackProfile = fromFast(uploadId, bucket, key, fast, 0.45, fallbackReasons);
+            timeline.add("probe_fallback=true");
+            List<String> riskFlags = mergeRiskFlags(decision.riskFlags(), List.of("probe_fallback"));
+            VisDecisionReportDTO report = buildReport("fast", 0.45, riskFlags, fallbackReasons, fast, timeline);
+            log.info("[vis] estimate-only report uploadId={} mode={} confidence={} risks={}",
+                    uploadId, report.probeMode(), report.confidence(), report.riskFlags());
+            return new AnalysisResult(fallbackProfile, report);
         }
     }
 
@@ -173,5 +207,73 @@ public class VisProfileV2Service {
     /** Clamps confidence into [0,1] interval. */
     private static double clamp(double value) {
         return Math.max(0.0, Math.min(1.0, value));
+    }
+
+    private VisDecisionReportDTO buildReport(
+            String probeMode,
+            double confidence,
+            List<String> riskFlags,
+            List<String> gateReasons,
+            VisProbeOutcome estimate,
+            List<String> timeline
+    ) {
+        return new VisDecisionReportDTO(
+                probeMode,
+                clamp(confidence),
+                List.copyOf(riskFlags),
+                true,
+                estimatePolicyVersion,
+                List.copyOf(gateReasons),
+                List.copyOf(estimate.targetResolutions()),
+                estimate.peakCost(),
+                estimate.totalCost(),
+                List.copyOf(timeline)
+        );
+    }
+
+    private static List<String> inferProfileRiskFlags(SourceProfileV2 profile, VisProbeOutcome estimate) {
+        List<String> flags = new ArrayList<>();
+        if ("vfr".equalsIgnoreCase(profile.fpsMode())) {
+            flags.add("suspect_vfr");
+        }
+        if (profile.audioChannels() > 0 && profile.audioChannels() != 2 && profile.audioChannels() != 6) {
+            flags.add("audio_layout_unusual");
+        }
+        if (profile.durationSeconds() <= 0 || Math.abs(profile.durationSeconds() - estimate.duration()) > 2.0) {
+            flags.add("duration_conflict");
+        }
+        if ("deep".equalsIgnoreCase(profile.probeMode()) && profile.confidence() < 0.8) {
+            flags.add("timestamp_jitter");
+        }
+        if (estimate.peakCost() >= 48 || estimate.totalCost() >= 96) {
+            flags.add("bitrate_outlier");
+        }
+        if ("unknown".equalsIgnoreCase(profile.container())) {
+            flags.add("container_anomaly");
+        }
+        // Heuristic placeholder for GOP oddity in absence of explicit keyframe metrics.
+        if (profile.frameRate() > 0 && profile.frameRate() < 20.0) {
+            flags.add("odd_gop");
+        }
+        return flags;
+    }
+
+    private static List<String> mergeRiskFlags(List<String> a, List<String> b) {
+        List<String> merged = new ArrayList<>();
+        if (a != null) {
+            for (String v : a) {
+                if (v != null && !v.isBlank() && !merged.contains(v)) {
+                    merged.add(v);
+                }
+            }
+        }
+        if (b != null) {
+            for (String v : b) {
+                if (v != null && !v.isBlank() && !merged.contains(v)) {
+                    merged.add(v);
+                }
+            }
+        }
+        return merged;
     }
 }

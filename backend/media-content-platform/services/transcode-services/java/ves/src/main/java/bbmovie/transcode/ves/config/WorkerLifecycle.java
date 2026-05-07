@@ -24,8 +24,8 @@ public class WorkerLifecycle {
     private final EncodingActivities encodingActivities;
     private final TemporalProperties temporalProperties;
 
-    @PostConstruct
     /** Applies configured concurrency limits and starts polling encoding queue. */
+    @PostConstruct
     public void startWorker() {
         WorkerOptions workerOptions = WorkerOptions.newBuilder()
                 .setMaxConcurrentActivityExecutionSize(temporalProperties.getMaxConcurrentActivityExecutions())

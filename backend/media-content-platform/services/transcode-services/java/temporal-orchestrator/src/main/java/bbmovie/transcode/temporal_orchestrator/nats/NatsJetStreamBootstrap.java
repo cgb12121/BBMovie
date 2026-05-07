@@ -11,7 +11,6 @@ import io.nats.client.api.StreamConfiguration;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -19,7 +18,6 @@ import java.time.Duration;
 
 @Slf4j
 @Component
-@ConditionalOnBean(Connection.class)
 public class NatsJetStreamBootstrap {
 
     private final Connection natsConnection;

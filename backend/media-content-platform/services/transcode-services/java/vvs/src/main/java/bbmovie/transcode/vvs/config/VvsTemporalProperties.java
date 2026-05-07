@@ -4,10 +4,10 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/** Temporal connectivity properties for VVS worker runtime. */
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "temporal")
-/** Temporal connectivity properties for VVS worker runtime. */
 public class VvsTemporalProperties {
 
     private boolean enabled = true;

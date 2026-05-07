@@ -13,5 +13,4 @@ public class TemporalProperties {
     private String target = "localhost:7233";
     private String namespace = "default";
     private String orchestratorTaskQueue = TemporalTaskQueues.ORCHESTRATOR;
-    private boolean registerStubActivityWorkers = true;
 }

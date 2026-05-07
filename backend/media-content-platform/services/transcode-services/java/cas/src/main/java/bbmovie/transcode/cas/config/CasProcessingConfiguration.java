@@ -3,11 +3,11 @@ package bbmovie.transcode.cas.config;
 import bbmovie.transcode.cas.analysis.CasLadderGenerationService;
 import bbmovie.transcode.cas.analysis.ComplexityAnalysisService;
 import bbmovie.transcode.cas.analysis.ComplexityAnalysisV2Service;
-import bbmovie.transcode.cas.analysis.ComplexityProfile;
 import bbmovie.transcode.cas.analysis.DecisionHintsPolicyEngine;
 import bbmovie.transcode.cas.analysis.HeuristicComplexityAnalysisService;
 import bbmovie.transcode.cas.analysis.ResolutionCostCalculator;
 import bbmovie.transcode.cas.analysis.VectorComplexityAnalysisService;
+import bbmovie.transcode.cas.dto.ComplexityProfile;
 import bbmovie.transcode.cas.processing.CasMinioProbeManifestService;
 import bbmovie.transcode.cas.processing.CasProfileCompatibilityAdapter;
 import bbmovie.transcode.cas.processing.CasProcessingService;
@@ -21,10 +21,10 @@ import org.springframework.context.annotation.Configuration;
 
 import java.io.IOException;
 
+/** Spring wiring for CAS processing dependencies (MinIO, ffprobe, analyzers, and service facade). */
 @Configuration
 @ConditionalOnProperty(name = "cas.processing.enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(CasMediaProcessingProperties.class)
-/** Spring wiring for CAS processing dependencies (MinIO, ffprobe, analyzers, and service facade). */
 public class CasProcessingConfiguration {
 
     @Bean

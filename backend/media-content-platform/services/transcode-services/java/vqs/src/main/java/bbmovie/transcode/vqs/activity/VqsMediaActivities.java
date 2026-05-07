@@ -31,27 +31,27 @@ public class VqsMediaActivities implements MediaActivities {
 
     private final VqsQualityProcessingService vqsQualityProcessingService;
 
-    @Override
     /** Not served on quality queue; analyze belongs to analyzer services. */
+    @Override
     public MetadataDTO analyzeSource(String uploadId, String bucket, String key) {
         throw Activity.wrap(notOnQualityQueue("analyzeSource"));
     }
 
-    @Override
     /** Not served on quality queue; encode belongs to encoder services. */
+    @Override
     public RungResultDTO encodeResolution(EncodeRequest request) {
         throw Activity.wrap(notOnQualityQueue("encodeResolution"));
     }
 
-    @Override
     /** Validates one rendition and returns VQS quality-scoring report. */
+    @Override
     public QualityReportDTO validateAndScore(ValidationRequest request) {
         log.debug("[vqs] validateAndScore {}", request.renditionLabel());
         return vqsQualityProcessingService.validateAndScore(request);
     }
 
-    @Override
     /** Not served on quality queue; manifest generation belongs to analyzer/orchestrator path. */
+    @Override
     public FinalManifestDTO generateMasterManifest(List<RungResultDTO> rungs) {
         throw Activity.wrap(notOnQualityQueue("generateMasterManifest"));
     }

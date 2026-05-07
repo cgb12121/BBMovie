@@ -6,6 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.List;
 
+import bbmovie.transcode.contracts.planning.TranscodeLadderTemplates;
+import bbmovie.transcode.vis.dto.VisSourceVideoMetadata;
+
 /**
  * VIS ladder generator used during probe to estimate downstream encode plan and cost.
  */
@@ -15,19 +18,10 @@ public class VisLadderGenerationService {
 
     private final VisResolutionCostCalculator costCalculator;
 
-    private static final List<ResolutionDefinition> PRESET_LADDER = List.of(
-            new ResolutionDefinition(1080, 1920, 1080, "1080p"),
-            new ResolutionDefinition(720, 1280, 720, "720p"),
-            new ResolutionDefinition(480, 854, 480, "480p"),
-            new ResolutionDefinition(360, 640, 360, "360p"),
-            new ResolutionDefinition(240, 426, 240, "240p"),
-            new ResolutionDefinition(144, 256, 144, "144p")
-    );
-
     /** Generates baseline ladder by source height, with original fallback for tiny sources. */
     public List<LadderRung> generateEncodingLadder(VisSourceVideoMetadata metadata) {
         List<LadderRung> ladder = new ArrayList<>();
-        for (ResolutionDefinition def : PRESET_LADDER) {
+        for (TranscodeLadderTemplates.LadderPreset def : TranscodeLadderTemplates.baselineHls()) {
             if (metadata.height() >= def.minHeight()) {
                 ladder.add(new LadderRung(def.targetWidth(), def.targetHeight(), def.suffix()));
             }
@@ -55,8 +49,5 @@ public class VisLadderGenerationService {
     }
 
     public record LadderRung(int width, int height, String filename) {
-    }
-
-    private record ResolutionDefinition(int minHeight, int targetWidth, int targetHeight, String suffix) {
     }
 }

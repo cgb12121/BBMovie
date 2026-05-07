@@ -37,44 +37,44 @@ public class EncodingActivities implements MediaActivities {
         throw Activity.wrap(notOnEncodingQueue("analyzeSource"));
     }
 
-    @Override
     /**
      * Encodes one rendition using stream-based VES pipeline.
      *
      * @param request encode payload containing source object + rendition constraints
      * @return encode result with rendition label, output playlist path, and success flag
      */
+    @Override
     public RungResultDTO encodeResolution(EncodeRequest request) {
         log.debug("[ves] encodeResolution {}", request.resolution());
         return encodingProcessingService.encodeResolution(request);
     }
 
-    @Override
     /** Unsupported on encoding queue; validation belongs to quality workers. */
+    @Override
     public QualityReportDTO validateAndScore(ValidationRequest request) {
         throw Activity.wrap(notOnEncodingQueue("validateAndScore"));
     }
 
-    @Override
     /** Unsupported on encoding queue; manifest generation belongs to analyzer/orchestrator path. */
+    @Override
     public FinalManifestDTO generateMasterManifest(List<RungResultDTO> rungs) {
         throw Activity.wrap(notOnEncodingQueue("generateMasterManifest"));
     }
 
-    @Override
     /** Unsupported on encoding queue; subtitle normalization is handled elsewhere. */
+    @Override
     public SubtitleJsonDTO normalizeSubtitle(String uploadId, String bucket, String key) {
         throw Activity.wrap(notOnEncodingQueue("normalizeSubtitle"));
     }
 
-    @Override
     /** Unsupported on encoding queue; subtitle translation is handled elsewhere. */
+    @Override
     public SubtitleJsonDTO translateSubtitle(SubtitleJsonDTO json, String targetLang) {
         throw Activity.wrap(notOnEncodingQueue("translateSubtitle"));
     }
 
-    @Override
     /** Unsupported on encoding queue; subtitle integration belongs to manifest/subtitle flow. */
+    @Override
     public ManifestUpdateDTO integrateSubtitles(String uploadId, List<SubInfo> subs) {
         throw Activity.wrap(notOnEncodingQueue("integrateSubtitles"));
     }

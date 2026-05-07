@@ -3,6 +3,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+import bbmovie.transcode.vis.dto.VisProbeOutcome;
+import bbmovie.transcode.vis.dto.VisSourceVideoMetadata;
+
 import java.util.List;
 
 /**
@@ -19,14 +22,14 @@ public class VisPresignedUrlProbeStrategy implements VisProbeStrategy {
     private final VisMetadataService metadataService;
     private final VisLadderGenerationService ladderGenerationService;
 
-    @Override
     /** Strategy display name used in logs/diagnostics. */
+    @Override
     public String getName() {
         return "PresignedUrl";
     }
 
-    @Override
     /** Supports common video container extensions expected by VIS pipeline. */
+    @Override
     public boolean supports(String bucket, String key) {
         String lowerKey = key.toLowerCase();
         return lowerKey.endsWith(".mp4")
@@ -41,8 +44,8 @@ public class VisPresignedUrlProbeStrategy implements VisProbeStrategy {
         return 100;
     }
 
-    @Override
     /** Probes via presigned URL and derives ladder/cost outputs. */
+    @Override
     public VisProbeOutcome probe(String bucket, String key) {
         try {
             String url = presignedUrlService.generateProbeUrl(bucket, key);

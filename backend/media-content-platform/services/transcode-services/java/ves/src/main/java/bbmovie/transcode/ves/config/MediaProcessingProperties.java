@@ -4,20 +4,21 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@Getter
-@Setter
-@ConfigurationProperties(prefix = "app.media-processing")
 /**
  * Runtime tuning knobs for VES encoding and upload behavior.
  *
  * <p>These properties control ffmpeg executable path, stream retry behavior, and upload concurrency
  * and should be tuned alongside worker concurrency settings.</p>
  */
+@Getter
+@Setter
+@ConfigurationProperties(prefix = "app.media-processing")
 public class MediaProcessingProperties {
 
     private String hlsBucket = "bbmovie-hls";
     private String moviesKeyPrefix = "movies";
     private String ffmpegPath = "ffmpeg";
+
     /**
      * FFmpeg thread count per encode task.
      * Keep this smaller than total CPU cores to allow multiple encodes in parallel.
@@ -39,5 +40,6 @@ public class MediaProcessingProperties {
      * Backoff between in-node stream retry attempts.
      */
     private int streamRetryBackoffMillis = 3000;
+    
     private String tempDir = System.getProperty("java.io.tmpdir");
 }

@@ -1,7 +1,7 @@
 package bbmovie.transcode.cas.processing;
 
-import bbmovie.transcode.cas.analysis.ComplexityProfile;
-import bbmovie.transcode.cas.analysis.RecipeHints;
+import bbmovie.transcode.cas.dto.ComplexityProfile;
+import bbmovie.transcode.cas.dto.RecipeHints;
 import bbmovie.transcode.contracts.dto.ComplexityProfileV2;
 import bbmovie.transcode.contracts.dto.MetadataDTO;
 import bbmovie.transcode.contracts.dto.SourceProfileV2;
@@ -10,13 +10,13 @@ import org.springframework.stereotype.Component;
 import java.util.HashMap;
 import java.util.HashSet;
 
-@Component
 /**
  * Converts between v1 and v2 CAS profile/metadata shapes.
  *
  * <p>Used during migration so legacy workflow paths can continue consuming v1 objects while
  * newer orchestration paths consume v2 contracts.</p>
  */
+@Component
 public class CasProfileCompatibilityAdapter {
 
     /** Produces a minimal metadata payload when complexity data is unavailable. */

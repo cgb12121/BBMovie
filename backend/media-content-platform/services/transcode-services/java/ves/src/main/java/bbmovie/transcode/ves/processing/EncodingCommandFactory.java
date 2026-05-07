@@ -9,13 +9,13 @@ import net.bramp.ffmpeg.builder.FFmpegOutputBuilder;
 
 import java.nio.file.Path;
 
-@RequiredArgsConstructor
 /**
  * Builds FFmpeg command graph for one VES HLS rendition encode.
  *
  * <p>Encapsulates policy-driven bitrate strategy handling so workflow/activity layers stay free of
  * FFmpeg argument details.</p>
  */
+@RequiredArgsConstructor
 public class EncodingCommandFactory {
 
     private final MediaProcessingProperties properties;

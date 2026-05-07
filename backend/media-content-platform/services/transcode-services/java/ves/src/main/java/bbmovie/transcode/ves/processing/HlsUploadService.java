@@ -20,14 +20,14 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.stream.Stream;
 
-@Slf4j
-@RequiredArgsConstructor
 /**
  * Uploads generated HLS playlist/segment tree to object storage.
  *
  * <p>Uses configurable parallelism with virtual-thread executor and activity heartbeats per file
  * upload to keep long uploads observable by Temporal.</p>
  */
+@Slf4j
+@RequiredArgsConstructor
 public class HlsUploadService {
 
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";

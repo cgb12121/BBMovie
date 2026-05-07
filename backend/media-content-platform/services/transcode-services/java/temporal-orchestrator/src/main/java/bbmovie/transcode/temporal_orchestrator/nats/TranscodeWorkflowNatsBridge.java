@@ -3,7 +3,6 @@ package bbmovie.transcode.temporal_orchestrator.nats;
 import bbmovie.transcode.temporal_orchestrator.config.TemporalProperties;
 import bbmovie.transcode.temporal_orchestrator.dto.TranscodeJobInput;
 import bbmovie.transcode.temporal_orchestrator.workflow.VideoProcessingWorkflow;
-import io.nats.client.Connection;
 import io.nats.client.JetStreamSubscription;
 import io.nats.client.Message;
 import io.nats.client.PullSubscribeOptions;
@@ -16,7 +15,6 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
@@ -32,7 +30,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @Slf4j
 @Component
-@ConditionalOnBean(Connection.class)
 @RequiredArgsConstructor
 public class TranscodeWorkflowNatsBridge {
 
@@ -55,8 +52,8 @@ public class TranscodeWorkflowNatsBridge {
     private JetStreamSubscription subscription;
     private Thread fetchThread;
 
-    @PostConstruct
     /** Initializes stream/consumer subscription and starts virtual-thread pull loop. */
+    @PostConstruct
     public void start() throws Exception {
         jetStreamBootstrap.initialize();
         jetStreamBootstrap.ensureStreamExists();
@@ -146,8 +143,8 @@ public class TranscodeWorkflowNatsBridge {
         }
     }
 
-    @PreDestroy
     /** Stops fetch loop, unsubscribes consumer, and shuts down heartbeat scheduler. */
+    @PreDestroy
     public void stop() {
         running.set(false);
         if (subscription != null) {

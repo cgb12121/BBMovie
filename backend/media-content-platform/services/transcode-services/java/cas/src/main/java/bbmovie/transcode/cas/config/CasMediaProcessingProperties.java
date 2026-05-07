@@ -4,10 +4,10 @@ import lombok.Getter;
 import lombok.Setter;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
+/** CAS media-processing runtime properties bound from application configuration. */
 @Getter
 @Setter
 @ConfigurationProperties(prefix = "app.media-processing")
-/** CAS media-processing runtime properties bound from application configuration. */
 public class CasMediaProcessingProperties {
 
     private String hlsBucket = "bbmovie-hls";

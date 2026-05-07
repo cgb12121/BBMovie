@@ -1,5 +1,6 @@
 package bbmovie.transcode.cas.analysis;
 
+import bbmovie.transcode.cas.dto.ComplexityRiskClass;
 import bbmovie.transcode.contracts.dto.ComplexityProfileV2;
 import bbmovie.transcode.contracts.dto.DecisionHintsV2;
 import bbmovie.transcode.contracts.dto.SourceProfileV2;
@@ -10,13 +11,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-@RequiredArgsConstructor
 /**
  * Computes a lightweight complexity profile from source metadata.
  *
  * <p>This service is deterministic and cheap: it derives normalized feature scores, combines them
  * with fixed weights, maps score to risk class, then asks policy engine for decision hints.</p>
  */
+@RequiredArgsConstructor
 public class VectorComplexityAnalysisService implements ComplexityAnalysisV2Service {
 
     /**

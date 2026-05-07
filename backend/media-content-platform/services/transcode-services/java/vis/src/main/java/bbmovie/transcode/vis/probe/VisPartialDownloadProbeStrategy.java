@@ -3,6 +3,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
+import bbmovie.transcode.vis.dto.VisProbeOutcome;
+import bbmovie.transcode.vis.dto.VisSourceVideoMetadata;
+
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -32,14 +35,14 @@ public class VisPartialDownloadProbeStrategy implements VisProbeStrategy {
         this.partialSizeMb = Math.max(1, partialSizeMb);
     }
 
-    @Override
     /** Strategy display name used in logs/diagnostics. */
+    @Override
     public String getName() {
         return "PartialDownload";
     }
 
-    @Override
     /** Supports common quick-seek containers where header prefix is sufficient for probing. */
+    @Override
     public boolean supports(String bucket, String key) {
         String lowerKey = key.toLowerCase();
         return lowerKey.endsWith(".mp4") || lowerKey.endsWith(".mov");
@@ -50,8 +53,8 @@ public class VisPartialDownloadProbeStrategy implements VisProbeStrategy {
         return 50;
     }
 
-    @Override
     /** Probes metadata from partial bytes and derives ladder/cost outputs. */
+    @Override
     public VisProbeOutcome probe(String bucket, String key) {
         Path tempFile = null;
         try {

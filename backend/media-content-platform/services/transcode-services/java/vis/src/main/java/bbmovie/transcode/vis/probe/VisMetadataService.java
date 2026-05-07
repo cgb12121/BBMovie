@@ -6,6 +6,8 @@ import net.bramp.ffmpeg.probe.FFmpegProbeResult;
 import net.bramp.ffmpeg.probe.FFmpegStream;
 import org.springframework.stereotype.Component;
 
+import bbmovie.transcode.vis.dto.VisSourceVideoMetadata;
+
 import java.io.IOException;
 import java.nio.file.Path;
 

@@ -1,5 +1,7 @@
 package bbmovie.transcode.cas.analysis;
 
+import bbmovie.transcode.cas.dto.RecipeHints;
+import bbmovie.transcode.cas.dto.SourceVideoMetadata;
 import bbmovie.transcode.contracts.dto.DecisionHintsV2;
 import bbmovie.transcode.contracts.dto.EncodeBitrateStrategy;
 import org.junit.jupiter.api.Test;

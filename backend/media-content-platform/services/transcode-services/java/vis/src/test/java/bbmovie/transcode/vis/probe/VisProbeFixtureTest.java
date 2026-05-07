@@ -1,6 +1,9 @@
 package bbmovie.transcode.vis.probe;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import bbmovie.transcode.vis.dto.VisProbeOutcome;
+
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;

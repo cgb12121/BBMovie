@@ -11,6 +11,7 @@ import bbmovie.transcode.contracts.dto.RungResultDTO;
 import bbmovie.transcode.contracts.dto.ValidationRequest;
 import bbmovie.transcode.contracts.temporal.TemporalTaskQueues;
 import bbmovie.transcode.temporal_orchestrator.dto.TranscodeJobInput;
+import bbmovie.transcode.temporal_orchestrator.dto.WorkflowTrackingSnapshot;
 import bbmovie.transcode.temporal_orchestrator.temporal.TemporalPolicies;
 import io.temporal.activity.ActivityOptions;
 import io.temporal.workflow.Async;
@@ -24,7 +25,7 @@ import java.util.Objects;
 /**
  * Temporal workflow implementation for end-to-end transcode processing.
  *
- * <p>Flow: analyze -> fan-out encodes -> fan-out quality checks (selected rungs) -> publish master
+ * <p>Flow: analyze -> fan-out encodes -> fan-out validation+quality checks (selected rungs) -> publish master
  * manifest. Failures in encode/quality paths fail the workflow to preserve output integrity.</p>
  */
 public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
@@ -32,100 +33,216 @@ public class VideoProcessingWorkflowImpl implements VideoProcessingWorkflow {
     private record PlannedRung(String label, int width, int height) {
     }
 
-    @Override
+    private String uploadId = "";
+    private String workflowPhase = "INIT";
+    private String lifecycleStatus = "RUNNING";
+    private String message = "workflow started";
+    private int plannedRungs;
+    private int encodedRungs;
+    private int validatedRungs;
+    private String masterPlaylistPath = "";
+    private String error = "";
+    private final List<String> failedQualityRungs = new ArrayList<>();
+    private Double minVmafMean;
+    private Double minVmafP10;
+    private Double minVmafWorstWindow;
+    private final List<String> timeline = new ArrayList<>();
+    private long updatedAtEpochMillis;
+
     /** Executes orchestration pipeline for a single uploaded object notification. */
+    @Override
     public void processUpload(TranscodeJobInput input) {
+        this.uploadId = input.uploadId();
+        updateState("RECEIVED", "RUNNING", "received upload input");
         if (!input.purpose().isVideo()) {
+            updateState("SKIPPED", "COMPLETED", "non-video upload purpose");
             Workflow.getLogger(VideoProcessingWorkflowImpl.class)
                     .info("Skipping video pipeline for non-video purpose {}", input.purpose());
             return;
         }
 
-        MediaActivities analysis = Workflow.newActivityStub(MediaActivities.class,
-                ActivityOptions.newBuilder(TemporalPolicies.analyzerOptions())
-                        .setTaskQueue(TemporalTaskQueues.ANALYSIS)
-                        .build());
+        try {
+            MediaActivities analysis = Workflow.newActivityStub(MediaActivities.class,
+                    ActivityOptions.newBuilder(TemporalPolicies.analyzerOptions())
+                            .setTaskQueue(TemporalTaskQueues.ANALYSIS)
+                            .build());
 
-        MediaActivities encoding = Workflow.newActivityStub(MediaActivities.class,
-                ActivityOptions.newBuilder(TemporalPolicies.encoderOptions())
-                        .setTaskQueue(TemporalTaskQueues.ENCODING)
-                        .build());
+            MediaActivities encoding = Workflow.newActivityStub(MediaActivities.class,
+                    ActivityOptions.newBuilder(TemporalPolicies.encoderOptions())
+                            .setTaskQueue(TemporalTaskQueues.ENCODING)
+                            .build());
 
-        MediaActivities quality = Workflow.newActivityStub(MediaActivities.class,
-                ActivityOptions.newBuilder(TemporalPolicies.qualityOptions())
-                        .setTaskQueue(TemporalTaskQueues.QUALITY)
-                        .build());
+            MediaActivities validation = Workflow.newActivityStub(MediaActivities.class,
+                    ActivityOptions.newBuilder(TemporalPolicies.qualityOptions())
+                            .setTaskQueue(TemporalTaskQueues.VALIDATION)
+                            .build());
 
-        MetadataDTO metadata = analysis.analyzeSource(input.uploadId(), input.bucket(), input.key());
+            MediaActivities quality = Workflow.newActivityStub(MediaActivities.class,
+                    ActivityOptions.newBuilder(TemporalPolicies.qualityOptions())
+                            .setTaskQueue(TemporalTaskQueues.QUALITY)
+                            .build());
 
-        // Plan once from source metadata, then fan-out independent per-rung encode activities.
-        List<PlannedRung> plan = planRungs(metadata.height(), metadata.decisionHints());
-        List<Promise<RungResultDTO>> encodePromises = new ArrayList<>();
-        List<Promise<QualityReportDTO>> qualityPromises = new ArrayList<>();
-        DecisionHintsV2 hints = metadata.decisionHints();
-        for (PlannedRung rung : plan) {
-            EncodeRequest req = new EncodeRequest(
-                    input.uploadId(),
-                    rung.label(),
-                    rung.width(),
-                    rung.height(),
-                    "00",
-                    "00",
-                    input.bucket(),
-                    input.key(),
-                    hints != null ? hints.recommendedPreset() : null,
-                    hints != null ? hints.minBitrateKbps() : null,
-                    hints != null ? hints.maxBitrateKbps() : null,
-                    hints != null && hints.conservativeMode(),
-                    hints != null
-                            ? Objects.requireNonNullElse(hints.encodeBitrateStrategy(), EncodeBitrateStrategy.VBV_ABR)
-                            : EncodeBitrateStrategy.DEFAULT,
-                    hints != null ? hints.recommendedCrf() : null
-            );
-            Promise<RungResultDTO> encodePromise = Async.function(encoding::encodeResolution, req);
-            encodePromises.add(encodePromise);
-            // Pipeline fan-out: quality of a rung starts as soon as that rung encode finishes.
-            if (rung.height() >= 720) {
-                Promise<QualityReportDTO> qualityPromise = encodePromise.thenCompose(result -> {
-                    if (!result.success()) {
-                        return Async.function(() -> new QualityReportDTO(result.resolution(), false, 0, "encode_failed"));
-                    }
-                    ValidationRequest vreq = new ValidationRequest(
-                            input.uploadId(),
-                            result.playlistPath(),
-                            result.resolution(),
-                            rung.width(),
-                            rung.height()
-                    );
-                    return Async.function(quality::validateAndScore, vreq);
-                });
-                qualityPromises.add(qualityPromise);
-            }
-        }
+            updateState("ANALYZE", "RUNNING", "analyzing source");
+            MetadataDTO metadata = analysis.analyzeSource(input.uploadId(), input.bucket(), input.key());
 
-        Promise.allOf(encodePromises.toArray(new Promise[0])).get();
-        List<RungResultDTO> rungResults = encodePromises.stream().map(Promise::get).toList();
-        // Any failed rung fails workflow; master should only be produced from fully successful plan.
-        for (RungResultDTO rungResult : rungResults) {
-            if (!rungResult.success()) {
-                throw new RuntimeException(
-                        "Encode failed for rendition " + rungResult.resolution());
-            }
-        }
+            // Plan once from source metadata, then fan-out independent per-rung encode activities.
+            List<PlannedRung> plan = planRungs(metadata.height(), metadata.decisionHints());
+            this.plannedRungs = plan.size();
+            updateState("PLAN", "RUNNING", "planned " + plannedRungs + " rungs");
 
-        if (!qualityPromises.isEmpty()) {
-            Promise.allOf(qualityPromises.toArray(new Promise[0])).get();
-            for (Promise<QualityReportDTO> p : qualityPromises) {
-                QualityReportDTO report = p.get();
-                if (!report.passed()) {
-                    throw new RuntimeException("Quality validation failed for " + report.renditionLabel());
+            List<Promise<RungResultDTO>> encodePromises = new ArrayList<>();
+            List<Promise<QualityReportDTO>> qualityPromises = new ArrayList<>();
+            DecisionHintsV2 hints = metadata.decisionHints();
+            updateState("ENCODE", "RUNNING", "encoding started");
+            for (PlannedRung rung : plan) {
+                EncodeRequest req = new EncodeRequest(
+                        input.uploadId(),
+                        rung.label(),
+                        rung.width(),
+                        rung.height(),
+                        "00",
+                        "00",
+                        input.bucket(),
+                        input.key(),
+                        hints != null ? hints.recommendedPreset() : null,
+                        hints != null ? hints.minBitrateKbps() : null,
+                        hints != null ? hints.maxBitrateKbps() : null,
+                        hints != null && hints.conservativeMode(),
+                        hints != null
+                                ? Objects.requireNonNullElse(hints.encodeBitrateStrategy(), EncodeBitrateStrategy.VBV_ABR)
+                                : EncodeBitrateStrategy.DEFAULT,
+                        hints != null ? hints.recommendedCrf() : null
+                );
+                Promise<RungResultDTO> encodePromise = Async.function(encoding::encodeResolution, req);
+                encodePromises.add(encodePromise);
+                // Pipeline fan-out: validation then quality starts as soon as that rung encode finishes.
+                if (rung.height() >= 720) {
+                    Promise<QualityReportDTO> qualityPromise = encodePromise.thenCompose(result -> {
+                        if (!result.success()) {
+                            return Async.function(() -> new QualityReportDTO(result.resolution(), false, 0, "encode_failed"));
+                        }
+                        ValidationRequest vreq = new ValidationRequest(
+                                input.uploadId(),
+                                result.playlistPath(),
+                                input.bucket(),
+                                input.key(),
+                                result.resolution(),
+                                rung.width(),
+                                rung.height(),
+                                "h264",
+                                "aac",
+                                "",
+                                0,
+                                0,
+                                10,
+                                true
+                        );
+                        return Async.function(validation::validateAndScore, vreq)
+                                .thenCompose(validationReport -> {
+                                    if (!validationReport.passed()) {
+                                        return Async.function(() -> validationReport);
+                                    }
+                                    return Async.function(quality::validateAndScore, vreq);
+                                });
+                    });
+                    qualityPromises.add(qualityPromise);
                 }
             }
-        }
 
-        FinalManifestDTO manifest = analysis.generateMasterManifest(rungResults);
-        Workflow.getLogger(VideoProcessingWorkflowImpl.class)
-                .info("Transcode finished uploadId={} master={}", input.uploadId(), manifest.masterPlaylistPath());
+            Promise.allOf(encodePromises.toArray(new Promise[0])).get();
+            List<RungResultDTO> rungResults = encodePromises.stream().map(Promise::get).toList();
+            this.encodedRungs = (int) rungResults.stream().filter(RungResultDTO::success).count();
+            updateState("ENCODE", "RUNNING", "encoded " + encodedRungs + "/" + plannedRungs + " rungs");
+
+            // Any failed rung fails workflow; master should only be produced from fully successful plan.
+            for (RungResultDTO rungResult : rungResults) {
+                if (!rungResult.success()) {
+                    throw new RuntimeException(
+                            "Encode failed for rendition " + rungResult.resolution());
+                }
+            }
+
+            if (!qualityPromises.isEmpty()) {
+                updateState("QUALITY", "RUNNING", "quality validation started");
+                Promise.allOf(qualityPromises.toArray(new Promise[0])).get();
+                for (Promise<QualityReportDTO> p : qualityPromises) {
+                    QualityReportDTO report = p.get();
+                    validatedRungs++;
+                    foldQualityMetrics(report);
+                    if (!report.passed()) {
+                        failedQualityRungs.add(report.renditionLabel());
+                        String reasonCode = report.qualityReasonCode() != null ? report.qualityReasonCode() : "";
+                        String failureType = reasonCode.startsWith("vvs_")
+                                ? "validation_failure"
+                                : "quality_failure";
+                        String failureMessage = failureType + "|" + report.renditionLabel() + "|" + reasonCode;
+                        updateState("QUALITY", "RUNNING", failureMessage);
+                        throw new RuntimeException("Quality gate failed for " + report.renditionLabel() + " reason=" + reasonCode);
+                    }
+                }
+                updateState("QUALITY", "RUNNING", "validated " + validatedRungs + " rungs");
+            }
+
+            updateState("MANIFEST", "RUNNING", "generating master manifest");
+            FinalManifestDTO manifest = analysis.generateMasterManifest(rungResults);
+            this.masterPlaylistPath = manifest.masterPlaylistPath() != null ? manifest.masterPlaylistPath() : "";
+            updateState("DONE", "COMPLETED", "transcode workflow completed");
+            Workflow.getLogger(VideoProcessingWorkflowImpl.class)
+                    .info("Transcode finished uploadId={} master={}", input.uploadId(), manifest.masterPlaylistPath());
+        } catch (RuntimeException e) {
+            this.error = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            updateState("FAILED", "FAILED", "workflow failed");
+            throw e;
+        } catch (Exception e) {
+            this.error = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            updateState("FAILED", "FAILED", "workflow failed");
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public WorkflowTrackingSnapshot getTrackingSnapshot() {
+        return new WorkflowTrackingSnapshot(
+                uploadId,
+                workflowPhase,
+                lifecycleStatus,
+                message,
+                plannedRungs,
+                encodedRungs,
+                validatedRungs,
+                masterPlaylistPath,
+                error,
+                List.copyOf(failedQualityRungs),
+                minVmafMean,
+                minVmafP10,
+                minVmafWorstWindow,
+                List.copyOf(timeline),
+                updatedAtEpochMillis
+        );
+    }
+
+    private void updateState(String phase, String status, String message) {
+        this.workflowPhase = phase;
+        this.lifecycleStatus = status;
+        this.message = message;
+        this.updatedAtEpochMillis = Workflow.currentTimeMillis();
+        this.timeline.add(phase + "|" + status + "|" + message);
+    }
+
+    private void foldQualityMetrics(QualityReportDTO report) {
+        minVmafMean = minNullable(minVmafMean, report.vmafMean());
+        minVmafP10 = minNullable(minVmafP10, report.vmafP10());
+        minVmafWorstWindow = minNullable(minVmafWorstWindow, report.vmafWorstWindow());
+    }
+
+    private static Double minNullable(Double current, Double candidate) {
+        if (candidate == null) {
+            return current;
+        }
+        if (current == null) {
+            return candidate;
+        }
+        return Math.min(current, candidate);
     }
 
     /** Builds rung plan from source height and optional decision-hint constraints. */

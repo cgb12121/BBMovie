@@ -20,8 +20,8 @@ public class TemporalConfiguration {
 
     private final TemporalProperties temporalProperties;
 
-    @Bean(destroyMethod = "shutdown")
     /** Temporal service stubs used for RPC communication with cluster target. */
+    @Bean(destroyMethod = "shutdown")
     public WorkflowServiceStubs workflowServiceStubs() {
         return WorkflowServiceStubs.newServiceStubs(
                 WorkflowServiceStubsOptions.newBuilder()
@@ -30,8 +30,8 @@ public class TemporalConfiguration {
         );
     }
 
-    @Bean
     /** Namespace-scoped Temporal workflow client for VES process. */
+    @Bean
     public WorkflowClient workflowClient(WorkflowServiceStubs workflowServiceStubs) {
         return WorkflowClient.newInstance(
                 workflowServiceStubs,
@@ -41,8 +41,8 @@ public class TemporalConfiguration {
         );
     }
 
-    @Bean(destroyMethod = "shutdown")
     /** Worker factory used to register encoding activities. */
+    @Bean(destroyMethod = "shutdown")
     public WorkerFactory workerFactory(WorkflowClient workflowClient) {
         return WorkerFactory.newInstance(workflowClient);
     }

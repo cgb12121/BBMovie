@@ -16,8 +16,8 @@ import java.io.IOException;
 @EnableConfigurationProperties(VisMediaProcessingProperties.class)
 public class VisProcessingConfiguration {
 
-    @Bean
     /** MinIO client used by VIS probe strategies. */
+    @Bean
     public MinioClient visMinioClient(
             @Value("${minio.url}") String url,
             @Value("${minio.access-key}") String accessKey,
@@ -28,8 +28,8 @@ public class VisProcessingConfiguration {
                 .build();
     }
 
-    @Bean
     /** ffprobe executable handle used by VIS metadata service. */
+    @Bean
     public FFprobe visFfprobe(VisMediaProcessingProperties properties) throws IOException {
         String ffprobePath = properties.getFfprobePath();
         if (ffprobePath == null || ffprobePath.isEmpty()) {
@@ -38,14 +38,14 @@ public class VisProcessingConfiguration {
         return new FFprobe(ffprobePath);
     }
 
-    @Bean
     /** Resolution cost table used by VIS ladder planning. */
+    @Bean
     public VisResolutionCostCalculator visResolutionCostCalculator() {
         return new VisResolutionCostCalculator();
     }
 
-    @Bean
     /** VIS ladder generation service bean for probe outcome planning. */
+    @Bean
     public VisLadderGenerationService visLadderGenerationService(VisResolutionCostCalculator visResolutionCostCalculator) {
         return new VisLadderGenerationService(visResolutionCostCalculator);
     }

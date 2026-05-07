@@ -18,7 +18,6 @@ import java.util.List;
 @ActivityInterface(namePrefix = "TranscodeMedia.")
 public interface MediaActivities {
 
-    @ActivityMethod
     /**
      * Analyze source object and return metadata used for downstream planning.
      *
@@ -27,36 +26,36 @@ public interface MediaActivities {
      * @param key source object key/path inside bucket
      * @return analyzed source metadata payload
      */
+    @ActivityMethod
     MetadataDTO analyzeSource(String uploadId, String bucket, String key);
 
-    @ActivityMethod
     /**
      * Encode one rendition described by {@link EncodeRequest}.
      *
      * @param request encode input payload with source path and target rendition settings
      * @return rendition encode result
      */
+    @ActivityMethod
     RungResultDTO encodeResolution(EncodeRequest request);
 
-    @ActivityMethod
     /**
-     * Validate one rendition and return quality score/report.
+     * Validate one rendition and return worker-specific report payload.
      *
      * @param request validation input with expected dimensions and rendition path
-     * @return quality report for requested rendition
+     * @return report for requested rendition (VVS: conformance result, VQS: perceptual quality result)
      */
+    @ActivityMethod
     QualityReportDTO validateAndScore(ValidationRequest request);
 
-    @ActivityMethod
     /**
      * Build a master playlist from completed rendition outputs.
      *
      * @param rungs successful/failed rendition outputs from encode stage
      * @return master manifest creation result
      */
+    @ActivityMethod
     FinalManifestDTO generateMasterManifest(List<RungResultDTO> rungs);
 
-    @ActivityMethod
     /**
      * Normalize subtitle source into canonical JSON payload.
      *
@@ -65,9 +64,9 @@ public interface MediaActivities {
      * @param key subtitle object key/path
      * @return normalized subtitle JSON payload
      */
+    @ActivityMethod
     SubtitleJsonDTO normalizeSubtitle(String uploadId, String bucket, String key);
 
-    @ActivityMethod
     /**
      * Translate normalized subtitle payload into target language.
      *
@@ -75,9 +74,9 @@ public interface MediaActivities {
      * @param targetLang target language tag/code
      * @return translated subtitle JSON payload
      */
+    @ActivityMethod
     SubtitleJsonDTO translateSubtitle(SubtitleJsonDTO json, String targetLang);
 
-    @ActivityMethod
     /**
      * Integrate subtitle tracks into existing master playlist.
      *
@@ -85,5 +84,6 @@ public interface MediaActivities {
      * @param subs subtitle track descriptors to inject
      * @return manifest update result
      */
+    @ActivityMethod
     ManifestUpdateDTO integrateSubtitles(String uploadId, List<SubInfo> subs);
 }

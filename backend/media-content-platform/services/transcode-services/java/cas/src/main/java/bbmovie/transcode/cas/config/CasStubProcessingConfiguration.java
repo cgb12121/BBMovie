@@ -6,9 +6,9 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/** Wiring for stub CAS processing mode used in local/dev flows without external dependencies. */
 @Configuration
 @ConditionalOnProperty(name = "cas.processing.enabled", havingValue = "false")
-/** Wiring for stub CAS processing mode used in local/dev flows without external dependencies. */
 public class CasStubProcessingConfiguration {
 
     @Bean

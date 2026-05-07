@@ -1,4 +1,4 @@
-package bbmovie.transcode.lgs.analysis;
+package bbmovie.transcode.lgs.dto;
 
 /**
  * Minimal source metadata required by LGS ladder generation.

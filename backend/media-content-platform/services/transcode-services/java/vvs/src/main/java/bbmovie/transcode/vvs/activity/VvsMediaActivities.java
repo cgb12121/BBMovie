@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 import java.util.List;
 
 /**
- * Temporal activity adapter for VVS quality queue.
+ * Temporal activity adapter for VVS validation queue.
  *
  * <p>This worker is intentionally scoped to validation only; non-quality activity calls are
  * rejected so workflow routing bugs fail fast.</p>
@@ -31,48 +31,48 @@ public class VvsMediaActivities implements MediaActivities {
 
     private final VvsQualityProcessingService vvsQualityProcessingService;
 
+    /** Not served on validation queue; analyze belongs to analyzer services. */
     @Override
-    /** Not served on quality queue; analyze belongs to analyzer services. */
     public MetadataDTO analyzeSource(String uploadId, String bucket, String key) {
-        throw Activity.wrap(notOnQualityQueue("analyzeSource"));
+        throw Activity.wrap(notOnValidationQueue("analyzeSource"));
     }
 
+    /** Not served on validation queue; encode belongs to encoder services. */
     @Override
-    /** Not served on quality queue; encode belongs to encoder services. */
     public RungResultDTO encodeResolution(EncodeRequest request) {
-        throw Activity.wrap(notOnQualityQueue("encodeResolution"));
+        throw Activity.wrap(notOnValidationQueue("encodeResolution"));
     }
 
+    /** Validates one encoded rendition and returns validation-only outcome details. */
     @Override
-    /** Validates one encoded rendition and returns pass/fail score output. */
     public QualityReportDTO validateAndScore(ValidationRequest request) {
         log.debug("[vvs] validateAndScore {}", request.renditionLabel());
         return vvsQualityProcessingService.validateAndScore(request);
     }
 
+    /** Not served on validation queue; manifest generation belongs to analyzer/orchestrator path. */
     @Override
-    /** Not served on quality queue; manifest generation belongs to analyzer/orchestrator path. */
     public FinalManifestDTO generateMasterManifest(List<RungResultDTO> rungs) {
-        throw Activity.wrap(notOnQualityQueue("generateMasterManifest"));
+        throw Activity.wrap(notOnValidationQueue("generateMasterManifest"));
     }
 
     @Override
     public SubtitleJsonDTO normalizeSubtitle(String uploadId, String bucket, String key) {
-        throw Activity.wrap(notOnQualityQueue("normalizeSubtitle"));
+        throw Activity.wrap(notOnValidationQueue("normalizeSubtitle"));
     }
 
     @Override
     public SubtitleJsonDTO translateSubtitle(SubtitleJsonDTO json, String targetLang) {
-        throw Activity.wrap(notOnQualityQueue("translateSubtitle"));
+        throw Activity.wrap(notOnValidationQueue("translateSubtitle"));
     }
 
     @Override
     public ManifestUpdateDTO integrateSubtitles(String uploadId, List<SubInfo> subs) {
-        throw Activity.wrap(notOnQualityQueue("integrateSubtitles"));
+        throw Activity.wrap(notOnValidationQueue("integrateSubtitles"));
     }
 
     /** Shared error helper for unsupported methods on this queue-specific worker. */
-    private static IllegalStateException notOnQualityQueue(String method) {
-        return new IllegalStateException("VVS worker only serves quality-queue; unexpected call: " + method);
+    private static IllegalStateException notOnValidationQueue(String method) {
+        return new IllegalStateException("VVS worker only serves validation-queue; unexpected call: " + method);
     }
 }

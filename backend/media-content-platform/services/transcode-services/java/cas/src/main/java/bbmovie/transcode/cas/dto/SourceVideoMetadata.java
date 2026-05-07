@@ -1,4 +1,4 @@
-package bbmovie.transcode.cas.analysis;
+package bbmovie.transcode.cas.dto;
 
 /**
  * Minimal source metadata needed by CAS complexity and ladder policies.

@@ -1,4 +1,4 @@
-package bbmovie.transcode.cas.analysis;
+package bbmovie.transcode.cas.dto;
 
 import java.time.Instant;
 import java.util.Map;

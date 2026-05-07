@@ -1,5 +1,6 @@
 package bbmovie.transcode.cas.analysis;
 
+import bbmovie.transcode.cas.dto.ComplexityRiskClass;
 import bbmovie.transcode.contracts.dto.DecisionHintsV2;
 import bbmovie.transcode.contracts.dto.EncodeBitrateStrategy;
 import bbmovie.transcode.contracts.dto.SourceProfileV2;
@@ -11,13 +12,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-@Component
 /**
  * Maps complexity classification + source constraints into concrete encoding hints.
  *
  * <p>This policy is intentionally deterministic so repeated probes of the same source yield
  * stable routing and ladder decisions.</p>
  */
+@Component
 public class DecisionHintsPolicyEngine {
 
     private final String analysisVersion;

@@ -4,7 +4,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import bbmovie.transcode.contracts.planning.TranscodeLadderTemplates;
+import bbmovie.transcode.lgs.dto.LgsRecipeHints;
+import bbmovie.transcode.lgs.dto.LgsSourceVideoMetadata;
 
 /**
  * Generates a deterministic LGS rendition ladder from source dimensions and optional recipe hints.
@@ -17,16 +25,6 @@ public class LgsLadderGenerationService {
 
     private final LgsResolutionCostCalculator costCalculator;
 
-    // Deterministic baseline ladder; higher rungs are included only when source height permits.
-    private static final List<ResolutionDefinition> PRESET_LADDER = List.of(
-            new ResolutionDefinition(1080, 1920, 1080, "1080p"),
-            new ResolutionDefinition(720, 1280, 720, "720p"),
-            new ResolutionDefinition(480, 854, 480, "480p"),
-            new ResolutionDefinition(360, 640, 360, "360p"),
-            new ResolutionDefinition(240, 426, 240, "240p"),
-            new ResolutionDefinition(144, 256, 144, "144p")
-    );
-
     /** Builds baseline ladder with no hint overrides. */
     public List<LadderRung> generateEncodingLadder(LgsSourceVideoMetadata metadata) {
         return generateEncodingLadder(metadata, LgsRecipeHints.none());
@@ -38,8 +36,17 @@ public class LgsLadderGenerationService {
      * <p>If all rungs are filtered out, original pre-filter ladder is restored.</p>
      */
     public List<LadderRung> generateEncodingLadder(LgsSourceVideoMetadata metadata, LgsRecipeHints recipeHints) {
+        return generateDecisionPlan(metadata, recipeHints).selectedRungs();
+    }
+
+    /**
+     * Builds a policy decision snapshot for ladder planning (selected vs dropped rungs and reasons).
+     */
+    public LadderDecisionPlan generateDecisionPlan(LgsSourceVideoMetadata metadata, LgsRecipeHints recipeHints) {
+        LgsRecipeHints hints = recipeHints != null ? recipeHints : LgsRecipeHints.none();
         List<LadderRung> ladder = new ArrayList<>();
-        for (ResolutionDefinition def : PRESET_LADDER) {
+        Map<String, String> droppedReasons = new HashMap<>();
+        for (TranscodeLadderTemplates.LadderPreset def : TranscodeLadderTemplates.baselineHls()) {
             if (metadata.height() >= def.minHeight()) {
                 ladder.add(new LadderRung(def.targetWidth(), def.targetHeight(), def.suffix()));
             }
@@ -49,20 +56,80 @@ public class LgsLadderGenerationService {
             ladder.add(new LadderRung(metadata.width(), metadata.height(), "original"));
         }
         List<LadderRung> beforeSkip = List.copyOf(ladder);
-        if (recipeHints != null && recipeHints.skipSuffixes() != null && !recipeHints.skipSuffixes().isEmpty()) {
+        if (hints.skipSuffixes() != null && !hints.skipSuffixes().isEmpty()) {
+            List<LadderRung> preFilter = List.copyOf(ladder);
             ladder = ladder.stream()
-                    .filter(res -> !recipeHints.skipSuffixes().contains(res.filename()))
+                    .filter(res -> !hints.skipSuffixes().contains(res.filename()))
                     .toList();
+            for (LadderRung rung : preFilter) {
+                if (hints.skipSuffixes().contains(rung.filename())) {
+                    droppedReasons.put(rung.filename(), "skip_suffix");
+                }
+            }
         }
         // Never return an empty ladder; downstream encode planning expects at least one rung.
         if (ladder.isEmpty()) {
-            log.warn("skipSuffixes excluded every rung (hints={}); restoring pre-filter ladder", recipeHints != null ? recipeHints.skipSuffixes() : null);
+            log.warn("skipSuffixes excluded every rung (hints={}); restoring pre-filter ladder", hints.skipSuffixes());
             ladder = new ArrayList<>(beforeSkip);
+            droppedReasons.entrySet().removeIf(e -> "skip_suffix".equals(e.getValue()));
         }
+
+        // Netflix-style budget pressure: if bitrate bias is low, prefer removing the highest rung first.
+        if (hints.bitrateBias() < 0.90 && ladder.size() > Math.max(1, hints.minRungs())) {
+            List<LadderRung> descByHeight = ladder.stream()
+                    .sorted(Comparator.comparingInt(LadderRung::height).reversed())
+                    .collect(Collectors.toCollection(ArrayList::new));
+            while (descByHeight.size() > Math.max(1, hints.minRungs()) && hints.bitrateBias() < 0.90) {
+                LadderRung dropped = descByHeight.removeFirst();
+                droppedReasons.putIfAbsent(dropped.filename(), "bitrate_pressure");
+                // only drop one rung for now to keep behavior predictable.
+                break;
+            }
+            ladder = descByHeight.stream()
+                    .sorted(Comparator.comparingInt(LadderRung::height).reversed())
+                    .toList();
+        }
+
+        int maxRungs = Math.max(1, hints.maxRungs());
+        if (ladder.size() > maxRungs) {
+            List<LadderRung> kept = ladder.stream().limit(maxRungs).toList();
+            for (LadderRung rung : ladder) {
+                if (!kept.contains(rung)) {
+                    droppedReasons.putIfAbsent(rung.filename(), "max_rungs");
+                }
+            }
+            ladder = kept;
+        }
+
+        if (ladder.size() < Math.max(1, hints.minRungs())) {
+            List<LadderRung> mutable = new ArrayList<>(ladder);
+            List<LadderRung> source = beforeSkip;
+            for (LadderRung rung : source) {
+                if (mutable.size() >= hints.minRungs()) {
+                    break;
+                }
+                if (!mutable.contains(rung)) {
+                    mutable.add(rung);
+                    droppedReasons.remove(rung.filename());
+                }
+            }
+            ladder = mutable;
+        }
+
+        ladder = ladder.stream()
+                .sorted(Comparator.comparingInt(LadderRung::height).reversed())
+                .toList();
+
         log.info("LGS generated ladder for {}x{}: {}",
                 metadata.width(), metadata.height(),
                 ladder.stream().map(LadderRung::filename).toList());
-        return ladder;
+        return new LadderDecisionPlan(
+                "lgs-netflix-v1",
+                ladder,
+                droppedReasons,
+                calculatePeakCost(toSuffixes(ladder)),
+                calculateTotalCost(toSuffixes(ladder))
+        );
     }
 
     /** Converts generated ladder rungs into suffix labels for orchestration payloads. */
@@ -83,6 +150,12 @@ public class LgsLadderGenerationService {
     public record LadderRung(int width, int height, String filename) {
     }
 
-    private record ResolutionDefinition(int minHeight, int targetWidth, int targetHeight, String suffix) {
+    public record LadderDecisionPlan(
+            String policyVersion,
+            List<LadderRung> selectedRungs,
+            Map<String, String> droppedReasons,
+            int peakCost,
+            int totalCost
+    ) {
     }
 }

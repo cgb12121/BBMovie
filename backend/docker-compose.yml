@@ -136,6 +136,42 @@ services:
     ports:
       - "8500:8500"
 
+  temporal-postgresql:
+    image: postgres:18
+    container_name: temporal_postgresql
+    environment:
+      - POSTGRES_USER=temporal
+      - POSTGRES_PASSWORD=temporal
+      - POSTGRES_DB=temporal
+    volumes:
+      - temporal_postgres_data:/var/lib/postgresql
+
+  temporal:
+    image: temporalio/auto-setup:latest
+    container_name: temporal
+    depends_on:
+      - temporal-postgresql
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=temporal
+      - POSTGRES_SEEDS=temporal-postgresql
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/config/dynamicconfig/docker.yaml
+    ports:
+      - "7233:7233"
+
+  temporal-ui:
+    image: temporalio/ui:latest
+    container_name: temporal_ui
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_UI_PORT=8080
+    ports:
+      - "7088:8080"
+
 volumes:
   mysql_data:
   es_data:
@@ -144,3 +180,4 @@ volumes:
   clickhouse_data:
   qdrant_data:
   qdrant_config:
+  temporal_postgres_data:

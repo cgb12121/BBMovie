@@ -15,8 +15,8 @@ import java.io.IOException;
 @EnableConfigurationProperties(VqsMediaProcessingProperties.class)
 public class VqsProcessingConfiguration {
 
-    @Bean
     /** MinIO client used by VQS to read rendition playlists from object storage. */
+    @Bean
     public MinioClient vqsMinioClient(
             @Value("${minio.url}") String url,
             @Value("${minio.access-key}") String accessKey,
@@ -27,8 +27,8 @@ public class VqsProcessingConfiguration {
                 .build();
     }
 
-    @Bean
     /** ffprobe executable handle for rendition validation/scoring checks. */
+    @Bean
     public FFprobe vqsFfprobe(VqsMediaProcessingProperties properties) throws IOException {
         String ffprobePath = properties.getFfprobePath();
         if (ffprobePath == null || ffprobePath.isEmpty()) {
@@ -37,8 +37,8 @@ public class VqsProcessingConfiguration {
         return new FFprobe(ffprobePath);
     }
 
-    @Bean
     /** Main VQS quality-processing service bean. */
+    @Bean
     public VqsQualityProcessingService vqsQualityProcessingService(
             MinioClient vqsMinioClient,
             FFprobe vqsFfprobe,

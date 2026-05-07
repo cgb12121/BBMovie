@@ -1,5 +1,7 @@
 package bbmovie.transcode.vis.probe;
 
+import bbmovie.transcode.vis.dto.VisProbeOutcome;
+
 /**
  * Contract for VIS probe strategies.
  *

@@ -11,17 +11,17 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/** Temporal client/worker factory wiring for CAS worker process. */
 @Configuration
 @EnableConfigurationProperties(CasTemporalProperties.class)
 @ConditionalOnProperty(name = "temporal.enabled", havingValue = "true", matchIfMissing = true)
 @RequiredArgsConstructor
-/** Temporal client/worker factory wiring for CAS worker process. */
 public class CasTemporalConfiguration {
 
     private final CasTemporalProperties casTemporalProperties;
 
-    @Bean(destroyMethod = "shutdown")
     /** gRPC stubs used by Temporal SDK to communicate with cluster. */
+    @Bean(destroyMethod = "shutdown")
     public WorkflowServiceStubs workflowServiceStubs() {
         return WorkflowServiceStubs.newServiceStubs(
                 WorkflowServiceStubsOptions.newBuilder()
@@ -30,8 +30,8 @@ public class CasTemporalConfiguration {
         );
     }
 
-    @Bean
     /** CAS-scoped Temporal client bound to configured namespace. */
+    @Bean
     public WorkflowClient workflowClient(WorkflowServiceStubs workflowServiceStubs) {
         return WorkflowClient.newInstance(
                 workflowServiceStubs,
@@ -41,8 +41,8 @@ public class CasTemporalConfiguration {
         );
     }
 
-    @Bean(destroyMethod = "shutdown")
     /** Worker factory that creates and runs CAS activity workers. */
+    @Bean(destroyMethod = "shutdown")
     public WorkerFactory workerFactory(WorkflowClient workflowClient) {
         return WorkerFactory.newInstance(workflowClient);
     }
