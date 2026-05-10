@@ -176,7 +176,8 @@
             <plugin>
                 <groupId>org.jooq</groupId>
                 <artifactId>jooq-codegen-maven</artifactId>
-                <executions>
+                <!-- TODO: enable this to generate/built jooq-->
+                <!-- <executions>
                     <execution>
                         <id>jooq-codegen</id>
                         <phase>generate-sources</phase>
@@ -184,7 +185,7 @@
                             <goal>generate</goal>
                         </goals>
                     </execution>
-                </executions>
+                </executions> -->
 
                 <configuration>
                     <jdbc>

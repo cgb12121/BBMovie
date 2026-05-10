@@ -1,0 +1,1 @@
+THIS SERVICE IS MARKED AS LEGACY, THE NEWER SERVICES are @agentic-ai and @mcp-server
