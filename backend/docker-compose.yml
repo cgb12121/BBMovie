@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mysql:
     env_file:
@@ -172,6 +170,28 @@ services:
     ports:
       - "7088:8080"
 
+  postgres:
+    image: postgres:latest
+    container_name: shared_postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=bbmovie
+      - TZ=Asia/Ho_Chi_Minh
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    # Nếu sài Ollama trên Windows, hãy dùng: http://host.docker.internal:11434
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
 volumes:
   mysql_data:
   es_data:
@@ -181,3 +201,5 @@ volumes:
   qdrant_data:
   qdrant_config:
   temporal_postgres_data:
+  postgres_data:
+  ollama_data:

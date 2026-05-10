@@ -29,6 +29,9 @@ public class FfmpegConfig {
      */
     @Bean
     public FFmpeg ffmpeg() throws IOException {
+        if (ffmpegPath == null) {
+            throw new IOException("FFmpeg path is not configured");
+        }
         return new FFmpeg(ffmpegPath);
     }
 
@@ -40,6 +43,9 @@ public class FfmpegConfig {
      */
     @Bean
     public FFprobe ffprobe() throws IOException {
+        if (ffprobePath == null) {
+            throw new IOException("FFprobe path is not configured");
+        }
         return new FFprobe(ffprobePath);
     }
 }

@@ -44,7 +44,7 @@ public class HeatmapAggregationService {
             if (segment == null || segment < 0) {
                 continue;
             }
-            counts.merge(segment, 1, Integer::sum);
+            counts.merge(segment, 1, (a, b) -> a + b);
         }
         return counts;
     }
