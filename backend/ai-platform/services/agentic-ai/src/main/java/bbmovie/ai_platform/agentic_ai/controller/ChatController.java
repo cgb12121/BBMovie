@@ -30,6 +30,6 @@ public class ChatController {
             @RequestBody ChatRequestDto request,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
-        return chatService.chat(sessionId, userId, request.message(), request.parentId());
+        return chatService.chat(sessionId, userId, request.message(), request.parentId(), request.aiMode(), request.model());
     }
 }

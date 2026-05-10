@@ -1,47 +1,40 @@
 package bbmovie.ai_platform.agentic_ai.service;
 
 import bbmovie.ai_platform.agentic_ai.entity.Sender;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import bbmovie.ai_platform.agentic_ai.entity.enums.AiMode;
+import bbmovie.ai_platform.agentic_ai.entity.enums.AiModel;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
-import java.util.Map;
 import java.util.UUID;
 
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class ChatService {
-
-    private static final Logger log = LoggerFactory.getLogger(ChatService.class);
     
     private final ChatClient chatClient;
     private final MessageService messageService;
-    private final org.springframework.ai.chat.memory.ChatMemory chatMemory;
+    private final ChatRequestFactory requestFactory;
 
-    public ChatService(ChatClient.Builder chatClientBuilder, MessageService messageService, org.springframework.ai.chat.memory.ChatMemory chatMemory) {
-        this.chatClient = chatClientBuilder.build();
-        this.messageService = messageService;
-        this.chatMemory = chatMemory;
-    }
-
-    public Flux<String> chat(UUID sessionId, UUID userId, String message, UUID parentId) {
-        log.info("[Chat] Session: {}, Message: {}", sessionId, message);
+    /**
+     * Thực hiện chat với AI.
+     * Logic xây dựng Request đã được tách ra ChatRequestFactory để đảm bảo Fail-Fast và Caching.
+     */
+    public Flux<String> chat(UUID sessionId, UUID userId, String message, UUID parentId, AiMode mode, AiModel model) {
+        log.info("[Chat] Session: {}, Mode: {}, Model: {}", sessionId, mode, model);
         
-        return chatClient.prompt()
-                .user(message)
-                .advisors(a -> a
-                        .param("chat_memory_conversation_id", sessionId.toString())
-                        .param("chat_memory_retrieve_size", 20)
-                )
-                .toolContext(Map.of("userId", userId))
-                .toolNames("saveMemory", "updateMemory")
+        return requestFactory.createRequest(chatClient, sessionId, userId, message, mode, model)
                 .stream()
                 .content();
     }
 
     public Flux<String> editMessage(UUID oldMessageId, UUID userId, String newContent) {
         return messageService.getMessage(oldMessageId)
-                .flatMapMany(oldMsg -> chat(oldMsg.getSessionId(), userId, newContent, oldMsg.getParentId()));
+                .flatMapMany(oldMsg -> chat(oldMsg.getSessionId(), userId, newContent, oldMsg.getParentId(), AiMode.NORMAL, null));
     }
 
     public Flux<String> regenerateMessage(UUID aiMessageId, UUID userId) {
@@ -49,12 +42,7 @@ public class ChatService {
                 .flatMap(aiMsg -> messageService.getMessage(aiMsg.getParentId()))
                 .flatMapMany(userMsg -> {
                     StringBuilder aiResponseBuilder = new StringBuilder();
-                    return chatClient.prompt()
-                            .user(userMsg.getContent())
-                            .toolContext(Map.of("userId", userId))
-                            .toolNames("saveMemory", "updateMemory")
-                            .stream()
-                            .content()
+                    return chat(userMsg.getSessionId(), userId, userMsg.getContent(), userMsg.getParentId(), AiMode.NORMAL, null)
                             .doOnNext(aiResponseBuilder::append)
                             .doOnComplete(() -> {
                                 messageService.saveMessage(userMsg.getSessionId(), userId, aiResponseBuilder.toString(), Sender.AGENT, userMsg.getId()).subscribe();

@@ -24,9 +24,10 @@ public class MemoryConfig {
     @Primary
     public ChatMemory chatMemory(
             @Qualifier("rRedisTemplate") ReactiveRedisTemplate<String, String> redisTemplate, 
-            MessageRepository messageRepository, ObjectMapper objectMapper) {
-        // Hybrid memory: Redis (Short-term via Template) + Postgres (Long-term Repository)
-        return new HybridChatMemory(redisTemplate, messageRepository, objectMapper);
+            MessageRepository messageRepository, ObjectMapper objectMapper,
+            io.nats.client.Connection natsConnection) {
+        // Hybrid memory: Redis (Short-term) + NATS Event (Long-term)
+        return new HybridChatMemory(redisTemplate, messageRepository, objectMapper, natsConnection);
     }
     
     @Bean
