@@ -1,7 +1,8 @@
-package bbmovie.ai_platform.agentic_ai.service;
+package bbmovie.ai_platform.agentic_ai.service.chat;
 
 import bbmovie.ai_platform.agentic_ai.entity.enums.AiMode;
 import bbmovie.ai_platform.agentic_ai.entity.enums.AiModel;
+import bbmovie.ai_platform.agentic_ai.service.ToolManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -59,12 +60,16 @@ public class ChatRequestFactory {
             case NORMAL:
                 optionsBuilder.thinkOption(ThinkOption.ThinkBoolean.DISABLED)
                               .temperature(0.7);
+                break;
             default:
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Model " + activeModel.name() + " does not support Thinking (Reasoning) mode.");
         }
 
-        // 5. Initialize Request Spec
+        // 5. Initialize Request Spec with History Instructions
+        String historyInstruction = "You have access to the conversation history via the provided context. Use it to provide relevant and coherent responses.";
+        
         ChatClient.ChatClientRequestSpec spec = chatClient.prompt()
+                .system(s -> s.text("You are a helpful AI assistant. " + historyInstruction))
                 .user(message)
                 .options(optionsBuilder)
                 .advisors(a -> a

@@ -1,23 +1,26 @@
 package bbmovie.ai_platform.agentic_ai.service.memory;
 
 import bbmovie.ai_platform.agentic_ai.repository.MessageRepository;
+import bbmovie.ai_platform.agentic_ai.utils.AiMessageUtils;
 import io.nats.client.Connection;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
+
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.*;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
-import reactor.core.scheduler.Schedulers;
-import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Slf4j
+@RequiredArgsConstructor
 public class HybridChatMemory implements ChatMemory {
 
     private final ReactiveRedisTemplate<String, String> redisTemplate;
@@ -32,72 +35,80 @@ public class HybridChatMemory implements ChatMemory {
     private static final String REDIS_PREFIX = "chat:memory:";
     private static final Duration REDIS_TTL = Duration.ofHours(1);
 
-    public HybridChatMemory(
-            ReactiveRedisTemplate<String, String> redisTemplate, 
-            MessageRepository messageRepository,
-            ObjectMapper objectMapper,
-            Connection natsConnection) {
-        this.redisTemplate = redisTemplate;
-        this.messageRepository = messageRepository;
-        this.objectMapper = objectMapper;
-        this.natsConnection = natsConnection;
-    }
-
     @Override
     public void add(String conversationId, List<Message> messages) {
         // Parse composite ID: "userId:sessionId"
         String[] ids = conversationId.split(":");
-        String userId = ids.length > 1 ? ids[0] : "unknown";
-        String sessionId = ids.length > 1 ? ids[1] : ids[0];
+        String userId =  ids[0];
+        String sessionId = ids[1];
 
-        // 1. Lưu vào Redis (Short-term)
+        // 1. Save to Redis (Short-term)
         String redisKey = REDIS_PREFIX + sessionId;
-        log.info("[Memory] Syncing to Redis for Session: {}, User: {}", sessionId, userId);
-        
-        for (Message message : messages) {
-            try {
-                String json = objectMapper.writeValueAsString(message);
-                redisTemplate.opsForList().rightPush(redisKey, json)
-                        .publishOn(Schedulers.boundedElastic())
-                        .block(Duration.ofSeconds(2)); 
-            } catch (Exception e) {
-                log.error("[Memory] Redis push failed: {}", e.getMessage());
-            }
-        }
-        redisTemplate.expire(redisKey, REDIS_TTL).subscribe();
+        log.debug("[Memory] Syncing {} messages for Session: {}, User: {}", messages.size(), sessionId, userId);
 
-        // 2. Bắn Event qua NATS (Long-term)
         try {
-            List<String> jsonMsgs = new ArrayList<>();
-            for (Message m : messages) {
-                jsonMsgs.add(objectMapper.writeValueAsString(m));
-            }
-            MemoryEvent event = MemoryEvent.add(sessionId, userId, jsonMsgs);
+            // 1. Serialize once for both Redis and NATS
+            List<String> jsonMessages = messages.stream()
+                    .map(m -> {
+                        try {
+                            return objectMapper.writeValueAsString(m);
+                        } catch (Exception e) {
+                            throw new RuntimeException("Serialization failed", e);
+                        }
+                    })
+                    .toList();
+
+            // 2. Save to Redis (Short-term) + Trim to keep window size
+            Mono.fromCallable(() ->
+                        redisTemplate.opsForList()
+                            .rightPushAll(redisKey, jsonMessages)
+                            .then(redisTemplate.opsForList().trim(redisKey, -MESSAGE_FETCH_LIMIT, -1))
+                            .then(redisTemplate.expire(redisKey, REDIS_TTL))
+                            .block(Duration.ofSeconds(2))
+                    )
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .block();
+
+            // 3. Send Event via NATS (Long-term)
+            MemoryEvent event = MemoryEvent.add(sessionId, userId, jsonMessages);
             natsConnection.publish(memorySubject, objectMapper.writeValueAsBytes(event));
+            
         } catch (Exception e) {
-            log.error("[Memory] NATS publish failed", e);
+            log.error("[Memory] Memory sync failed: {}", e.getMessage());
         }
     }
 
     @Override
-    public List<Message> get(String sessionId) {
+    public List<Message> get(String conversationId) {
+        // Luôn parse đồng nhất với add()
+        String[] ids = conversationId.split(":");
+        if (ids.length < 2) {
+            log.warn("[Memory] Invalid conversationId format: {}. Expected userId:sessionId", conversationId);
+            return List.of();
+        }
+        
+        String userId = ids[0];
+        String sessionId = ids[1];
         String key = REDIS_PREFIX + sessionId;
         
-        // Thử lấy từ Redis trước
+        log.debug("[Memory] Retrieving history for Session: {}, User: {}", sessionId, userId);
+
+        // 1. Thử lấy từ Redis trước (Safe Blocking)
         List<String> jsonMessages = redisTemplate.opsForList().range(key, -MESSAGE_FETCH_LIMIT, -1)
                 .collectList()
                 .block(Duration.ofSeconds(2));
 
         if (jsonMessages != null && !jsonMessages.isEmpty()) {
+            log.debug("[Memory] Redis HIT for session: {}", sessionId);
             return jsonMessages.stream()
-                    .map(this::deserializeMessage)
+                    .map(msg -> AiMessageUtils.deserializeMessage(msg))
                     .collect(Collectors.toList());
         }
 
-        log.warn("[Memory] Redis miss for {}, falling back to DB", sessionId);
+        log.debug("[Memory] Redis miss for {}, falling back to DB", sessionId);
         return messageRepository.findAllBySessionIdOrderByCreatedAtAsc(UUID.fromString(sessionId))
                 .takeLast(MESSAGE_FETCH_LIMIT)
-                .map(this::mapToSpringAiMessage)
+                .map(msg -> AiMessageUtils.mapToSpringAiMessage(msg))
                 .collectList()
                 .block(Duration.ofSeconds(5));
     }
@@ -111,37 +122,12 @@ public class HybridChatMemory implements ChatMemory {
         String key = REDIS_PREFIX + sessionId;
         redisTemplate.delete(key).subscribe();
 
-        // Bắn event CLEAR qua NATS
+        // Send event CLEAR via NATS
         try {
             MemoryEvent event = MemoryEvent.clear(sessionId, userId);
             natsConnection.publish(memorySubject, objectMapper.writeValueAsBytes(event));
         } catch (Exception e) {
             log.error("[Memory] Failed to publish CLEAR event", e);
-        }
-    }
-
-    private Message mapToSpringAiMessage(bbmovie.ai_platform.agentic_ai.entity.ChatMessage entity) {
-        return switch (entity.getSenderType()) {
-            case USER -> new UserMessage(entity.getContent());
-            case AGENT -> new AssistantMessage(entity.getContent());
-            case SYSTEM -> new SystemMessage(entity.getContent());
-            default -> new UserMessage(entity.getContent());
-        };
-    }
-
-    private Message deserializeMessage(String json) {
-        try {
-            JsonNode node = objectMapper.readTree(json);
-            String type = node.path("messageType").asString("USER");
-            return switch (type) {
-                case "USER" -> objectMapper.treeToValue(node, UserMessage.class);
-                case "ASSISTANT" -> objectMapper.treeToValue(node, AssistantMessage.class);
-                case "SYSTEM" -> objectMapper.treeToValue(node, SystemMessage.class);
-                default -> objectMapper.treeToValue(node, UserMessage.class);
-            };
-        } catch (Exception e) {
-            log.error("Deserialization failed", e);
-            return new UserMessage("Error");
         }
     }
 }

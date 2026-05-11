@@ -1,4 +1,4 @@
-package bbmovie.ai_platform.agentic_ai.service;
+package bbmovie.ai_platform.agentic_ai.service.approval;
 
 import bbmovie.ai_platform.aop_policy.hitl.RiskEvaluator;
 import bbmovie.ai_platform.aop_policy.hitl.RiskLevel;

@@ -1,7 +1,7 @@
 package bbmovie.ai_platform.agentic_ai.controller;
 
 import bbmovie.ai_platform.agentic_ai.dto.request.ApprovalDecisionDto;
-import bbmovie.ai_platform.agentic_ai.service.ApprovalService;
+import bbmovie.ai_platform.agentic_ai.service.approval.AgenticApprovalService;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.MediaType;
@@ -15,7 +15,7 @@ import java.util.UUID;
 @RequestMapping("/api/v1/chat")
 public class ApprovalController {
 
-    private final ApprovalService approvalService;
+    private final AgenticApprovalService approvalService;
 
     @PostMapping(
             value = "/{sessionId}/approve/{requestId}",
@@ -27,6 +27,6 @@ public class ApprovalController {
             @PathVariable String requestId,
             @RequestBody ApprovalDecisionDto decisionBody) {
         UUID mockUserId = UUID.randomUUID(); // Placeholder for Auth Context
-        return approvalService.handleDecision(sessionId, requestId, decisionBody, mockUserId);
+        return approvalService.handleApprovalDecision(sessionId, requestId, decisionBody, mockUserId);
     }
 }

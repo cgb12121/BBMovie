@@ -1,8 +1,8 @@
-package bbmovie.ai_platform.agentic_ai.service;
+package bbmovie.ai_platform.agentic_ai.service.chat;
 
-import bbmovie.ai_platform.agentic_ai.entity.Sender;
 import bbmovie.ai_platform.agentic_ai.entity.enums.AiMode;
 import bbmovie.ai_platform.agentic_ai.entity.enums.AiModel;
+import bbmovie.ai_platform.agentic_ai.service.MessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -14,7 +14,7 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ChatService {
+public class ChatServiceImpl implements ChatService {
     
     private final ChatClient chatClient;
     private final MessageService messageService;
@@ -24,6 +24,7 @@ public class ChatService {
      * Thực hiện chat với AI.
      * Logic xây dựng Request đã được tách ra ChatRequestFactory để đảm bảo Fail-Fast và Caching.
      */
+    @Override
     public Flux<String> chat(UUID sessionId, UUID userId, String message, UUID parentId, AiMode mode, AiModel model) {
         log.info("[Chat] Session: {}, Mode: {}, Model: {}", sessionId, mode, model);
         
@@ -32,21 +33,19 @@ public class ChatService {
                 .content();
     }
 
+    @Override
     public Flux<String> editMessage(UUID oldMessageId, UUID userId, String newContent) {
         return messageService.getMessage(oldMessageId)
                 .flatMapMany(oldMsg -> chat(oldMsg.getSessionId(), userId, newContent, oldMsg.getParentId(), AiMode.NORMAL, null));
     }
 
+    @Override
     public Flux<String> regenerateMessage(UUID aiMessageId, UUID userId) {
         return messageService.getMessage(aiMessageId)
                 .flatMap(aiMsg -> messageService.getMessage(aiMsg.getParentId()))
                 .flatMapMany(userMsg -> {
-                    StringBuilder aiResponseBuilder = new StringBuilder();
-                    return chat(userMsg.getSessionId(), userId, userMsg.getContent(), userMsg.getParentId(), AiMode.NORMAL, null)
-                            .doOnNext(aiResponseBuilder::append)
-                            .doOnComplete(() -> {
-                                messageService.saveMessage(userMsg.getSessionId(), userId, aiResponseBuilder.toString(), Sender.AGENT, userMsg.getId()).subscribe();
-                            });
+                    // Xóa log thủ công vì Advisor sẽ lo việc lưu trữ
+                    return chat(userMsg.getSessionId(), userId, userMsg.getContent(), userMsg.getParentId(), AiMode.NORMAL, null);
                 });
     }
 }

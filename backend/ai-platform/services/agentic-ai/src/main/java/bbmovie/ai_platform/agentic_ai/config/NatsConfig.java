@@ -1,6 +1,7 @@
 package bbmovie.ai_platform.agentic_ai.config;
 
 import io.nats.client.Connection;
+import io.nats.client.JetStream;
 import io.nats.client.Nats;
 import io.nats.client.Options;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,5 +23,10 @@ public class NatsConfig {
                 .maxReconnects(-1) // Unlimited reconnects
                 .build();
         return Nats.connect(options);
+    }
+
+    @Bean
+    public JetStream jetStream(Connection connection) throws IOException {
+        return connection.jetStream();
     }
 }

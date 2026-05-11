@@ -3,6 +3,8 @@ package bbmovie.ai_platform.agentic_ai.service;
 import bbmovie.ai_platform.agentic_ai.dto.response.ChatMessageResponse;
 import bbmovie.ai_platform.agentic_ai.entity.ChatMessage;
 import bbmovie.ai_platform.agentic_ai.repository.MessageRepository;
+import bbmovie.ai_platform.aop_policy.annotation.CheckOwnership;
+
 import com.bbmovie.common.dtos.CursorPageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,6 +21,7 @@ public class MessageService {
 
     private final MessageRepository messageRepository;
 
+    @CheckOwnership(expression = "#messageId", entityType = "MESSAGE")
     public Mono<CursorPageResponse<ChatMessageResponse>> getMessagesWithCursor(UUID sessionId, UUID userId, String cursor, int size) {
         Flux<ChatMessage> messageFlux;
         if (cursor == null || cursor.isBlank()) {
@@ -53,6 +56,7 @@ public class MessageService {
         return messageRepository.save(message);
     }
     
+    @CheckOwnership(expression = "#messageId", entityType = "MESSAGE")
     public Mono<ChatMessage> getMessage(UUID messageId) {
         return messageRepository.findById(messageId);
     }

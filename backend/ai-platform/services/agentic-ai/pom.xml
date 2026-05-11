@@ -29,7 +29,6 @@
     <properties>
         <java.version>25</java.version>
         <spring-ai.version>2.0.0-M5</spring-ai.version>
-        <spring-shell.version>4.0.2</spring-shell.version>
         <timefold-solver.version>2.0.0</timefold-solver.version>
     </properties>
     <dependencies>
@@ -116,13 +115,25 @@
             <artifactId>spring-ai-tika-document-reader</artifactId>
         </dependency>
         <dependency>
-            <groupId>org.springframework.shell</groupId>
-            <artifactId>spring-shell-starter</artifactId>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli-spring-boot-starter</artifactId>
+            <version>4.7.7</version>
+        </dependency>
+        <dependency>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli-codegen</artifactId>
+            <version>4.7.7</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>io.nats</groupId>
             <artifactId>jnats</artifactId>
-            <version>2.19.0</version>
+            <version>2.25.3</version>
+        </dependency>
+        <dependency>
+            <groupId>org.jline</groupId>
+            <artifactId>jline</artifactId>
+            <version>3.30.0</version>
         </dependency>
 
         <dependency>
@@ -204,12 +215,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-aop</artifactId>
-            <version>3.5.4</version>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.shell</groupId>
-            <artifactId>spring-shell-starter-test</artifactId>
-            <scope>test</scope>
+            <version>4.0.0-M2</version>
         </dependency>
     </dependencies>
     <dependencyManagement>
@@ -218,13 +224,6 @@
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
                 <version>${spring-ai.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.springframework.shell</groupId>
-                <artifactId>spring-shell-dependencies</artifactId>
-                <version>${spring-shell.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

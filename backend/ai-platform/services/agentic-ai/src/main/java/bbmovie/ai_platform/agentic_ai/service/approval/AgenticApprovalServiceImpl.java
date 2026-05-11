@@ -1,4 +1,4 @@
-package bbmovie.ai_platform.agentic_ai.service;
+package bbmovie.ai_platform.agentic_ai.service.approval;
 
 import bbmovie.ai_platform.agentic_ai.dto.request.ApprovalDecisionDto;
 import bbmovie.ai_platform.agentic_ai.entity.ApprovalRequest;
@@ -22,13 +22,19 @@ import java.util.UUID;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class ApprovalService implements bbmovie.ai_platform.aop_policy.service.ApprovalService {
+public class AgenticApprovalServiceImpl implements AgenticApprovalService {
 
     private final ApprovalRepository approvalRepository;
     @Qualifier("rRedisTemplate") private final ReactiveRedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
     private static final String TOKEN_PREFIX = "hitl:token:";
+
+    // Facade for the controller
+    @Override
+    public Flux<String> handleApprovalDecision(UUID sessionId, String requestId, ApprovalDecisionDto decision, UUID userId) {
+        return handleDecision(requestId, decision.approved()).flux();
+    }
 
     @Override
     public Mono<Boolean> validateInternalToken(String token, UUID sessionId) {
@@ -38,9 +44,9 @@ public class ApprovalService implements bbmovie.ai_platform.aop_policy.service.A
     }
 
     @Override
-    public Mono<String> createRequest(String toolName, String action, RiskLevel risk, 
-                                    Map<String, Object> arguments, UUID userId, 
-                                    UUID sessionId, UUID messageId) {
+    public Mono<String> createRequest(
+            String toolName, String action, RiskLevel risk, Map<String, Object> arguments, 
+            UUID userId, UUID sessionId, UUID messageId) {
         String requestId = UUID.randomUUID().toString().substring(0, 8);
         
         String argsJson;
@@ -86,10 +92,5 @@ public class ApprovalService implements bbmovie.ai_platform.aop_policy.service.A
                             .thenReturn(token);
                 })
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Invalid Request ID")));
-    }
-
-    // Facade for the controller
-    public Flux<String> handleDecision(UUID sessionId, String requestId, ApprovalDecisionDto decision, UUID userId) {
-        return handleDecision(requestId, decision.approved()).flux();
     }
 }

@@ -1,7 +1,8 @@
 package bbmovie.ai_platform.agentic_ai.controller;
 
 import bbmovie.ai_platform.agentic_ai.dto.request.ChatRequestDto;
-import bbmovie.ai_platform.agentic_ai.service.ChatService;
+import bbmovie.ai_platform.agentic_ai.dto.request.EditMessageRequest;
+import bbmovie.ai_platform.agentic_ai.service.chat.ChatService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -31,5 +32,28 @@ public class ChatController {
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
         return chatService.chat(sessionId, userId, request.message(), request.parentId(), request.aiMode(), request.model());
+    }
+
+    @PostMapping(
+        value = "/{messageId}/regenerate", 
+        produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public Flux<String> regenerateMessage(
+            @PathVariable UUID messageId,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return chatService.regenerateMessage(messageId, userId);
+    }
+
+    @PutMapping(
+        value = "/{messageId}", 
+        produces = MediaType.TEXT_EVENT_STREAM_VALUE
+    )
+    public Flux<String> editMessage(
+            @PathVariable UUID messageId,
+            @RequestBody EditMessageRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return chatService.editMessage(messageId, userId, request.newContent());
     }
 }
