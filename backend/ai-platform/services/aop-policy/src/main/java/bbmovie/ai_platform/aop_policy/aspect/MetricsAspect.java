@@ -6,7 +6,8 @@ import org.aspectj.lang.annotation.Aspect;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.util.StopWatch;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 @Aspect
 @Component
@@ -16,15 +17,35 @@ public class MetricsAspect {
 
     @Around("@annotation(bbmovie.ai_platform.aop_policy.annotation.Monitored)")
     public Object recordMetrics(ProceedingJoinPoint joinPoint) throws Throwable {
-        StopWatch stopWatch = new StopWatch();
-        stopWatch.start();
-        
+        long startTime = System.nanoTime();
+        String methodName = joinPoint.getSignature().toShortString();
+
         try {
-            return joinPoint.proceed();
-        } finally {
-            stopWatch.stop();
-            log.info("[Metrics] Method {} executed in {} ms", 
-                    joinPoint.getSignature().toShortString(), stopWatch.getTotalTimeMillis());
+            Object result = joinPoint.proceed();
+
+            // Handle Reactive Types (Mono/Flux)
+            if (result instanceof Mono<?> mono) {
+                return mono.doOnTerminate(() -> logMetrics(methodName, startTime));
+            } else if (result instanceof Flux<?> flux) {
+                return flux.doOnTerminate(() -> logMetrics(methodName, startTime));
+            }
+
+            // Handle Synchronous Types
+            logMetrics(methodName, startTime);
+            return result;
+        } catch (Throwable e) {
+            logMetrics(methodName, startTime);
+            throw e;
         }
+    }
+
+    private void logMetrics(String methodName, long startTime) {
+        long endTime = System.nanoTime();
+        long durationNanos = endTime - startTime;
+        
+        // Convert to Milliseconds with higher precision
+        double durationMillis = (double) durationNanos / 1_000_000.0;
+
+        log.info("[Metrics] Method {} executed in {} ms", methodName, String.format("%.3f", durationMillis));
     }
 }

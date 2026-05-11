@@ -29,8 +29,7 @@ public class ChatServiceImpl implements ChatService {
         log.info("[Chat] Session: {}, Mode: {}, Model: {}", sessionId, mode, model);
         
         return requestFactory.createRequest(chatClient, sessionId, userId, message, mode, model)
-                .stream()
-                .content();
+                .flatMapMany(spec -> spec.stream().content());
     }
 
     @Override

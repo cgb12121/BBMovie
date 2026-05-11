@@ -2,9 +2,11 @@ package bbmovie.ai_platform.agentic_ai.tool;
 
 import bbmovie.ai_platform.agentic_ai.entity.AgentMemory;
 import bbmovie.ai_platform.agentic_ai.repository.MemoryRepository;
+import bbmovie.ai_platform.agentic_ai.service.personalize.PersonalizationService;
 import bbmovie.ai_platform.aop_policy.annotation.Monitored;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
@@ -12,15 +14,13 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.UUID;
 
+@Slf4j
 @Configuration
+@RequiredArgsConstructor
 public class MemoryTools {
 
-    private static final Logger log = LoggerFactory.getLogger(MemoryTools.class);
     private final MemoryRepository memoryRepository;
-
-    public MemoryTools(MemoryRepository memoryRepository) {
-        this.memoryRepository = memoryRepository;
-    }
+    private final PersonalizationService personalizationService;
 
     @Tool(description = "Saves an important fact about the user into their long-term memory across sessions.")
     @Monitored
@@ -37,7 +37,9 @@ public class MemoryTools {
                 .fact(fact)
                 .build();
         
-        memoryRepository.save(memory).subscribe();
+        memoryRepository.save(memory)
+                .then(personalizationService.recordBehavior(userId, fact))
+                .subscribe();
         return "Memory saved successfully: " + fact;
     }
 

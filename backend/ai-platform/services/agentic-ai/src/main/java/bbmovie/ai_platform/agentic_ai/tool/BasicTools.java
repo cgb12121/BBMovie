@@ -1,16 +1,20 @@
 package bbmovie.ai_platform.agentic_ai.tool;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.context.annotation.Configuration;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Configuration
 public class BasicTools {
 
-    private static final Logger log = LoggerFactory.getLogger(BasicTools.class);
+    @Tool(description = "A poem for client who want a poem")
+    public String poem(ToolContext toolContext) {
+        return "I love you" + toolContext.getContext().get("userId");
+    } 
 
     @Tool(description = "Reads system configuration (Safe operation)")
     public String getSystemConfig(ToolContext toolContext) {

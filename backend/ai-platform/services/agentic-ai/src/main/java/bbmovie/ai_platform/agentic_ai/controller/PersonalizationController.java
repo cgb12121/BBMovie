@@ -1,7 +1,7 @@
 package bbmovie.ai_platform.agentic_ai.controller;
 
 import bbmovie.ai_platform.agentic_ai.dto.request.UpdateAgentConfigDto;
-import bbmovie.ai_platform.agentic_ai.service.PersonalizationService;
+import bbmovie.ai_platform.agentic_ai.service.personalize.PersonalizationService;
 import lombok.RequiredArgsConstructor;
 
 import com.bbmovie.common.dtos.ApiResponse;

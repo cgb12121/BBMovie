@@ -10,6 +10,7 @@ import static org.fusesource.jansi.Ansi.ansi;
  * Utility class for creating rainbow-colored ANSI console text.
  * This class is non-instantiable.
  */
+@SuppressWarnings("all")
 public final class AnsiRainbowUtil {
 
     private AnsiRainbowUtil() {}
