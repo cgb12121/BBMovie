@@ -11,6 +11,7 @@ import jakarta.validation.constraints.NotNull;
 public record ChatRequestDto(
     @NotNull String message, 
     @Nullable UUID parentId,
-    @Nullable AiMode aiMode,
-    @Nullable AiModel model
+    @Nullable UUID assetId,
+    @NotNull AiMode aiMode,
+    @NotNull AiModel model
 ) {}

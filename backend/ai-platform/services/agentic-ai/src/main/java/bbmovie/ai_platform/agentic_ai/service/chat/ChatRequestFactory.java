@@ -2,13 +2,19 @@ package bbmovie.ai_platform.agentic_ai.service.chat;
 
 import bbmovie.ai_platform.agentic_ai.entity.enums.AiMode;
 import bbmovie.ai_platform.agentic_ai.entity.enums.AiModel;
+import bbmovie.ai_platform.agentic_ai.service.ContentRoutingService;
 import bbmovie.ai_platform.agentic_ai.service.ToolManager;
 import bbmovie.ai_platform.agentic_ai.service.personalize.PersonalizationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import bbmovie.ai_platform.agentic_ai.service.ModelRoutingService;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.google.genai.GoogleGenAiChatOptions;
 import org.springframework.ai.ollama.api.OllamaChatOptions;
 import org.springframework.ai.ollama.api.ThinkOption;
+import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -21,7 +27,8 @@ import java.util.UUID;
 
 /**
  * Factory responsible for building complex ChatClient requests.
- * Handles mode-specific options, model capability validation, tool injection, and personalization.
+ * Handles mode-specific options, model capability validation, tool injection,
+ * and personalization.
  */
 @Slf4j
 @Service
@@ -29,65 +36,85 @@ import java.util.UUID;
 public class ChatRequestFactory {
 
     private final PersonalizationService personalizationService;
-    private final ToolManager toolManager; 
+    private final ContentRoutingService contentRoutingService;
+    private final ToolManager toolManager;
+    private final ModelRoutingService modelRoutingService;
 
     /**
      * Creates a fully configured ChatClientRequestSpec.
-     * Performs "Fail Fast" validation on model capabilities and injects personalized context.
      */
     public Mono<ChatClient.ChatClientRequestSpec> createRequest(
-            ChatClient chatClient, UUID sessionId, UUID userId,
-            String message, AiMode mode, AiModel model) {
+            UUID sessionId, UUID userId,
+            String message, UUID assetId, AiMode mode, AiModel model) {
 
-        // 1. Validate Model
-        if (model == null) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "No AI model specified."));
+        // 1. Fail Fast: Validate Model & Mode
+        if (model == null || mode == null) {
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Model and Mode are required."));
         }
-        
-        log.debug("Building request for Session: {}, Mode: {}, Model: {}", sessionId, mode, model.name());
 
-        // 2. Fail Fast: Validate Thinking capability
         if (mode == AiMode.THINKING && !model.isSupportsThinking()) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Model " + model.name() + " does not support Thinking mode."));
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Model " + model.name() + " does not support Thinking."));
         }
 
-        // 3. Build Model Options
-        OllamaChatOptions.Builder optionsBuilder = OllamaChatOptions.builder()
-                .model(model.getValue());
+        // 2. Fetch Personalization and Asset Content (via Intelligent Routing)
+        Mono<String> assetContentMono = assetId == null ? Mono.just("No file attached.")
+                : contentRoutingService.getRefinedContent(assetId);
 
-        // 4. Set Mode-specific configurations
-        switch (mode) {
-            case THINKING -> optionsBuilder.thinkOption(ThinkOption.ThinkBoolean.ENABLED).temperature(0.3);
-            case NORMAL -> optionsBuilder.thinkOption(ThinkOption.ThinkBoolean.DISABLED).temperature(0.7);
-            default -> {
-                return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unsupported AI mode."));
-            }
-        }
+        return Mono.zip(personalizationService.getPersonalizedContext(userId, sessionId), assetContentMono)
+                .map(tuple -> {
+                    String personaBrief = tuple.getT1();
+                    String fileContent = tuple.getT2();
 
-        // 5. Fetch Personalized Context (L1-L2-L3)
-        return personalizationService.getPersonalizedContext(userId, sessionId)
-                .map(personaBrief -> {
+                    // 3. Select Model and Build Specific Client
+                    ChatModel chatModel = modelRoutingService.getModel(model.getProvider());
+                    ChatClient chatClient = ChatClient.create(chatModel);
+
+                    // 4. Build Provider-Specific Options
+                    ChatOptions.Builder<?> finalOptions = buildProviderOptions(model, mode);
+
                     ChatClient.ChatClientRequestSpec spec = chatClient.prompt()
-                            // Injects parameters into the DEFAULT system prompt defined in ChatClientConfig
                             .system(s -> s
                                     .param("user_context", personaBrief)
+                                    .param("file_context", fileContent)
                                     .param("current_date", OffsetDateTime.now())
-                                    .param("user_id", userId.toString())
-                            )
+                                    .param("user_id", userId.toString()))
                             .user(message)
-                            .options(optionsBuilder)
+                            .options(finalOptions)
                             .advisors(a -> a
                                     .param("chat_memory_conversation_id", userId.toString() + ":" + sessionId.toString())
-                                    .param("chat_memory_retrieve_size", 20)
-                            )
+                                    .param("chat_memory_retrieve_size", 20))
                             .toolContext(Map.of("userId", userId));
 
-                    // 6. Conditional Tool Injection
                     if (model.isSupportsTools()) {
                         spec.tools(toolManager.getAllTools());
                     }
-                    
+
                     return spec;
                 });
+    }
+
+    private ChatOptions.Builder<?> buildProviderOptions(AiModel model, AiMode mode) {
+        return switch (model.getProvider()) {
+            case "ollama" -> {
+                OllamaChatOptions.Builder builder = OllamaChatOptions.builder().model(model.getValue());
+                if (mode == AiMode.THINKING) {
+                    builder.thinkOption(ThinkOption.ThinkBoolean.ENABLED).temperature(0.3);
+                } else {
+                    builder.thinkOption(ThinkOption.ThinkBoolean.DISABLED).temperature(0.7);
+                }
+                yield builder;
+            }
+
+            case "google" -> GoogleGenAiChatOptions.builder()
+                .model(model.getValue())
+                .temperature(mode == AiMode.THINKING ? 0.3 : 0.7);
+    
+            case "groq", "openai" -> OpenAiChatOptions.builder()
+                    .model(model.getValue())
+                    .temperature(mode == AiMode.THINKING ? 0.3 : 0.7);
+                    
+            default -> throw new IllegalArgumentException("Provider không được hỗ trợ");
+        };
     }
 }

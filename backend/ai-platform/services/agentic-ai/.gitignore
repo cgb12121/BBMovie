@@ -33,3 +33,4 @@ build/
 .vscode/
 .idea
 jwk-dev.json
+.env

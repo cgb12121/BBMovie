@@ -27,8 +27,8 @@ import java.util.stream.Collectors;
 public class PersonalizationServiceImpl implements PersonalizationService {
 
     private final ReactiveRedisTemplate<String, String> redisTemplate;
-    private final VectorStore vectorStore;
     private final PersonalizationRepository personalizationRepository;
+    private final VectorStore vectorStore;
 
     // L1: In-memory Session Cache
     private final Map<UUID, String> l1Cache = new ConcurrentHashMap<>();
@@ -73,6 +73,13 @@ public class PersonalizationServiceImpl implements PersonalizationService {
                 );
     }
 
+    @Override
+    public Mono<String> getCustomInstructions(UUID userId) {
+        return personalizationRepository.findById(userId)
+                .map(AgentPersonalization::getCustomInstructions)
+                .defaultIfEmpty("No custom instructions set by user.");
+    }
+
     private Mono<String> retrieveAndSynthesizeProfile(UUID userId) {
         log.debug("[Personalization] L3 CACHE MISS for user: {}. Retrieving from Vector DB...", userId);
         
@@ -102,13 +109,6 @@ public class PersonalizationServiceImpl implements PersonalizationService {
                 .subscribeOn(Schedulers.boundedElastic())
                 .then(invalidateCache(userId))
                 .then();
-    }
-
-    @Override
-    public Mono<String> getCustomInstructions(UUID userId) {
-        return personalizationRepository.findById(userId)
-                .map(AgentPersonalization::getCustomInstructions)
-                .defaultIfEmpty("No custom instructions set by user.");
     }
 
     @Override

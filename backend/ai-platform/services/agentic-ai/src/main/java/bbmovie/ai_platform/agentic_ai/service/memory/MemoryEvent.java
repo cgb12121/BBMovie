@@ -5,21 +5,21 @@ import java.time.Instant;
 import java.util.List;
 
 /**
- * Event chứa thông tin đồng bộ Memory.
+ * Event hold information to sync Memory.
  */
 public record MemoryEvent(
     EventType type,
     String sessionId,
     String userId,
-    List<String> jsonMessages, // Chứa list tin nhắn dạng JSON
+    List<String> jsonMessages, // Hold a list of message in raw JSON
     Instant timestamp,
-    String metadata // Chứa thêm thông tin phụ nếu cần (parentId, model, etc.)
+    String metadata // Optional data (parentId, model, etc.)
 ) implements Serializable {
 
     public enum EventType {
-        ADD,    // Thêm tin nhắn mới
-        CLEAR,  // Xóa toàn bộ session
-        DELETE  // Xóa một tin nhắn cụ thể (nếu mở rộng)
+        ADD,    // Add new message
+        CLEAR,  // Clear session
+        DELETE  // Delete message
     }
 
     public static MemoryEvent add(String sessionId, String userId, List<String> jsonMessages) {

@@ -32,7 +32,7 @@ public class HybridChatMemory implements ChatMemory {
     private String memorySubject;
 
     private static final int MESSAGE_FETCH_LIMIT = 20;
-    private static final String REDIS_PREFIX = "chat:memory:";
+    private static final String REDIS_CHAT_MEMORY_PREFIX = "chat:memory:";
     private static final Duration REDIS_TTL = Duration.ofHours(1);
 
     @Override
@@ -43,7 +43,7 @@ public class HybridChatMemory implements ChatMemory {
         String sessionId = ids[1];
 
         // 1. Save to Redis (Short-term)
-        String redisKey = REDIS_PREFIX + sessionId;
+        String redisKey = REDIS_CHAT_MEMORY_PREFIX + sessionId;
         log.debug("[Memory] Syncing {} messages for Session: {}, User: {}", messages.size(), sessionId, userId);
 
         try {
@@ -53,7 +53,8 @@ public class HybridChatMemory implements ChatMemory {
                         try {
                             return objectMapper.writeValueAsString(m);
                         } catch (Exception e) {
-                            throw new RuntimeException("Serialization failed", e);
+                            log.error("Serialization failed: {}", e.getMessage());
+                            throw new RuntimeException("Serialization failed");
                         }
                     })
                     .toList();
@@ -80,7 +81,6 @@ public class HybridChatMemory implements ChatMemory {
 
     @Override
     public List<Message> get(String conversationId) {
-        // Luôn parse đồng nhất với add()
         String[] ids = conversationId.split(":");
         if (ids.length < 2) {
             log.warn("[Memory] Invalid conversationId format: {}. Expected userId:sessionId", conversationId);
@@ -89,11 +89,11 @@ public class HybridChatMemory implements ChatMemory {
         
         String userId = ids[0];
         String sessionId = ids[1];
-        String key = REDIS_PREFIX + sessionId;
+        String key = REDIS_CHAT_MEMORY_PREFIX + sessionId;
         
         log.debug("[Memory] Retrieving history for Session: {}, User: {}", sessionId, userId);
 
-        // 1. Thử lấy từ Redis trước (Safe Blocking)
+        // 1. Try to fetch from redis (Safe Blocking)
         List<String> jsonMessages = redisTemplate.opsForList().range(key, -MESSAGE_FETCH_LIMIT, -1)
                 .collectList()
                 .block(Duration.ofSeconds(2));
@@ -119,7 +119,7 @@ public class HybridChatMemory implements ChatMemory {
         String userId = ids.length > 1 ? ids[0] : "unknown";
         String sessionId = ids.length > 1 ? ids[1] : ids[0];
 
-        String key = REDIS_PREFIX + sessionId;
+        String key = REDIS_CHAT_MEMORY_PREFIX + sessionId;
         redisTemplate.delete(key).subscribe();
 
         // Send event CLEAR via NATS

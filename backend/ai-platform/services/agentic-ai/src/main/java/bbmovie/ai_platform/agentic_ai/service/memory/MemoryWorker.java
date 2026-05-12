@@ -13,7 +13,7 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.event.EventListener;
-import org.springframework.stereotype.Service;
+import org.springframework.stereotype.Service;               
 import tools.jackson.databind.ObjectMapper;
 import java.time.Duration;
 import java.time.Instant;
@@ -37,7 +37,7 @@ public class MemoryWorker {
     private String memoryQueue;
 
     /**
-     * Sử dụng Simplified JetStream API (Pull Consumer) từ jnats 2.25.3.
+     * Use Simplified from JetStream API (Pull Consumer)
      */
     @EventListener(ApplicationReadyEvent.class)
     public void startListening() {
@@ -46,7 +46,7 @@ public class MemoryWorker {
             String streamName = "AI_MEMORY_STREAM";
             String durableName = "memory-persistence-worker";
 
-            // 1. Đảm bảo Stream tồn tại
+            // 1. Ensure Jet Stream exist
             JetStreamManagement jsm = natsConnection.jetStreamManagement();
             try {
                 jsm.getStreamInfo(streamName);
@@ -59,25 +59,25 @@ public class MemoryWorker {
                         .build());
             }
 
-            // 2. Lấy StreamContext
+            // 2. Take StreamContext
             StreamContext streamContext = natsConnection.getStreamContext(streamName);
 
-            // 3. Cấu hình Consumer (Durable Pull)
-            ConsumerConfiguration cc = ConsumerConfiguration.builder()
+            // 3. Configure Consumer (Durable Pull)
+            ConsumerConfiguration consumerConfig = ConsumerConfiguration.builder()
                     .durable(durableName)
                     .filterSubject(memorySubject)
                     .build();
             
-            ConsumerContext consumerContext = streamContext.createOrUpdateConsumer(cc);
+            ConsumerContext consumerContext = streamContext.createOrUpdateConsumer(consumerConfig);
 
-            // 4. Bắt đầu Consume (Hỗ trợ Async Pull)
+            // 4. Start Consume (Support Async Pull)
             consumerContext.consume(msg -> {
                 try {
                     MemoryEvent event = objectMapper.readValue(msg.getData(), MemoryEvent.class);
                     processEvent(event, msg);
                 } catch (Exception e) {
                     log.error("[Worker] Failed to parse MemoryEvent", e);
-                    msg.term(); // Hủy message lỗi để không bị loop
+                    msg.term(); // Terminate message to prevent poison message
                 }
             });
 
@@ -111,7 +111,8 @@ public class MemoryWorker {
                     // Tránh lưu duplicate nếu tin nhắn vừa mới được lưu trong vòng 5s gần đây
                     Boolean exists = messageRepository.findAllBySessionIdOrderByCreatedAtAsc(sessionId)
                             .filter(existing -> existing.getContent().equals(msg.getText()) && 
-                                               existing.getSenderType() == AiMessageUtils.mapSenderType(msg))
+                                               existing.getSenderType() == AiMessageUtils.mapSenderType(msg)
+                            )
                             .any(existing -> Duration.between(existing.getCreatedAt(), now).abs().getSeconds() < 5)
                             .block(Duration.ofSeconds(2));
                     return exists == null || !exists;
