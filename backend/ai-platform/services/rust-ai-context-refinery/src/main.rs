@@ -37,6 +37,14 @@ async fn main() {
     // Initialize NATS service for status updates
     let nats_service = services::nats::NatsService::new(&nats_url).await;
 
+    // Start Ingestion Worker (NATS Subscriber)
+    if let Some(client) = nats_service.get_client() {
+        let client_clone = client.clone();
+        tokio::spawn(async move {
+            api::nats_worker::start_worker(client_clone).await;
+        });
+    }
+
     // 2. Setup Routes
     let app = Router::new()
         .route("/health", get(|| async { "Rust Worker is UP!" }))

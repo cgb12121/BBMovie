@@ -22,6 +22,10 @@ impl NatsService {
         }
     }
 
+    pub fn get_client(&self) -> Option<Arc<Client>> {
+        self.client.clone()
+    }
+
     pub async fn publish_media_status_update(
         &self,
         upload_id: &str,

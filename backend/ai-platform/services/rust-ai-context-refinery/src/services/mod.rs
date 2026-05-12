@@ -14,5 +14,6 @@ pub mod text;
 pub mod vision;
 pub mod redis;
 pub mod nats;
+pub mod processor;
 
 
