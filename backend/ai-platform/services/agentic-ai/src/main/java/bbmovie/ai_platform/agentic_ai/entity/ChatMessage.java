@@ -36,6 +36,15 @@ public class ChatMessage implements Persistable<UUID> {
     @Column("content")
     private String content;
 
+    @Column("thinking")
+    private String thinking;
+
+    @Column("prompt_tokens")
+    private Long promptTokens;
+
+    @Column("completion_tokens")
+    private Long completionTokens;
+
     @Column("parent_id")
     private UUID parentId;
 

@@ -17,15 +17,17 @@ public class AiMessageUtils {
      
      private static final ObjectMapper objectMapper = new ObjectMapper();
 
-     public static Message deserializeMessage(String json) {
+    public static Message deserializeMessage(String json) {
         try {
             JsonNode node = objectMapper.readTree(json);
             String type = node.path("messageType").asString("USER");
+            String content = node.path("content").asString("");
+            
             return switch (type) {
-                case "USER" -> objectMapper.treeToValue(node, UserMessage.class);
-                case "ASSISTANT" -> objectMapper.treeToValue(node, AssistantMessage.class);
-                case "SYSTEM" -> objectMapper.treeToValue(node, SystemMessage.class);
-                default -> objectMapper.treeToValue(node, UserMessage.class);
+                case "USER" -> new UserMessage(content);
+                case "ASSISTANT" -> new AssistantMessage(content);
+                case "SYSTEM" -> new SystemMessage(content);
+                default -> new UserMessage(content);
             };
         } catch (Exception e) {
             log.error("Deserialization failed: {}", e.getMessage());
@@ -45,7 +47,13 @@ public class AiMessageUtils {
     public static Message mapToSpringAiMessage(bbmovie.ai_platform.agentic_ai.entity.ChatMessage entity) {
         return switch (entity.getSenderType()) {
             case USER -> new UserMessage(entity.getContent());
-            case AGENT -> new AssistantMessage(entity.getContent());
+            case AGENT -> {
+                AssistantMessage msg = new AssistantMessage(entity.getContent());
+                if (entity.getThinking() != null) {
+                    msg.getMetadata().put("think", entity.getThinking());
+                }
+                yield msg;
+            }
             case SYSTEM -> new SystemMessage(entity.getContent());
             default -> new UserMessage(entity.getContent());
         };

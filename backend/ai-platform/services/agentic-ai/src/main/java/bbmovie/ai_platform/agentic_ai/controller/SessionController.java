@@ -5,7 +5,7 @@ import bbmovie.ai_platform.agentic_ai.dto.request.DeleteArchivedSessionsDto;
 import bbmovie.ai_platform.agentic_ai.dto.request.SetSessionArchivedDto;
 import bbmovie.ai_platform.agentic_ai.dto.request.UpdateSessionNameDto;
 import bbmovie.ai_platform.agentic_ai.dto.response.ChatSessionResponse;
-import bbmovie.ai_platform.agentic_ai.service.SessionService;
+import bbmovie.ai_platform.agentic_ai.service.session.SessionService;
 import lombok.RequiredArgsConstructor;
 
 import com.bbmovie.common.dtos.ApiResponse;

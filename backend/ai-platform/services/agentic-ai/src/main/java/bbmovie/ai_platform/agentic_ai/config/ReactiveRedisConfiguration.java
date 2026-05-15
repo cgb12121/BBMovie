@@ -2,6 +2,7 @@ package bbmovie.ai_platform.agentic_ai.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
@@ -19,6 +20,7 @@ public class ReactiveRedisConfiguration {
           return new GenericJacksonJsonRedisSerializer(objectMapper); // JSON serialization
      }
 
+     @Primary
      @Bean("rRedisTemplate")
      public ReactiveRedisTemplate<String, String> rRedisTemplate(ReactiveRedisConnectionFactory factory) {
           StringRedisSerializer StringRedisSerializer = new StringRedisSerializer();

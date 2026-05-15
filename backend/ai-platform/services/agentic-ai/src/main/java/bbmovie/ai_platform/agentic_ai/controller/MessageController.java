@@ -1,7 +1,7 @@
 package bbmovie.ai_platform.agentic_ai.controller;
 
 import bbmovie.ai_platform.agentic_ai.dto.response.ChatMessageResponse;
-import bbmovie.ai_platform.agentic_ai.service.MessageService;
+import bbmovie.ai_platform.agentic_ai.service.message.MessageService;
 import lombok.RequiredArgsConstructor;
 
 import com.bbmovie.common.dtos.ApiResponse;

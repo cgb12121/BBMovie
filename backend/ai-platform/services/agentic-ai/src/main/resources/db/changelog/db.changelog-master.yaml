@@ -3,3 +3,5 @@ databaseChangeLog:
       file: db/changelog/changes/001-initial-schema.yaml
   - include:
       file: db/changelog/changes/002-approval-requests.yaml
+  - include:
+      file: db/changelog/changes/003-update-chat-message-metadata.yaml

@@ -1,10 +1,8 @@
 package bbmovie.ai_platform.ai_common.enums;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 @Getter
-@RequiredArgsConstructor
 public enum AiStatus {
     SUCCESS(200, "Success"),
     INGESTION_PENDING(1001, "Ingestion in progress"),
@@ -14,6 +12,11 @@ public enum AiStatus {
 
     private final int code;
     private final String reason;
+
+    AiStatus(int code, String reason) {
+        this.code = code;
+        this.reason = reason;
+    }
 
     public static AiStatus fromCode(int code) {
         for (AiStatus status : values()) {

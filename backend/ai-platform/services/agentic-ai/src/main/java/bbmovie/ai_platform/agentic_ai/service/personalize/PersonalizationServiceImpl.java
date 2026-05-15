@@ -9,6 +9,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -21,11 +22,23 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+/**
+ * PersonalizationServiceImpl manages user-specific context and behavioral history to tailor AI responses.
+ * 
+ * It employs a triple-layer strategy for efficient context retrieval:
+ * 1. L1 (In-memory): Fast ConcurrentHashMap cache scoped to the current active session.
+ * 2. L2 (Distributed): Redis cache scoped to the User ID, persisting across sessions for 24 hours.
+ * 3. L3 (Cold Storage): Aggregates explicit user instructions from SQL (PostgreSQL) and 
+ *    semantic behavioral history from a Vector Database.
+ * 
+ * When a user behavior is recorded, the caches are invalidated to ensure fresh context in the next turn.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class PersonalizationServiceImpl implements PersonalizationService {
 
+    @Qualifier("rRedisTemplate")
     private final ReactiveRedisTemplate<String, String> redisTemplate;
     private final PersonalizationRepository personalizationRepository;
     private final VectorStore vectorStore;
@@ -36,6 +49,15 @@ public class PersonalizationServiceImpl implements PersonalizationService {
     private static final String REDIS_PREFIX = "personalization:";
     private static final Duration REDIS_TTL = Duration.ofHours(24);
 
+    /**
+     * Retrieves the full personalized profile for a user.
+     * 
+     * The process follows the L1 -> L2 -> L3 lookup path.
+     * 
+     * @param userId The user identifying the profile.
+     * @param sessionId The current session (used for L1 cache).
+     * @return Mono<String> The synthesized persona and guidelines.
+     */
     @Override
     public Mono<String> getPersonalizedContext(UUID userId, UUID sessionId) {
         // 1. Check L1 (In-memory Session Cache)
@@ -73,6 +95,9 @@ public class PersonalizationServiceImpl implements PersonalizationService {
                 );
     }
 
+    /**
+     * Fetches explicit instructions set by the user in their settings.
+     */
     @Override
     public Mono<String> getCustomInstructions(UUID userId) {
         return personalizationRepository.findById(userId)
@@ -80,6 +105,10 @@ public class PersonalizationServiceImpl implements PersonalizationService {
                 .defaultIfEmpty("No custom instructions set by user.");
     }
 
+    /**
+     * Performs a semantic search in the Vector Database to find relevant historical 
+     * facts about the user's preferences and past interactions.
+     */
     private Mono<String> retrieveAndSynthesizeProfile(UUID userId) {
         log.debug("[Personalization] L3 CACHE MISS for user: {}. Retrieving from Vector DB...", userId);
         
@@ -96,9 +125,17 @@ public class PersonalizationServiceImpl implements PersonalizationService {
                     .collect(Collectors.joining("\n"));
         })
         .subscribeOn(Schedulers.boundedElastic())
+        .onErrorResume(e -> {
+            log.error("[Personalization] L3 Vector Search FAILED (Qdrant/Ollama down?): {}", e.getMessage());
+            return Mono.just("");
+        })
         .map(facts -> facts.isEmpty() ? "No specific historical data available." : facts);
     }
 
+    /**
+     * Records a new fact or behavior about the user.
+     * This triggers a Vector DB insertion and invalidates all personalization caches.
+     */
     @Override
     public Mono<Void> recordBehavior(UUID userId, String fact) {
         log.debug("[Personalization] Recording and Indexing behavior for user {}: {}", userId, fact);
@@ -107,10 +144,17 @@ public class PersonalizationServiceImpl implements PersonalizationService {
         
         return Mono.fromRunnable(() -> vectorStore.add(List.of(doc)))
                 .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(e -> {
+                    log.error("[Personalization] Failed to record behavior to Vector DB: {}", e.getMessage());
+                    return Mono.empty();
+                })
                 .then(invalidateCache(userId))
                 .then();
     }
 
+    /**
+     * Updates the user's explicit guidelines and invalidates caches.
+     */
     @Override
     public Mono<Void> updateCustomInstructions(UUID userId, UpdateAgentConfigDto dto) {
         return personalizationRepository.findById(userId)
@@ -124,6 +168,9 @@ public class PersonalizationServiceImpl implements PersonalizationService {
                 .then();
     }
 
+    /**
+     * Clears L1 and L2 caches for the given user.
+     */
     private Mono<Void> invalidateCache(UUID userId) {
         String redisKey = REDIS_PREFIX + userId;
         return redisTemplate.delete(redisKey)

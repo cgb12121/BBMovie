@@ -2,6 +2,7 @@ package bbmovie.ai_platform.agentic_ai.config;
 
 import bbmovie.ai_platform.agentic_ai.repository.MessageRepository;
 import bbmovie.ai_platform.agentic_ai.service.memory.HybridChatMemory;
+import io.nats.client.JetStream;
 import io.qdrant.client.QdrantClient;
 import tools.jackson.databind.ObjectMapper;
 
@@ -21,16 +22,17 @@ public class MemoryConfig {
     @Bean
     @Primary
     public ChatMemory chatMemory(
-            @Qualifier("rRedisTemplate") ReactiveRedisTemplate<String, String> redisTemplate, 
+            @Qualifier("rRedisTemplate") // Redis Template
+            ReactiveRedisTemplate<String, String> redisTemplate, 
             MessageRepository messageRepository, ObjectMapper objectMapper,
-            io.nats.client.Connection natsConnection) {
+            JetStream jetStream) {
         // Hybrid memory: Redis (Short-term) + NATS Event (Long-term)
-        return new HybridChatMemory(redisTemplate, messageRepository, objectMapper, natsConnection);
+        return new HybridChatMemory(redisTemplate, messageRepository, objectMapper, jetStream);
     }
     
     @Bean
     @Primary
-    public VectorStore vectorStore(QdrantClient qdrantClient, EmbeddingModel embeddingModel) {
+    public VectorStore vectorStore(QdrantClient qdrantClient, @Qualifier("ollamaEmbeddingModel") EmbeddingModel embeddingModel) {
         return QdrantVectorStore.builder(qdrantClient, embeddingModel)
                 .collectionName("agentic-collection")
                 .build();

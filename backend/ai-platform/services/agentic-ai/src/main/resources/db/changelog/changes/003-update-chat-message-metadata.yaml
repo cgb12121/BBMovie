@@ -1,0 +1,23 @@
+databaseChangeLog:
+  - changeSet:
+      id: "6"
+      author: antigravity
+      changes:
+        - addColumn:
+            tableName: chat_message
+            columns:
+              - column:
+                  name: thinking
+                  type: TEXT
+                  constraints:
+                    nullable: true
+              - column:
+                  name: prompt_tokens
+                  type: BIGINT
+                  constraints:
+                    nullable: true
+              - column:
+                  name: completion_tokens
+                  type: BIGINT
+                  constraints:
+                    nullable: true

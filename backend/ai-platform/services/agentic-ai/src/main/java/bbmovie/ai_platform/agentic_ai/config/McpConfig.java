@@ -22,11 +22,11 @@ public class McpConfig {
     @Bean
     @Lazy
     public McpAsyncClient mcpAsyncClient(WebClient.Builder webClientBuilder, ObjectMapper objectMapper) {
-        // Ép kiểu ObjectMapper sang JsonMapper (Jackson 3) để tương thích với JacksonMcpJsonMapper
+        // Casting ObjectMapper to JsonMapper (Jackson 3)  => compatible with JacksonMcpJsonMapper
         JsonMapper jsonMapperImpl = (JsonMapper) objectMapper;
         JacksonMcpJsonMapper jsonMapper = new JacksonMcpJsonMapper(jsonMapperImpl);
         
-        // Cấu hình Transport với WebClient.Builder, mapper và url
+        // Config Transport with WebClient.Builder, mapper and url
         WebFluxSseClientTransport transport = new WebFluxSseClientTransport(
                 webClientBuilder,
                 jsonMapper,
@@ -39,8 +39,6 @@ public class McpConfig {
 
     @Bean
     public AsyncMcpToolCallbackProvider mcpToolCallbackProvider(McpAsyncClient mcpAsyncClient) {
-        // deprecated init
-        // return new AsyncMcpToolCallbackProvider(mcpAsyncClient);
         return AsyncMcpToolCallbackProvider.builder()
             .mcpClients(mcpAsyncClient)
             .build();
