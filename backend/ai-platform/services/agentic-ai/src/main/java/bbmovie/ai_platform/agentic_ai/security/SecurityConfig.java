@@ -58,7 +58,6 @@ public class SecurityConfig {
             .cors(cors -> cors.configurationSource(request -> getCorsConfiguration()))
             .csrf(ServerHttpSecurity.CsrfSpec::disable)
             .authorizeExchange(exchanges -> exchanges
-                .pathMatchers("/admin/**").hasAnyRole("ROLE_ADMIN", "ADMIN")
                 .pathMatchers("/api/v1/**").authenticated()
                 .anyExchange().authenticated()
             )

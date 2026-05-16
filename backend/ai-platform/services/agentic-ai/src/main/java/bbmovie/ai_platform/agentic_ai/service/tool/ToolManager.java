@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -51,21 +52,43 @@ public class ToolManager {
 
     /**
      * Scans all beans in the application context for methods annotated with {@link Tool}.
-     * Discovered tools are wrapped in {@link MethodToolCallback} for Spring AI compatibility.
+     *
+     * <p>Strategy:
+     * 1. Use {@link ApplicationContext#getType(String)} (lightweight — no instantiation) to get
+     *    the class of each bean and filter by package, skipping Spring/JDK internals.
+     * 2. Only for beans whose class has at least one {@link Tool}-annotated method, call
+     *    {@link ApplicationContext#getBean(String)} to get the actual instance.
+     * 3. Wrap discovered methods in {@link MethodToolCallback} for Spring AI compatibility.
      */
     private void discoverLocalTools() {
         discoveredLocalTools.clear();
         String[] beanNames = applicationContext.getBeanDefinitionNames();
-        
+
         for (String beanName : beanNames) {
             try {
-                Object bean = applicationContext.getBean(beanName);
-                if (beanName.contains("org.springframework")) continue;
+                // Step 1: Check the bean's class type WITHOUT instantiating it.
+                // This avoids eagerly loading beans and is significantly cheaper than getBean().
+                Class<?> beanType = applicationContext.getType(beanName);
+                if (beanType == null) continue;
 
-                Method[] methods = ReflectionUtils.getAllDeclaredMethods(bean.getClass());
-                for (Method method : methods) {
+                // Step 2: Skip Spring framework internals and JDK classes by package prefix.
+                String pkg = beanType.getPackageName();
+                if (pkg.startsWith("org.springframework")
+                        || pkg.startsWith("java.")
+                        || pkg.startsWith("com.sun")
+                        || pkg.startsWith("reactor.")) {
+                    continue;
+                }
+
+                // Step 3: Check if any method on this class is annotated with @Tool.
+                // Only if so do we pay the cost of getBean().
+                boolean hasToolMethods = Arrays.stream(ReflectionUtils.getAllDeclaredMethods(beanType))
+                        .anyMatch(m -> m.isAnnotationPresent(Tool.class));
+                if (!hasToolMethods) continue;
+
+                Object bean = applicationContext.getBean(beanName);
+                for (Method method : ReflectionUtils.getAllDeclaredMethods(beanType)) {
                     if (method.isAnnotationPresent(Tool.class)) {
-                        // Spring AI 2.0.0-M5: Using builder and ToolDefinitions
                         ToolCallback callback = MethodToolCallback.builder()
                                 .toolDefinition(ToolDefinitions.from(method))
                                 .toolMethod(method)

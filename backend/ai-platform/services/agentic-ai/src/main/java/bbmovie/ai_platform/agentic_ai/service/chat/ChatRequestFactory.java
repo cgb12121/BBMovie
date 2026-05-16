@@ -7,6 +7,9 @@ import bbmovie.ai_platform.agentic_ai.service.tool.ToolManager;
 import bbmovie.ai_platform.agentic_ai.service.chat.advisors.ThinkingAdvisor;
 import bbmovie.ai_platform.agentic_ai.service.chat.advisors.TokenUsageAdvisor;
 import bbmovie.ai_platform.agentic_ai.service.chat.options.ChatOptionsStrategy;
+import bbmovie.ai_platform.agentic_ai.utils.AiConstants;
+import bbmovie.ai_platform.aop_policy.hitl.ApprovalContextHolder;
+import bbmovie.ai_platform.aop_policy.hitl.ExecutionContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,10 +48,6 @@ public class ChatRequestFactory {
     private final ChatMemory chatMemory;
     private final List<ChatOptionsStrategy> optionsStrategies;
 
-
-    private static final String CHAT_MEMORY_CONVERSATION_ID_KEY = "chat_memory_conversation_id";
-    private static final String CHAT_MEMORY_RETRIEVE_SIZE_KEY = "chat_memory_retrieve_size";
-
     /**
      * Creates a fully configured ChatClientRequestSpec.
      * 
@@ -57,13 +56,13 @@ public class ChatRequestFactory {
      * 2. Concurrently fetch user personalization and refined asset content.
      * 3. Select the appropriate ChatModel via ModelRoutingService.
      * 4. Build a ChatClient with an Advisor Chain:
-     *    - ThinkingAdvisor: Extracts reasoning before memory is saved.
-     *    - MessageChatMemoryAdvisor: Persists the conversation.
+     * - ThinkingAdvisor: Extracts reasoning before memory is saved.
+     * - MessageChatMemoryAdvisor: Persists the conversation.
      * 5. Set system prompt parameters and provider-specific ChatOptions.
      */
     public Mono<ChatClient.ChatClientRequestSpec> createRequest(
             UUID sessionId, UUID userId,
-            String message, UUID assetId, AiMode mode, AiModel model) {
+            String message, UUID assetId, AiMode mode, AiModel model, String userRole) {
 
         // 1. Fail Fast: Validate Model & Mode
         if (model == null || mode == null) {
@@ -71,23 +70,32 @@ public class ChatRequestFactory {
         }
 
         if (mode == AiMode.THINKING && !model.isSupportsThinking()) {
-            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST, "Model " + model.name() + " does not support Thinking."));
+            return Mono.error(new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Model " + model.name() + " does not support Thinking."));
         }
 
         // 2. Fetch Personalization and Asset Content (via Intelligent Routing)
         Mono<String> assetContentMono = assetId == null ? Mono.just("No file attached.")
                 : contentRoutingService.getRefinedContent(assetId);
 
-        return Mono.zip(personalizationService.getPersonalizedContext(userId, sessionId), assetContentMono)
+        return Mono.zip(personalizationService.getPersonalizedContext(userId), assetContentMono)
                 .map(tuple -> {
                     String personaBrief = tuple.getT1();
                     String fileContent = tuple.getT2();
 
                     // 3. Select Model and Build Specific Client
                     ChatModel chatModel = modelRoutingService.getModel(model.getProvider());
-                    
+
                     // 4. Build Provider-Specific Options
                     ChatOptions.Builder<?> options = buildProviderOptions(model, mode);
+
+                    // Set ExecutionContext so AOP HITL aspect has access to userId, sessionId, and
+                    // userRole
+                    ApprovalContextHolder.set(ExecutionContext.builder()
+                            .userId(userId)
+                            .sessionId(sessionId)
+                            .userRole(userRole)
+                            .build());
 
                     String conversationId = userId.toString() + ":" + sessionId.toString();
 
@@ -103,18 +111,18 @@ public class ChatRequestFactory {
                             .user(message)
                             .options(options)
                             .advisors(a -> a
-                                .advisors(
-                                    // 1. Extract thinking tags FIRST
-                                    thinkingAdvisor, 
-                                    // 2. Save to memory (so it includes the extracted 'think' metadata)
-                                    MessageChatMemoryAdvisor.builder(chatMemory).build(),
-                                    // 3. Record token usage LAST (captures final state)
-                                    tokenUsageAdvisor
-                                )
-                                .param(CHAT_MEMORY_CONVERSATION_ID_KEY, conversationId)
-                                .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, 20)
+                                    .advisors(
+                                            // 1. Extract thinking tags FIRST
+                                            thinkingAdvisor,
+                                            // 2. Save to memory (so it includes the extracted 'think' metadata)
+                                            MessageChatMemoryAdvisor.builder(chatMemory).build(),
+                                            // 3. Record token usage LAST (captures final state)
+                                            tokenUsageAdvisor
+                                    )
+                                    .param(AiConstants.CHAT_MEMORY_CONVERSATION_ID_KEY, conversationId)
+                                    .param(AiConstants.CHAT_MEMORY_RETRIEVE_SIZE_KEY, AiConstants.DEFAULT_MEMORY_RETRIEVE_SIZE)
                             )
-                            .toolContext(Map.of("userId", userId));
+                            .toolContext(Map.of("userId", userId, "userRole", userRole));
 
                     return spec;
                 })

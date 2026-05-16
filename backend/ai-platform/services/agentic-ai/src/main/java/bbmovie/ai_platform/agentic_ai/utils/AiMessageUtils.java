@@ -5,7 +5,8 @@ import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 
-import bbmovie.ai_platform.agentic_ai.entity.Sender;
+import bbmovie.ai_platform.agentic_ai.entity.ChatMessage;
+import bbmovie.ai_platform.agentic_ai.entity.enums.Sender;
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.JsonNode;
@@ -44,7 +45,7 @@ public class AiMessageUtils {
         };
     }
 
-    public static Message mapToSpringAiMessage(bbmovie.ai_platform.agentic_ai.entity.ChatMessage entity) {
+    public static Message mapToSpringAiMessage(ChatMessage entity) {
         return switch (entity.getSenderType()) {
             case USER -> new UserMessage(entity.getContent());
             case AGENT -> {

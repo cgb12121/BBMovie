@@ -12,6 +12,7 @@ public class ExecutionContext {
     private UUID sessionId;
     private UUID messageId;
     private UUID userId;
+    private String userRole;           // Role extracted from JWT (e.g. "ADMIN", "USER")
     private String internalApprovalToken;
     private RequiresApprovalException pendingException;
 }

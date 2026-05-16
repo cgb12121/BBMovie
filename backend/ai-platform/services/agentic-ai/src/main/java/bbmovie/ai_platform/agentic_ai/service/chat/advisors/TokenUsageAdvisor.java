@@ -2,6 +2,7 @@ package bbmovie.ai_platform.agentic_ai.service.chat.advisors;
 
 import bbmovie.ai_platform.agentic_ai.dto.ConversationId;
 import bbmovie.ai_platform.agentic_ai.service.chat.UsageEvent;
+import bbmovie.ai_platform.agentic_ai.utils.AiConstants;
 import io.nats.client.JetStream;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,8 +34,6 @@ public class TokenUsageAdvisor implements CallAdvisor, StreamAdvisor {
     @Value("${nats.usage.subject:ai.usage.recorded}")
     private String usageSubject;
 
-    private static final String CHAT_MEMORY_CONVERSATION_ID_KEY = "chat_memory_conversation_id";
-
     @Override
     public ChatClientResponse adviseCall(ChatClientRequest request, CallAdvisorChain chain) {
         ChatClientResponse response = chain.nextCall(request);
@@ -63,7 +62,7 @@ public class TokenUsageAdvisor implements CallAdvisor, StreamAdvisor {
         if (usage.getTotalTokens() != null && usage.getTotalTokens() <= 0) return;
 
         try {
-            String conversationIdStr = (String) request.context().get(CHAT_MEMORY_CONVERSATION_ID_KEY);
+            String conversationIdStr = (String) request.context().get(AiConstants.CHAT_MEMORY_CONVERSATION_ID_KEY);
             if (conversationIdStr == null) return;
 
             ConversationId convId = ConversationId.of(conversationIdStr);

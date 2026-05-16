@@ -6,6 +6,7 @@ import bbmovie.ai_platform.agentic_ai.dto.request.SetSessionArchivedDto;
 import bbmovie.ai_platform.agentic_ai.dto.request.UpdateSessionNameDto;
 import bbmovie.ai_platform.agentic_ai.dto.response.ChatSessionResponse;
 import bbmovie.ai_platform.agentic_ai.service.session.SessionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import com.bbmovie.common.dtos.ApiResponse;
@@ -39,7 +40,7 @@ public class SessionController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public Mono<ApiResponse<ChatSessionResponse>> createSession(
-            @RequestBody CreateSessionDto dto,
+            @Valid @RequestBody CreateSessionDto dto,
             @AuthenticationPrincipal Jwt jwt) {
         UUID userId = UUID.fromString(jwt.getSubject());
         return sessionService.createSession(userId, dto.sessionName())

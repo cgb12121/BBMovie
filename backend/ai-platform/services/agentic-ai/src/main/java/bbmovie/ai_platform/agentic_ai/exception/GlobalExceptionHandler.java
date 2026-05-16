@@ -32,6 +32,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.error("Validation failed: " + errors));
     }
 
+    @ExceptionHandler(ProviderNotConfiguredException.class)
+    public ResponseEntity<ApiResponse<Void>> handleProviderNotConfigured(ProviderNotConfiguredException ex) {
+        log.error("[Error] AI Provider '{}' not configured: {}", ex.getProvider(), ex.getMessage());
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.error("AI provider '" + ex.getProvider() + "' is currently unavailable. Please try a different model."));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> handleGeneralException(Exception ex) {
         log.error("[Internal Error] ", ex);

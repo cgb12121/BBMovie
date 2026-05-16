@@ -23,5 +23,14 @@ public interface MessageRepository extends R2dbcRepository<ChatMessage, UUID> {
 
     Flux<ChatMessage> findAllBySessionIdOrderByCreatedAtAsc(UUID sessionId);
 
+    /**
+     * Fetches the most recent {@code limit} messages for a session directly at the DB level.
+     * Returns rows in DESC order (newest first) — caller must reverse if ASC order is needed.
+     * Use this instead of {@code findAllBySessionIdOrderByCreatedAtAsc + takeLast()}
+     * to avoid fetching the entire message history into memory.
+     */
+    @Query("SELECT * FROM chat_message WHERE session_id = :sessionId ORDER BY created_at DESC LIMIT :limit")
+    Flux<ChatMessage> findLastNBySessionId(UUID sessionId, int limit);
+
     Mono<Void> deleteAllBySessionId(UUID fromString);
 }

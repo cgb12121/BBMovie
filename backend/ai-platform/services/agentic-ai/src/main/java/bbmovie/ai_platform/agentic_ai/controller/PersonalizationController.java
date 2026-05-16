@@ -2,6 +2,7 @@ package bbmovie.ai_platform.agentic_ai.controller;
 
 import bbmovie.ai_platform.agentic_ai.dto.request.UpdateAgentConfigDto;
 import bbmovie.ai_platform.agentic_ai.service.personalize.PersonalizationService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 import com.bbmovie.common.dtos.ApiResponse;
@@ -29,7 +30,7 @@ public class PersonalizationController {
 
     @PutMapping("/instructions")
     @ResponseStatus(HttpStatus.OK)
-    public Mono<ApiResponse<String>> updateCustomInstructions(@RequestBody UpdateAgentConfigDto dto) {
+    public Mono<ApiResponse<String>> updateCustomInstructions(@Valid @RequestBody UpdateAgentConfigDto dto) {
         UUID mockUserId = UUID.randomUUID(); 
         return personalizationService.updateCustomInstructions(mockUserId, dto)
                 .then(Mono.fromCallable(() -> ApiResponse.success("Custom instructions updated")));

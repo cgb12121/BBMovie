@@ -1,5 +1,6 @@
 package bbmovie.ai_platform.agentic_ai.service.chat;
 
+import bbmovie.ai_platform.agentic_ai.exception.ProviderNotConfiguredException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
@@ -38,9 +39,9 @@ public class ModelRoutingService {
         log.info("[ModelRouting] Selecting model for provider: {}", provider);
         
         return switch (provider.toLowerCase()) {
-            case "ollama" -> ollamaChatModel.orElseThrow(() -> new RuntimeException("Ollama model not configured"));
-            case "gemini", "google" -> googleChatModel.orElseThrow(() -> new RuntimeException("Gemini model not configured"));
-            case "groq", "openai" -> openAiChatModel.orElseThrow(() -> new RuntimeException("Groq/OpenAI model not configured"));
+            case "ollama" -> ollamaChatModel.orElseThrow(() -> new ProviderNotConfiguredException("ollama"));
+            case "gemini", "google" -> googleChatModel.orElseThrow(() -> new ProviderNotConfiguredException("google/gemini"));
+            case "groq", "openai" -> openAiChatModel.orElseThrow(() -> new ProviderNotConfiguredException("groq/openai"));
             default -> throw new IllegalArgumentException("Unknown model provider: " + provider);
         };
     }

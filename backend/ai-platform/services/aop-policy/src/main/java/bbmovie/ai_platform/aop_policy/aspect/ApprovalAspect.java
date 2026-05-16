@@ -42,9 +42,9 @@ public class ApprovalAspect {
              return joinPoint.proceed(); 
         }
 
-        RiskLevel currentRisk = riskEvaluator.evaluate(method, args);
+        RiskLevel currentRisk = riskEvaluator.evaluate(method, args, context.getUserRole());
 
-        if (currentRisk.ordinal() >= RiskLevel.MEDIUM.ordinal()) {
+        if (currentRisk.ordinal() >= requiresApproval.riskLevel().ordinal()) {
 
             boolean isApproved = false;
             if (context.getInternalApprovalToken() != null) {

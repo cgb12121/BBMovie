@@ -11,6 +11,8 @@ import org.springframework.data.domain.Persistable;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
+import bbmovie.ai_platform.agentic_ai.entity.enums.Sender;
+
 import java.time.Instant;
 import java.util.UUID;
 

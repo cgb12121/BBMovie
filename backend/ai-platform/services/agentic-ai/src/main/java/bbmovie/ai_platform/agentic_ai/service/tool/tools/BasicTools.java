@@ -11,24 +11,24 @@ import lombok.extern.slf4j.Slf4j;
 @Configuration
 public class BasicTools {
 
-    @Tool(description = "A poem for client who want a poem")
+    @Tool(description = "Generates a short poem for the user.")
     public String poem(ToolContext toolContext) {
-        return "I love you" + toolContext.getContext().get("userId");
-    } 
+        return "I love you, user " + toolContext.getContext().get("userId");
+    }
 
-    @Tool(description = "Reads system configuration (Safe operation)")
+    @Tool(description = "Reads the system configuration (safe, read-only operation).")
     public String getSystemConfig(ToolContext toolContext) {
         log.info("Executing getSystemConfig tool");
         return "Placeholder System Config: [Debug: OFF, Cache: ON]";
     }
 
-    @Tool(description = "Lấy nhiệt độ hiện tại của một thành phố")
+    @Tool(description = "Gets the current temperature for a given city.")
     public String getCurrentWeather(
-            @ToolParam(description = "Tên thành phố, ví dụ: Hanoi") String city,
-            @ToolParam(description = "Đơn vị nhiệt độ") String unit,
+            @ToolParam(description = "The name of the city, e.g. Hanoi") String city,
+            @ToolParam(description = "The temperature unit: Celsius or Fahrenheit") String unit,
             ToolContext toolContext
     ) {
         log.info("Executing getCurrentWeather tool for city: {}", city);
-        return "Nhiệt độ tại " + city + " là 30 độ " + unit;
+        return "The temperature in " + city + " is 30 degrees " + unit;
     }
 }

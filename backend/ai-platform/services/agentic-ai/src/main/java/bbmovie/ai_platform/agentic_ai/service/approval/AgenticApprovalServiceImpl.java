@@ -2,6 +2,7 @@ package bbmovie.ai_platform.agentic_ai.service.approval;
 
 import bbmovie.ai_platform.agentic_ai.dto.request.ApprovalDecisionDto;
 import bbmovie.ai_platform.agentic_ai.entity.ApprovalRequest;
+import bbmovie.ai_platform.agentic_ai.entity.enums.ApprovalStatus;
 import bbmovie.ai_platform.agentic_ai.repository.ApprovalRepository;
 import bbmovie.ai_platform.aop_policy.hitl.RiskLevel;
 import lombok.RequiredArgsConstructor;
@@ -36,8 +37,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AgenticApprovalServiceImpl implements AgenticApprovalService {
 
+    @Qualifier("rRedisTemplate") 
+    private final ReactiveRedisTemplate<String, String> redisTemplate;
     private final ApprovalRepository approvalRepository;
-    @Qualifier("rRedisTemplate") private final ReactiveRedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
 
     private static final String TOKEN_PREFIX = "hitl:token:";
@@ -105,7 +107,7 @@ public class AgenticApprovalServiceImpl implements AgenticApprovalService {
                 .userId(userId)
                 .sessionId(sessionId)
                 .messageId(messageId)
-                .status("PENDING")
+                .status(ApprovalStatus.PENDING)
                 .createdAt(Instant.now())
                 .updatedAt(Instant.now())
                 .build();
@@ -125,13 +127,17 @@ public class AgenticApprovalServiceImpl implements AgenticApprovalService {
     public Mono<String> handleDecision(String requestId, boolean approved) {
         return approvalRepository.findById(requestId)
                 .flatMap(req -> {
-                    req.setStatus(approved ? "APPROVED" : "REJECTED");
+                    ApprovalStatus targetStatus = approved 
+                            ? ApprovalStatus.approveIfPending(req.getStatus()) 
+                            : ApprovalStatus.rejectIfPending(req.getStatus());
+                    
+                    req.setStatus(targetStatus);
                     req.setUpdatedAt(Instant.now());
                     return approvalRepository.save(req);
                 })
                 .flatMap(req -> {
-                    if (!approved) {
-                        return Mono.just("REJECTED");
+                    if (req.getStatus() == ApprovalStatus.REJECTED) {
+                        return Mono.just(ApprovalStatus.REJECTED.name());
                     }
                     String token = UUID.randomUUID().toString();
                     // Store token in Redis for 10 minutes to allow re-execution

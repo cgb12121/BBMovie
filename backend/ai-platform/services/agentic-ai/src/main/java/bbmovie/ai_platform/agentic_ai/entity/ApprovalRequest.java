@@ -1,5 +1,6 @@
 package bbmovie.ai_platform.agentic_ai.entity;
 
+import bbmovie.ai_platform.agentic_ai.entity.enums.ApprovalStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -25,7 +26,7 @@ public class ApprovalRequest {
     private UUID userId;
     private UUID sessionId;
     private UUID messageId;
-    private String status; // PENDING, APPROVED, REJECTED
+    private ApprovalStatus status; // PENDING, APPROVED, REJECTED
     private Instant createdAt;
     private Instant updatedAt;
 }
